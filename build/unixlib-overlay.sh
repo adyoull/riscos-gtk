@@ -27,11 +27,12 @@ REL=$(cd "$1" && pwd); OUT=$2
 ( cd "$REL" && sha256sum -c --ignore-missing SHA256SUMS )
 rm -rf "$OUT"; cp -a "$GCCSDK_ENV" "$OUT"
 cp "$REL/libunixlib.a" "$OUT/arm-riscos-gnueabihf/lib/libunixlib.a"
-# The toolchain also has the old UnixLib as a shared library, which GCC
-# prefers for a link without -static. riscos-gtk links everything
-# statically and the release has no shared library, so remove it rather
-# than let any link pick up the old UnixLib.
-rm -f "$OUT"/arm-riscos-gnueabihf/lib/libunixlib.so* "$OUT"/arm-riscos-gnueabihf/lib/libunixlib.la
+# The toolchain also has shared libraries (the old UnixLib, libm and
+# libstdc++ built against it) and libtool .la files that point libtool at
+# them even when linking statically. riscos-gtk links everything
+# statically and the release has no shared library, so this copy is made
+# static-only: no link can pick up the old UnixLib.
+rm -f "$OUT"/arm-riscos-gnueabihf/lib/*.so* "$OUT"/arm-riscos-gnueabihf/lib/*.la
 # Headers: apply the new diff's include/ hunks to the toolchain's current
 # headers by reversing the old diff's and applying the new one's.
 OLD=$DL/unixlib-riscos-5.0.3.1.diff
