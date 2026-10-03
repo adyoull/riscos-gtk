@@ -9,7 +9,10 @@
 # the same goes for fontconfig if deb.debian.org can't be reached.
 # The libpng/freetype/expat/fontconfig/DejaVu set and its checksums are the
 # ones riscos-warzone2100 uses.
-. "$(dirname "$0")/env.sh"
+# Only needs DL, so not build/env.sh (which also wants a toolchain).
+REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+: "${DL:=$REPO_DIR/dl}"
+mkdir -p "$DL"
 cd "$DL"
 U=https://archive.ubuntu.com/ubuntu/pool/main
 get() {  # file url
@@ -33,6 +36,9 @@ get pango1.0_1.52.1+ds.orig.tar.xz  $U/p/pango1.0/pango1.0_1.52.1+ds.orig.tar.xz
 get gdk-pixbuf_2.42.10+dfsg.orig.tar.xz $U/g/gdk-pixbuf/gdk-pixbuf_2.42.10+dfsg.orig.tar.xz
 get atk1.0_2.36.0.orig.tar.xz       $U/a/atk1.0/atk1.0_2.36.0.orig.tar.xz
 get libepoxy_1.5.10.orig.tar.gz     $U/libe/libepoxy/libepoxy_1.5.10.orig.tar.gz
+# The UnixLib change set riscos-crossdev 1.2's toolchain was built with, for
+# build/unixlib-overlay.sh (testing riscos-unixlib pre-releases).
+get unixlib-riscos-5.0.3.1.diff     https://github.com/adyoull/riscos-unixlib/releases/download/v5.0.3.1/unixlib-riscos.diff
 # GTK itself (M2)
 get gtk+3.0_3.24.41.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip

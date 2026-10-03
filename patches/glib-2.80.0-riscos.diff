@@ -77,16 +77,3 @@ diff -ruN a/gio/gunixmounts.c b/gio/gunixmounts.c
  /* Common code {{{2 */
  #else
  #error No g_get_mount_table() implementation for system
-diff -ruN a/meson.build b/meson.build
---- a/meson.build	2024-03-07 21:35:05.000000000 +0000
-+++ b/meson.build	2026-10-03 19:38:12.000000000 +0100
-@@ -799,7 +799,8 @@
- 
- # For example on Openbsd, getservbyname_r() has a different signature.
- # https://man.openbsd.org/getservbyname.3
--if cc.compiles('''#include <netdb.h>
-+# riscos-gtk: links, not compiles: UnixLib declares it but doesn't have it.
-+if cc.links('''#include <netdb.h>
-                int main (int argc, char ** argv) {
-                  int (*fcn)(const char *,
-                             const char *,

@@ -16,6 +16,13 @@
 # None of these may contain spaces (autoconf/libtool/meson can't cope).
 REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 : "${RCD_DIR:=$REPO_DIR/../riscos-crossdev}"
+# UnixLib 5.0.3.2 (LLONG_MIN fixed, getservbyname_r added, eventfd safe with
+# threads) isn't in a riscos-crossdev release yet. Until it is, the build
+# uses a copy of crossdev 1.2's toolchain with the riscos-unixlib release
+# dropped in (build/unixlib-overlay.sh; `make toolchain-unixlib`), in
+# $REPO_DIR/toolchain-unixlib, when that exists.
+[ -z "${RISCOS_TOOLCHAIN:-}" ] && [ -x "$REPO_DIR/toolchain-unixlib/bin/arm-riscos-gnueabihf-gcc" ] \
+  && export RISCOS_TOOLCHAIN=$REPO_DIR/toolchain-unixlib
 [ -f "$RCD_DIR/env.sh" ] || { echo "env.sh: no riscos-crossdev in RCD_DIR=$RCD_DIR" >&2; return 1 2>/dev/null || exit 1; }
 . "$RCD_DIR/env.sh"
 GCCSDK_ENV=$RISCOS_TOOLCHAIN
@@ -43,14 +50,21 @@ esac
   echo "env.sh: no toolchain in $GCCSDK_ENV: run 'make prebuilt' in $RCD_DIR" >&2
   return 1 2>/dev/null || exit 1; }
 
+# The libraries need UnixLib 5.0.3.2's headers (harfbuzz won't compile with
+# 5.0.3.1's LLONG_MIN): stop early with a clear message otherwise.
+if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h"; then
+  echo "env.sh: $GCCSDK_ENV has UnixLib 5.0.3.1 or older; make a toolchain with" >&2
+  echo "  UnixLib 5.0.3.2 first: make toolchain-unixlib UNIXLIB_RELEASE=<release dir>" >&2
+  return 1 2>/dev/null || exit 1
+fi
+
 export BUILD=$(gcc -dumpmachine)
 if [ "$TARGET" = riscos ]; then
   export HOST=arm-riscos-gnueabihf TCBIN=$GCCSDK_ENV/bin MESON_SYSTEM=riscos CMAKE_SYSTEM=GNU
   # As riscos-warzone2100 / riscos-mesa (Pi 4 benchmarked).
   # -fstack-clash-protection is REQUIRED (ARMEABISupport's stack guard page).
   # -ffile-prefix-map keeps this machine's paths out of __FILE__ and debug info.
-  # riscos/fixincludes: corrected system headers (see each file), searched first.
-  export RO_CFLAGS="-O3 -mtune=cortex-a72 -mfpu=$FPU -mfloat-abi=hard -fstack-clash-protection -ffile-prefix-map=$REPO_DIR=/riscos-gtk-src -isystem $REPO_DIR/riscos/fixincludes"
+  export RO_CFLAGS="-O3 -mtune=cortex-a72 -mfpu=$FPU -mfloat-abi=hard -fstack-clash-protection -ffile-prefix-map=$REPO_DIR=/riscos-gtk-src"
 else
   export HOST=arm-linux-gnueabihf TCBIN=/usr/bin MESON_SYSTEM=linux CMAKE_SYSTEM=Linux
   # Cortex-A8/VFPv3 and no unaligned accesses, as on RISC OS; -g for gdb.

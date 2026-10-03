@@ -3,6 +3,7 @@
 /src
 /sysroot
 /sysroot-linuxarm
+/toolchain-unixlib
 /out
 /src-linuxarm
 /stage-linuxarm
