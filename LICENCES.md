@@ -13,6 +13,10 @@ or adapted from other projects keep their original licence, listed below.
 | `tests/fake/mesa-egl/*`, `tests/fake/sdl-wimp/*` | [riscos-mesa](https://github.com/adyoull/riscos-mesa) `tests/host-harness/` (20.3.5-10 tree) | MIT (riscos-mesa's own files) |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
 
+The build scripts' licence covers the scripts only. Programs and libraries
+built with them are not affected by it: their licences come from their
+own sources and the libraries they link (below).
+
 ## Libraries the build uses
 
 None of these is in the repo: `build/fetch-sources.sh` downloads them by
