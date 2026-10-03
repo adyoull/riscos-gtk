@@ -42,6 +42,8 @@ done
 # is unknown to meson (it warns) and to the projects, which treat it as a
 # generic Unix.
 args=$(printf "'%s', " $RO_CFLAGS "-I$STAGE/include")
+# RISC OS: link statically, always (UnixLib has no dynamic loader here).
+STATIC_LINK=; [ "$TARGET" = riscos ] && STATIC_LINK=", '-static'"
 cat > "$STAGE/meson-cross.txt" <<EOF
 [binaries]
 c = '$SRC/.wrap/$HOST-gcc'
@@ -58,8 +60,8 @@ needs_exe_wrapper = true
 [built-in options]
 c_args = [${args%, }]
 cpp_args = [${args%, }]
-c_link_args = ['-L$STAGE/lib']
-cpp_link_args = ['-L$STAGE/lib']
+c_link_args = ['-L$STAGE/lib'$STATIC_LINK]
+cpp_link_args = ['-L$STAGE/lib'$STATIC_LINK]
 default_library = 'static'
 # pkg-config --static, so the private dependencies of static libraries link.
 prefer_static = true

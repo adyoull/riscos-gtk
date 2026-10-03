@@ -28,4 +28,4 @@ pango, cairo (LGPL-2.1-or-later or MPL-1.1), gdk-pixbuf and harfbuzz
 (MIT), fribidi (LGPL-2.1-or-later), FreeType (FTL), fontconfig, expat,
 pixman, libffi (MIT), PCRE2 (BSD), libpng, libjpeg-turbo (IJG/BSD),
 zlib. DejaVu fonts: Bitstream Vera licence. Sources: riscos-gtk and
-Ubuntu 24.04. Built with riscos-crossdev 1.2.
+Ubuntu 24.04. Built with riscos-crossdev 1.2 and UnixLib 5.0.3.2-rc2.

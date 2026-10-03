@@ -29,11 +29,14 @@ git clone -b v1.2 https://github.com/adyoull/riscos-crossdev
 cd riscos-crossdev && make prebuilt && cd ..
 git clone https://github.com/adyoull/riscos-gtk     # next to riscos-crossdev
 cd riscos-gtk
+# UnixLib 5.0.3.2 isn't in a riscos-crossdev release yet: drop the
+# riscos-unixlib release (5.0.3.2-rc2 or later) into a copy of the toolchain
+make toolchain-unixlib UNIXLIB_RELEASE=path/to/riscos-unixlib-release
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
     libltdl-dev gettext gperf cmake python3-packaging \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 make deps        # sources by checksum, then the libraries into sysroot/
-make tests       # out/GTKTest-0.2.zip, for the Pi
+make tests       # out/GTKTest-0.3.zip, for the Pi
 make check       # the same tests as ARM Linux code under qemu-arm-aligntrap
 ```
 
@@ -43,10 +46,9 @@ riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 
 | Path | What |
 |---|---|
-| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
+| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `unixlib-overlay.sh`, `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
 | `patches/` | Changes to the libraries, one diff per library |
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
-| `riscos/fixincludes/` | Corrected UnixLib headers (see each file) |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
 | `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
 | `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |

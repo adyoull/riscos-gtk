@@ -7,8 +7,7 @@ Facts found while building, so nobody has to find them twice.
   libunixlib.a but are declared `__stub_*` in features.h, so meson's
   `has_function` correctly says no. GLib then reports no filesystem
   size/free space and no hard links.
-- **Declared but missing**: `getservbyname_r` is in `<netdb.h>` but not in
-  the library. GLib checked it with `compiles`; patched to `links`.
+- `getservbyname_r` was declared but missing before 5.0.3.2 (see below).
 - **No mount table**: GIO's `gunixmounts.c` needs one; patched to report no
   Unix mounts on RISC OS. The file chooser will list discs itself (M4).
 - **No O_NOFOLLOW** (no symbolic links): defined as 0 for gtrashportal.c.
@@ -17,9 +16,7 @@ Facts found while building, so nobody has to find them twice.
   carry it: build-deps.sh wraps the compilers to drop it and strips it from
   the installed .pc files.
 - **eventfd** exists (Lee Noar's, 2020) and works with select()/poll(), so
-  GLib's GWakeup uses it. Its counter isn't updated atomically; with
-  ticker-switched threads on one core a write racing a read could in
-  theory lose a wake-up. Watch for main-loop stalls in threaded tests.
+  GLib's GWakeup uses it (thread-safe since 5.0.3.2, see below).
 - **iconv** is UnixLib's front end to the Iconv module (PackMan); UnixLib
   RMEnsures `System:Modules.Iconv` 0.04 itself on the first iconv_open.
 - **No libintl**: `riscos/intl` provides the gettext functions (English
@@ -31,14 +28,23 @@ Facts found while building, so nobody has to find them twice.
   monitors poll), pipe2, posix_spawn, statvfs, getmntent, close_range,
   getauxval, futex.
 
-## UnixLib header bugs (reported: RiscOS/UnixLib/handoffs/2026-10-03-gtk-unixlib-headers.md)
-- **`LLONG_MIN` is `0x8000000000000000LL`**, which is `unsigned long long`:
-  positive, so C++ rejects it as narrowing (harfbuzz) and C comparisons
-  against it go wrong. `riscos/fixincludes/limits.h` redefines it; env.sh
-  puts that directory first with `-isystem`.
-- `<dlfcn.h>` declares dlopen and friends (no RTLD_NOLOAD) but nothing
-  implements them. `riscos/dl` is a libdl whose dlopen always fails, built
-  after GLib (so gmodule still has no module loading) for libepoxy.
+## UnixLib 5.0.3.2 (riscos-unixlib's answer to our handoff)
+riscos-gtk builds against **UnixLib 5.0.3.2-rc2** (a copy of crossdev 1.2's
+toolchain with the release dropped in: `make toolchain-unixlib`), which
+fixed what we reported (reply: `RiscOS/UnixLib/handoffs/2026-10-03-gtk-headers-reply.md`):
+- `LLONG_MIN` was `0x8000000000000000LL` (unsigned, positive): harfbuzz
+  didn't compile. Fixed; our `riscos/fixincludes/limits.h` is gone and
+  env.sh refuses a toolchain that still has the old header.
+- `getservbyname_r` (and `_byport_r`, `getservent_r`) now exist, so GLib's
+  compile-only check is right; our meson change is gone.
+- eventfd's counter is updated with thread switching held off, and (rc2) a
+  blocking eventfd read no longer stops with "pthread_yield called with
+  context switching disabled". GLib opens its wake-up eventfd non-blocking,
+  so it never hit the second one.
+- `dlopen` and friends: not UnixLib's (GCCSDK's libdl comes with the shared
+  library loader, not in this toolchain). Keep `riscos/dl`. RTLD_NOLOAD
+  won't be added, so libepoxy's fallback (our patch) stays.
+When riscos-crossdev ships 5.0.3.2, drop the overlay and use that release.
 
 ## The other libraries
 - **meson and static libraries**: the cross file sets `prefer_static = true`
@@ -65,13 +71,13 @@ Facts found while building, so nobody has to find them twice.
   harmless.
 
 ## The GLib patch (patches/glib-2.80.0-riscos.diff)
-1. `meson.build`: getservbyname_r checked with `links`.
-2. `gio/gunixmounts.c`: a RISC OS branch with no mounts.
-3. `gio/gtrashportal.c`: O_NOFOLLOW fallback.
-4. `gio/glocalfile.c`: two upstream bugs that only show on a system with
+1. `gio/gunixmounts.c`: a RISC OS branch with no mounts.
+2. `gio/gtrashportal.c`: O_NOFOLLOW fallback.
+3. `gio/glocalfile.c`: two upstream bugs that only show on a system with
    neither statfs nor statvfs (an unguarded `statfs_buffer` use, and
    `fstype` read uninitialised).
-All four are generic enough to offer upstream.
+All three are generic enough to offer upstream. (A fourth, checking
+getservbyname_r with `links`, was dropped once UnixLib 5.0.3.2 added it.)
 
 ## First RISC OS run (!GLibTest 0.1, 2026-10-03, owner's Pi, SDFS)
 **29/29 passed** (`tests/glib/results/GLibTest-0.1-pi-2026-10-03.txt`):

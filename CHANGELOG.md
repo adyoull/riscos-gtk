@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (UnixLib 5.0.3.2-rc2, 2026-10-03)
+- Built against riscos-unixlib 5.0.3.2-rc2 (`make toolchain-unixlib`:
+  crossdev 1.2's toolchain plus the release's libunixlib.a and limits.h).
+- Dropped the workarounds UnixLib fixed: `riscos/fixincludes/limits.h`
+  (LLONG_MIN) and GLib's getservbyname_r meson change.
+- !GTKTest 0.3: the same tests linked with UnixLib 5.0.3.2-rc2.
+
 ## Unreleased (M1: all dependencies, 2026-10-03)
 - libpng 1.6.37, libjpeg-turbo 2.1.5, FreeType 2.10.1, expat 2.2.9,
   fontconfig 2.14.1 (Warzone's patch), fribidi 1.0.13, harfbuzz 8.3.0,
