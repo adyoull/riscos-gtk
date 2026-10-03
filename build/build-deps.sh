@@ -123,8 +123,10 @@ if ! have libglib-2.0.a; then
 fresh glib2.0_2.80.0.orig.tar.xz glib-2.80.0
 patch -d glib-2.80.0 -p1 -s < "$REPO_DIR/patches/glib-2.80.0-riscos.diff"
 cd glib-2.80.0
+# prefer_static=false: with it, meson's "system" lookup of libintl.a (ours,
+# in $STAGE/lib) fails; GLib's own dependencies have no private libraries.
 meson_env meson setup _build --cross-file "$STAGE/meson-cross.txt" $GLIB_MESON_OPTS \
-  -Dlibmount=disabled > ../glib.log
+  -Dlibmount=disabled -Dprefer_static=false > ../glib.log
 meson_env ninja -C _build >> ../glib.log
 meson_env meson install -C _build --destdir "$SYSROOT" >> ../glib.log
 cd ..
