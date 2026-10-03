@@ -1,0 +1,11 @@
+| Run2: runs both tests, keeping a copy of the output in Result.
+| (Started by !Run in a task window.)
+| The render test reads the fonts shipped in the app, with a font cache
+| in the scrap directory. FONTCONFIG_FILE is a global variable, so it is
+| unset again afterwards (other fontconfig programs must not see it).
+CDir <Wimp$ScrapDir>.GTKTest
+Set FONTCONFIG_FILE /<GTKTest$Dir>/fonts/fonts.conf
+<GTKTest$Dir>.glibtest { > <GTKTest$Dir>.Result }
+<GTKTest$Dir>.rendertest /<GTKTest$Dir> { >> <GTKTest$Dir>.Result }
+Unset FONTCONFIG_FILE
+Type <GTKTest$Dir>.Result

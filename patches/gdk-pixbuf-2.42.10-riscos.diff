@@ -1,0 +1,52 @@
+diff -ruN a/gdk-pixbuf/gdk-pixbuf-io.c b/gdk-pixbuf/gdk-pixbuf-io.c
+--- a/gdk-pixbuf/gdk-pixbuf-io.c	2022-10-25 17:53:28.000000000 +0100
++++ b/gdk-pixbuf/gdk-pixbuf-io.c	2026-10-03 22:53:20.207555702 +0100
+@@ -666,15 +666,22 @@
+ static gboolean
+ gdk_pixbuf_io_init (void)
+ {
+-	char *module_file;
+-	gboolean ret;
++	char *module_file = NULL;
++	gboolean ret = TRUE;
+ 
+ 	gdk_pixbuf_io_init_builtin ();
+ #ifdef USE_GMODULE
+ 	module_file = gdk_pixbuf_get_module_file ();
+-#endif
+ 	ret = gdk_pixbuf_io_init_modules (module_file, NULL);
+ 	g_free (module_file);
++	/* riscos-gtk: with built-in loaders and no loaders.cache, report
++	 * success; otherwise every call to get_file_formats() runs this
++	 * again and registers the built-in loaders once more. */
++	if (!ret && file_formats != NULL)
++		ret = TRUE;
++#endif
++	/* riscos-gtk: without GModule, module_file was used uninitialised
++	 * here (passed to gdk_pixbuf_io_init_modules and g_free'd). */
+ 	return ret;
+ }
+ 
+diff -ruN a/gdk-pixbuf/meson.build b/gdk-pixbuf/meson.build
+--- a/gdk-pixbuf/meson.build	2022-10-25 17:53:28.000000000 +0100
++++ b/gdk-pixbuf/meson.build	2026-10-03 22:53:20.191221162 +0100
+@@ -214,6 +214,10 @@
+                     dependencies: [
+                       gdk_pixbuf_deps,
+                       included_loaders_deps,
++                      # riscos-gtk: with built-in loaders in a static
++                      # library, programs and the .pc file need the
++                      # loaders' libraries (libpng, libjpeg) too.
++                      loaders_deps,
+                     ],
+                     install: true)
+ 
+@@ -269,7 +273,7 @@
+ gdkpixbuf_dep = declare_dependency(
+   link_with: gdkpixbuf,
+   include_directories: root_inc,
+-  dependencies: gdk_pixbuf_deps,
++  dependencies: gdk_pixbuf_deps + loaders_deps,
+   sources: [ gdkpixbuf_enum_h, built_girs ],
+ )
+ 

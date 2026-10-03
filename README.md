@@ -4,14 +4,16 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: early.** The theme is done (tested on Linux GTK 3.24.41). GLib
-2.80 cross-builds and passes its test under QEMU and on a Pi (!GLibTest,
-29/29). No GDK backend yet.
+**Status: early.** The theme is done (tested on Linux GTK 3.24.41). All of
+GTK 3's dependencies cross-build (GLib 2.80, cairo 1.18, pango 1.52,
+harfbuzz 8.3, gdk-pixbuf 2.42, ATK, libepoxy and the font stack). GLib's
+test passes on a Pi (29/29); GLib and the drawing stack pass under QEMU.
+No GDK backend yet.
 
 | Milestone | What | State |
 |---|---|---|
 | M0 | Repo, toolchain, theme | done |
-| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | GLib built; tested on QEMU and the Pi |
+| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | all built; GLib tested on the Pi, drawing stack on QEMU |
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | — |
 | M3 | Keyboard, popups as Wimp menus, pointer shapes, clipboard | — |
 | M4 | Native file chooser, drag and drop, packaging; AbiWord | — |
@@ -28,10 +30,11 @@ cd riscos-crossdev && make prebuilt && cd ..
 git clone https://github.com/adyoull/riscos-gtk     # next to riscos-crossdev
 cd riscos-gtk
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
-    libltdl-dev gettext python3-packaging gcc-arm-linux-gnueabihf
+    libltdl-dev gettext gperf cmake python3-packaging \
+    gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 make deps        # sources by checksum, then the libraries into sysroot/
-make glibtest    # out/GLibTest-0.1.zip, for the Pi
-make check       # the same test as ARM Linux code under qemu-arm-aligntrap
+make tests       # out/GTKTest-0.2.zip, for the Pi
+make check       # the same tests as ARM Linux code under qemu-arm-aligntrap
 ```
 
 riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
@@ -40,11 +43,12 @@ riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 
 | Path | What |
 |---|---|
-| `build/` | `env.sh` (settings), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh` (RISC OS), `build-linuxarm.sh` (QEMU test build), `build-glibtest.sh` |
+| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
 | `patches/` | Changes to the libraries, one diff per library |
-| `riscos/intl/` | A minimal libintl (no translations yet) |
+| `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
+| `riscos/fixincludes/` | Corrected UnixLib headers (see each file) |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
-| `tests/glib/` | The M1 GLib test and its !GLibTest app files |
+| `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
 | `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |
 
 ## Licence

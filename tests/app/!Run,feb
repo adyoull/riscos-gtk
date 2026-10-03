@@ -1,0 +1,17 @@
+| !Run for !GTKTest - riscos-gtk M1 tests: GLib, and the drawing stack
+| (fontconfig, FreeType, harfbuzz, pango, cairo, pixman, gdk-pixbuf).
+| UnixLib programs converted to Absolute (AIF): they need SharedUnixLibrary
+| and ARMEABISupport (PackMan). g_convert uses the Iconv module (PackMan),
+| which UnixLib loads itself when it is in System:Modules.
+Set GTKTest$Dir <Obey$Dir>
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error GTKTest needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error GTKTest needs the ARMEABISupport module. Install it with PackMan.
+| The thread tests use the PThreadTicker module (0.03, shipped here).
+| 0.01 on purpose: see its ReadMe (an older copy in use can't be replaced).
+RMEnsure PThreadTicker 0.01 RMLoad <GTKTest$Dir>.PThrTicker
+| Runs both tests in a task window, which stays open at the end. The
+| output is also saved in <GTKTest$Dir>.Result, and the picture the
+| render test drew in <GTKTest$Dir>.rendertest/png (both overwritten).
+TaskWindow "<GTKTest$Dir>.Run2" -wimpslot 16384K -name "GTKTest" -display

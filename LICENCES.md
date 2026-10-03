@@ -12,6 +12,9 @@ or adapted from other projects keep their original licence, listed below.
 | `build/env.sh`, `build/build-deps.sh`, `build/fetch-sources.sh` | [riscos-warzone2100](https://github.com/adyoull/riscos-warzone2100) `build/` (2.3.9-12 tree) | GPL version 2 or later |
 | `tests/fake/mesa-egl/*`, `tests/fake/sdl-wimp/*` | [riscos-mesa](https://github.com/adyoull/riscos-mesa) `tests/host-harness/` (20.3.5-10 tree) | MIT (riscos-mesa's own files) |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
+| `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |
+| `patches/gdk-pixbuf-2.42.10-riscos.diff` | Changes to gdk-pixbuf | LGPL version 2.1 or later, as gdk-pixbuf |
+| `patches/libepoxy-1.5.10-riscos.diff` | Changes to libepoxy | MIT, as libepoxy |
 
 The build scripts' licence covers the scripts only. Programs and libraries
 built with them are not affected by it: their licences come from their
@@ -28,7 +31,14 @@ checksum. A RISC OS program built here links them statically.
 | PCRE2 10.42 | BSD (3-clause) |
 | libffi 3.4.6 | MIT |
 | zlib 1.3.1 | zlib licence |
-| libpng, FreeType, expat, fontconfig (next, as riscos-warzone2100) | libpng licence; FreeType licence (BSD-style) or GPL 2; MIT; MIT-style |
+| libpng 1.6.37 | libpng licence |
+| libjpeg-turbo 2.1.5 | IJG licence and BSD (3-clause) |
+| FreeType 2.10.1 | FreeType licence (BSD-style), or GPL version 2 |
+| expat 2.2.9, fontconfig 2.14.1, pixman 0.42.2, libepoxy 1.5.10 | MIT / MIT-style |
+| fribidi 1.0.13 | LGPL version 2.1 or later |
+| harfbuzz 8.3.0 | MIT ("Old MIT") |
+| cairo 1.18.0 | LGPL version 2.1 or MPL 1.1 |
+| pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
 | UnixLib 5.0.3.1 and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 

@@ -2,24 +2,24 @@
 # installed (make prebuilt) in RCD_DIR (default ../riscos-crossdev).
 #
 #   make deps       download the sources and cross-build the libraries
-#   make glibtest   out/GLibTest-0.1.zip for the Pi (runs the checks too)
-#   make check      the GLib test on Linux under qemu-arm-aligntrap
+#   make tests      out/GTKTest-0.2.zip for the Pi (runs the checks too)
+#   make check      the same tests as ARM Linux code under qemu-arm-aligntrap
 #   make clean      remove the build products (not the downloads)
 export RCD_DIR ?= $(abspath ../riscos-crossdev)
 
-all: deps glibtest check
+all: deps tests check
 
 deps:
 	build/fetch-sources.sh
 	build/build-deps.sh
 
-glibtest: deps
-	build/build-glibtest.sh
+tests: deps
+	build/build-tests.sh
 
 check:
 	build/build-linuxarm.sh
 
 clean:
-	rm -rf src sysroot out src-linuxarm stage-linuxarm
+	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps glibtest check clean
+.PHONY: all deps tests check clean

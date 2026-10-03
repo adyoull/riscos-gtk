@@ -1,4 +1,4 @@
-# Porting notes: UnixLib and GLib
+# Porting notes: UnixLib and the libraries
 
 Facts found while building, so nobody has to find them twice.
 
@@ -30,6 +30,39 @@ Facts found while building, so nobody has to find them twice.
 - Not used / not available, so GLib's fallbacks are used: inotify (file
   monitors poll), pipe2, posix_spawn, statvfs, getmntent, close_range,
   getauxval, futex.
+
+## UnixLib header bugs (reported: RiscOS/UnixLib/handoffs/2026-10-03-gtk-unixlib-headers.md)
+- **`LLONG_MIN` is `0x8000000000000000LL`**, which is `unsigned long long`:
+  positive, so C++ rejects it as narrowing (harfbuzz) and C comparisons
+  against it go wrong. `riscos/fixincludes/limits.h` redefines it; env.sh
+  puts that directory first with `-isystem`.
+- `<dlfcn.h>` declares dlopen and friends (no RTLD_NOLOAD) but nothing
+  implements them. `riscos/dl` is a libdl whose dlopen always fails, built
+  after GLib (so gmodule still has no module loading) for libepoxy.
+
+## The other libraries
+- **meson and static libraries**: the cross file sets `prefer_static = true`
+  so pkg-config is asked for `--static` and private dependencies (expat
+  under fontconfig, libpng under cairo) get linked.
+- **gdk-pixbuf** (`patches/gdk-pixbuf-2.42.10-riscos.diff`), all loaders
+  built in (`-Dbuiltin_loaders=all`): (1) the built-in loaders' own
+  libraries (libpng, libjpeg) weren't passed on to programs or the .pc file;
+  (2) with no GModule, `gdk_pixbuf_io_init()` passed an uninitialised
+  pointer to `gdk_pixbuf_io_init_modules()` and `g_free()`d it; (3) with
+  GModule but no loaders.cache it reported failure, so every call to
+  `gdk_pixbuf_get_formats()` registered the built-in loaders again (found
+  by rendertest: 12, 24, 36… formats).
+- **libepoxy** (`patches/libepoxy-1.5.10-riscos.diff`): RTLD_NOLOAD
+  fallback. Built without GLX/EGL: GtkGLArea has no backend yet.
+- **pixman**: plain C. pixman-arm.c has no RISC OS CPU detection, so its
+  ARMv6 SIMD/NEON paths aren't built. Adding detection (every RISC OS 5
+  machine is ARMv7; NEON on the Pi) is a later speed-up worth testing under
+  qemu-arm-aligntrap first.
+- **libjpeg-turbo**: C only (`-DWITH_SIMD=OFF`), same reason.
+- **fontconfig**: riscos-warzone2100's patch (`;` as the path-list
+  separator, touch stack buffers before read()). The read() part has been
+  unnecessary since UnixLib 5.0.3 (read() touches stack pages itself) but is
+  harmless.
 
 ## The GLib patch (patches/glib-2.80.0-riscos.diff)
 1. `meson.build`: getservbyname_r checked with `links`.

@@ -2,6 +2,7 @@
 /dl
 /src
 /sysroot
+/sysroot-linuxarm
 /out
 /src-linuxarm
 /stage-linuxarm

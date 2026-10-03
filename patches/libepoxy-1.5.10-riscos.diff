@@ -1,0 +1,15 @@
+diff -ruN a/src/dispatch_common.c b/src/dispatch_common.c
+--- a/src/dispatch_common.c	2022-02-17 12:56:12.000000000 +0000
++++ b/src/dispatch_common.c	2026-10-03 22:40:03.959002915 +0100
+@@ -164,6 +164,11 @@
+ #include <windows.h>
+ #else
+ #include <dlfcn.h>
++#ifndef RTLD_NOLOAD
++/* riscos-gtk: UnixLib has no RTLD_NOLOAD (nor dynamic loading at all;
++   riscos-gtk's libdl answers every dlopen with NULL). */
++#define RTLD_NOLOAD 0
++#endif
+ #include <err.h>
+ #include <pthread.h>
+ #endif

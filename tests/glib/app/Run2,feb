@@ -1,4 +1,0 @@
-| Run2: runs glibtest, keeping a copy of the output in Result.
-| (Started by !Run in a task window.)
-<GLibTest$Dir>.glibtest { > <GLibTest$Dir>.Result }
-Type <GLibTest$Dir>.Result

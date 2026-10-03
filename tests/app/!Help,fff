@@ -1,0 +1,31 @@
+GTKTest - riscos-gtk M1 tests
+
+Checks the libraries riscos-gtk (GTK 3 for RISC OS) is built on.
+
+glibtest: GLib - the main loop, threads, files (including an
+asynchronous read on a worker thread), GObject signals, GVariant, GRegex,
+iconv, UTF-8, key files, dates and printf.
+
+rendertest: the drawing stack GTK uses for every widget - fontconfig
+finding DejaVu Sans, pango laying out text (harfbuzz for kerning, fribidi
+for right-to-left text), cairo and pixman drawing it with shapes and a
+scaled pattern, and gdk-pixbuf writing and reading PNG and JPEG.
+
+Double-click !GTKTest. A task window shows lines "ok N - ..." and each
+test ends with "N checks, F failed". The same output is saved in the
+Result file inside the application, and the picture the render test
+drew in rendertest (a PNG). Send back Result (and rendertest if it
+looks wrong), with a note of anything else that happened.
+
+The first run builds a font cache in the scrap directory, so it is
+slower; the output says how long the first text took.
+
+Needs SharedUnixLibrary 1.16+, ARMEABISupport and Iconv (PackMan).
+PThreadTicker 0.03 is included (from riscos-unixlib 5.0.3.1).
+
+riscos-gtk is MIT licensed. The libraries keep their own licences: GLib,
+pango, cairo (LGPL-2.1-or-later or MPL-1.1), gdk-pixbuf and harfbuzz
+(MIT), fribidi (LGPL-2.1-or-later), FreeType (FTL), fontconfig, expat,
+pixman, libffi (MIT), PCRE2 (BSD), libpng, libjpeg-turbo (IJG/BSD),
+zlib. DejaVu fonts: Bitstream Vera licence. Sources: riscos-gtk and
+Ubuntu 24.04. Built with riscos-crossdev 1.2.
