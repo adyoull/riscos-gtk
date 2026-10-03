@@ -1,0 +1,92 @@
+diff -ruN a/gio/glocalfile.c b/gio/glocalfile.c
+--- a/gio/glocalfile.c	2024-03-07 21:35:05.000000000 +0000
++++ b/gio/glocalfile.c	2026-10-03 19:39:46.000000000 +0100
+@@ -960,7 +960,7 @@
+   int statfs_result = 0;
+   gboolean no_size;
+ #ifndef G_OS_WIN32
+-  const char *fstype;
++  const char *fstype = NULL;
+ #ifdef USE_STATFS
+   guint64 block_size;
+   struct statfs statfs_buffer;
+@@ -1071,7 +1071,7 @@
+       if (GetDiskFreeSpaceExW (wdirname, &li_free, &li_total, NULL))
+         g_file_info_set_attribute_uint64 (info, G_FILE_ATTRIBUTE_FILESYSTEM_USED,  (guint64)li_total.QuadPart - (guint64)li_free.QuadPart);
+       g_free (wdirname);
+-#else
++#elif defined(USE_STATFS) || defined(USE_STATVFS)
+       g_file_info_set_attribute_uint64 (info, G_FILE_ATTRIBUTE_FILESYSTEM_USED, block_size * (statfs_buffer.f_blocks - statfs_buffer.f_bfree));
+ #endif /* G_OS_WIN32 */
+     }
+diff -ruN a/gio/gtrashportal.c b/gio/gtrashportal.c
+--- a/gio/gtrashportal.c	2024-03-07 21:35:05.000000000 +0000
++++ b/gio/gtrashportal.c	2026-10-03 19:37:49.000000000 +0100
+@@ -26,6 +26,11 @@
+ #include <string.h>
+ 
+ #include "gtrashportal.h"
++
++#ifndef O_NOFOLLOW
++/* UnixLib has no O_NOFOLLOW (RISC OS has no symbolic links). */
++#define O_NOFOLLOW 0
++#endif
+ #include "xdp-dbus.h"
+ #include "gstdio.h"
+ 
+diff -ruN a/gio/gunixmounts.c b/gio/gunixmounts.c
+--- a/gio/gunixmounts.c	2024-03-07 21:35:05.000000000 +0000
++++ b/gio/gunixmounts.c	2026-10-03 19:37:49.000000000 +0100
+@@ -979,6 +979,24 @@
+   return NULL;
+ }
+ 
++/* RISC OS {{{2 */
++#elif defined (__riscos)
++
++/* RISC OS has no mount table: filing systems and discs are reached by
++ * name (UnixLib maps /ADFS::4/$ and the like). Report no Unix mounts;
++ * the riscos-gtk file chooser lists discs itself. */
++static char *
++get_mtab_monitor_file (void)
++{
++  return NULL;
++}
++
++static GList *
++_g_get_unix_mounts (void)
++{
++  return NULL;
++}
++
+ /* Common code {{{2 */
+ #else
+ #error No _g_get_unix_mounts() implementation for system
+@@ -1511,6 +1529,14 @@
+   return _g_get_unix_mounts ();
+ }
+ 
++/* RISC OS {{{2 */
++#elif defined (__riscos)
++static GList *
++_g_get_unix_mount_points (void)
++{
++  return NULL;
++}
++
+ /* Common code {{{2 */
+ #else
+ #error No g_get_mount_table() implementation for system
+diff -ruN a/meson.build b/meson.build
+--- a/meson.build	2024-03-07 21:35:05.000000000 +0000
++++ b/meson.build	2026-10-03 19:38:12.000000000 +0100
+@@ -799,7 +799,8 @@
+ 
+ # For example on Openbsd, getservbyname_r() has a different signature.
+ # https://man.openbsd.org/getservbyname.3
+-if cc.compiles('''#include <netdb.h>
++# riscos-gtk: links, not compiles: UnixLib declares it but doesn't have it.
++if cc.links('''#include <netdb.h>
+                int main (int argc, char ** argv) {
+                  int (*fcn)(const char *,
+                             const char *,

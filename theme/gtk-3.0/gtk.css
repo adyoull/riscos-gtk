@@ -1,0 +1,631 @@
+/* RISC OS theme for GTK 3.24
+ *
+ * Styles window contents to match the RISC OS 5 desktop. Title bars and
+ * window furniture are not themed here: the RISC OS GDK backend gives every
+ * toplevel native Wimp furniture.
+ *
+ * Colours are the standard Wimp palette (Wimp colours 0-15).
+ * Written from scratch: does not inherit from Adwaita.
+ */
+
+@define-color wimp0  #ffffff;  /* white            */
+@define-color wimp1  #dddddd;  /* window background */
+@define-color wimp2  #bbbbbb;
+@define-color wimp3  #999999;
+@define-color wimp4  #777777;
+@define-color wimp5  #555555;
+@define-color wimp6  #333333;
+@define-color wimp7  #000000;  /* black            */
+@define-color wimp8  #004499;  /* dark blue        */
+@define-color wimp11 #dd0000;  /* red (caret)      */
+@define-color wimp12 #eeeebb;  /* cream            */
+
+@define-color theme_bg_color @wimp1;
+@define-color theme_fg_color @wimp7;
+@define-color theme_base_color @wimp0;
+@define-color theme_text_color @wimp7;
+@define-color theme_selected_bg_color @wimp7;
+@define-color theme_selected_fg_color @wimp0;
+@define-color insensitive_fg_color @wimp3;
+
+/* ---------- base ---------- */
+
+* {
+  -GtkScrollbar-has-backward-stepper: true;
+  -GtkScrollbar-has-forward-stepper: true;
+  -GtkScrolledWindow-scrollbar-spacing: 0;
+  -gtk-secondary-caret-color: @wimp11;
+  caret-color: @wimp11;
+  outline-color: alpha(@wimp7, 0.6);
+  outline-style: dotted;
+  outline-offset: -3px;
+  outline-width: 1px;
+  -gtk-outline-radius: 0;
+  transition: none;
+  box-shadow: none;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
+}
+
+window, .background, dialog, popover {
+  background-color: @wimp1;
+  color: @wimp7;
+}
+
+label:disabled, label:backdrop:disabled { color: @wimp3; }
+
+label.dim-label { color: @wimp5; }
+
+/* ---------- action buttons: grey slab, raised ---------- */
+
+button {
+  min-height: 22px;
+  min-width: 18px;
+  padding: 2px 10px;
+  border-radius: 0;
+  border-width: 2px;
+  border-style: solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
+  background-image: none;
+  color: @wimp7;
+}
+
+/* The Wimp gives no hover feedback, so neither do we. */
+
+/* pressed / toggled on: slab in, a shade darker */
+button:active, button:checked {
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp2;
+}
+
+button:disabled {
+  color: @wimp3;
+  border-color: @wimp0 @wimp3 @wimp3 @wimp0;
+}
+
+button:disabled label { color: @wimp3; }
+
+/* the default action button carries an extra dark ridge */
+button.default {
+  border-width: 2px;
+  /* a sunken channel around the button: grey well, dark top-left, white bottom-right */
+  box-shadow: 0 0 0 2px @wimp2, -1px -1px 0 3px @wimp4, 1px 1px 0 3px @wimp0;
+  margin: 4px;
+}
+
+button.default:active, button.default:checked {
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+}
+
+/* buttons in linked groups share an edge */
+.linked > button:not(:first-child), .linked > entry:not(:first-child),
+.linked > combobox:not(:first-child) > box > button.combo { margin-left: -2px; }
+
+button.flat {
+  border-color: transparent;
+  background-color: transparent;
+}
+
+
+button.image-button { padding: 2px 4px; }
+
+/* ---------- writable icons: white, slab in, red caret ---------- */
+
+entry, spinbutton:not(.vertical), textview text, treeview.view, iconview.view,
+list, .view {
+  background-color: @wimp0;
+  color: @wimp7;
+}
+
+entry, spinbutton:not(.vertical) {
+  min-height: 22px;
+  padding: 0 4px;
+  border-radius: 0;
+  border-width: 2px;
+  border-style: solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+}
+
+spinbutton:not(.vertical) { padding: 0; }
+spinbutton:not(.vertical) entry { border: none; min-height: 18px; }
+
+/* Toolbox display field. GTK 3 doesn't mark non-editable entries in CSS,
+   so apps (or port patches) opt in with the "display-field" class. It also
+   works on a label, which is the usual way GTK apps show a read-only value. */
+entry.display-field { background-color: @wimp1; }
+label.display-field {
+  min-height: 18px;
+  padding: 0 4px;
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp1;
+}
+
+entry:disabled, spinbutton:disabled {
+  background-color: @wimp1;
+  color: @wimp3;
+}
+
+entry selection, textview text selection, label selection,
+spinbutton selection, *:selected {
+  background-color: @wimp7;
+  color: @wimp0;
+}
+
+entry progress {
+  border-bottom: 2px solid @wimp8;
+  background: none;
+}
+
+/* number range adjusters: small slabbed arrow buttons */
+spinbutton:not(.vertical) button {
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0;
+  border-width: 2px;
+  -gtk-icon-source: none;
+}
+
+/* the built-in +/- icons are symbolic, so a transparent colour hides them */
+spinbutton:not(.vertical) button { color: transparent; }
+
+spinbutton:not(.vertical) button {
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+spinbutton:not(.vertical) button.down {
+  background-image: -gtk-scaled(url("assets/arrow-left.png"), url("assets/arrow-left@2.png"));
+}
+
+spinbutton:not(.vertical) button.up {
+  background-image: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
+}
+
+spinbutton:not(.vertical) button:disabled.down {
+  background-image: -gtk-scaled(url("assets/arrow-left-insensitive.png"), url("assets/arrow-left-insensitive@2.png"));
+}
+
+spinbutton:not(.vertical) button:disabled.up {
+  background-image: -gtk-scaled(url("assets/arrow-right-insensitive.png"), url("assets/arrow-right-insensitive@2.png"));
+}
+
+/* ---------- option and radio icons ---------- */
+
+check, radio {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0 6px 0 0;
+  border: none;
+  background: none;
+}
+
+check {
+  -gtk-icon-source: -gtk-scaled(url("assets/check.png"), url("assets/check@2.png"));
+}
+check:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/check-checked.png"), url("assets/check-checked@2.png"));
+}
+check:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/check-insensitive.png"), url("assets/check-insensitive@2.png"));
+}
+check:checked:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/check-checked-insensitive.png"), url("assets/check-checked-insensitive@2.png"));
+}
+
+check:indeterminate {
+  -gtk-icon-source: -gtk-scaled(url("assets/check-mixed.png"), url("assets/check-mixed@2.png"));
+}
+check:indeterminate:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/check-mixed-insensitive.png"), url("assets/check-mixed-insensitive@2.png"));
+}
+
+radio {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio.png"), url("assets/radio@2.png"));
+}
+radio:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio-checked.png"), url("assets/radio-checked@2.png"));
+}
+radio:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio-insensitive.png"), url("assets/radio-insensitive@2.png"));
+}
+radio:checked:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio-checked-insensitive.png"), url("assets/radio-checked-insensitive@2.png"));
+}
+
+radio:indeterminate {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio-mixed.png"), url("assets/radio-mixed@2.png"));
+}
+radio:indeterminate:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/radio-mixed-insensitive.png"), url("assets/radio-mixed-insensitive@2.png"));
+}
+
+checkbutton, radiobutton { padding: 2px 0; }
+checkbutton:hover, radiobutton:hover { background: none; }
+
+/* Wimp menus show a bare tick to the left of the entry, with no box */
+menu menuitem check, menu menuitem radio { margin: 0 4px 0 -6px; -gtk-icon-source: none; }
+menu menuitem check:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-tick.png"), url("assets/menu-tick@2.png"));
+}
+menu menuitem:hover check:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-tick-selected.png"), url("assets/menu-tick-selected@2.png"));
+}
+menu menuitem check:checked:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-tick-insensitive.png"), url("assets/menu-tick-insensitive@2.png"));
+}
+menu menuitem radio:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-dot.png"), url("assets/menu-dot@2.png"));
+}
+menu menuitem:hover radio:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-dot-selected.png"), url("assets/menu-dot-selected@2.png"));
+}
+menu menuitem radio:checked:disabled {
+  -gtk-icon-source: -gtk-scaled(url("assets/menu-dot-insensitive.png"), url("assets/menu-dot-insensitive@2.png"));
+}
+
+/* ---------- labelled box ---------- */
+
+frame > border {
+  border-radius: 0;
+  border: 2px groove @wimp0;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  border-style: groove;
+}
+
+frame > label { margin: 0 4px; }
+
+frame.flat > border { border-style: none; }
+
+separator {
+  min-width: 1px;
+  min-height: 1px;
+  background: none;
+}
+separator.horizontal { border-top: 1px solid @wimp4; border-bottom: 1px solid @wimp0; }
+separator.vertical   { border-left: 1px solid @wimp4; border-right: 1px solid @wimp0; }
+
+/* ---------- popup menu gadgets (combo boxes) ---------- */
+
+/* A Toolbox pop-up: a slabbed-in display field with a small menu button
+   to its right carrying a right-pointing arrow. */
+combobox button.combo {
+  padding: 0 0 0 4px;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp1;
+}
+combobox button.combo:active, combobox button.combo:checked {
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp1;
+}
+
+combobox arrow {
+  min-width: 14px;
+  min-height: 14px;
+  margin: -2px -2px -2px 8px;
+  padding: 2px;
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
+}
+combobox button.combo:checked arrow {
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp2;
+}
+combobox:disabled arrow {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right-insensitive.png"), url("assets/arrow-right-insensitive@2.png"));
+}
+
+menubutton arrow {
+  min-width: 12px;
+  min-height: 12px;
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-down.png"), url("assets/arrow-down@2.png"));
+}
+
+combobox box.linked entry { border-right-width: 2px; }
+
+/* ---------- menus: white, black text, inverted highlight ---------- */
+
+menu, .menu, .context-menu, combobox window menu {
+  background-color: @wimp0;
+  color: @wimp7;
+  padding: 2px 0;
+  border: 2px solid @wimp7;
+  border-radius: 0;
+}
+
+menu menuitem {
+  min-height: 20px;
+  padding: 1px 10px;
+  color: @wimp7;
+}
+
+menu menuitem:hover {
+  background-color: @wimp7;
+  color: @wimp0;
+}
+
+menu menuitem:hover label { color: @wimp0; }
+
+menu menuitem:disabled, menu menuitem:disabled label { color: @wimp3; }
+
+menu menuitem accelerator { color: @wimp5; }
+menu menuitem:hover accelerator { color: @wimp2; }
+
+/* dotted separators, as in Wimp menus */
+menu separator {
+  min-height: 1px;
+  margin: 3px 0;
+  border: none;
+  /* separators draw their background, not their border */
+  background-image: repeating-linear-gradient(to right, @wimp3 0px, @wimp3 2px, transparent 2px, transparent 4px);
+}
+
+menu menuitem arrow {
+  min-width: 12px;
+  min-height: 12px;
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
+}
+
+menu menuitem:hover arrow {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right-selected.png"), url("assets/arrow-right-selected@2.png"));
+}
+
+menu arrow.top, menu arrow.bottom { background-color: @wimp1; }
+
+menubar {
+  padding: 0;
+  background-color: @wimp1;
+  border-bottom: 1px solid @wimp4;
+}
+menubar > menuitem { padding: 3px 8px; }
+menubar > menuitem:hover { background-color: @wimp7; color: @wimp0; }
+menubar > menuitem:hover label { color: @wimp0; }
+
+/* ---------- scroll bars: grey trough, slab slider, arrow buttons ---------- */
+
+scrollbar {
+  background-color: @wimp2;
+  border: none;
+}
+
+scrollbar.vertical   { border-left: 1px solid @wimp4; }
+scrollbar.horizontal { border-top: 1px solid @wimp4; }
+
+scrollbar slider {
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 0;
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
+}
+
+scrollbar slider:active { background-color: @wimp2; }
+
+scrollbar button {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  border-width: 2px;
+}
+
+scrollbar.vertical button.up, scrollbar.vertical button.down,
+scrollbar.horizontal button.up, scrollbar.horizontal button.down { -gtk-icon-source: none; }
+
+scrollbar.vertical button.up {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-up.png"), url("assets/arrow-up@2.png"));
+}
+scrollbar.vertical button.down {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-down.png"), url("assets/arrow-down@2.png"));
+}
+scrollbar.horizontal button.up {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-left.png"), url("assets/arrow-left@2.png"));
+}
+scrollbar.horizontal button.down {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
+}
+
+scrollbar trough { background: none; }
+
+scrolledwindow junction { background-color: @wimp1; }
+
+scrolledwindow.frame, scrolledwindow > frame > border {
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+}
+
+/* ---------- sliders ---------- */
+
+scale { padding: 6px 2px; }
+
+scale trough {
+  min-height: 8px;
+  min-width: 8px;
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp0;
+}
+
+scale highlight {
+  background-color: @wimp8;
+}
+
+scale slider {
+  min-width: 12px;
+  min-height: 18px;
+  margin: -7px -2px;
+  border-radius: 0;
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
+}
+
+scale.vertical slider { min-width: 18px; min-height: 12px; margin: -2px -7px; }
+
+/* ---------- progress ---------- */
+
+progressbar trough {
+  min-height: 12px;
+  min-width: 12px;
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp0;
+}
+
+progressbar progress {
+  background-color: @wimp8;
+  border: none;
+  border-radius: 0;
+}
+
+progressbar text { color: @wimp7; }
+
+levelbar trough { border: 2px solid; border-color: @wimp4 @wimp0 @wimp0 @wimp4; background-color: @wimp0; padding: 1px; }
+levelbar block.filled { background-color: @wimp8; }
+levelbar block.empty { background-color: @wimp0; }
+
+/* ---------- switches render as a two-state slab ---------- */
+
+switch {
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  border-radius: 0;
+  background-color: @wimp2;
+  color: @wimp7;
+  font-size: 0.85em;
+}
+switch:checked { background-color: @wimp8; }
+switch image { color: transparent; }
+switch slider {
+  min-width: 22px;
+  min-height: 18px;
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  border-radius: 0;
+  background-color: @wimp1;
+}
+
+/* ---------- lists (ScrollList gadget) ---------- */
+
+treeview.view header button {
+  padding: 1px 6px;
+  min-height: 18px;
+  border-width: 1px;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+}
+
+treeview.view:selected, list row:selected, iconview:selected,
+flowbox flowboxchild:selected {
+  background-color: @wimp7;
+  color: @wimp0;
+}
+
+list row { padding: 1px 4px; }
+
+treeview.view.expander {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
+}
+treeview.view.expander:checked {
+  -gtk-icon-source: -gtk-scaled(url("assets/arrow-down.png"), url("assets/arrow-down@2.png"));
+}
+
+/* ---------- tabs ---------- */
+
+notebook > header {
+  background-color: @wimp1;
+  border: none;
+  padding: 0 2px;
+}
+
+notebook > header tab {
+  min-height: 20px;
+  padding: 2px 10px;
+  margin: 2px 0 0 -1px;
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 transparent @wimp0;
+  background-color: @wimp2;
+}
+
+notebook > header tab:checked {
+  background-color: @wimp1;
+  margin-top: 0;
+}
+
+notebook > stack {
+  border: 2px solid;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
+}
+
+/* ---------- toolbars and header bars ---------- */
+
+/* RISC OS has no client-side title bars; header bars become plain
+   toolbars inside the native window. */
+headerbar, toolbar, .toolbar, actionbar > revealer > box {
+  background-color: @wimp1;
+  border: none;
+  border-bottom: 1px solid @wimp4;
+  padding: 2px 4px;
+  min-height: 0;
+  border-radius: 0;
+}
+
+headerbar .title { font-weight: bold; }
+headerbar .subtitle { color: @wimp5; }
+
+/* ---------- interactive help (tooltips) ---------- */
+
+tooltip, tooltip.background {
+  background-color: @wimp12;
+  color: @wimp7;
+  border: 1px solid @wimp7;
+  border-radius: 0;
+  padding: 2px 4px;
+}
+tooltip * { color: @wimp7; }
+
+/* ---------- popovers: square, Wimp-style ---------- */
+
+popover {
+  border: 2px solid @wimp7;
+  border-radius: 0;
+  background-color: @wimp1;
+}
+
+popover.menu modelbutton { padding: 2px 10px; min-height: 20px; }
+popover.menu modelbutton:hover { background-color: @wimp7; color: @wimp0; }
+
+/* ---------- info bars, message dialogs ---------- */
+
+infobar { border: none; }
+infobar.info > revealer > box, infobar.question > revealer > box { background-color: @wimp12; }
+infobar.warning > revealer > box { background-color: #ffbb00; }
+infobar.error > revealer > box { background-color: @wimp11; color: @wimp0; }
+
+messagedialog .dialog-action-area button { padding: 2px 16px; }
+
+/* ---------- misc ---------- */
+
+paned > separator { min-width: 4px; min-height: 4px; background-color: @wimp2; }
+
+statusbar { padding: 2px 6px; border-top: 1px solid @wimp4; }
+
+calendar {
+  background-color: @wimp0;
+  border: 2px solid; border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+}
+calendar:selected { background-color: @wimp7; color: @wimp0; }
+calendar.header { background-color: @wimp1; border-bottom: 1px solid @wimp4; }
+
+rubberband, .rubberband {
+  border: 1px dashed @wimp7;
+  background-color: alpha(@wimp7, 0.08);
+}
+
+link, button.link { color: @wimp8; }
+
+textview text { padding: 2px 4px; }
+textview border.left, textview border.right { background-color: @wimp1; }

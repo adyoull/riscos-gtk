@@ -1,0 +1,13 @@
+# build products
+/dl
+/src
+/sysroot
+/out
+/src-linuxarm
+/stage-linuxarm
+# notes that stay out of git (as the other ports)
+handoffs/
+*handoff*.md
+CLAUDE.md
+*START-HERE*.md
+.DS_Store

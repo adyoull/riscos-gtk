@@ -1,0 +1,15 @@
+# Changelog
+
+## Unreleased (M0 + M1 started, 2026-10-03)
+- Repo created. Theme revision 2 imported as `theme/` (from
+  RISCOS-gtk3-theme.zip, sha256 9b32281c…d11); font changed to DejaVu Sans.
+- Build: riscos-crossdev 1.2 toolchain (GCC 10.2, UnixLib 5.0.3.1); build
+  scripts adapted from riscos-warzone2100; static libraries installed into
+  `sysroot/riscos-gtk` with no build paths compiled in.
+- M1: zlib 1.3.1, libffi 3.4.6, PCRE2 10.42, a minimal libintl, GLib 2.80.0
+  (four small patches) cross-built for RISC OS.
+- `tests/glib/glibtest.c` (29 checks): passes under qemu-arm-aligntrap
+  (arm-linux build of the same GLib); !GLibTest 0.1 built for the Pi,
+  passes riscos-crossdev's checks, not yet run on RISC OS.
+- `tests/fake/`: riscos-mesa's fake Wimp/screen and event harnesses, for
+  the GDK backend's host tests.
