@@ -24,11 +24,20 @@ get libpng1.6_1.6.37.orig.tar.gz    $U/libp/libpng1.6/libpng1.6_1.6.37.orig.tar.
 get freetype_2.10.1.orig.tar.gz     $U/f/freetype/freetype_2.10.1.orig.tar.gz
 get expat_2.2.9.orig.tar.gz         $U/e/expat/expat_2.2.9.orig.tar.gz
 get fontconfig_2.14.1.orig.tar.xz   https://deb.debian.org/debian/pool/main/f/fontconfig/fontconfig_2.14.1.orig.tar.xz
+get libjpeg-turbo_2.1.5.orig.tar.gz  $U/libj/libjpeg-turbo/libjpeg-turbo_2.1.5.orig.tar.gz
+get fribidi_1.0.13.orig.tar.xz      $U/f/fribidi/fribidi_1.0.13.orig.tar.xz
+get harfbuzz_8.3.0.orig.tar.xz      $U/h/harfbuzz/harfbuzz_8.3.0.orig.tar.xz
+get pixman_0.42.2.orig.tar.gz       $U/p/pixman/pixman_0.42.2.orig.tar.gz
+get cairo_1.18.0.orig.tar.xz        $U/c/cairo/cairo_1.18.0.orig.tar.xz
+get pango1.0_1.52.1+ds.orig.tar.xz  $U/p/pango1.0/pango1.0_1.52.1+ds.orig.tar.xz
+get gdk-pixbuf_2.42.10+dfsg.orig.tar.xz $U/g/gdk-pixbuf/gdk-pixbuf_2.42.10+dfsg.orig.tar.xz
+get atk1.0_2.36.0.orig.tar.xz       $U/a/atk1.0/atk1.0_2.36.0.orig.tar.xz
+get libepoxy_1.5.10.orig.tar.gz     $U/libe/libepoxy/libepoxy_1.5.10.orig.tar.gz
+# GTK itself (M2)
+get gtk+3.0_3.24.41.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
-# Every file present must match; the ones the current build-deps.sh uses
-# must be present.
+# Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"
-for f in zlib_1.3.dfsg+really1.3.1.orig.tar.gz libffi_3.4.6.orig.tar.gz \
-         pcre2_10.42.orig.tar.gz glib2.0_2.80.0.orig.tar.xz; do
+for f in $(awk '{print $2}' "$REPO_DIR/build/SHA256SUMS.txt" | grep -v '^gtk+3.0_'); do
   [ -s "$f" ] || { echo "fetch-sources.sh: $f is missing" >&2; exit 1; }
 done
