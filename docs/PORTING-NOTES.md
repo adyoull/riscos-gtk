@@ -40,14 +40,18 @@ Facts found while building, so nobody has to find them twice.
    `fstype` read uninitialised).
 All four are generic enough to offer upstream.
 
-## Still to check on RISC OS (the !GLibTest run)
-- GLib's default poll() in a command-line program, and timing: GLib's
-  monotonic clock comes from UnixLib's clock_gettime (high resolution
-  since riscos-unixlib 5.0.x).
-- Threads: GThreadPool workers, GCond timed waits, g_main_context_invoke
-  from a worker (eventfd wake-up).
-- GIO's async read on its worker pool.
-- Filename and locale character sets (`# locale charset=... filename
-  charset=...` in the output). RISC OS filenames are usually Latin-1 and
-  GLib assumes UTF-8 unless G_FILENAME_ENCODING says otherwise: decide in
-  M4 (likely `G_FILENAME_ENCODING=@locale` or ISO-8859-1 from !Run).
+## First RISC OS run (!GLibTest 0.1, 2026-10-03, owner's Pi, SDFS)
+**29/29 passed** (`tests/glib/results/GLibTest-0.1-pi-2026-10-03.txt`):
+main loop, nested loop, GCond, GThreadPool with g_main_context_invoke back
+to the main thread (eventfd wake-up), GIO sync and async (GTask worker
+pool), GObject/libffi, GVariant, GRegex, iconv through the Iconv module,
+GKeyFile, GDateTime, printf.
+- 3 × 50 ms timeouts took 177 ms (151 under QEMU): fine for a UI.
+- Home comes from !UnixHome (`/SDFS::ePic.$/Apps/Support/!UnixHome/home`),
+  config dir `<home>/.config`; tmp is `/tmp` (UnixLib maps it to the
+  scrap directory).
+- **Locale charset is ISO-8859-1, filename charset UTF-8.** So GLib will
+  treat RISC OS (Latin-1) filenames as UTF-8: names with accented letters
+  would be invalid UTF-8 to GTK. Plan for M4: set
+  `G_FILENAME_ENCODING=@locale` (or ISO-8859-1) in !Run, and check how
+  UnixLib's own path translation handles top-bit characters.

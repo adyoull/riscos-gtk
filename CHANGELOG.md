@@ -10,6 +10,6 @@
   (four small patches) cross-built for RISC OS.
 - `tests/glib/glibtest.c` (29 checks): passes under qemu-arm-aligntrap
   (arm-linux build of the same GLib); !GLibTest 0.1 built for the Pi,
-  passes riscos-crossdev's checks, not yet run on RISC OS.
+  passes riscos-crossdev's checks; on the owner's Pi: 29/29.
 - `tests/fake/`: riscos-mesa's fake Wimp/screen and event harnesses, for
   the GDK backend's host tests.

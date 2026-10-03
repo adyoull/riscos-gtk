@@ -5,13 +5,13 @@ stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
 **Status: early.** The theme is done (tested on Linux GTK 3.24.41). GLib
-2.80 cross-builds and passes its test under QEMU; the first RISC OS test
-(!GLibTest) is waiting for a run on a Pi. No GDK backend yet.
+2.80 cross-builds and passes its test under QEMU and on a Pi (!GLibTest,
+29/29). No GDK backend yet.
 
 | Milestone | What | State |
 |---|---|---|
 | M0 | Repo, toolchain, theme | done |
-| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | GLib built and tested on QEMU |
+| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | GLib built; tested on QEMU and the Pi |
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | — |
 | M3 | Keyboard, popups as Wimp menus, pointer shapes, clipboard | — |
 | M4 | Native file chooser, drag and drop, packaging; AbiWord | — |
