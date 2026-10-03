@@ -73,7 +73,6 @@ fi
 export CC=$HOST-gcc CXX=$HOST-g++ AR=$HOST-ar RANLIB=$HOST-ranlib STRIP=$HOST-strip
 export CFLAGS="$RO_CFLAGS" CXXFLAGS="$RO_CFLAGS"
 export CPPFLAGS="-I$STAGE/include" LDFLAGS="-L$STAGE/lib"
-[ "$TARGET" = riscos ] && LDFLAGS="$LDFLAGS -static"
 export PKG_CONFIG_LIBDIR="$STAGE/lib/pkgconfig:$STAGE/share/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR=$SYSROOT
 mkdir -p "$STAGE/lib/pkgconfig" "$STAGE/include" "$SRC" "$DL"
