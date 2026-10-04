@@ -1,0 +1,5 @@
+riscos-gtk: task "GTKHello", screen 1920x1200, 32 bpp TBGR, eig 1,1
+hello: window shown
+riscos-gtk: backing sprites TBGR (copied from cairo, R/B swapped), mode word &301680B5
+hello: window closed, entry text "", option off
+hello: 0 click(s)
