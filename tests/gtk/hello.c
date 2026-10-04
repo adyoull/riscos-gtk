@@ -66,13 +66,9 @@ hello_main (int argc, char **argv)
       g_free (share);
     }
   g_set_prgname ("GTKHello");
+  /* No settings here: the RISC OS GDK backend supplies the desktop
+   * defaults (RISCOS theme, DejaVu Sans 12 at 90 dpi, no animations). */
   gtk_init (&argc, &argv);
-  g_object_set (gtk_settings_get_default (),
-                "gtk-theme-name", "RISCOS",
-                "gtk-font-name", "DejaVu Sans 10",
-                "gtk-enable-animations", FALSE,
-                "gtk-dialogs-use-header", FALSE,
-                NULL);
 
   hello_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (hello_window), "GTK on RISC OS \xe2\x80\x94 Gr\xc3\xbc\xc3\x9f" "e");

@@ -124,6 +124,21 @@ main (int argc, char **argv)
   printf ("# entry text \"%s\"\n", hello_entry_text);
   check (hello_option == 1, "the check box toggled by a click");
   check (fake_wimp_keys_passed == 0, "no keys handed back to the Wimp");
+  {
+    gchar *font = NULL, *theme = NULL;
+    gint dpi = 0;
+    gboolean anim = TRUE;
+    g_object_get (gtk_settings_get_default (), "gtk-font-name", &font,
+                  "gtk-theme-name", &theme, "gtk-xft-dpi", &dpi,
+                  "gtk-enable-animations", &anim, NULL);
+    check (font && strcmp (font, "DejaVu Sans 12") == 0 && theme &&
+           strcmp (theme, "RISCOS") == 0 && dpi == 90 * 1024 && !anim,
+           "desktop defaults from the backend (RISCOS, DejaVu Sans 12, 90 dpi)");
+    printf ("# settings: font \"%s\", theme \"%s\", dpi %d, animations %d\n",
+            font, theme, dpi / 1024, anim);
+    g_free (font);
+    g_free (theme);
+  }
   /* The window was at pixel 200,150, 320x180 (gtk_window_move/default size) */
   for (y = 150; y < 330; y++)
     for (x = 200; x < 520; x++)

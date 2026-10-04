@@ -72,7 +72,10 @@ store = Gtk.ListStore(str, str, str)
 rows = [("Sheet1", "1,204", "Accounts"), ("Sheet2", "88", "Budget"),
         ("Summary", "12", "Totals"), ("Q1", "310", "Jan-Mar"),
         ("Q2", "295", "Apr-Jun"), ("Q3", "301", "Jul-Sep"),
-        ("Q4", "0", "Oct-Dec"), ("Notes", "4", "Misc")]
+        ("Q4", "0", "Oct-Dec"), ("Notes", "4", "Misc"),
+        ("Archive", "2,018", "Old years"), ("Rates", "14", "VAT"),
+        ("Staff", "9", "Payroll"), ("Assets", "41", "Register")]
+rows += [("Year%d" % y, str(y * 7 % 300), "Archive %d" % y) for y in range(2010, 2026)]
 for r in rows: store.append(r)
 tv = Gtk.TreeView(model=store)
 for i, t in enumerate(("Sheet", "Rows", "Description")):

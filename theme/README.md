@@ -1,4 +1,4 @@
-# RISC OS theme for GTK 3 (revision 2, 2026-10-03)
+# RISC OS theme for GTK 3 (revision 3, 2026-10-04)
 
 Imported into riscos-gtk from RISCOS-gtk3-theme.zip (sha256 9b32281c…d11).
 
@@ -11,14 +11,35 @@ furniture (see gtk-riscos-port-feasibility.md).
 - `gtk-3.0/gtk.css`: the theme. Colours are the 16 Wimp colours as @wimp0..@wimp15 tokens.
 - `gtk-3.0/assets/`: PNG option/radio icons and arrows, 1x and 2x. PNG only, so no librsvg is needed on RISC OS.
 - `mkassets.py`: regenerates the assets (Python + Pillow).
-- `demo.py`, `shoot.sh`: an Export-dialog demo and an Xvfb screenshot script (modes: dialog, list, menu, popup).
+- `demo.py`, `shoot.sh`: an Export-dialog demo and an Xvfb screenshot script (modes: dialog, list, menu, popup, factory). shoot.sh uses a private HOME with the settings the RISC OS backend gives every program, so the shots show what the Pi should show.
 
 ## Try it on Linux (no RISC OS port needed)
-    cp -r RISCOS ~/.themes/
+    mkdir -p ~/.themes/RISCOS && cp -r gtk-3.0 ~/.themes/RISCOS/
     GTK_THEME=RISCOS gtk3-widget-factory
-    GTK_THEME=RISCOS python3 demo.py        # modes: dialog, list, menu
-Recommended settings.ini: gtk-font-name=DejaVu Sans 10, gtk-enable-animations=false,
-gtk-dialogs-use-header=false, gtk-overlay-scrolling=false.
+    GTK_THEME=RISCOS python3 demo.py        # modes: dialog, list, menu, popup
+    ./shoot.sh dialog list menu popup factory   # the screenshots
+settings.ini to match RISC OS: gtk-font-name=DejaVu Sans 12, gtk-xft-dpi=92160
+(90 dpi), gtk-enable-animations=false, gtk-dialogs-use-header=false,
+gtk-overlay-scrolling=false.
+
+On RISC OS no settings file is needed: riscos-gtk's GDK backend returns
+these as the desktop's settings (gdk/riscos/gdkscreen-riscos.c), so every
+GTK program gets the RISCOS theme, DejaVu Sans 12 at 90 dpi and no
+animations. A program can still override them with GtkSettings.
+
+## Sizes
+RISC OS sizes are in OS units; the desktop runs at 2 OS units per pixel
+(EIG 1), and the backend sets 90 dpi so that point sizes match RISC OS
+(12pt = 15 pixels). The theme uses the Style Guide's heights:
+| RISC OS | OS units | pixels | GTK |
+|---|---|---|---|
+| action button (R5) | 52 | 26 | button |
+| default action button in its channel (R6) | 68 | 34 | button.default |
+| writable icon (R7), display field (R2) | 52 | 26 | entry, label.display-field |
+| option / radio row | 44 | 22 | checkbutton, radiobutton |
+| menu entry | 44 | 22 | menu menuitem |
+| scroll bar width | 40 | 20 | scrollbar |
+| list row | 44 | ~23 | treeview row |
 
 ## Mapping to RISC OS
 | RISC OS | GTK |
@@ -36,6 +57,30 @@ gtk-dialogs-use-header=false, gtk-overlay-scrolling=false.
 | scroll bar (grey well, arrows at both ends) | scrollbar |
 | interactive help (cream) | tooltip |
 
+## Revision 3 changes (RISC OS 5 default look)
+- Font and sizes: DejaVu Sans 12 at 90 dpi for Homerton.Medium 12pt (the
+  RISC OS desktop default; set by the backend); heights from the Style Guide
+  (table above).
+- Buttons and fields: R5 action buttons 26px with 12px side padding; the R6
+  default button sits in a proper 4px channel (grey well, dark top-left,
+  white bottom-right); writables and display fields 26px; adjuster arrows
+  18px; pop-ups match the field height; labelled-box labels in the normal
+  weight.
+- Radio icons were lit from the wrong side (dark top-right): now slab in,
+  dark top-left and light bottom-right like every other 3D item.
+- Scroll bars as the Wimp's own: mid-grey well (Wimp colour 3, the window
+  scroll outer colour), light-grey raised slider (colour 1), raised arrow
+  buttons that press in, a black line parting the bar from the work area,
+  20px wide.
+- Menus as Wimp menus: 1-pixel black outline, no top/bottom padding, 22px
+  entries indented as the Wimp does, short-cuts in the entry's colour (white
+  when highlighted, grey when shaded), dotted separators.
+- Lists: 23px rows (ScrollList pitch), 2px header slabs, black/white
+  selection.
+- All 16 Wimp colours defined (@wimp0..@wimp15).
+- Keyboard focus outlines stay: GTK shows them only after Tab is used, so a
+  mouse user sees focus only as the red caret, as on RISC OS.
+
 ## Revision 2 changes
 - Option and radio icons redrawn: square edges are pixel-exact at 1x and 2x; radio rings sized in whole pixels.
 - Mixed ("inconsistent") states for options and radios.
@@ -50,5 +95,8 @@ gtk-dialogs-use-header=false, gtk-overlay-scrolling=false.
 - Combo menus open over the field, GTK-style. A RISC OS pop-up opens to the right of its menu button; that's positioning code for the GDK backend, not CSS.
 - GtkSwitch has no RISC OS equivalent; it is drawn as a slab in a well.
 - Icons still come from the icon theme (Adwaita). A RISC OS icon set is separate work.
-- Fonts: DejaVu Sans (shipped with the port, as Warzone 2100 does) stands in for Homerton. The revision 2 screenshots were taken with Nimbus Sans (URW), which is not shipped.
+- Fonts: DejaVu Sans (shipped with the port, as Warzone 2100 does) stands in for Homerton; it is a little wider. RISC OS outline fonts can't be read by FreeType.
+- Menus have no title bar (GTK menus have none); real Wimp menus are planned for the backend (M3).
+- Option and radio icons are still 16px; RISC OS 5's own sprites are a little larger at 12pt.
+- Pitfall: adding `-GtkTreeView-horizontal-separator` to the treeview rule made GTK 3.24.41 silently fall back to Adwaita (the only sign is a warning about Adwaita's bullet-symbolic.svg). If shoot.sh prints that warning, the theme was not used.
 - Header bars are styled as plain toolbars; apps that put window controls in them will look wrong.

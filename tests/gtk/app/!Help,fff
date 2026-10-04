@@ -10,6 +10,10 @@ click in the entry and type, resize the window by its corner, move it,
 close it. Then send back <Wimp$ScrapDir>.GTKHello.Log, a screenshot, and
 a note of anything that looked or behaved wrong.
 
+0.2: theme revision 3 (RISC OS 5 sizes and scroll bars); the backend
+now gives every GTK program the RISC OS defaults itself (RISCOS theme,
+DejaVu Sans 12 for Homerton 12pt, 90 dpi, no animations).
+
 Not done yet: key repeat and Shift/Ctrl combinations beyond the cursor
 keys, pop-up menus, the clipboard, drag and drop, pointer shapes.
 

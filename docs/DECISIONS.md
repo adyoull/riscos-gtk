@@ -44,3 +44,19 @@ From the feasibility study (2026-09-24) and the owner's choices since.
 - Own files MIT; copied files keep their licences.
 - DejaVu Sans stands in for Homerton (as Warzone 2100 ships it).
 - M1 passes on QEMU first; the Pi run of !GLibTest comes later.
+
+## Desktop settings come from the backend (2026-10-04)
+RISC OS has no settings daemon or settings.ini convention, so
+`gdk_riscos_screen_get_setting` answers GtkSettings with the RISC OS
+defaults: gtk-theme-name RISCOS, gtk-font-name "DejaVu Sans 12",
+gtk-xft-dpi 90 (RISC OS's nominal resolution, so 12pt = 15 pixels as on
+the desktop), animations, overlay scrolling, dialog header bars, cursor
+blink and menu/button images off. Ported programs need no code to look
+right and can still override with g_object_set. Later these could follow
+the user's configured desktop font size (Wimp_ReadSysInfo / Font_ReadDefn
+on the desktop font).
+
+## Theme follows the RISC OS 5 default desktop (2026-10-04)
+Owner's choice: the stock RISC OS 5/Pi look (3D grey, Homerton, standard
+Wimp palette) rather than RISC OS 3 or a NetSurf-like flat look. Sizes are
+the Style Guide's in OS units at EIG 1 (theme/README.md has the table).

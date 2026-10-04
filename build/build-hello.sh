@@ -5,7 +5,7 @@
 # the RISCOS theme, PThreadTicker.
 . "$(dirname "$0")/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-hello.sh: RISC OS only" >&2; exit 1; }
-VERSION=${VERSION:-0.1}
+VERSION=${VERSION:-0.2}
 OUT=$REPO_DIR/out
 A=$OUT/!GTKHello
 T=$REPO_DIR/tests/gtk

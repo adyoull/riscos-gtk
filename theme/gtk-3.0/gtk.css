@@ -6,6 +6,12 @@
  *
  * Colours are the standard Wimp palette (Wimp colours 0-15).
  * Written from scratch: does not inherit from Adwaita.
+ *
+ * Sizes follow the RISC OS Style Guide in OS units, at 2 OS units per
+ * pixel (EIG 1, the usual desktop): e.g. action buttons and writable
+ * icons 52 OS units high = 26px, menu entries 44 = 22px. The RISC OS GDK
+ * backend sets 90 dpi and DejaVu Sans 12 (for Homerton.Medium 12pt) by
+ * default, so the text fills them as the desktop font does.
  */
 
 @define-color wimp0  #ffffff;  /* white            */
@@ -17,8 +23,13 @@
 @define-color wimp6  #333333;
 @define-color wimp7  #000000;  /* black            */
 @define-color wimp8  #004499;  /* dark blue        */
+@define-color wimp9  #eeee00;  /* yellow           */
+@define-color wimp10 #00cc00;  /* green            */
 @define-color wimp11 #dd0000;  /* red (caret)      */
 @define-color wimp12 #eeeebb;  /* cream            */
+@define-color wimp13 #558800;  /* dark green       */
+@define-color wimp14 #ffbb00;  /* orange           */
+@define-color wimp15 #00bbff;  /* light blue       */
 
 @define-color theme_bg_color @wimp1;
 @define-color theme_fg_color @wimp7;
@@ -36,6 +47,8 @@
   -GtkScrolledWindow-scrollbar-spacing: 0;
   -gtk-secondary-caret-color: @wimp11;
   caret-color: @wimp11;
+  /* GTK draws this only after keyboard navigation (Tab); the mouse user
+     sees focus only as the caret, as on RISC OS. */
   outline-color: alpha(@wimp7, 0.6);
   outline-style: dotted;
   outline-offset: -3px;
@@ -58,10 +71,11 @@ label.dim-label { color: @wimp5; }
 
 /* ---------- action buttons: grey slab, raised ---------- */
 
+/* R5 action button, 52 OS units high: 2 + 2 + 18 + 2 + 2 */
 button {
-  min-height: 22px;
+  min-height: 18px;
   min-width: 18px;
-  padding: 2px 10px;
+  padding: 2px 12px;
   border-radius: 0;
   border-width: 2px;
   border-style: solid;
@@ -86,11 +100,12 @@ button:disabled {
 
 button:disabled label { color: @wimp3; }
 
-/* the default action button carries an extra dark ridge */
+/* R6 default action button: the action button sitting in a sunken
+   channel, 68 OS units high in all (26 + 4 + 4px) */
 button.default {
   border-width: 2px;
-  /* a sunken channel around the button: grey well, dark top-left, white bottom-right */
-  box-shadow: 0 0 0 2px @wimp2, -1px -1px 0 3px @wimp4, 1px 1px 0 3px @wimp0;
+  /* grey well, then the channel's dark top-left and white bottom-right */
+  box-shadow: 0 0 0 2px @wimp1, -2px -2px 0 2px @wimp4, 2px 2px 0 2px @wimp0, 0 0 0 4px @wimp2;
   margin: 4px;
 }
 
@@ -118,9 +133,10 @@ list, .view {
   color: @wimp7;
 }
 
+/* R7 writable icon, 52 OS units high */
 entry, spinbutton:not(.vertical) {
   min-height: 22px;
-  padding: 0 4px;
+  padding: 0 6px;
   border-radius: 0;
   border-width: 2px;
   border-style: solid;
@@ -133,10 +149,11 @@ spinbutton:not(.vertical) entry { border: none; min-height: 18px; }
 /* Toolbox display field. GTK 3 doesn't mark non-editable entries in CSS,
    so apps (or port patches) opt in with the "display-field" class. It also
    works on a label, which is the usual way GTK apps show a read-only value. */
+/* R2 display field: grey, slab in, 52 OS units high */
 entry.display-field { background-color: @wimp1; }
 label.display-field {
   min-height: 18px;
-  padding: 0 4px;
+  padding: 2px 6px;
   border: 2px solid;
   border-color: @wimp4 @wimp0 @wimp0 @wimp4;
   background-color: @wimp1;
@@ -160,8 +177,8 @@ entry progress {
 
 /* number range adjusters: small slabbed arrow buttons */
 spinbutton:not(.vertical) button {
-  min-width: 16px;
-  min-height: 16px;
+  min-width: 18px;
+  min-height: 18px;
   padding: 0;
   border-width: 2px;
   -gtk-icon-source: none;
@@ -241,7 +258,8 @@ radio:indeterminate:disabled {
   -gtk-icon-source: -gtk-scaled(url("assets/radio-mixed-insensitive.png"), url("assets/radio-mixed-insensitive@2.png"));
 }
 
-checkbutton, radiobutton { padding: 2px 0; }
+/* option and radio rows 44 OS units apart */
+checkbutton, radiobutton { padding: 2px 0; min-height: 18px; }
 checkbutton:hover, radiobutton:hover { background: none; }
 
 /* Wimp menus show a bare tick to the left of the entry, with no box */
@@ -274,7 +292,10 @@ frame > border {
   border-style: groove;
 }
 
-frame > label { margin: 0 4px; }
+/* R4 labelled box: the label sits on the channel, 16 OS units in,
+   in the normal (not bold) desktop font */
+frame > label { margin: 0 4px; font-weight: normal; }
+frame > border { margin-top: 2px; }
 
 frame.flat > border { border-style: none; }
 
@@ -291,7 +312,7 @@ separator.vertical   { border-left: 1px solid @wimp4; border-right: 1px solid @w
 /* A Toolbox pop-up: a slabbed-in display field with a small menu button
    to its right carrying a right-pointing arrow. */
 combobox button.combo {
-  padding: 0 0 0 4px;
+  padding: 2px 0 2px 6px;
   border-color: @wimp4 @wimp0 @wimp0 @wimp4;
   background-color: @wimp1;
 }
@@ -301,9 +322,9 @@ combobox button.combo:active, combobox button.combo:checked {
 }
 
 combobox arrow {
-  min-width: 14px;
-  min-height: 14px;
-  margin: -2px -2px -2px 8px;
+  min-width: 18px;
+  min-height: 18px;
+  margin: -4px -2px -4px 8px;
   padding: 2px;
   border: 2px solid;
   border-color: @wimp0 @wimp4 @wimp4 @wimp0;
@@ -328,17 +349,20 @@ combobox box.linked entry { border-right-width: 2px; }
 
 /* ---------- menus: white, black text, inverted highlight ---------- */
 
+/* A Wimp menu: white work area, the 1-pixel black window outline,
+   entries 44 OS units high with 12 OS units of indent, black text;
+   the highlighted entry is inverted. */
 menu, .menu, .context-menu, combobox window menu {
   background-color: @wimp0;
   color: @wimp7;
-  padding: 2px 0;
-  border: 2px solid @wimp7;
+  padding: 0;
+  border: 1px solid @wimp7;
   border-radius: 0;
 }
 
 menu menuitem {
   min-height: 20px;
-  padding: 1px 10px;
+  padding: 1px 12px 1px 6px;
   color: @wimp7;
 }
 
@@ -351,13 +375,15 @@ menu menuitem:hover label { color: @wimp0; }
 
 menu menuitem:disabled, menu menuitem:disabled label { color: @wimp3; }
 
-menu menuitem accelerator { color: @wimp5; }
-menu menuitem:hover accelerator { color: @wimp2; }
+/* keyboard short-cuts are right-aligned in the entry's own colour */
+menu menuitem accelerator { color: @wimp7; margin-left: 24px; }
+menu menuitem:hover accelerator { color: @wimp0; }
+menu menuitem:disabled accelerator { color: @wimp3; }
 
 /* dotted separators, as in Wimp menus */
 menu separator {
   min-height: 1px;
-  margin: 3px 0;
+  margin: 2px 0;
   border: none;
   /* separators draw their background, not their border */
   background-image: repeating-linear-gradient(to right, @wimp3 0px, @wimp3 2px, transparent 2px, transparent 4px);
@@ -384,33 +410,46 @@ menubar > menuitem { padding: 3px 8px; }
 menubar > menuitem:hover { background-color: @wimp7; color: @wimp0; }
 menubar > menuitem:hover label { color: @wimp0; }
 
-/* ---------- scroll bars: grey trough, slab slider, arrow buttons ---------- */
+/* ---------- scroll bars, as the Wimp's own ---------- */
 
+/* Mid-grey well (the window's scroll outer colour, Wimp colour 3), a
+   light-grey raised slider (scroll inner, colour 1) and raised arrow
+   buttons at both ends, 20 pixels wide; a black line parts the bar from
+   the work area as the window outline does. */
 scrollbar {
-  background-color: @wimp2;
+  background-color: @wimp3;
   border: none;
 }
 
-scrollbar.vertical   { border-left: 1px solid @wimp4; }
-scrollbar.horizontal { border-top: 1px solid @wimp4; }
+scrollbar.vertical   { border-left: 1px solid @wimp7; }
+scrollbar.horizontal { border-top: 1px solid @wimp7; }
 
 scrollbar slider {
-  min-width: 14px;
-  min-height: 14px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
   border-radius: 0;
   border: 2px solid;
   border-color: @wimp0 @wimp4 @wimp4 @wimp0;
   background-color: @wimp1;
 }
 
-scrollbar slider:active { background-color: @wimp2; }
+/* dragging: the slider stays put (the Wimp has no pressed slider) */
+scrollbar slider:active { background-color: @wimp1; }
 
 scrollbar button {
-  min-width: 18px;
-  min-height: 18px;
+  min-width: 16px;
+  min-height: 16px;
   padding: 0;
   border-width: 2px;
+  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
+  background-color: @wimp1;
 }
+scrollbar button:active {
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp2;
+}
+scrollbar button:disabled { border-color: @wimp0 @wimp4 @wimp4 @wimp0; }
 
 scrollbar.vertical button.up, scrollbar.vertical button.down,
 scrollbar.horizontal button.up, scrollbar.horizontal button.down { -gtk-icon-source: none; }
@@ -513,9 +552,12 @@ switch slider {
 treeview.view header button {
   padding: 1px 6px;
   min-height: 18px;
-  border-width: 1px;
+  border-width: 2px;
   border-color: @wimp0 @wimp4 @wimp4 @wimp0;
 }
+
+/* ScrollList rows 44 OS units (with DejaVu Sans 12 at 90 dpi) */
+treeview.view { -GtkTreeView-vertical-separator: 0; }
 
 treeview.view:selected, list row:selected, iconview:selected,
 flowbox flowboxchild:selected {
@@ -523,7 +565,7 @@ flowbox flowboxchild:selected {
   color: @wimp0;
 }
 
-list row { padding: 1px 4px; }
+list row { padding: 2px 6px; min-height: 18px; }
 
 treeview.view.expander {
   -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));

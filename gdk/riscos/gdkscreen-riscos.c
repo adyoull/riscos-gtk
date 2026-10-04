@@ -225,6 +225,49 @@ gdk_riscos_screen_get_setting (GdkScreen   *screen,
 				 const gchar *name,
 				 GValue      *value)
 {
+  /* riscos-gtk: desktop defaults, so that any GTK program looks like a
+   * RISC OS 5 program without its own settings.ini (there is no settings
+   * daemon on RISC OS). A program can still override them with
+   * g_object_set on GtkSettings.
+   *   - RISC OS's nominal 90 dpi (2 OS units per pixel at EIG 1), so point
+   *     sizes mean what they mean on RISC OS; DejaVu Sans 12 stands in for
+   *     the default desktop font, Homerton.Medium 12pt;
+   *   - the RISCOS theme (shipped in the app's share/themes/RISCOS);
+   *   - no animations, real scroll bars, no header bars in dialogs (the
+   *     Wimp gives every window its own title bar). */
+  static const struct { const char *name; const char *s; int i; } defaults[] = {
+    { "gtk-theme-name", "RISCOS", 0 },
+    { "gtk-font-name", "DejaVu Sans 12", 0 },
+    { "gtk-icon-theme-name", "hicolor", 0 },
+    { "gtk-xft-dpi", NULL, 90 * 1024 },
+    { "gtk-xft-antialias", NULL, 1 },
+    { "gtk-xft-hinting", NULL, 1 },
+    { "gtk-xft-hintstyle", "hintslight", 0 },
+    { "gtk-xft-rgba", "none", 0 },
+    { "gtk-enable-animations", NULL, 0 },
+    { "gtk-overlay-scrolling", NULL, 0 },
+    { "gtk-dialogs-use-header", NULL, 0 },
+    { "gtk-primary-button-warps-slider", NULL, 0 },
+    { "gtk-cursor-blink", NULL, 0 },
+    { "gtk-menu-images", NULL, 0 },
+    { "gtk-button-images", NULL, 0 },
+  };
+  guint k;
+
+  for (k = 0; k < G_N_ELEMENTS (defaults); k++)
+    {
+      if (strcmp (name, defaults[k].name) != 0)
+        continue;
+      if (G_VALUE_HOLDS_STRING (value) && defaults[k].s)
+        g_value_set_string (value, defaults[k].s);
+      else if (G_VALUE_HOLDS_INT (value) && !defaults[k].s)
+        g_value_set_int (value, defaults[k].i);
+      else if (G_VALUE_HOLDS_BOOLEAN (value) && !defaults[k].s)
+        g_value_set_boolean (value, defaults[k].i != 0);
+      else
+        return FALSE;
+      return TRUE;
+    }
   return FALSE;
 }
 

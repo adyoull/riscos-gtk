@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (theme revision 3, 2026-10-04)
+- Theme toward the RISC OS 5 default desktop (owner's choice: fonts and
+  sizes; buttons and fields; scroll bars, menus, lists): Style Guide heights
+  in OS units (buttons/writables 52 = 26px, menu entries and option rows 44
+  = 22px), R6 default-button channel, Wimp-style scroll bars (colour 3 well,
+  colour 1 slider, raised arrows, 20px), Wimp menus (1px black outline,
+  22px entries), 23px list rows, radio icons lit from the top left, all 16
+  Wimp colours. See theme/README.md.
+- The backend returns the desktop's GTK settings (`gdkscreen-riscos.c`):
+  RISCOS theme, DejaVu Sans 12 at 90 dpi (Homerton.Medium 12pt), no
+  animations, no overlay scroll bars or dialog header bars. hello.c no
+  longer sets them; hellotest checks them (10/10).
+- GTKHello 0.2 (the new theme and defaults); theme/shoot.sh renders with
+  the backend's settings in a private HOME.
+
 ## Unreleased (M2 started, 2026-10-04)
 - GTK 3.24.41 cross-builds with a new `riscos` GDK backend
   (`patches/gtk+3.0-3.24.41-riscos.diff`: meson option, backend

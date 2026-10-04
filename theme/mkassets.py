@@ -47,8 +47,11 @@ def well_round(px, fill):
     def disc(r, a0, a1, colour):
         d.pieslice([c - r, c - r, c + r, c + r], a0, a1, fill=colour)
     r0 = S / 2
-    disc(r0, 45, 225, "#ffffff"); disc(r0, 225, 405, "#444444")
-    disc(r0 - w1, 45, 225, "#dddddd"); disc(r0 - w1, 225, 405, "#888888")
+    # Slab in, lit from the top left as everything on the desktop is: the
+    # top-left half dark, the bottom-right half light. (PIL angles run
+    # clockwise from 3 o'clock: 135-315 is the top-left half.)
+    disc(r0, 315, 495, "#ffffff"); disc(r0, 135, 315, "#444444")
+    disc(r0 - w1, 315, 495, "#dddddd"); disc(r0 - w1, 135, 315, "#888888")
     r2 = r0 - w1 - w2
     d.ellipse([c - r2, c - r2, c + r2, c + r2], fill=fill)
     return im.resize((px, px), Image.LANCZOS)
