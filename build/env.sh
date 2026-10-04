@@ -3,7 +3,7 @@
 #
 # Based on riscos-warzone2100's build/env.sh, with the toolchain taken from
 # riscos-crossdev (a tagged release, never main):
-#   RCD_DIR   a riscos-crossdev checkout at tag v1.2 with the toolchain
+#   RCD_DIR   a riscos-crossdev checkout at tag v1.3 with the toolchain
 #             installed (make prebuilt). Default: ../riscos-crossdev.
 #   SYSROOT   the libraries built here are installed into $SYSROOT$PREFIX
 #             (= STAGE). PREFIX (/riscos-gtk) is what the libraries are
@@ -16,13 +16,6 @@
 # None of these may contain spaces (autoconf/libtool/meson can't cope).
 REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 : "${RCD_DIR:=$REPO_DIR/../riscos-crossdev}"
-# UnixLib 5.0.3.2 (LLONG_MIN fixed, getservbyname_r added, eventfd safe with
-# threads) isn't in a riscos-crossdev release yet. Until it is, the build
-# uses a copy of crossdev 1.2's toolchain with the riscos-unixlib release
-# dropped in (build/unixlib-overlay.sh; `make toolchain-unixlib`), in
-# $REPO_DIR/toolchain-unixlib, when that exists.
-[ -z "${RISCOS_TOOLCHAIN:-}" ] && [ -x "$REPO_DIR/toolchain-unixlib/bin/arm-riscos-gnueabihf-gcc" ] \
-  && export RISCOS_TOOLCHAIN=$REPO_DIR/toolchain-unixlib
 [ -f "$RCD_DIR/env.sh" ] || { echo "env.sh: no riscos-crossdev in RCD_DIR=$RCD_DIR" >&2; return 1 2>/dev/null || exit 1; }
 . "$RCD_DIR/env.sh"
 GCCSDK_ENV=$RISCOS_TOOLCHAIN
@@ -50,11 +43,13 @@ esac
   echo "env.sh: no toolchain in $GCCSDK_ENV: run 'make prebuilt' in $RCD_DIR" >&2
   return 1 2>/dev/null || exit 1; }
 
-# The libraries need UnixLib 5.0.3.2's headers (harfbuzz won't compile with
-# 5.0.3.1's LLONG_MIN): stop early with a clear message otherwise.
-if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h"; then
-  echo "env.sh: $GCCSDK_ENV has UnixLib 5.0.3.1 or older; make a toolchain with" >&2
-  echo "  UnixLib 5.0.3.2 first: make toolchain-unixlib UNIXLIB_RELEASE=<release dir>" >&2
+# riscos-crossdev 1.3 (UnixLib 5.0.3.2: LLONG_MIN fixed, getservbyname_r,
+# eventfd safe with threads; static-only toolchain) or later is needed:
+# harfbuzz won't compile with 5.0.3.1's LLONG_MIN. Stop early otherwise.
+if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h" ||
+   [ -e "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.so" ]; then
+  echo "env.sh: $GCCSDK_ENV is older than riscos-crossdev 1.3 (UnixLib 5.0.3.2," >&2
+  echo "  static only): use riscos-crossdev v1.3 (make prebuilt there)" >&2
   return 1 2>/dev/null || exit 1
 fi
 

@@ -27,13 +27,10 @@ UnixLib does and doesn't do that matters here:
 ## Building (Ubuntu 24.04, x86-64)
 
 ```sh
-git clone -b v1.2 https://github.com/adyoull/riscos-crossdev
+git clone -b v1.3 https://github.com/adyoull/riscos-crossdev
 cd riscos-crossdev && make prebuilt && cd ..
 git clone https://github.com/adyoull/riscos-gtk     # next to riscos-crossdev
 cd riscos-gtk
-# UnixLib 5.0.3.2 isn't in a riscos-crossdev release yet: drop the
-# riscos-unixlib release (5.0.3.2-rc2 or later) into a copy of the toolchain
-make toolchain-unixlib UNIXLIB_RELEASE=path/to/riscos-unixlib-release
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
     libltdl-dev gettext gperf cmake python3-packaging \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
@@ -49,7 +46,7 @@ riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 
 | Path | What |
 |---|---|
-| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `unixlib-overlay.sh`, `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
+| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
 | `gdk/riscos/` | The RISC OS GDK backend: GTK's Broadway client side, renamed, with `gdkriscos-server.c` doing the Wimp work |
 | `patches/` | Changes to the libraries, one diff per library (GTK's adds the `riscos_backend` option) |
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |

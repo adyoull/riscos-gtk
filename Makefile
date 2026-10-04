@@ -1,9 +1,6 @@
-# riscos-gtk. Needs a riscos-crossdev v1.2 checkout with its toolchain
+# riscos-gtk. Needs a riscos-crossdev v1.3 checkout with its toolchain
 # installed (make prebuilt) in RCD_DIR (default ../riscos-crossdev).
 #
-#   make toolchain-unixlib UNIXLIB_RELEASE=DIR
-#                   toolchain-unixlib/: crossdev's toolchain with the
-#                   riscos-unixlib release in DIR (5.0.3.2-rc2 or later)
 #   make deps       download the sources and cross-build the libraries
 #   make tests      out/GTKTest-0.5.zip for the Pi (runs the checks too)
 #   make hello      out/GTKHello-0.1.zip: GTK on the Wimp (M2)
@@ -12,11 +9,6 @@
 export RCD_DIR ?= $(abspath ../riscos-crossdev)
 
 all: deps tests hello check
-
-toolchain-unixlib:
-	@test -n "$(UNIXLIB_RELEASE)" || { echo "make toolchain-unixlib UNIXLIB_RELEASE=<riscos-unixlib release dir>" >&2; exit 1; }
-	build/fetch-sources.sh
-	RISCOS_TOOLCHAIN=$(RCD_DIR)/toolchain/env build/unixlib-overlay.sh $(UNIXLIB_RELEASE) toolchain-unixlib
 
 deps:
 	build/fetch-sources.sh
@@ -34,4 +26,4 @@ check:
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all toolchain-unixlib deps tests hello check clean
+.PHONY: all deps tests hello check clean

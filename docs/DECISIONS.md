@@ -26,7 +26,7 @@ From the feasibility study (2026-09-24) and the owner's choices since.
   blocked on its plug-in processes.
 
 ## Toolchain and libraries
-- riscos-crossdev tagged releases (now 1.2: GCC 10.2, UnixLib 5.0.3.1),
+- riscos-crossdev tagged releases (now 1.3: GCC 10.2, UnixLib 5.0.3.2, static only),
   never main. Build scripts adapted from riscos-warzone2100, which already
   builds FreeType, expat, fontconfig and libpng for this toolchain.
 - Static linking only (UnixLib has no dlopen): gdk-pixbuf loaders and IM

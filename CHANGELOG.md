@@ -17,6 +17,9 @@
   the title arrives in Latin-1 (9/9).
 - !GTKHello 0.1 for the Pi (`make hello`).
 - `build/dev-gdk.sh`: incremental rebuild of the backend.
+- riscos-crossdev 1.3 (UnixLib 5.0.3.2, static-only toolchain): the
+  UnixLib overlay toolchain (`make toolchain-unixlib`) and the wrapper's
+  `-static` are gone.
 
 ## M1 done (2026-10-04)
 - GTKTest 0.5 on the owner's Pi (UnixLib 5.0.3.2-rc2): glibtest 29/29,

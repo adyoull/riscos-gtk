@@ -19,4 +19,4 @@ Needs SharedUnixLibrary 1.16+ and ARMEABISupport (PackMan), and a 32bpp
 riscos-gtk is MIT licensed; GTK, GLib, pango and the other libraries keep
 their own licences (LGPL-2.1-or-later for GTK, GLib, pango, ATK,
 gdk-pixbuf; see riscos-gtk's LICENCES.md). DejaVu fonts: Bitstream Vera
-licence. Built with riscos-crossdev 1.2 and UnixLib 5.0.3.2-rc2.
+licence. Built with riscos-crossdev 1.3 (UnixLib 5.0.3.2).

@@ -28,23 +28,28 @@ Facts found while building, so nobody has to find them twice.
   monitors poll), pipe2, posix_spawn, statvfs, getmntent, close_range,
   getauxval, futex.
 
-## UnixLib 5.0.3.2 (riscos-unixlib's answer to our handoff)
-riscos-gtk builds against **UnixLib 5.0.3.2-rc2** (a copy of crossdev 1.2's
-toolchain with the release dropped in: `make toolchain-unixlib`), which
-fixed what we reported (reply: `RiscOS/UnixLib/handoffs/2026-10-03-gtk-headers-reply.md`):
+## UnixLib 5.0.3.2 and riscos-crossdev 1.3
+riscos-gtk builds with **riscos-crossdev 1.3**: UnixLib 5.0.3.2 and a
+static-only toolchain. Both came out of riscos-gtk's handoffs
+(`RiscOS/UnixLib/handoffs/2026-10-03-gtk-headers-reply.md`,
+`RiscOS/Crossdev-public/handoffs/2026-10-04-unixlib-gtk-crossdev-1.3-ready.md`):
 - `LLONG_MIN` was `0x8000000000000000LL` (unsigned, positive): harfbuzz
-  didn't compile. Fixed; our `riscos/fixincludes/limits.h` is gone and
-  env.sh refuses a toolchain that still has the old header.
+  didn't compile. Fixed in 5.0.3.2; env.sh refuses an older toolchain.
 - `getservbyname_r` (and `_byport_r`, `getservent_r`) now exist, so GLib's
-  compile-only check is right; our meson change is gone.
-- eventfd's counter is updated with thread switching held off, and (rc2) a
+  compile-only check is right.
+- eventfd's counter is updated with thread switching held off, and a
   blocking eventfd read no longer stops with "pthread_yield called with
-  context switching disabled". GLib opens its wake-up eventfd non-blocking,
-  so it never hit the second one.
+  context switching disabled". GLib opens its wake-up eventfd non-blocking.
+- crossdev 1.2's toolchain had shared libraries (libunixlib.so, libm.so,
+  libstdc++.so, .la files): any link without `-static` (GLib's tools,
+  configure tests, and libtool, which drops -static and follows libm.la)
+  used the old shared UnixLib. 1.3 has no shared libraries, its driver adds
+  `-static`, and its `check-all.sh` includes `check-static.sh`.
+  (Interim, 2026-10-03/04: a copy of the 1.2 toolchain with the rc2 library
+  dropped in, made static-only, and a wrapper adding -static; both gone.)
 - `dlopen` and friends: not UnixLib's (GCCSDK's libdl comes with the shared
   library loader, not in this toolchain). Keep `riscos/dl`. RTLD_NOLOAD
   won't be added, so libepoxy's fallback (our patch) stays.
-When riscos-crossdev ships 5.0.3.2, drop the overlay and use that release.
 
 ## The other libraries
 - **meson and static libraries**: the cross file sets `prefer_static = true`
