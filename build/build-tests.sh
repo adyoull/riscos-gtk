@@ -6,7 +6,7 @@
 # with a fonts.conf, and PThreadTicker.
 . "$(dirname "$0")/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-tests.sh: RISC OS only (TARGET=riscos)" >&2; exit 1; }
-VERSION=${VERSION:-0.4}
+VERSION=${VERSION:-0.5}
 OUT=$REPO_DIR/out
 A=$OUT/!GTKTest
 mkdir -p "$OUT"
@@ -36,6 +36,8 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
 mv "$A/fonts/LICENSE" "$A/fonts/Licence,fff"
 "$REPO_DIR/tests/render/mkfontsconf.sh" '/<GTKTest$Dir>/fonts' '/<Wimp$ScrapDir>/GTKTest/fontcache' \
   > "$A/fonts/fonts.conf"
+# fonts.conf must be well-formed XML (RISC OS paths carry < and >).
+python3 -c 'import sys, xml.dom.minidom as m; m.parse(sys.argv[1])' "$A/fonts/fonts.conf"
 rm -f "$OUT/GTKTest-$VERSION.zip"
 python3 "$RCD_DIR/package/rozip.py" "$OUT/GTKTest-$VERSION.zip" -C "$OUT" '!GTKTest'
 sha256sum "$OUT/GTKTest-$VERSION.zip"

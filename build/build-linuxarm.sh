@@ -37,9 +37,12 @@ build rendertest "$REPO_DIR/tests/render/rendertest.c" pangocairo gdk-pixbuf-2.0
 
 # DejaVu Sans and a fonts.conf for the render test (as on RISC OS, where
 # the app ships the same font).
+# The font folder's name has < > & in it, like the RISC OS paths
+# (/<GTKTest$Dir>/fonts), so the XML escaping in mkfontsconf.sh is tested.
 rm -rf "$FONTS"; mkdir -p "$FONTS"
-unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' -d "$FONTS"
-"$REPO_DIR/tests/render/mkfontsconf.sh" "$FONTS" "$FONTS/cache" > "$FONTS/fonts.conf"
+FD="$FONTS/<App\$Dir>&fonts"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' -d "$FD"
+"$REPO_DIR/tests/render/mkfontsconf.sh" "$FD" "$FONTS/cache" > "$FONTS/fonts.conf"
 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
