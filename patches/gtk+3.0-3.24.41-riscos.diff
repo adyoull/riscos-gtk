@@ -1,0 +1,101 @@
+diff -ruN a/gdk/gdkconfig.h.meson b/gdk/gdkconfig.h.meson
+--- a/gdk/gdkconfig.h.meson	2024-01-24 01:14:34.000000000 +0000
++++ b/gdk/gdkconfig.h.meson	2026-10-04 09:42:24.481918010 +0100
+@@ -12,6 +12,7 @@
+ 
+ #mesondefine GDK_WINDOWING_X11
+ #mesondefine GDK_WINDOWING_BROADWAY
++#mesondefine GDK_WINDOWING_RISCOS
+ #mesondefine GDK_WINDOWING_WAYLAND
+ #mesondefine GDK_WINDOWING_WIN32
+ #mesondefine GDK_WINDOWING_QUARTZ
+diff -ruN a/gdk/gdkdisplaymanager.c b/gdk/gdkdisplaymanager.c
+--- a/gdk/gdkdisplaymanager.c	2024-01-24 01:14:34.000000000 +0000
++++ b/gdk/gdkdisplaymanager.c	2026-10-04 09:42:24.482436917 +0100
+@@ -45,6 +45,10 @@
+ #include "broadway/gdkprivate-broadway.h"
+ #endif
+ 
++#ifdef GDK_WINDOWING_RISCOS
++#include "riscos/gdkprivate-riscos.h"
++#endif
++
+ #ifdef GDK_WINDOWING_WIN32
+ #include "win32/gdkwin32.h"
+ #include "win32/gdkprivate-win32.h"
+@@ -272,6 +276,9 @@
+ #ifdef GDK_WINDOWING_BROADWAY
+   { "broadway", _gdk_broadway_display_open },
+ #endif
++#ifdef GDK_WINDOWING_RISCOS
++  { "riscos", _gdk_riscos_display_open },
++#endif
+   /* NULL-terminating this array so we can use commas above */
+   { NULL, NULL }
+ };
+diff -ruN a/gdk/meson.build b/gdk/meson.build
+--- a/gdk/meson.build	2024-01-24 01:14:34.000000000 +0000
++++ b/gdk/meson.build	2026-10-04 09:42:24.481765670 +0100
+@@ -165,6 +165,7 @@
+ gdkconfig_cdata.set('GDK_WINDOWING_WAYLAND', wayland_enabled)
+ gdkconfig_cdata.set('GDK_WINDOWING_WIN32', win32_enabled)
+ gdkconfig_cdata.set('GDK_WINDOWING_BROADWAY', broadway_enabled)
++gdkconfig_cdata.set('GDK_WINDOWING_RISCOS', riscos_enabled)
+ gdkconfig_cdata.set('GDK_WINDOWING_QUARTZ', quartz_enabled)
+ 
+ gdkconfig = configure_file(
+@@ -258,7 +259,7 @@
+ 
+ gdk_backends = []
+ gdk_backends_gen_headers = []  # non-public generated headers
+-foreach backend : ['broadway', 'quartz', 'wayland', 'win32', 'x11']
++foreach backend : ['broadway', 'quartz', 'riscos', 'wayland', 'win32', 'x11']
+   if get_variable('@0@_enabled'.format(backend))
+     subdir(backend)
+     gdk_deps += get_variable('gdk_@0@_deps'.format(backend))
+diff -ruN a/meson.build b/meson.build
+--- a/meson.build	2024-01-24 01:14:34.000000000 +0000
++++ b/meson.build	2026-10-04 09:42:24.481197767 +0100
+@@ -135,6 +135,7 @@
+ x11_enabled            = get_option('x11_backend')
+ wayland_enabled        = get_option('wayland_backend')
+ broadway_enabled       = get_option('broadway_backend')
++riscos_enabled         = get_option('riscos_backend')
+ quartz_enabled         = get_option('quartz_backend')
+ win32_enabled          = get_option('win32_backend')
+ 
+@@ -950,7 +951,7 @@
+ 
+ pkg_targets = ''
+ disabled_backends = []
+-foreach backend: [ 'broadway', 'quartz', 'wayland', 'win32', 'x11']
++foreach backend: [ 'broadway', 'quartz', 'riscos', 'wayland', 'win32', 'x11']
+   if get_variable('@0@_enabled'.format(backend))
+     gtk_pcs += ['gtk+-@0@-3.0.pc'.format(backend)]
+     gdk_pcs += ['gdk-@0@-3.0.pc'.format(backend)]
+diff -ruN a/meson_options.txt b/meson_options.txt
+--- a/meson_options.txt	2024-01-24 01:14:34.000000000 +0000
++++ b/meson_options.txt	2026-10-04 09:42:24.480351407 +0100
+@@ -3,6 +3,8 @@
+   description : 'Enable the X11 gdk backend (only when building on Unix)')
+ option('wayland_backend', type: 'boolean', value: true,
+   description : 'Enable the wayland gdk backend (only when building on Unix except for macOS)')
++option('riscos_backend', type: 'boolean', value: false,
++  description : 'Enable the RISC OS Wimp gdk backend (riscos-gtk)')
+ option('broadway_backend', type: 'boolean', value: false,
+   description : 'Enable the broadway (HTML5) gdk backend')
+ option('win32_backend', type: 'boolean', value: true,
+diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.build
+--- a/modules/printbackends/meson.build	2024-01-24 01:14:34.000000000 +0000
++++ b/modules/printbackends/meson.build	2026-10-04 09:43:06.043857523 +0100
+@@ -35,7 +35,9 @@
+ print_backends = []
+ 
+ if not enabled_print_backends.contains('file')
+-  if os_unix
++  # riscos-gtk: print backends are loadable modules, and RISC OS has no
++  # dlopen; printing will need its own backend later.
++  if os_unix and not riscos_enabled
+     error('\'file\' print backed needs to be enabled')
+   endif
+ else

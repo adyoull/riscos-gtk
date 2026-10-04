@@ -1,0 +1,22 @@
+GTKHello - riscos-gtk M2 test
+
+A GTK 3 window on the RISC OS desktop, drawn by GTK in the RISCOS theme
+through riscos-gtk's RISC OS backend: a label, a "Click me" button, an
+"Option" check box and a text entry. The window has normal RISC OS
+furniture (title bar, close, back, toggle size, resize).
+
+Try: click the button (the label counts the clicks), click the check box,
+click in the entry and type, resize the window by its corner, move it,
+close it. Then send back <Wimp$ScrapDir>.GTKHello.Log, a screenshot, and
+a note of anything that looked or behaved wrong.
+
+Not done yet: key repeat and Shift/Ctrl combinations beyond the cursor
+keys, pop-up menus, the clipboard, drag and drop, pointer shapes.
+
+Needs SharedUnixLibrary 1.16+ and ARMEABISupport (PackMan), and a 32bpp
+(16 million colour) desktop with RISC OS 5.21 or later (TRGB sprites).
+
+riscos-gtk is MIT licensed; GTK, GLib, pango and the other libraries keep
+their own licences (LGPL-2.1-or-later for GTK, GLib, pango, ATK,
+gdk-pixbuf; see riscos-gtk's LICENCES.md). DejaVu fonts: Bitstream Vera
+licence. Built with riscos-crossdev 1.2 and UnixLib 5.0.3.2-rc2.

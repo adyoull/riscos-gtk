@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased (M2 started, 2026-10-04)
+- GTK 3.24.41 cross-builds with a new `riscos` GDK backend
+  (`patches/gtk+3.0-3.24.41-riscos.diff`: meson option, backend
+  registration; print backends allowed to be empty; IM modules built in).
+- `gdk/riscos/`: GTK's Broadway client code renamed, with
+  `gdkriscos-server.c` implementing Broadway's server interface on the
+  Wimp: Wimp windows with native furniture, TRGB sprite backing stores
+  drawn into by cairo directly, GLib's poll function waiting in
+  Wimp_PollIdle, clicks/releases/motion/crossings from Mouse_Click and
+  pointer polling, keys with synthesised releases, caret focus, titles in
+  Latin-1, open requests as configure events, close as delete.
+- `tests/gtk/hellotest.c`: GTK + the backend on the fake Wimp under
+  qemu-arm-aligntrap: the window draws in the RISCOS theme, a click on the
+  button fires "clicked", typing reaches the entry, the check box toggles,
+  the title arrives in Latin-1 (9/9).
+- !GTKHello 0.1 for the Pi (`make hello`).
+- `build/dev-gdk.sh`: incremental rebuild of the backend.
+
 ## M1 done (2026-10-04)
 - GTKTest 0.5 on the owner's Pi (UnixLib 5.0.3.2-rc2): glibtest 29/29,
   rendertest 22/22 (DejaVu Sans through fontconfig, harfbuzz kerning, cairo,

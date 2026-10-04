@@ -8,13 +8,15 @@ stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 GTK 3's dependencies cross-build (GLib 2.80, cairo 1.18, pango 1.52,
 harfbuzz 8.3, gdk-pixbuf 2.42, ATK, libepoxy and the font stack), and both
 M1 tests pass on a Pi (GTKTest 0.5: GLib 29/29, fonts and drawing 22/22)
-and under QEMU. No GDK backend yet.
+and under QEMU. GTK 3.24.41 itself now builds with riscos-gtk's RISC OS GDK
+backend (`gdk/riscos/`): a window with a button, check box and entry works
+on the fake Wimp under QEMU; !GTKHello is the first Pi test.
 
 | Milestone | What | State |
 |---|---|---|
 | M0 | Repo, toolchain, theme | done |
 | M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | done: all built, tested on the Pi and QEMU |
-| M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | — |
+| M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | works on the fake Wimp (QEMU); Pi test pending |
 | M3 | Keyboard, popups as Wimp menus, pointer shapes, clipboard | — |
 | M4 | Native file chooser, drag and drop, packaging; AbiWord | — |
 
@@ -36,7 +38,8 @@ sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
     libltdl-dev gettext gperf cmake python3-packaging \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 make deps        # sources by checksum, then the libraries into sysroot/
-make tests       # out/GTKTest-0.3.zip, for the Pi
+make tests       # out/GTKTest-0.5.zip, for the Pi (M1 tests)
+make hello       # out/GTKHello-0.1.zip, for the Pi: GTK on the Wimp (M2)
 make check       # the same tests as ARM Linux code under qemu-arm-aligntrap
 ```
 
@@ -47,10 +50,12 @@ riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 | Path | What |
 |---|---|
 | `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `unixlib-overlay.sh`, `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-tests.sh` (!GTKTest), `build-linuxarm.sh` (the QEMU tests) |
-| `patches/` | Changes to the libraries, one diff per library |
+| `gdk/riscos/` | The RISC OS GDK backend: GTK's Broadway client side, renamed, with `gdkriscos-server.c` doing the Wimp work |
+| `patches/` | Changes to the libraries, one diff per library (GTK's adds the `riscos_backend` option) |
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
 | `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
+| `tests/gtk/` | The M2 test: hello.c (!GTKHello) and hellotest.c (the same on the fake Wimp) |
 | `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |
 
 ## Licence

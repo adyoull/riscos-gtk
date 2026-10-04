@@ -11,6 +11,9 @@ or adapted from other projects keep their original licence, listed below.
 |---|---|---|
 | `build/env.sh`, `build/build-deps.sh`, `build/fetch-sources.sh` | [riscos-warzone2100](https://github.com/adyoull/riscos-warzone2100) `build/` (2.3.9-12 tree) | GPL version 2 or later |
 | `tests/fake/mesa-egl/*`, `tests/fake/sdl-wimp/*` | [riscos-mesa](https://github.com/adyoull/riscos-mesa) `tests/host-harness/` (20.3.5-10 tree) | MIT (riscos-mesa's own files) |
+| `gdk/riscos/*` except `gdkriscos-server.c` and `meson.build` | GTK 3.24.41 `gdk/broadway/` (client side), renamed broadway → riscos, with riscos-gtk's changes | LGPL version 2.1 or later, as GTK |
+| `gdk/riscos/gdkriscos-server.c`, `gdk/riscos/meson.build` | Written for riscos-gtk; part of a GTK backend, so under GTK's licence | LGPL version 2.1 or later |
+| `patches/gtk+3.0-3.24.41-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
 | `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |
 | `patches/gdk-pixbuf-2.42.10-riscos.diff` | Changes to gdk-pixbuf | LGPL version 2.1 or later, as gdk-pixbuf |
@@ -38,7 +41,7 @@ checksum. A RISC OS program built here links them statically.
 | fribidi 1.0.13 | LGPL version 2.1 or later |
 | harfbuzz 8.3.0 | MIT ("Old MIT") |
 | cairo 1.18.0 | LGPL version 2.1 or MPL 1.1 |
-| pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0 | LGPL version 2.1 or later |
+| pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.41 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
 | UnixLib 5.0.3.1 and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 

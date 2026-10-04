@@ -5,12 +5,13 @@
 #                   toolchain-unixlib/: crossdev's toolchain with the
 #                   riscos-unixlib release in DIR (5.0.3.2-rc2 or later)
 #   make deps       download the sources and cross-build the libraries
-#   make tests      out/GTKTest-0.3.zip for the Pi (runs the checks too)
+#   make tests      out/GTKTest-0.5.zip for the Pi (runs the checks too)
+#   make hello      out/GTKHello-0.1.zip: GTK on the Wimp (M2)
 #   make check      the same tests as ARM Linux code under qemu-arm-aligntrap
 #   make clean      remove the build products (not the downloads)
 export RCD_DIR ?= $(abspath ../riscos-crossdev)
 
-all: deps tests check
+all: deps tests hello check
 
 toolchain-unixlib:
 	@test -n "$(UNIXLIB_RELEASE)" || { echo "make toolchain-unixlib UNIXLIB_RELEASE=<riscos-unixlib release dir>" >&2; exit 1; }
@@ -24,10 +25,13 @@ deps:
 tests: deps
 	build/build-tests.sh
 
+hello: deps
+	build/build-hello.sh
+
 check:
 	build/build-linuxarm.sh
 
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all toolchain-unixlib deps tests check clean
+.PHONY: all toolchain-unixlib deps tests hello check clean

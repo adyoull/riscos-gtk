@@ -62,6 +62,13 @@ cpp = '$SRC/.wrap/$HOST-g++'
 ar = '$TCBIN/$HOST-ar'
 strip = '$TCBIN/$HOST-strip'
 pkg-config = 'pkg-config'
+# GLib's build tools from the build machine (Ubuntu's libglib2.0-dev-bin,
+# also 2.80): the ones in the sysroot are RISC OS programs.
+glib-compile-resources = '/usr/bin/glib-compile-resources'
+glib-compile-schemas = '/usr/bin/glib-compile-schemas'
+glib-mkenums = '/usr/bin/glib-mkenums'
+glib-genmarshal = '/usr/bin/glib-genmarshal'
+gdbus-codegen = '/usr/bin/gdbus-codegen'
 
 [properties]
 pkg_config_libdir = '$STAGE/lib/pkgconfig:$STAGE/share/pkgconfig'
@@ -305,5 +312,37 @@ mesonlib atk1.0_2.36.0.orig.tar.xz atk-2.36.0 libatk-1.0.a \
 # used until GtkGLArea gets a backend (riscos-mesa EGL, later).
 mesonlib libepoxy_1.5.10.orig.tar.gz libepoxy-1.5.10 libepoxy.a \
   -Ddocs=false -Dglx=no -Degl=no -Dx11=false -Dtests=false
+
+# ---- GTK itself, with the RISC OS GDK backend (M2) ----
+step "GTK 3.24.41 (patches/gtk+3.0-3.24.41-riscos.diff + gdk/riscos)"
+if ! have libgtk-3.a; then
+fresh gtk+3.0_3.24.41.orig.tar.xz gtk+-3.24.41
+patch -d gtk+-3.24.41 -p1 -s < "$REPO_DIR/patches/gtk+3.0-3.24.41-riscos.diff"
+cp -r "$REPO_DIR/gdk/riscos" gtk+-3.24.41/gdk/riscos
+# The QEMU test build: the backend's SWI calls go to the fake RISC OS
+# (tests/fake/mesa-egl), whose kernel.h and swis.h stand in for UnixLib's.
+# The fake itself goes into libgdk there, so that GTK's own tools and the
+# tests link.
+if [ "$TARGET" = linuxarm ]; then
+  F=$REPO_DIR/tests/fake/mesa-egl
+  cp "$F"/fake/kernel.h "$F"/fake/swis.h "$F"/fake_riscos.h "$STAGE/include/"
+  cp "$F"/fake_riscos.c "$F"/fake_riscos.h gtk+-3.24.41/gdk/riscos/
+  sed -i "s/  'gdkriscos-server.c',/  'gdkriscos-server.c',\n  'fake_riscos.c',/" gtk+-3.24.41/gdk/riscos/meson.build
+fi
+( cd gtk+-3.24.41
+  # Nothing can be loaded without dlopen: no print backends, and the input
+  # methods (IM modules) are all built into libgtk.
+  meson_env meson setup _build --cross-file "$STAGE/meson-cross.txt" --wrap-mode=nofallback \
+    -Dx11_backend=false -Dwayland_backend=false -Dbroadway_backend=false \
+    -Dwin32_backend=false -Dquartz_backend=false -Driscos_backend=true \
+    -Dxinerama=no -Dcloudproviders=false -Dprofiler=false -Dtracker3=false \
+    -Dprint_backends= -Dcolord=no -Dgtk_doc=false -Dman=false \
+    -Dintrospection=false -Ddemos=false -Dexamples=false -Dtests=false \
+    -Dinstalled_tests=false -Dbuiltin_immodules=all > ../gtk.log
+  meson_env ninja -C _build >> ../gtk.log
+  meson_env meson install -C _build --destdir "$SYSROOT" >> ../gtk.log )
+fix_pc
+fi
+need libgtk-3.a
 
 step "done: $(ls "$STAGE"/lib/*.a | wc -l) static libraries in $STAGE/lib"

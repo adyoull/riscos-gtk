@@ -1,0 +1,18 @@
+| !Run for !GTKHello - riscos-gtk M2: a GTK 3 window on the RISC OS desktop
+| A UnixLib program converted to Absolute (AIF), statically linked with GTK
+| 3.24.41 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary
+| and ARMEABISupport (PackMan). It runs as a normal Wimp task.
+Set GTKHello$Dir <Obey$Dir>
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error GTKHello needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error GTKHello needs the ARMEABISupport module. Install it with PackMan.
+RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System:Modules.PThrTicker
+RMEnsure PThreadTicker 0.01 RMLoad <GTKHello$Dir>.PThrTicker
+| The font cache goes in the scrap directory.
+CDir <Wimp$ScrapDir>.GTKHello
+| The C heap goes in a dynamic area; the WimpSlot holds the program.
+WimpSlot -min @SLOT@K -max @SLOT@K
+| Paths for the program are UnixLib paths, /<Var$Dir>/..., not expanded
+| here. Its messages go to <Wimp$ScrapDir>.GTKHello.Log.
+Run <GTKHello$Dir>.hello /<GTKHello$Dir> /<Wimp$ScrapDir>/GTKHello/Log

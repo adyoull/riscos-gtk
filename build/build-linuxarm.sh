@@ -44,9 +44,25 @@ FD="$FONTS/<App\$Dir>&fonts"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' -d "$FD"
 "$REPO_DIR/tests/render/mkfontsconf.sh" "$FD" "$FONTS/cache" > "$FONTS/fonts.conf"
 
+# M2: GTK with the RISC OS backend on the fake Wimp (libgdk has the fake in
+# it on this target). The app folder is laid out like !GTKHello's.
+
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DHELLO_NO_MAIN \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/hellotest.c" "$REPO_DIR/tests/gtk/hello.c" \
+  -o "$REPO_DIR/out/hellotest-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+HA=$REPO_DIR/out/hello-linuxarm-app
+rm -rf "$HA"; mkdir -p "$HA/fonts" "$HA/share/themes/RISCOS"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' \
+  'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf' -d "$HA/fonts"
+"$REPO_DIR/tests/render/mkfontsconf.sh" "$HA/fonts" "$HA/fontcache" > "$HA/fonts/fonts.conf"
+cp -r "$REPO_DIR/theme/gtk-3.0" "$HA/share/themes/RISCOS/"
+
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
+run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"
 exit $failed

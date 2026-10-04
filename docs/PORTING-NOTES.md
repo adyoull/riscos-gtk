@@ -94,3 +94,24 @@ GKeyFile, GDateTime, printf.
   would be invalid UTF-8 to GTK. Plan for M4: set
   `G_FILENAME_ENCODING=@locale` (or ISO-8859-1) in !Run, and check how
   UnixLib's own path translation handles top-bit characters.
+
+## GTK 3.24.41 (M2)
+- The backend is GTK's Broadway backend, client side, renamed (`gdk/riscos/`).
+  Broadway's GDK code talks to a separate server through ~25 functions and
+  gets input back as messages; `gdkriscos-server.c` implements those
+  functions on the Wimp in the same process. Broadway's ifdefs in gtk/
+  (forced client-side decorations, clipboard workarounds) don't apply
+  because the backend has its own name.
+- Build-machine tools: glib-compile-resources, glib-mkenums,
+  glib-genmarshal (Ubuntu's libglib2.0-dev-bin, 2.80) are named in the meson
+  cross file — otherwise meson takes the sysroot's RISC OS binaries from
+  glib's .pc file. gdk-pixbuf-pixdata (libgdk-pixbuf2.0-bin) must be on PATH.
+- No dlopen: print backends (normally modules; GTK insists on 'file' on
+  Unix — patched to allow none for riscos) and IM modules
+  (`-Dbuiltin_immodules=all`).
+- GDK passes a toplevel's title in the window attributes at creation
+  (GDK_WA_TITLE); Broadway ignored it, the riscos backend sets it.
+- Titles are converted UTF-8 → Latin-1 without iconv (characters beyond
+  Latin-1 become '?').
+- The QEMU test build puts the fake RISC OS (tests/fake/mesa-egl) into
+  libgdk, so GTK's own tools and the tests link on arm-linux.
