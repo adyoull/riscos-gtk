@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased (GTKHello 0.4, 2026-10-04)
+- Colours: on the Pi (TBGR desktop) red and blue were swapped:
+  OS_SpriteOp doesn't convert a TRGB sprite when plotting on a TBGR screen.
+  Backing sprites are now made in the screen's colour order; on TBGR
+  screens cairo draws into its own buffer, copied into the sprite with R/B
+  swapped before each plot. The log says which (with the sprite mode word).
+- Toggle size / corner resize: GDK now takes sizes the Wimp started from
+  the configure event (window size, new backing surface, relayout);
+  Broadway never needed this.
+- Redraws paint the part of a window the sprite doesn't cover in Wimp
+  colour 1, so nothing stale shows or smears.
+- Fake Wimp: `fake_sprite_plot_converts` (0 = the Pi's behaviour),
+  Wimp_SetColour, OS_Plot rectangle fills. hellotest: colour order on a
+  TBGR screen, toggle size relayout and painting (14/14; the old backend
+  fails all three). dev-gdk.sh refreshes the fake on linuxarm.
+
 ## Unreleased (GTKHello 0.3, 2026-10-04)
 - Fix: GTKHello 0.1/0.2 quit at once on the Pi with an empty log. hello.c
   freopen()ed the log for stdout and again for stderr; RISC OS allows one

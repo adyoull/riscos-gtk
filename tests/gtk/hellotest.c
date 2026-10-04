@@ -53,6 +53,27 @@ __wrap_freopen (const char *path, const char *mode, FILE *f)
 static int n_tests, n_failed;
 static char title_seen[256];
 static int stage, plots_at_click;
+static int big_width = -1, big_height = -1, red_x = -1, blue_x = -1;
+static unsigned int big_corner;
+
+/* Leftmost strongly red and strongly blue pixels in the label row area
+   (fake screen pixels are TBGR, 0x00BBGGRR). */
+static void
+find_colours (int x0, int y0, int x1, int y1)
+{
+  int x, y;
+  red_x = blue_x = -1;
+  for (y = y0; y < y1; y++)
+    for (x = x0; x < x1; x++)
+      {
+        unsigned int p = fake_screen_pixel (x, y);
+        int r = p & 0xFF, g = (p >> 8) & 0xFF, b = (p >> 16) & 0xFF;
+        if (r > 150 && g < 90 && b < 90 && (red_x < 0 || x < red_x))
+          red_x = x;
+        if (b > 150 && r < 90 && g < 90 && (blue_x < 0 || x < blue_x))
+          blue_x = x;
+      }
+}
 
 static void
 check (int ok, const char *name)
@@ -89,6 +110,14 @@ hook (int reason)
 
   if (fake_wimp_title)
     g_strlcpy (title_seen, fake_wimp_title, sizeof title_seen);
+  if (reason == 3 && stage == 1 && big_width < 0 && hello_window)
+    {
+      /* About to close: after the toggle-size request */
+      big_width = gtk_widget_get_allocated_width (hello_window);
+      big_height = gtk_widget_get_allocated_height (hello_window);
+      big_corner = fake_screen_pixel (200 + 880, 150 + 480) & 0xFFFFFF;
+      find_colours (200, 150, 1100, 650);
+    }
   if (stage == 0 && hello_window && gtk_widget_get_mapped (hello_window) &&
       gtk_widget_get_allocated_width (hello_button) > 1 && fake_plots > 0)
     {
@@ -113,6 +142,11 @@ hook (int reason)
       add (6, x, y, 4);                 /* click the check box */
       add (FAKE_RELEASE, 0, 0, 0);
       for (x = 0; x < 20; x++)
+        add (FAKE_NULL, 0, 0, 0);
+      /* Toggle size / corner drag: the Wimp asks for 900x500 pixels
+         (OS units at EIG 1); GTK must lay out and paint the new size. */
+      add (2, (900 * 2) | ((500 * 2) << 16), 0, 0);
+      for (x = 0; x < 30; x++)
         add (FAKE_NULL, 0, 0, 0);
       /* then the fake sends Close_Window_Request */
     }
@@ -148,7 +182,8 @@ main (int argc, char **argv)
   int saved_out = dup (1), saved_err = dup (2);
   FILE *lf;
 
-  fake_set_screen (1280, 720, 0, 5);     /* TBGR desktop: the TRGB sprites get swapped */
+  fake_set_screen (1280, 720, 0, 5);     /* TBGR desktop, as on the Pi */
+  fake_sprite_plot_converts = 0;         /* SpriteOp copies pixels as they are, as on the Pi */
   fake_wimp_nulls = 10;
   fake_wimp_hook = hook;
   /* As !Run does: hello APPDIR LOG. The log takes stdout and stderr, so
@@ -177,6 +212,14 @@ main (int argc, char **argv)
   printf ("# entry text \"%s\"\n", hello_entry_text);
   check (hello_option == 1, "the check box toggled by a click");
   check (fake_wimp_keys_passed == 0, "no keys handed back to the Wimp");
+  check (red_x >= 0 && blue_x >= 0 && red_x < blue_x,
+         "\"Red\" is red and \"Blue\" is blue on a TBGR screen");
+  printf ("# leftmost red pixel x=%d, blue x=%d\n", red_x, blue_x);
+  check (big_width >= 890 && big_height >= 490,
+         "toggle size: GTK lays the window out at the Wimp's new size");
+  printf ("# after the open request: %dx%d\n", big_width, big_height);
+  check (big_corner == 0xDDDDDD, "toggle size: the new area is painted (window grey)");
+  printf ("# pixel near the new bottom-right corner: %06X\n", big_corner);
   {
     gchar *font = NULL, *theme = NULL;
     gint dpi = 0;
@@ -210,7 +253,7 @@ main (int argc, char **argv)
   check (dark > 200, "dark text pixels drawn");
   printf ("# %d+ colours, %d dark pixels in the window\n", colours, dark);
   if (argc > 2)
-    save_ppm (argv[2], 180, 120, 380, 240);
+    save_ppm (argv[2], 180, 120, 960, 560);
   printf ("1..%d\n# hellotest: %d checks, %d failed\n", n_tests, n_tests, n_failed);
   return n_failed;
 }

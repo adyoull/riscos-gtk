@@ -56,6 +56,7 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
      FAKE_NULL = a null event
    then Close_Window_Request.
    fake_wimp_hook, if set, is called before each Poll returns (a frame). */
+extern int fake_sprite_plot_converts, fake_fills;
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 extern int fake_wimp_polls, fake_wimp_keys_passed, fake_wimp_tasks;

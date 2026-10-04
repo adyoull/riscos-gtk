@@ -338,6 +338,22 @@ _gdk_riscos_events_got_input (RiscosInputMsg *message)
 	window->x = message->configure_notify.x;
 	window->y = message->configure_notify.y;
 
+	/* riscos-gtk: on RISC OS the Wimp, not GTK, resizes windows (toggle
+	   size, dragging the corner). Broadway only ever echoes sizes the
+	   client asked for, so it never did this; like X11, take the new size
+	   and make a backing surface for it, then GTK lays the window out
+	   again from the GDK_CONFIGURE event below. */
+	if (window->resize_count == 0 &&
+	    message->configure_notify.width > 0 && message->configure_notify.height > 0 &&
+	    (message->configure_notify.width != window->width ||
+	     message->configure_notify.height != window->height))
+	  {
+	    window->width = message->configure_notify.width;
+	    window->height = message->configure_notify.height;
+	    _gdk_window_update_size (window);
+	    _gdk_riscos_window_resize_surface (window);
+	  }
+
 	event = gdk_event_new (GDK_CONFIGURE);
 	event->configure.window = g_object_ref (window);
 	event->configure.x = message->configure_notify.x;

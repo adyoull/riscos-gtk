@@ -39,6 +39,15 @@ static int wimp_next_handle = 0x7000, wimp_last_window, wimp_stage, wimp_step;
 static int wimp_created[64], wimp_num_created;     /* windows in creation order */
 
 static _kernel_oserror err = { 1, "fake error" };
+/* 1 = OS_SpriteOp converts a 32bpp sprite to the screen's colour order
+   (what riscos-mesa assumed); 0 = it copies the pixels as they are, as a
+   Pi 4 with RISC OS 5 was seen to do (riscos-gtk, 2026-10-04). */
+int fake_sprite_plot_converts = 1;
+static int wimp_colour, plot_x, plot_y;
+static const unsigned int wimp_palette_tbgr[16] = {
+    0xFFFFFF, 0xDDDDDD, 0xBBBBBB, 0x999999, 0x777777, 0x555555, 0x333333, 0x000000,
+    0x994400, 0x00EEEE, 0x00CC00, 0x0000DD, 0xBBEEEE, 0x008855, 0x00BBFF, 0xFFBB00 };
+int fake_fills;
 static int clip[4];                  /* graphics window, OS units x0,y0,x1,y1 (excl.) */
 
 /* A 32bpp mode selector like OS_ScreenMode 1 would return. */
@@ -165,7 +174,7 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
         const unsigned int *pix = (const unsigned int *) ((const char *) spr + spr[8]);
         if ((r->r[0] & 0xF00) != 0x200) return error("plot: pointer form only");
         mode_info(spr[10], &log2bpp, &flags);
-        swap = ((flags ^ fake_screen.flags) & 0x4000) != 0;
+        swap = fake_sprite_plot_converts && ((flags ^ fake_screen.flags) & 0x4000) != 0;
         /* the sprite's own pixel size: a mode word's dpi, else the screen's */
         sxe = fake_screen.xeig; sye = fake_screen.yeig;
         if ((spr[10] & 1) && ((unsigned) spr[10] >> 27) != 0) {
@@ -539,6 +548,32 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
             }
         }
         break;
+    case 0x400E6:   /* Wimp_SetColour */
+        wimp_colour = r.r[0] & 15;
+        break;
+    case 0x45: {    /* OS_Plot: 4 move, 101 rectangle fill (absolute, inclusive) */
+        if (r.r[0] == 4) { plot_x = r.r[1]; plot_y = r.r[2]; break; }
+        if (r.r[0] == 101) {
+            int x0 = plot_x < r.r[1] ? plot_x : r.r[1], x1 = plot_x < r.r[1] ? r.r[1] : plot_x;
+            int y0 = plot_y < r.r[2] ? plot_y : r.r[2], y1 = plot_y < r.r[2] ? r.r[2] : plot_y;
+            unsigned int c = wimp_palette_tbgr[wimp_colour];
+            int px, py;
+            if (fake_screen.flags & 0x4000)
+                c = (c & 0xFF00) | ((c >> 16) & 0xFF) | ((c & 0xFF) << 16);
+            fake_fills++;
+            for (py = y0 >> fake_screen.yeig; py <= y1 >> fake_screen.yeig; py++)
+                for (px = x0 >> fake_screen.xeig; px <= x1 >> fake_screen.xeig; px++) {
+                    int ox = px << fake_screen.xeig, oy = py << fake_screen.yeig;
+                    if (px < 0 || px >= fake_screen.w || py < 0 || py >= fake_screen.h) continue;
+                    if (ox < clip[0] || ox >= clip[2] || oy < clip[1] || oy >= clip[3]) continue;
+                    fake_screen.mem[(size_t) (fake_screen.h - 1 - py) * (fake_screen.line_length / 4) + px] = c;
+                }
+            plot_x = r.r[1]; plot_y = r.r[2];
+            break;
+        }
+        e = error("OS_Plot code not faked");
+        break;
+    }
     case 0x400CA:   /* Wimp_GetRectangle: only ever one rectangle */
         r.r[0] = 0;
         full_clip();

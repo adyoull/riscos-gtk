@@ -11,6 +11,11 @@ for f in "$REPO_DIR"/gdk/riscos/*; do
   cmp -s "$f" "$G/gdk/riscos/$(basename "$f")" || cp "$f" "$G/gdk/riscos/"
 done
 if [ "$TARGET" = linuxarm ]; then
+  F=$REPO_DIR/tests/fake/mesa-egl
+  for f in "$F"/fake_riscos.c "$F"/fake_riscos.h; do
+    cmp -s "$f" "$G/gdk/riscos/$(basename "$f")" || cp "$f" "$G/gdk/riscos/"
+  done
+  cp "$F"/fake/kernel.h "$F"/fake/swis.h "$F"/fake_riscos.h "$STAGE/include/"
   grep -q fake_riscos.c "$G/gdk/riscos/meson.build" ||
     sed -i "s/  'gdkriscos-server.c',/  'gdkriscos-server.c',\n  'fake_riscos.c',/" "$G/gdk/riscos/meson.build"
 fi

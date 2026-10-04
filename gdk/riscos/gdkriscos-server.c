@@ -99,6 +99,7 @@ struct _GdkRiscosServer {
   guint32 next_serial;
   int task;                   /* Wimp task handle */
   int xeig, yeig, log2bpp, mode_flags;
+  gboolean sprite_logged;
   int screen_w, screen_h;     /* pixels */
   guint32 next_id;
   GHashTable *windows;        /* id -> RiscosWindow */
@@ -547,30 +548,65 @@ handle_click (GdkRiscosServer *server, int *block)
       }
 }
 
-/* Plot a window's sprite for each rectangle of a redraw or update loop. */
+/* Fill a rectangle (screen OS units, inclusive) in Wimp colour 1, the
+   theme's window grey; the Wimp has clipped the graphics window to the
+   rectangle being redrawn. */
+static void
+fill_grey (int x0, int y0, int x1, int y1)
+{
+  _kernel_swi_regs r;
+
+  if (x1 < x0 || y1 < y0)
+    return;
+  r.r[0] = 1;
+  swi (Wimp_SetColour, &r);
+  r.r[0] = 4;                        /* move */
+  r.r[1] = x0;
+  r.r[2] = y0;
+  swi (OS_Plot, &r);
+  r.r[0] = 96 + 5;                   /* rectangle fill to */
+  r.r[1] = x1;
+  r.r[2] = y1;
+  swi (OS_Plot, &r);
+}
+
+/* Plot a window's sprite for each rectangle of a redraw or update loop,
+   and paint whatever the sprite doesn't cover (after the Wimp has made
+   the window bigger and before GTK has drawn the new size): the work area
+   has no background colour, so anything not painted would show the old
+   screen. */
 static void
 plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
 {
   _kernel_swi_regs r;
   void *area = w->surface ? cairo_surface_get_user_data (w->surface, &_gdk_riscos_sprite_key) : NULL;
+  int sw = w->surface ? cairo_image_surface_get_width (w->surface) << server->xeig : 0;
+  int sh = w->surface ? cairo_image_surface_get_height (w->surface) << server->yeig : 0;
+  int pxw = 1 << server->xeig, pxh = 1 << server->yeig;
 
   while (more)
     {
+      int ox = block[1] - block[5];         /* work area origin on screen */
+      int oy = block[4] - block[6];
+
       if (area)
         {
           int *a = area;
           char *sprite = (char *) area + a[2];
-          int ox = block[1] - block[5];         /* work area origin on screen */
-          int oy = block[4] - block[6];
 
           r.r[0] = 512 + 34;                   /* PutSpriteUserCoords */
           r.r[1] = (int) area;
           r.r[2] = (int) sprite;
           r.r[3] = ox;
-          r.r[4] = oy - (cairo_image_surface_get_height (w->surface) << server->yeig);
+          r.r[4] = oy - sh;
           r.r[5] = 0;
           swi (OS_SpriteOp, &r);
         }
+      else
+        sw = sh = 0;
+      /* block[7..10]: this rectangle, screen OS units, x1/y1 exclusive */
+      fill_grey (MAX (block[7], ox + sw), block[8], block[9] - pxw, block[10] - pxh);
+      fill_grey (block[7], block[8], MIN (block[9], ox + sw) - pxw, MIN (block[10], oy - sh) - pxh);
       r.r[1] = (int) block;
       if (swi (Wimp_GetRectangle, &r) != NULL)
         break;
@@ -779,6 +815,7 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
 /* ---- the interface for the Broadway-derived GDK code -------------------- */
 
 cairo_user_data_key_t _gdk_riscos_sprite_key;
+static cairo_user_data_key_t _gdk_riscos_sprite_data_key;
 
 GdkRiscosServer *
 _gdk_riscos_server_new (const char *display, GError **error)
@@ -1040,6 +1077,48 @@ _gdk_riscos_server_window_translate (GdkRiscosServer *server, gint id,
   return FALSE;                    /* GTK repaints instead */
 }
 
+/* The backing sprite is made in the screen's colour order, because
+   OS_SpriteOp doesn't convert TRGB to TBGR when it plots a 32bpp sprite on
+   a 32bpp screen (found on a Pi 4, RISC OS 5, TBGR desktop: red and blue
+   came out swapped). On a TRGB screen cairo (0x00RRGGBB) draws straight
+   into the sprite. On a TBGR screen (0x00BBGGRR, the usual RISC OS
+   desktop) cairo draws into its own buffer and sync_sprite copies it into
+   the sprite with red and blue swapped before each plot. */
+typedef struct
+{
+  int *area;          /* sprite area holding the "gtk" sprite */
+  guint32 *pixels;    /* the sprite's pixels */
+  gboolean swap;      /* TBGR sprite: copy from cairo's buffer, swapping R/B */
+} RiscosSprite;
+
+static void
+riscos_sprite_free (void *data)
+{
+  RiscosSprite *s = data;
+  g_free (s->area);
+  g_free (s);
+}
+
+static void
+sync_sprite (cairo_surface_t *surface)
+{
+  RiscosSprite *s = cairo_surface_get_user_data (surface, &_gdk_riscos_sprite_data_key);
+  const guint32 *src;
+  guint32 *dst;
+  int n;
+
+  if (s == NULL || !s->swap)
+    return;
+  src = (const guint32 *) cairo_image_surface_get_data (surface);
+  dst = s->pixels;
+  n = cairo_image_surface_get_width (surface) * cairo_image_surface_get_height (surface);
+  while (n--)
+    {
+      guint32 p = *src++;
+      *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
+    }
+}
+
 static int
 trgb_selector[] = {
   1, 0, 0, 5, -1,                  /* flags, x, y, log2bpp, frame rate */
@@ -1058,6 +1137,8 @@ _gdk_riscos_server_create_surface (int width, int height)
   char *sprite;
   _kernel_swi_regs r;
   cairo_surface_t *surface;
+  RiscosSprite *rs;
+  gboolean swap = server && !(server->mode_flags & MODEFLAG_TRGB);
 
   width = MAX (width, 1);
   height = MAX (height, 1);
@@ -1073,6 +1154,7 @@ _gdk_riscos_server_create_surface (int width, int height)
   r.r[1] = (int) area;
   swi (OS_SpriteOp, &r);
 
+  trgb_selector[6] = swap ? 0 : MODEFLAG_TRGB;
   trgb_selector[1] = width;
   trgb_selector[2] = height;
   trgb_selector[10] = server ? server->xeig : 1;
@@ -1086,14 +1168,34 @@ _gdk_riscos_server_create_surface (int width, int height)
   r.r[6] = (int) trgb_selector;
   if (swi (OS_SpriteOp, &r) != NULL)
     {
-      g_warning ("riscos-gtk: can't make a TRGB sprite (RISC OS 5.21 or later needed)");
+      g_warning ("riscos-gtk: can't make a 32bpp sprite (RISC OS 5.21 or later needed)");
       g_free (area);
       return cairo_image_surface_create (CAIRO_FORMAT_RGB24, width, height);
     }
   sprite = (char *) area + area[2];
-  surface = cairo_image_surface_create_for_data ((unsigned char *) sprite + ((int *) sprite)[8],
-                                                 CAIRO_FORMAT_RGB24, width, height, width * 4);
-  cairo_surface_set_user_data (surface, &_gdk_riscos_sprite_key, area, g_free);
+  rs = g_new0 (RiscosSprite, 1);
+  rs->area = area;
+  rs->pixels = (guint32 *) (sprite + ((int *) sprite)[8]);
+  rs->swap = swap;
+  if (swap)
+    surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24, width, height);
+  else
+    surface = cairo_image_surface_create_for_data ((unsigned char *) rs->pixels,
+                                                   CAIRO_FORMAT_RGB24, width, height, width * 4);
+  if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
+    {
+      riscos_sprite_free (rs);
+      return surface;
+    }
+  cairo_surface_set_user_data (surface, &_gdk_riscos_sprite_data_key, rs, riscos_sprite_free);
+  cairo_surface_set_user_data (surface, &_gdk_riscos_sprite_key, area, NULL);
+  if (server && !server->sprite_logged)
+    {
+      server->sprite_logged = TRUE;
+      g_printerr ("riscos-gtk: backing sprites %s, mode word &%08X\n",
+                  swap ? "TBGR (copied from cairo, R/B swapped)" : "TRGB (cairo draws in place)",
+                  ((int *) sprite)[10]);
+    }
   return surface;
 }
 
@@ -1120,6 +1222,7 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
   cairo_surface_flush (surface);
   width = cairo_image_surface_get_width (surface);
   height = cairo_image_surface_get_height (surface);
+  sync_sprite (surface);
   block[0] = w->handle;
   block[1] = 0;
   block[2] = -(height << server->yeig);

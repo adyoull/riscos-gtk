@@ -27,4 +27,6 @@
 #define Wimp_UpdateWindow   0x400C9
 #define Wimp_GetRectangle   0x400CA
 #define Wimp_GetWindowState 0x400CB
+#define Wimp_SetColour      0x400E6
+#define OS_Plot             0x45
 #endif

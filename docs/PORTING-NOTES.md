@@ -126,3 +126,17 @@ RISC OS refuses to open a file for writing while it is already open for
 writing. Never freopen() one log file for both stdout and stderr: open it
 once and dup2() the descriptor (Warzone 2100 and Freeciv hit the same
 bug). hellotest emulates the rule with `-Wl,--wrap=freopen`.
+
+## Sprites are plotted without colour-order conversion (2026-10-04)
+On a Pi 4 with RISC OS 5 and a TBGR (normal) desktop, a 32bpp TRGB sprite
+plotted with OS_SpriteOp 34 shows red and blue swapped: no conversion.
+Make sprites in the screen's colour order (ModeFlags from
+OS_ReadVduVariables), swapping channels yourself if the renderer can't
+produce that order. riscos-mesa's fake converted, so tests passed.
+
+## The Wimp resizes windows, not the client (2026-10-04)
+Broadway's client side only expects echoes of its own move/resize, so its
+configure handler ignored the size. On RISC OS the user resizes with the
+window furniture: the configure handler sets the size, updates GDK and
+makes a new backing surface (as X11 does). Paint all of every redraw
+rectangle: a window with no work-area colour shows stale screen elsewhere.
