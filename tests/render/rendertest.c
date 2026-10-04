@@ -6,11 +6,17 @@
  * Built for RISC OS (!RenderTest) and for arm-linux under
  * qemu-arm-aligntrap, like glibtest. Prints TAP; exit status = failures.
  *
- *   rendertest DIR      writes DIR/rendertest.png (the text and shapes it
- *                       drew, to look at) and a JPEG it reads back
+ *   rendertest DIR [FONTS.CONF]
+ *       writes DIR/rendertest.png (the text and shapes it drew, to look at)
+ *       and a JPEG it reads back. FONTS.CONF (a fonts.conf with DejaVu Sans
+ *       in it) is put in FONTCONFIG_FILE for this program only.
  *
- * Needs FONTCONFIG_FILE pointing at a fonts.conf with DejaVu Sans in it
- * (the RISC OS app and build-linuxarm.sh both set one up).
+ * On RISC OS, pass the paths as UnixLib paths with the variable unexpanded,
+ * e.g. /<GTKTest$Dir>/fonts/fonts.conf. GTKTest 0.3 set FONTCONFIG_FILE with
+ * *Set, which GSTrans'd it into "/SDFS::...$.Dir.!GTKTest/fonts/fonts.conf",
+ * a path UnixLib can't translate: fontconfig found no config and no fonts.
+ * (setenv() of a name without '$' changes only this program's environment,
+ * as riscos-warzone2100's riscos_fontconfig.c does.)
  *
  * MIT licence (see LICENSE).
  */
@@ -74,6 +80,9 @@ static void
 test_fontconfig (void)
 {
   check (FcInit (), "fontconfig: FcInit with FONTCONFIG_FILE");
+  FcFontSet *fs = FcConfigGetFonts (NULL, FcSetSystem);
+  check (fs && fs->nfont > 0, "fontconfig: fonts found (fonts.conf read)");
+  printf ("# %d font(s) known to fontconfig\n", fs ? fs->nfont : 0);
   FcPattern *p = FcNameParse ((const FcChar8 *) "sans-serif");
   FcConfigSubstitute (NULL, p, FcMatchPattern);
   FcDefaultSubstitute (p);
@@ -246,6 +255,8 @@ int
 main (int argc, char **argv)
 {
   const char *dir = argc > 1 ? argv[1] : g_get_tmp_dir ();
+  if (argc > 2)
+    g_setenv ("FONTCONFIG_FILE", argv[2], TRUE);
   printf ("# rendertest: cairo %s, pango %s, gdk-pixbuf %s, FONTCONFIG_FILE=%s\n",
           cairo_version_string (), pango_version_string (), GDK_PIXBUF_VERSION,
           g_getenv ("FONTCONFIG_FILE") ? g_getenv ("FONTCONFIG_FILE") : "(unset)");

@@ -43,7 +43,7 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
-FONTCONFIG_FILE=$FONTS/fonts.conf run rendertest "$scratch"
+run rendertest "$scratch" "$FONTS/fonts.conf"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"
 exit $failed
