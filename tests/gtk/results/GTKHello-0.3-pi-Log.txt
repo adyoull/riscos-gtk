@@ -1,0 +1,11 @@
+riscos-gtk: task "GTKHello", screen 1920x1200, 32 bpp TBGR, eig 1,1
+hello: window shown
+hello: clicked 1
+hello: clicked 2
+hello: clicked 3
+hello: clicked 4
+hello: clicked 5
+hello: clicked 6
+hello: clicked 7
+hello: window closed, entry text "", option off
+hello: 7 click(s)
