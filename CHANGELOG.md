@@ -1,5 +1,13 @@
 # Changelog
 
+## M1 done (2026-10-04)
+- GTKTest 0.5 on the owner's Pi (UnixLib 5.0.3.2-rc2): glibtest 29/29,
+  rendertest 22/22 (DejaVu Sans through fontconfig, harfbuzz kerning, cairo,
+  pixman, gdk-pixbuf). First text layout and draw, font loading included:
+  127 ms. Results and the picture in tests/glib/results/.
+- fonts.conf escapes < > & (RISC OS paths); rendertest takes the fonts.conf
+  as an argument (no *Set: it GSTrans'd the path).
+
 ## Unreleased (UnixLib 5.0.3.2-rc2, 2026-10-03)
 - Built against riscos-unixlib 5.0.3.2-rc2 (`make toolchain-unixlib`:
   crossdev 1.2's toolchain plus the release's libunixlib.a and limits.h).

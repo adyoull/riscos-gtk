@@ -6,14 +6,14 @@ stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 
 **Status: early.** The theme is done (tested on Linux GTK 3.24.41). All of
 GTK 3's dependencies cross-build (GLib 2.80, cairo 1.18, pango 1.52,
-harfbuzz 8.3, gdk-pixbuf 2.42, ATK, libepoxy and the font stack). GLib's
-test passes on a Pi (29/29); GLib and the drawing stack pass under QEMU.
-No GDK backend yet.
+harfbuzz 8.3, gdk-pixbuf 2.42, ATK, libepoxy and the font stack), and both
+M1 tests pass on a Pi (GTKTest 0.5: GLib 29/29, fonts and drawing 22/22)
+and under QEMU. No GDK backend yet.
 
 | Milestone | What | State |
 |---|---|---|
 | M0 | Repo, toolchain, theme | done |
-| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | all built; GLib tested on the Pi, drawing stack on QEMU |
+| M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | done: all built, tested on the Pi and QEMU |
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | — |
 | M3 | Keyboard, popups as Wimp menus, pointer shapes, clipboard | — |
 | M4 | Native file chooser, drag and drop, packaging; AbiWord | — |

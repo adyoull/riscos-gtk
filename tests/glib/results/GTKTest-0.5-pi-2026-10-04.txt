@@ -1,0 +1,70 @@
+# glibtest: GLib 2.80.0, scratch dir /tmp
+ok 1 - main loop: 3 timeout ticks
+ok 2 - main loop: idle ran 5 times
+ok 3 - main loop: idle dispatched before the first timeout
+ok 4 - main loop: timeouts take ~150 ms
+# 3 x 50 ms timeouts took 177 ms
+ok 5 - main loop: nested loop returns
+ok 6 - threads: GCond hand-off
+ok 7 - threads: join returns the result
+ok 8 - thread pool: created with 3 threads
+ok 9 - thread pool: all 8 jobs reported back
+ok 10 - thread pool: results correct
+ok 11 - thread pool: results delivered on the main thread
+ok 12 - gio: g_file_set_contents
+ok 13 - gio: g_file_load_contents (sync)
+ok 14 - gio: g_file_load_contents_async (worker thread)
+ok 15 - gio: query_info size and type
+ok 16 - gio: enumerate_children finds the file
+ok 17 - gio: delete
+ok 18 - gobject: property set and get
+ok 19 - gobject: signal through the generic (libffi) marshaller
+ok 20 - gvariant: round trip from an unaligned buffer
+ok 21 - gregex: match and capture
+ok 22 - g_convert: ISO-8859-1 to UTF-8 (iconv)
+ok 23 - utf8: validate, strlen, strup
+ok 24 - gkeyfile: parse settings.ini
+ok 25 - gdatetime: UTC ISO 8601
+ok 26 - gdatetime: now (local)
+ok 27 - g_strdup_printf: doubles and ints
+ok 28 - g_ascii_strtod / dtostr
+ok 29 - paths: home, tmp, config dirs
+# home=/SDFS::ePic.$/Apps/Support/!UnixHome/home tmp=/tmp config=/SDFS::ePic.$/Apps/Support/!UnixHome/home/.config
+# locale charset=ISO-8859-1 filename charset=UTF-8
+1..29
+# glibtest: 29 checks, 0 failed
+# rendertest: cairo 1.18.0, pango 1.52.1, gdk-pixbuf 2.42.10, FONTCONFIG_FILE=/<GTKTest$Dir>/fonts/fonts.conf
+ok 1 - fontconfig: FcInit with FONTCONFIG_FILE
+ok 2 - fontconfig: fonts found (fonts.conf read)
+# 1 font(s) known to fontconfig
+ok 3 - fontconfig: sans-serif is DejaVu Sans
+# font file: /<GTKTest$Dir>/fonts/DejaVuSans.ttf
+ok 4 - cairo: ARGB32 image surface
+# text ink 328x25 at 1,0; logical 330x32
+ok 5 - pango: text extents plausible for 20 pt DejaVu Sans
+ok 6 - cairo+FreeType: glyphs drawn
+# 1657 dark pixels in the text box
+ok 7 - cairo: nothing drawn below the text
+ok 8 - pango: every character has a glyph
+ok 9 - harfbuzz: AV is kerned
+# A=18432 V=18432 AV=35840 (pango units)
+ok 10 - fribidi: Hebrew text is RTL
+ok 11 - fribidi: Latin text is LTR
+# first text layout and draw took 127 ms (includes font loading)
+ok 12 - cairo: solid fill exact (Wimp grey 4)
+ok 13 - cairo: circle centre blue
+ok 14 - cairo/pixman: antialiased edge
+ok 15 - pixman: scaled pattern at the source pixel centres
+ok 16 - pixman: bilinear blend in the middle
+ok 17 - cairo: write PNG
+ok 18 - gdk-pixbuf: PNG loads at 400x110
+ok 19 - gdk-pixbuf: PNG pixels match what cairo drew
+ok 20 - gdk-pixbuf: save JPEG
+ok 21 - gdk-pixbuf: JPEG loads back
+# picture: /<GTKTest$Dir>/rendertest.png
+ok 22 - gdk-pixbuf: png jpeg gif bmp ico xpm loaders built in
+# 12 formats registered
+# loaders: ani png bmp gif ico jpeg pnm xpm xbm tga icns qtif
+1..22
+# rendertest: 22 checks, 0 failed
+*
