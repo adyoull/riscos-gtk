@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (GTKHello 0.3, 2026-10-04)
+- Fix: GTKHello 0.1/0.2 quit at once on the Pi with an empty log. hello.c
+  freopen()ed the log for stdout and again for stderr; RISC OS allows one
+  write-open per file, so the second failed and hello_main returned. Now
+  the log is opened once (stderr) and dup2()ed onto stdout, and a failed
+  log no longer stops the program.
+- hellotest runs hello with a log as !Run does, linked with
+  `-Wl,--wrap=freopen` emulating RISC OS's one-write-open rule; it checks
+  the log has both streams (11/11; the old hello.c fails it).
+
 ## Unreleased (theme revision 3, 2026-10-04)
 - Theme toward the RISC OS 5 default desktop (owner's choice: fonts and
   sizes; buttons and fields; scroll bars, menus, lists): Style Guide heights

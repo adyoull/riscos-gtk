@@ -10,6 +10,9 @@ click in the entry and type, resize the window by its corner, move it,
 close it. Then send back <Wimp$ScrapDir>.GTKHello.Log, a screenshot, and
 a note of anything that looked or behaved wrong.
 
+0.3: fixes 0.1/0.2 quitting at once with an empty log (the log was
+opened twice; RISC OS allows one write-open per file).
+
 0.2: theme revision 3 (RISC OS 5 sizes and scroll bars); the backend
 now gives every GTK program the RISC OS defaults itself (RISCOS theme,
 DejaVu Sans 12 for Homerton 12pt, 90 dpi, no animations).

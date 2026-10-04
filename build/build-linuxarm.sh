@@ -49,7 +49,7 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
 
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DHELLO_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/hellotest.c" "$REPO_DIR/tests/gtk/hello.c" \
-  -o "$REPO_DIR/out/hellotest-linuxarm" \
+  -o "$REPO_DIR/out/hellotest-linuxarm" -Wl,--wrap=freopen \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lresolv -ldl -lm -pthread
 HA=$REPO_DIR/out/hello-linuxarm-app

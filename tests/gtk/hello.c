@@ -15,6 +15,7 @@
  */
 #include "hello.h"
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 
 GtkWidget *hello_window, *hello_button, *hello_label, *hello_entry, *hello_check;
@@ -51,10 +52,19 @@ hello_main (int argc, char **argv)
 
   if (argc > 2)
     {
-      /* A log file (on RISC OS, a Wimp task has nowhere to print) */
-      if (!freopen (argv[2], "w", stdout) || !freopen (argv[2], "a", stderr))
-        return 1;
-      setvbuf (stderr, NULL, _IONBF, 0);
+      /* A log file (on RISC OS, a Wimp task has nowhere to print).
+         RISC OS allows only one write-open of a file: opening it a second
+         time for stderr fails, which made GTKHello 0.1/0.2 quit at once
+         with an empty log (the bug Warzone 2100 and Freeciv had). So open
+         it once, for stderr, and point stdout's descriptor at it. */
+      if (freopen (argv[2], "w", stderr))
+        {
+          setvbuf (stderr, NULL, _IONBF, 0);
+          fflush (stdout);
+          dup2 (fileno (stderr), fileno (stdout));
+          setvbuf (stdout, NULL, _IOLBF, 0);
+        }
+      /* else carry on without a log rather than quit silently */
     }
   if (argc > 1)
     {

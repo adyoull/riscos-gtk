@@ -14,6 +14,41 @@
 #include "fake_riscos.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <errno.h>
+
+/* RISC OS allows one write-open per file; Linux doesn't care. hellotest is
+   linked with -Wl,--wrap=freopen so that a second write-mode freopen of a
+   file that is still open for writing fails here as it does on RISC OS
+   (GTKHello 0.1/0.2 opened its log twice and quit with an empty log). */
+FILE *__real_freopen (const char *, const char *, FILE *);
+static struct { char path[512]; FILE *f; } wopen[8];
+FILE *
+__wrap_freopen (const char *path, const char *mode, FILE *f)
+{
+  int i, w = path && (strchr (mode, 'w') || strchr (mode, 'a') || strchr (mode, '+'));
+  FILE *r;
+  for (i = 0; i < 8; i++)
+    if (wopen[i].f == f)
+      wopen[i].f = NULL;                /* freopen closes f first */
+  if (w)
+    for (i = 0; i < 8; i++)
+      if (wopen[i].f && strcmp (wopen[i].path, path) == 0)
+        {
+          errno = EACCES;               /* RISC OS: "File open" */
+          return NULL;
+        }
+  r = __real_freopen (path, mode, f);
+  if (r && w)
+    for (i = 0; i < 8; i++)
+      if (!wopen[i].f)
+        {
+          g_strlcpy (wopen[i].path, path, sizeof wopen[i].path);
+          wopen[i].f = r;
+          break;
+        }
+  return r;
+}
 
 static int n_tests, n_failed;
 static char title_seen[256];
@@ -108,12 +143,30 @@ main (int argc, char **argv)
   int x, y, colours = 0, dark = 0;
   unsigned int seen[16];
   int nseen = 0;
+  char logpath[600], logbuf[4096] = "";
+  char *hargv[4];
+  int saved_out = dup (1), saved_err = dup (2);
+  FILE *lf;
 
   fake_set_screen (1280, 720, 0, 5);     /* TBGR desktop: the TRGB sprites get swapped */
   fake_wimp_nulls = 10;
   fake_wimp_hook = hook;
-  hello_main (argc > 1 ? 2 : 1, argv);
+  /* As !Run does: hello APPDIR LOG. The log takes stdout and stderr, so
+     hellotest's own output is put back afterwards. */
+  g_snprintf (logpath, sizeof logpath, "%s/GTKHello.Log", argc > 1 ? argv[1] : ".");
+  hargv[0] = argv[0]; hargv[1] = argc > 1 ? argv[1] : (char *) "."; hargv[2] = logpath; hargv[3] = NULL;
+  hello_main (3, hargv);
+  fflush (stdout); fflush (stderr);
+  dup2 (saved_out, 1); dup2 (saved_err, 2);
+  if ((lf = fopen (logpath, "r")))
+    {
+      size_t n = fread (logbuf, 1, sizeof logbuf - 1, lf);
+      logbuf[n] = 0;
+      fclose (lf);
+    }
 
+  check (strstr (logbuf, "riscos-gtk: task") && strstr (logbuf, "hello: window closed"),
+         "the log has stderr and stdout (one write-open, as RISC OS allows)");
   check (stage == 1, "window shown and drawn (fake_plots > 0)");
   check (strcmp (title_seen, "GTK on RISC OS ? Gr\xfc\xdf" "e") == 0,
          "title in the Wimp's alphabet (Latin-1; the em dash has none)");

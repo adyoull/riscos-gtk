@@ -120,3 +120,9 @@ GKeyFile, GDateTime, printf.
   Latin-1 become '?').
 - The QEMU test build puts the fake RISC OS (tests/fake/mesa-egl) into
   libgdk, so GTK's own tools and the tests link on arm-linux.
+
+## One write-open per file (2026-10-04)
+RISC OS refuses to open a file for writing while it is already open for
+writing. Never freopen() one log file for both stdout and stderr: open it
+once and dup2() the descriptor (Warzone 2100 and Freeciv hit the same
+bug). hellotest emulates the rule with `-Wl,--wrap=freopen`.
