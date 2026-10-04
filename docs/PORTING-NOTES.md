@@ -154,3 +154,17 @@ application sets it.
 A relative path left fontconfig with no configuration; Pango then gives
 zero metrics and GTK sizes labels tens of thousands of pixels tall. Always
 pass the app folder as an absolute path (as !Run does).
+
+## Wimp menus and GTK (2026-10-04)
+- Message_MenusDeleted comes only when a menu closes without a choice.
+- Adjust: the Wimp closes the tree on a choice; call Wimp_CreateMenu with
+  the same block before the next Wimp_Poll to reopen it as it was. GTK
+  code mustn't run inside the GLib poll function, so the choice is handled
+  in an idle callback and the backend skips Wimp_Poll (menu_hold) until
+  gdk_riscos_display_menu_done().
+- GtkComboBox selects its active item after popping up its menu, which
+  activates the menu shell and adds a GTK grab on the (never shown) menu:
+  events then reach unrealised widgets (Gtk-CRITICAL). The patch skips the
+  grab in gtk_menu_shell_activate for a menu open as a Wimp menu.
+- Combo box items are GtkCellViews, not labels: their text comes from the
+  model row (first string column).

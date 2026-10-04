@@ -26,6 +26,7 @@ int fake_force_redraws, fake_force_rect[5], fake_scaled_plots;
 int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 int fake_pointer[3], fake_wheel, fake_menus_opened, fake_pointer_shape = 1;
 const int *fake_menu;
+int fake_menu_x, fake_menu_y, fake_menus_closed;
 unsigned char fake_keys_down[128];
 int fake_log_menus;
 static int wimp_null_due, fake_wimp_title_window;
@@ -455,14 +456,20 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                     break;
                 case 9:                      /* Menu_Selection */
                     block[0] = e[1]; block[1] = e[2]; block[2] = e[3]; block[3] = -1;
+                    fake_menu = NULL;        /* the Wimp closes the tree (Adjust: the task reopens it) */
                     break;
                 case 17:                     /* User_Message: a = message action */
-                    block[0] = 20; block[4] = e[1];
+                    block[0] = 24; block[4] = e[1];
+                    if (e[1] == 0x400C9) {   /* Message_MenusDeleted: the open menu */
+                        block[5] = (int) (long) fake_menu;
+                        fake_menu = NULL;
+                    }
                     break;
                 case FAKE_MOVE:    pointer_to(e[1], e[2]); reason = 0; wimp_null_due = 0; break;
                 case FAKE_RELEASE: fake_pointer[2] = 0;    reason = 0; wimp_null_due = 0; break;
                 case FAKE_WHEEL:   fake_wheel += e[1];     reason = 0; wimp_null_due = 0; break;
                 case FAKE_NULL:                           reason = 0; wimp_null_due = 0; break;
+                case FAKE_BUTTONS: fake_pointer[2] = e[1]; reason = 0; wimp_null_due = 0; break;
                 }
             } else { reason = 3; block[0] = wimp_last_window; }
         }
@@ -526,9 +533,19 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     case 0x400D4:   /* Wimp_CreateMenu */
         if (r.r[1] != -1) {
             fake_menu = (const int *) (long) r.r[1];
+            fake_menu_x = r.r[2]; fake_menu_y = r.r[3];
             fake_menus_opened++;
             if (fake_log_menus) log_menu(fake_menu, 0);
+        } else {
+            if (fake_menu) fake_menus_closed++;
+            fake_menu = NULL;
         }
+        break;
+    case 0x400F9:   /* Wimp_TextOp 1: string width, 16 OS units a character */
+        if (r.r[0] != 1) { e = error("TextOp reason not faked"); break; }
+        { const char *t = (const char *) (long) r.r[1]; int n = 0;
+          while ((unsigned char) t[n] >= 32 && (r.r[2] == 0 || n < r.r[2])) n++;
+          r.r[0] = 16 * n; }
         break;
     case 0x400E0:   /* Wimp_GetWindowOutline: 2 unit border, 40 unit title bar */
         block = (int *) (long) r.r[1];

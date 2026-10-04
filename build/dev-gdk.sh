@@ -10,6 +10,9 @@ G=$SRC/gtk+-3.24.41
 for f in "$REPO_DIR"/gdk/riscos/*; do
   cmp -s "$f" "$G/gdk/riscos/$(basename "$f")" || cp "$f" "$G/gdk/riscos/"
 done
+for f in "$REPO_DIR"/gtk/riscos/*; do
+  cmp -s "$f" "$G/gtk/$(basename "$f")" || cp "$f" "$G/gtk/"
+done
 if [ "$TARGET" = linuxarm ]; then
   F=$REPO_DIR/tests/fake/mesa-egl
   for f in "$F"/fake_riscos.c "$F"/fake_riscos.h; do

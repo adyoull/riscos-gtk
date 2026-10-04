@@ -99,3 +99,86 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      error('\'file\' print backed needs to be enabled')
    endif
  else
+--- a/gtk/gtkmenu.c	2024-01-24 01:14:34.000000000 +0000
++++ b/gtk/gtkmenu.c	2026-10-04 21:30:18.388210327 +0100
+@@ -116,6 +116,9 @@
+ #include "gtkmain.h"
+ #include "gtkmarshalers.h"
+ #include "gtkmenuprivate.h"
++#ifdef GDK_WINDOWING_RISCOS
++#include "gtkmenu-riscos.h"     /* riscos-gtk: menus as Wimp menus */
++#endif
+ #include "gtkmenuitemprivate.h"
+ #include "gtkmenushellprivate.h"
+ #include "gtkwindow.h"
+@@ -1830,6 +1833,17 @@
+   g_return_if_fail (GTK_IS_MENU (menu));
+   g_return_if_fail (device == NULL || GDK_IS_DEVICE (device));
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: show it as a Wimp menu instead (gtkmenu-riscos.c) */
++  if (_gtk_menu_riscos_popup (menu, parent_menu_shell, parent_menu_item, func, data))
++    {
++      _gtk_tooltip_hide_in_display (gtk_widget_get_display (GTK_WIDGET (menu)));
++      if (destroy)
++        destroy (data);
++      return;
++    }
++#endif
++
+   _gtk_tooltip_hide_in_display (gtk_widget_get_display (GTK_WIDGET (menu)));
+   display = gtk_widget_get_display (GTK_WIDGET (menu));
+ 
+@@ -2514,6 +2528,10 @@
+ 
+   g_return_if_fail (GTK_IS_MENU (menu));
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_menu_riscos_popdown (menu);
++#endif
++
+   menu_shell = GTK_MENU_SHELL (menu);
+   priv = menu->priv;
+ 
+--- a/gtk/meson.build	2024-01-24 01:14:34.000000000 +0000
++++ b/gtk/meson.build	2026-10-04 21:30:18.391542248 +0100
+@@ -862,6 +862,11 @@
+   gtk_sources += gtk_use_wayland_sources
+ endif
+ 
++if riscos_enabled
++  # riscos-gtk: GtkMenus as Wimp menus (copied in from riscos-gtk's gtk/riscos)
++  gtk_sources += files('gtkmenu-riscos.c')
++endif
++
+ if win32_enabled
+   gtk_cargs += []
+   gtk_sources += gtk_use_win32_sources
+--- a/gtk/gtkmenushell.c	2024-01-24 01:14:34.000000000 +0000
++++ b/gtk/gtkmenushell.c	2026-10-04 21:35:40.416229469 +0100
+@@ -65,6 +65,9 @@
+ #include "gtkmenubar.h"
+ #include "gtkmenuitemprivate.h"
+ #include "gtkmenushellprivate.h"
++#ifdef GDK_WINDOWING_RISCOS
++#include "gtkmenu-riscos.h"     /* riscos-gtk: menus as Wimp menus */
++#endif
+ #include "gtkmnemonichash.h"
+ #include "gtkrender.h"
+ #include "gtkwindow.h"
+@@ -626,6 +629,15 @@
+     {
+       GdkDevice *device;
+ 
++#ifdef GDK_WINDOWING_RISCOS
++      /* riscos-gtk: a menu shown as a Wimp menu has no window to grab for */
++      if (GTK_IS_MENU (menu_shell) && _gtk_menu_riscos_is_open (GTK_MENU (menu_shell)))
++        {
++          priv->active = TRUE;
++          return;
++        }
++#endif
++
+       device = gtk_get_current_event_device ();
+ 
+       _gtk_menu_shell_set_grab_device (menu_shell, device);

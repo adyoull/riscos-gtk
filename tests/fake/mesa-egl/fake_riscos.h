@@ -72,11 +72,13 @@ extern int fake_wimp_desktop;           /* Wimp_ReadSysInfo 0 reports a desktop 
 #define FAKE_RELEASE 101
 #define FAKE_WHEEL   102
 #define FAKE_NULL    103
+#define FAKE_BUTTONS 104      /* set the buttons Wimp_GetPointerInfo reports (null event) */
 /* The pointer (OS units, buttons), the wheel count, menus opened,
    OS_Byte 106 calls (pointer on/off) and the internal keys held down
    (OS_Byte 121) */
 extern int fake_pointer[3], fake_wheel, fake_menus_opened, fake_pointer_shape;
-extern const int *fake_menu;            /* the last Wimp_CreateMenu block */
+extern const int *fake_menu;            /* the open Wimp_CreateMenu block (NULL = none) */
+extern int fake_menu_x, fake_menu_y, fake_menus_closed;
 extern unsigned char fake_keys_down[128];
 extern int fake_log_menus;              /* print each menu opened to stderr */
 

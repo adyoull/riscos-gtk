@@ -26,6 +26,7 @@ gdk_riscos_public_headers = files(
   'gdkriscoscursor.h',
   'gdkriscosmonitor.h',
   'gdkriscosvisual.h',
+  'gdkriscosmenu.h',
 )
 
 install_headers(gdk_riscos_public_headers, subdir: 'gtk-3.0/gdk/riscos/')

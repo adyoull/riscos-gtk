@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (M3: Wimp menus; GTKThemeTest 0.2, 2026-10-04)
+- GtkMenus are shown as Wimp menus (`gtk/riscos/gtkmenu-riscos.c`, hooked
+  into gtk_menu_popup_internal / gtk_menu_popdown and
+  gtk_menu_shell_activate by the GTK patch): titles, keyboard short-cuts
+  in a column (^O, F3, Shift-F3), ticks for check and radio items, shaded
+  items, dotted lines for separators, submenus. Menu bar menus open below
+  their title, combo boxes to the right of the field (as Toolbox
+  pop-ups), context menus 64 OS units left of the pointer. The Wimp
+  closes them (click elsewhere, Escape: Message_MenusDeleted); a choice
+  activates the item from an idle callback; Adjust reopens the menu with
+  ticks updated before the next Wimp_Poll (the backend holds its poll
+  until GTK is done). RISCOS_GTK_MENUS set: GTK's own menus.
+- Backend: Wimp menu API (`gdk/riscos/gdkriscosmenu.h`), Menu_Selection
+  and Message_MenusDeleted, Wimp_TextOp widths, UTF-8 to Latin-1.
+- Fake Wimp: menu position, closing, Wimp_TextOp 1, MenusDeleted with the
+  menu pointer, FAKE_BUTTONS (Adjust), the tree closes on a choice.
+- themetest-fake rewritten around real use: pop-up, File (Save), View
+  (Adjust on Show grid, then closed), tabs, context menu (Info): checks
+  menu contents, ticks, separators, shading, positions and the actions
+  (19/19).
+
 ## Unreleased (GTKThemeTest 0.1, 2026-10-04)
 - `tests/gtk/themetest.c` / !GTKThemeTest: every common GTK 3 widget in
   the RISCOS theme on four pages, a menu bar with ticks and a submenu, a

@@ -20,7 +20,7 @@
 #include <string.h>
 #include <unistd.h>
 
-GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar;
+GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area;
 int tt_events;
 
 static void
@@ -542,7 +542,7 @@ page_popups (void)
   menu_item (context_menu, "Info", NULL, TRUE);
   menu_item (context_menu, "Shaded entry", NULL, FALSE);
   gtk_widget_show_all (context_menu);
-  area = gtk_event_box_new ();
+  area = tt_context_area = gtk_event_box_new ();
   l = gtk_label_new ("Click Menu (the middle button) here for a context menu.\n"
                      "Hover over buttons and fields for interactive help (tooltips).");
   gtk_label_set_justify (GTK_LABEL (l), GTK_JUSTIFY_CENTER);

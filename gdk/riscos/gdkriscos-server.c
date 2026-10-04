@@ -38,6 +38,7 @@
 
 #include "gdkriscos-server.h"
 #include "gdkprivate-riscos.h"
+#include "gdkriscosmenu.h"
 #include <gdk/gdkkeysyms.h>
 
 #include <glib.h>
@@ -62,6 +63,14 @@ enum {
 #define MESSAGE_QUIT        0
 #define MESSAGE_PREQUIT     8
 #define MESSAGE_MODECHANGE  0x400C1
+#define MESSAGE_MENUSDELETED 0x400C9
+
+#ifndef Wimp_CreateMenu
+#define Wimp_CreateMenu 0x400D4
+#endif
+#ifndef Wimp_TextOp
+#define Wimp_TextOp 0x400F9
+#endif
 
 /* Window flags (Wimp_CreateWindow +28) */
 #define WF_MOVEABLE   (1u << 1)
@@ -100,6 +109,12 @@ struct _GdkRiscosServer {
   int task;                   /* Wimp task handle */
   int xeig, yeig, log2bpp, mode_flags;
   gboolean sprite_logged;
+  /* the open Wimp menu (riscos-gtk's GtkMenu replacement, gtkmenu-riscos.c) */
+  int *menu_block;
+  int menu_x, menu_y;           /* where it opened, OS units */
+  GdkRiscosMenuFunc menu_func;
+  gpointer menu_data;
+  int menu_hold;                /* polls to wait for GTK to handle a selection */
   int screen_w, screen_h;     /* pixels */
   guint32 next_id;
   GHashTable *windows;        /* id -> RiscosWindow */
@@ -680,6 +695,15 @@ handle_message (GdkRiscosServer *server, int *block)
       read_screen (server);
       send_screen_size (server);
       break;
+    case MESSAGE_MENUSDELETED:
+      /* closed without a choice (a click elsewhere, Escape) */
+      if (server->menu_block && block[5] == (int) server->menu_block && server->menu_func)
+        {
+          GdkRiscosMenuFunc func = server->menu_func;
+          server->menu_block = NULL;
+          func (NULL, FALSE, server->menu_data);
+        }
+      break;
     default:
       break;
     }
@@ -763,6 +787,20 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
     case USER_MESSAGE_RECORDED:
       handle_message (server, block);
       return TRUE;
+    case MENU_SELECTION:
+      if (server->menu_block && server->menu_func)
+        {
+          int ptr[5] = { 0 };
+          _kernel_swi_regs pr;
+          pr.r[1] = (int) ptr;
+          swi (Wimp_GetPointerInfo, &pr);
+          /* GTK handles the choice from an idle callback; the Wimp wants
+             an Adjust choice's menu reopened before the next Wimp_Poll,
+             so don't poll the Wimp until GTK says it's done */
+          server->menu_hold = 8;
+          server->menu_func (block, (ptr[2] & 1) != 0, server->menu_data);
+        }
+      return TRUE;
     default:
       return FALSE;
     }
@@ -777,6 +815,13 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
   guint32 start = monotonic_cs ();
   guint32 deadline = start + (timeout < 0 ? 0x10000000u : (guint32) (timeout + 9) / 10);
   gint n;
+
+  if (server && server->menu_hold > 0)
+    {
+      /* A menu choice is being handled (see MENU_SELECTION) */
+      server->menu_hold--;
+      return nfds ? poll ((struct pollfd *) fds, nfds, 0) : 0;
+    }
 
   for (;;)
     {
@@ -820,7 +865,7 @@ static cairo_user_data_key_t _gdk_riscos_sprite_data_key;
 GdkRiscosServer *
 _gdk_riscos_server_new (const char *display, GError **error)
 {
-  static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, 0 };
+  static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;
@@ -1311,4 +1356,85 @@ _gdk_riscos_server_window_set_title (GdkRiscosServer *server, gint id,
       r.r[2] = 3;                  /* the title bar */
       swi (Wimp_ForceRedraw, &r);
     }
+}
+
+/* ---- Wimp menus (public: gdkriscosmenu.h, used by gtkmenu-riscos.c) ---- */
+
+void
+gdk_riscos_display_open_menu (GdkDisplay *display, gpointer menu_block,
+                              gint root_x, gint root_y,
+                              GdkRiscosMenuFunc func, gpointer data)
+{
+  GdkRiscosServer *server = the_server;
+  _kernel_swi_regs r;
+
+  if (server == NULL)
+    return;
+  server->menu_block = menu_block;
+  server->menu_func = func;
+  server->menu_data = data;
+  server->menu_x = root_x << server->xeig;
+  server->menu_y = (server->screen_h - root_y) << server->yeig;
+  r.r[1] = (int) menu_block;
+  r.r[2] = server->menu_x;
+  r.r[3] = server->menu_y;
+  swi (Wimp_CreateMenu, &r);
+}
+
+void
+gdk_riscos_display_reopen_menu (GdkDisplay *display)
+{
+  GdkRiscosServer *server = the_server;
+  _kernel_swi_regs r;
+
+  if (server == NULL || server->menu_block == NULL)
+    return;
+  r.r[1] = (int) server->menu_block;
+  r.r[2] = server->menu_x;
+  r.r[3] = server->menu_y;
+  swi (Wimp_CreateMenu, &r);
+}
+
+void
+gdk_riscos_display_close_menu (GdkDisplay *display)
+{
+  GdkRiscosServer *server = the_server;
+  _kernel_swi_regs r;
+
+  if (server == NULL)
+    return;
+  if (server->menu_block)
+    {
+      r.r[1] = -1;
+      swi (Wimp_CreateMenu, &r);
+    }
+  server->menu_block = NULL;
+  server->menu_func = NULL;
+  server->menu_data = NULL;
+}
+
+void
+gdk_riscos_display_menu_done (GdkDisplay *display)
+{
+  if (the_server)
+    the_server->menu_hold = 0;
+}
+
+gint
+gdk_riscos_text_width (const char *latin1)
+{
+  _kernel_swi_regs r;
+
+  r.r[0] = 1;                      /* Wimp_TextOp 1: width in the desktop font */
+  r.r[1] = (int) latin1;
+  r.r[2] = 0;
+  if (swi (Wimp_TextOp, &r) != NULL)
+    return 16 * (gint) strlen (latin1);
+  return r.r[0];
+}
+
+void
+gdk_riscos_utf8_to_latin1 (const char *utf8, char *out, gint size)
+{
+  utf8_to_latin1 (utf8, out, size);
 }

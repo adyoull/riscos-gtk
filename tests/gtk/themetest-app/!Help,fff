@@ -1,4 +1,4 @@
-GTKThemeTest 0.1 - riscos-gtk theme test
+GTKThemeTest 0.2 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -23,13 +23,17 @@ Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
 
-Known, not done yet (next stage):
-- Menus and pop-ups are GTK-drawn windows, not Wimp menus. Clicking on
-  the desktop outside an open menu won't close it: press Escape, or
-  click the menu's title again.
-- Pop-up lists open over the field, not to the right.
+New in 0.2: menus are real Wimp menus. The menu bar's menus open below
+their titles, pop-ups open to the right of the field, the context menu
+opens at the pointer; keyboard short-cuts are shown in a column, ticks
+and shaded entries as usual, submenus (View > Zoom) open from the
+arrow. A click elsewhere or Escape closes a menu; choosing with Adjust
+keeps it open (try View > Show grid with Adjust).
+
+Known, not done yet:
 - No clipboard between programs yet, no drag and drop, pointer shapes
   are the normal arrow.
+- Menus have no keyboard navigation of the menu bar itself (F10).
 
 Needs SharedUnixLibrary 1.16+ and ARMEABISupport (PackMan), and a 32bpp
 (16 million colour) desktop with RISC OS 5.21 or later.

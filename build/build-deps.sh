@@ -313,6 +313,7 @@ if ! have libgtk-3.a; then
 fresh gtk+3.0_3.24.41.orig.tar.xz gtk+-3.24.41
 patch -d gtk+-3.24.41 -p1 -s < "$REPO_DIR/patches/gtk+3.0-3.24.41-riscos.diff"
 cp -r "$REPO_DIR/gdk/riscos" gtk+-3.24.41/gdk/riscos
+cp "$REPO_DIR"/gtk/riscos/* gtk+-3.24.41/gtk/      # GtkMenus as Wimp menus
 # The QEMU test build: the backend's SWI calls go to the fake RISC OS
 # (tests/fake/mesa-egl), whose kernel.h and swis.h stand in for UnixLib's.
 # The fake itself goes into libgdk there, so that GTK's own tools and the

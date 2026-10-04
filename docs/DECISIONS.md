@@ -60,3 +60,16 @@ on the desktop font).
 Owner's choice: the stock RISC OS 5/Pi look (3D grey, Homerton, standard
 Wimp palette) rather than RISC OS 3 or a NetSurf-like flat look. Sizes are
 the Style Guide's in OS units at EIG 1 (theme/README.md has the table).
+
+## Menus are Wimp menus, built from the GtkMenu (2026-10-04)
+GTK's own pop-up windows can't close on a click on another task's window
+(RISC OS has no global pointer grab), and RISC OS users expect Wimp menus.
+So gtk_menu_popup_internal hands the menu to gtkmenu-riscos.c, which
+turns its items into a Wimp menu block (text, short-cuts, ticks, shading,
+separators, submenus) and opens it with Wimp_CreateMenu; choices activate
+the GtkMenuItems. GTK never shows the GtkMenu. Positions follow RISC OS
+conventions (pop-ups to the right of the field; context menus at the
+pointer -64 OS units). The old way stays available with RISCOS_GTK_MENUS
+set (for comparison; GTK-drawn menus can't close on a desktop click).
+Not covered: custom widgets inside menus (only labels/short-cuts are
+shown), menu bar keyboard navigation, tear-off menus.
