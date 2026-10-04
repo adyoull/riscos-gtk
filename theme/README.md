@@ -57,6 +57,13 @@ RISC OS sizes are in OS units; the desktop runs at 2 OS units per pixel
 | scroll bar (grey well, arrows at both ends) | scrollbar |
 | interactive help (cream) | tooltip |
 
+## Revision 3.1 (2026-10-04)
+- Menu hover rules use child selectors (`menuitem:hover > label`): GTK 3
+  makes a submenu's widgets CSS descendants of the item it hangs from, so
+  the highlighted menu bar title made its whole menu white on white. The
+  theme test (tests/gtk/themetest.c) shows every widget; on Linux:
+  `THEMETEST_QUIT=2000 ./themetest "" /dev/null PAGE` with GTK_THEME=RISCOS.
+
 ## Revision 3 changes (RISC OS 5 default look)
 - Font and sizes: DejaVu Sans 12 at 90 dpi for Homerton.Medium 12pt (the
   RISC OS desktop default; set by the backend); heights from the Style Guide

@@ -1,0 +1,18 @@
+| !Run for !GTKThemeTest - riscos-gtk: every common GTK 3 widget in the RISCOS theme
+| A UnixLib program converted to Absolute (AIF), statically linked with GTK
+| 3.24.41 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary
+| and ARMEABISupport (PackMan). It runs as a normal Wimp task.
+Set GTKThemeTest$Dir <Obey$Dir>
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error GTKThemeTest needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error GTKThemeTest needs the ARMEABISupport module. Install it with PackMan.
+RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System:Modules.PThrTicker
+RMEnsure PThreadTicker 0.01 RMLoad <GTKThemeTest$Dir>.PThrTicker
+| The font cache goes in the scrap directory.
+CDir <Wimp$ScrapDir>.GTKThemeTest
+| The C heap goes in a dynamic area; the WimpSlot holds the program.
+WimpSlot -min @SLOT@K -max @SLOT@K
+| Paths for the program are UnixLib paths, /<Var$Dir>/..., not expanded
+| here. Its messages go to <Wimp$ScrapDir>.GTKThemeTest.Log.
+Run <GTKThemeTest$Dir>.themetest /<GTKThemeTest$Dir> /<Wimp$ScrapDir>/GTKThemeTest/Log

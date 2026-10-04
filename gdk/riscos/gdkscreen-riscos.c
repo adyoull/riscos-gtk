@@ -176,6 +176,12 @@ _gdk_riscos_screen_new (GdkDisplay *display,
   _gdk_riscos_screen_init_visuals (screen);
   _gdk_riscos_screen_init_root_window (screen);
 
+  /* riscos-gtk: RISC OS's nominal 90 dpi (see get_setting). GTK applies
+     gtk-xft-dpi to the screen only when a program sets it; for settings
+     that come from the platform the backend must (X11 does it in its
+     XSETTINGS code), else Pango lays out at 96 dpi. */
+  gdk_screen_set_resolution (screen, 90.0);
+
   return screen;
 }
 

@@ -140,3 +140,17 @@ configure handler ignored the size. On RISC OS the user resizes with the
 window furniture: the configure handler sets the size, updates GDK and
 makes a new backing surface (as X11 does). Paint all of every redraw
 rectangle: a window with no work-area colour shows stale screen elsewhere.
+
+## Confirm every client resize with a configure event (2026-10-04)
+GTK 3 freezes a mapped toplevel's updates after it asks for a new size
+and thaws them on the next configure event. Broadway's server always
+replies; ours now does too (window_move_resize). Without it a window that
+grew after opening (the theme test, after its status line was set) never
+drew. Also: set the screen resolution in the backend
+(gdk_screen_set_resolution); GTK applies gtk-xft-dpi itself only when the
+application sets it.
+
+## Debugging trap: relative FONTCONFIG_FILE in the QEMU tests
+A relative path left fontconfig with no configuration; Pango then gives
+zero metrics and GTK sizes labels tens of thousands of pixels tall. Always
+pass the app folder as an absolute path (as !Run does).

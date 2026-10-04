@@ -1259,6 +1259,11 @@ _gdk_riscos_server_window_move_resize (GdkRiscosServer *server, gint id,
       r.r[1] = (int) state;
       open_window (server, w, swi (Wimp_GetWindowState, &r) == NULL ? state[7] : -1);
     }
+  /* Confirm it, as Broadway's server does: GTK freezes a mapped toplevel's
+     updates after asking for a new size until a configure event arrives,
+     so without this a window that changes size after it opens never draws
+     again (found with the theme test). */
+  send_configure (server, w);
   return TRUE;
 }
 

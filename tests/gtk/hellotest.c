@@ -17,39 +17,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-/* RISC OS allows one write-open per file; Linux doesn't care. hellotest is
-   linked with -Wl,--wrap=freopen so that a second write-mode freopen of a
-   file that is still open for writing fails here as it does on RISC OS
-   (GTKHello 0.1/0.2 opened its log twice and quit with an empty log). */
-FILE *__real_freopen (const char *, const char *, FILE *);
-static struct { char path[512]; FILE *f; } wopen[8];
-FILE *
-__wrap_freopen (const char *path, const char *mode, FILE *f)
-{
-  int i, w = path && (strchr (mode, 'w') || strchr (mode, 'a') || strchr (mode, '+'));
-  FILE *r;
-  for (i = 0; i < 8; i++)
-    if (wopen[i].f == f)
-      wopen[i].f = NULL;                /* freopen closes f first */
-  if (w)
-    for (i = 0; i < 8; i++)
-      if (wopen[i].f && strcmp (wopen[i].path, path) == 0)
-        {
-          errno = EACCES;               /* RISC OS: "File open" */
-          return NULL;
-        }
-  r = __real_freopen (path, mode, f);
-  if (r && w)
-    for (i = 0; i < 8; i++)
-      if (!wopen[i].f)
-        {
-          g_strlcpy (wopen[i].path, path, sizeof wopen[i].path);
-          wopen[i].f = r;
-          break;
-        }
-  return r;
-}
-
 static int n_tests, n_failed;
 static char title_seen[256];
 static int stage, plots_at_click;
@@ -230,6 +197,8 @@ main (int argc, char **argv)
     check (font && strcmp (font, "DejaVu Sans 12") == 0 && theme &&
            strcmp (theme, "RISCOS") == 0 && dpi == 90 * 1024 && !anim,
            "desktop defaults from the backend (RISCOS, DejaVu Sans 12, 90 dpi)");
+    check (gdk_screen_get_resolution (gdk_screen_get_default ()) == 90.0,
+           "the screen resolution is 90 dpi (what Pango lays out with)");
     printf ("# settings: font \"%s\", theme \"%s\", dpi %d, animations %d\n",
             font, theme, dpi / 1024, anim);
     g_free (font);

@@ -1,0 +1,41 @@
+GTKThemeTest 0.1 - riscos-gtk theme test
+
+Every common GTK 3 widget in the RISCOS theme, in one window, through
+riscos-gtk's RISC OS backend. Everything you do is shown in the status
+line at the bottom and written to <Wimp$ScrapDir>.GTKThemeTest.Log.
+
+Pages
+  Buttons and fields   action, shaded, toggle and linked buttons; a link;
+                       writable, empty, password and shaded fields; a
+                       display field; a number range (adjuster arrows);
+                       a pop-up; a writable with a menu; styled text.
+  Options and sliders  option and radio icons (on, off, mixed, shaded);
+                       a switch; sliders, progress and level bars.
+  Lists and text       a long list and a tree with scroll bars; a text
+                       view with both scroll bars.
+  Dialogues and menus  a message dialogue; a popover; a context menu
+                       (click Menu in the box); info bars; a calendar.
+The menu bar at the top (File, Edit, View with ticks and a Zoom submenu,
+Help) and the Cancel / Apply buttons (Apply is the default action
+button) are on every page. Hover for interactive help (tooltips).
+
+Please try everything, then send back the Log, a photo or screenshot of
+each page and of an open menu, and a note of anything that looks or
+behaves differently from RISC OS.
+
+Known, not done yet (next stage):
+- Menus and pop-ups are GTK-drawn windows, not Wimp menus. Clicking on
+  the desktop outside an open menu won't close it: press Escape, or
+  click the menu's title again.
+- Pop-up lists open over the field, not to the right.
+- No clipboard between programs yet, no drag and drop, pointer shapes
+  are the normal arrow.
+
+Needs SharedUnixLibrary 1.16+ and ARMEABISupport (PackMan), and a 32bpp
+(16 million colour) desktop with RISC OS 5.21 or later.
+
+riscos-gtk is MIT licensed; GTK, GLib, pango and the other libraries keep
+their own licences (LGPL-2.1-or-later for GTK, GLib, pango, ATK,
+gdk-pixbuf; see riscos-gtk's LICENCES.md). DejaVu fonts: Bitstream Vera
+licence (fonts.Licence). PThreadTicker: see its ReadMe and Licence.
+Built with riscos-crossdev 1.3 (UnixLib 5.0.3.2).

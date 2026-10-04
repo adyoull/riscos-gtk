@@ -267,7 +267,7 @@ menu menuitem check, menu menuitem radio { margin: 0 4px 0 -6px; -gtk-icon-sourc
 menu menuitem check:checked {
   -gtk-icon-source: -gtk-scaled(url("assets/menu-tick.png"), url("assets/menu-tick@2.png"));
 }
-menu menuitem:hover check:checked {
+menu menuitem:hover > check:checked {
   -gtk-icon-source: -gtk-scaled(url("assets/menu-tick-selected.png"), url("assets/menu-tick-selected@2.png"));
 }
 menu menuitem check:checked:disabled {
@@ -276,7 +276,7 @@ menu menuitem check:checked:disabled {
 menu menuitem radio:checked {
   -gtk-icon-source: -gtk-scaled(url("assets/menu-dot.png"), url("assets/menu-dot@2.png"));
 }
-menu menuitem:hover radio:checked {
+menu menuitem:hover > radio:checked {
   -gtk-icon-source: -gtk-scaled(url("assets/menu-dot-selected.png"), url("assets/menu-dot-selected@2.png"));
 }
 menu menuitem radio:checked:disabled {
@@ -371,13 +371,16 @@ menu menuitem:hover {
   color: @wimp0;
 }
 
-menu menuitem:hover label { color: @wimp0; }
+/* Child selectors (">") throughout: GTK 3 makes a submenu's widgets
+   descendants of the item it hangs from, so "menuitem:hover label" would
+   also whiten every label in the open submenu (white on white). */
+menu menuitem:hover > label { color: @wimp0; }
 
 menu menuitem:disabled, menu menuitem:disabled label { color: @wimp3; }
 
 /* keyboard short-cuts are right-aligned in the entry's own colour */
 menu menuitem accelerator { color: @wimp7; margin-left: 24px; }
-menu menuitem:hover accelerator { color: @wimp0; }
+menu menuitem:hover > label > accelerator { color: @wimp0; }
 menu menuitem:disabled accelerator { color: @wimp3; }
 
 /* dotted separators, as in Wimp menus */
@@ -395,7 +398,7 @@ menu menuitem arrow {
   -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
 }
 
-menu menuitem:hover arrow {
+menu menuitem:hover > arrow {
   -gtk-icon-source: -gtk-scaled(url("assets/arrow-right-selected.png"), url("assets/arrow-right-selected@2.png"));
 }
 
@@ -408,7 +411,7 @@ menubar {
 }
 menubar > menuitem { padding: 3px 8px; }
 menubar > menuitem:hover { background-color: @wimp7; color: @wimp0; }
-menubar > menuitem:hover label { color: @wimp0; }
+menubar > menuitem:hover > label { color: @wimp0; }
 
 /* ---------- scroll bars, as the Wimp's own ---------- */
 

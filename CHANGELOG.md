@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.1, 2026-10-04)
+- `tests/gtk/themetest.c` / !GTKThemeTest: every common GTK 3 widget in
+  the RISCOS theme on four pages, a menu bar with ticks and a submenu, a
+  context menu, popover, message dialogue, tooltips, info bars, calendar;
+  every interaction logged. `build/build-app.sh` builds any test app
+  (build-hello.sh and build-themetest.sh use it).
+- `tests/gtk/themetest-fake.c` (QEMU, fake Wimp): clicks every tab, opens
+  the File menu, closes it with Escape, pictures each page; checks window
+  size, menu item names drawn, no GTK warnings (8/8).
+- Backend: a client-side resize is confirmed with a configure event, as
+  Broadway's server does. GTK freezes a mapped window's drawing until it
+  arrives, so any window that changed size after opening stopped drawing.
+- Backend: the screen resolution is set to 90 dpi
+  (gdk_screen_set_resolution); gtk-xft-dpi alone wasn't applied, so text
+  was laid out at 96 dpi. hellotest checks it (15/15).
+- Theme: hover rules in menus use child selectors. GTK 3 makes a submenu
+  a CSS descendant of the item it hangs from, so the highlighted menu bar
+  title turned every label in its menu white on white.
+- tests/gtk/riscos-freopen.c: the one-write-open wrapper, shared by the
+  QEMU tests.
+
 ## Unreleased (GTKHello 0.4, 2026-10-04)
 - Colours: on the Pi (TBGR desktop) red and blue were swapped:
   OS_SpriteOp doesn't convert a TRGB sprite when plotting on a TBGR screen.

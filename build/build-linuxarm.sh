@@ -48,7 +48,7 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
 # it on this target). The app folder is laid out like !GTKHello's.
 
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DHELLO_NO_MAIN \
-  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/hellotest.c" "$REPO_DIR/tests/gtk/hello.c" \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/hellotest.c" "$REPO_DIR/tests/gtk/hello.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
   -o "$REPO_DIR/out/hellotest-linuxarm" -Wl,--wrap=freopen \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lresolv -ldl -lm -pthread
@@ -59,10 +59,20 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
 "$REPO_DIR/tests/render/mkfontsconf.sh" "$HA/fonts" "$HA/fontcache" > "$HA/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$HA/share/themes/RISCOS/"
 
+# The theme test on the fake Wimp: every page and the File menu.
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/themetest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
+  -o "$REPO_DIR/out/themetest-fake-linuxarm" -Wl,--wrap=freopen \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+TT=$REPO_DIR/out/themetest-linuxarm
+rm -rf "$TT"; mkdir -p "$TT"
+
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
+run themetest-fake "$HA" "$TT"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"
 exit $failed
