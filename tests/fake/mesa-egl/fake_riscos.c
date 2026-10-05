@@ -104,6 +104,8 @@ void fake_set_screen(int w, int h, int trgb, int log2bpp)
     fake_screen.vdu_bank = fake_screen.display_bank = 1;
 }
 
+static int stack_top;
+
 fake_window_t *fake_open_window(int handle, int x0, int y0, int x1, int y1, int sx, int sy)
 {
     int i;
@@ -113,6 +115,7 @@ fake_window_t *fake_open_window(int handle, int x0, int y0, int x1, int y1, int 
             fake_windows[i].x0 = x0; fake_windows[i].y0 = y0;
             fake_windows[i].x1 = x1; fake_windows[i].y1 = y1;
             fake_windows[i].sx = sx; fake_windows[i].sy = sy;
+            fake_windows[i].stack = ++stack_top;     /* opened = brought to the front */
             return &fake_windows[i];
         }
     }
@@ -276,21 +279,20 @@ static void pointer_to(int x, int y)
     fake_pointer[1] = w->y1 - (y << fake_screen.yeig) - 1;
 }
 
-/* The window under the pointer: the newest one if it's there, else any */
+/* The window under the pointer: the frontmost one there (the last
+   opened), as the Wimp reports it */
 static int window_at_pointer(void)
 {
-    fake_window_t *w = find_window(TARGET_WINDOW);
+    fake_window_t *w, *best = NULL;
     int i;
-    if (w && fake_pointer[0] >= w->x0 && fake_pointer[0] < w->x1 &&
-        fake_pointer[1] >= w->y0 && fake_pointer[1] < w->y1)
-        return w->handle;
     for (i = 0; i < FAKE_MAX_WINDOWS; i++) {
         w = &fake_windows[i];
         if (w->handle && fake_pointer[0] >= w->x0 && fake_pointer[0] < w->x1 &&
-            fake_pointer[1] >= w->y0 && fake_pointer[1] < w->y1)
-            return w->handle;
+            fake_pointer[1] >= w->y0 && fake_pointer[1] < w->y1 &&
+            (!best || w->stack > best->stack))
+            best = w;
     }
-    return -1;
+    return best ? best->handle : -1;
 }
 
 static const char *icon_text(const int *icon_flags_and_data)

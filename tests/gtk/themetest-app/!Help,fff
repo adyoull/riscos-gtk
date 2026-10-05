@@ -1,4 +1,4 @@
-GTKThemeTest 0.6 - riscos-gtk theme test
+GTKThemeTest 0.7 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,11 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.7: dragging text no longer shows a black rectangle, and the
+drop always lands where the pointer is (the rectangle was GTK's drag
+picture, opened as a window under the pointer, and it sometimes took the
+drop itself).
 
 New in 0.6: text fields and the clipboard.
 - Menu on a text field gives its Cut / Copy / Paste / Delete / Select All

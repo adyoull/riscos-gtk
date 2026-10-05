@@ -275,6 +275,10 @@ _gdk_riscos_display_create_window_impl (GdkDisplay    *display,
 
   impl = g_object_new (GDK_TYPE_WINDOW_IMPL_RISCOS, NULL);
   window->impl = (GdkWindowImpl *)impl;
+  /* riscos-gtk: GTK gives a popup's type hint here, not with
+     gdk_window_set_type_hint (a drag icon: GDK_WINDOW_TYPE_HINT_DND) */
+  if (attributes_mask & GDK_WA_TYPE_HINT)
+    impl->type_hint = attributes->type_hint;
   impl->id = _gdk_riscos_server_new_window (riscos_display->server,
 					      window->x,
 					      window->y,
@@ -583,7 +587,13 @@ static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)
 {
-  GDK_WINDOW_IMPL_RISCOS (window->impl)->type_hint = hint;
+  GdkWindowImplRiscos *impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+
+  impl->type_hint = hint;
+  /* a drag icon is never on the screen (see gdk_window_riscos_show) */
+  if (hint == GDK_WINDOW_TYPE_HINT_DND)
+    _gdk_riscos_server_window_hide (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                    impl->id);
 }
 
 static GdkWindowTypeHint

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.7, 2026-10-05)
+- Pi report on 0.6: dragging text showed a black rectangle and didn't
+  always copy. The rectangle was GTK's drag icon window: GTK gives a
+  popup's type hint in gdk_window_new's attributes, which the backend
+  ignored, so the DND window was opened on the Wimp (unpainted) under the
+  pointer; Wimp_GetPointerInfo then reported it, and the drop went to the
+  icon instead of the field or other task's window. The hint is now taken
+  from the attributes, and a DND window is never opened.
+- Fake Wimp: Wimp_GetPointerInfo reports the frontmost window (the last
+  opened), not the scripted target first, which had hidden this.
+  edittest-fake checks no window of ours is under the pointer while
+  dragging (18 checks).
+
 ## Unreleased (M3: text fields, the clipboard, dragging text; GTKThemeTest 0.6, 2026-10-05)
 - Pi report: text fields had no Cut/Copy/Paste menu, and dragging text
   did nothing. GtkEntry/GtkTextView open their menu only after asking the

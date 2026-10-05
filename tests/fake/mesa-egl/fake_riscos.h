@@ -16,6 +16,7 @@ typedef struct {
     int handle;
     int x0, y0, x1, y1;     /* visible area, OS units */
     int sx, sy;             /* scroll offsets */
+    int stack;              /* higher = nearer the front (last opened) */
 } fake_window_t;
 
 extern fake_screen_t fake_screen;

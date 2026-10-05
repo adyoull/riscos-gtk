@@ -38,7 +38,7 @@ static char rambuf[64];
 static int paste_request_seen, paste_ds_ref, paste_fetch_seen;
 static int drag_datasave, drag_fields[4], drag_dest, drag_icon, drag_done, drag_ds_ref;
 static char drag_got[64];
-static int drag_len, dragbox_seen;
+static int drag_len, dragbox_seen, drag_icon_windows;
 static int drop_ds_ref, drop_fetch_seen;
 static char text_after_paste[128], empty_after_drag[128], writable_after_drag[128], empty_after_drop[128];
 static char text_after_dragout[128];
@@ -433,7 +433,17 @@ hook (int reason)
   int i;
 
   if (fake_dragbox_type == 5)
-    dragbox_seen = 1;
+    {
+      dragbox_seen = 1;
+      /* any window of ours opened while dragging (GTK's drag icon would
+         sit under the pointer and take the drop) */
+      for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+        if (fake_windows[i].handle && fake_windows[i].handle != main_handle &&
+            fake_windows[i].handle != FOREIGN && fake_windows[i].x1 > 0 &&
+            fake_pointer[0] >= fake_windows[i].x0 && fake_pointer[0] < fake_windows[i].x1 &&
+            fake_pointer[1] >= fake_windows[i].y0 && fake_pointer[1] < fake_windows[i].y1)
+          drag_icon_windows++;
+    }
   if (fake_menu && fake_menus_opened != opened_seen)
     {
       opened_seen = fake_menus_opened;
@@ -526,6 +536,7 @@ main (int argc, char **argv)
          "Paste puts the other task's Latin-1 text in the field (as UTF-8)");
   printf ("# after Paste: \"%s\"\n", text_after_paste);
   check (dragbox_seen, "dragging text shows the Wimp's drag box (Wimp_DragBox type 5)");
+  check (drag_icon_windows == 0, "no window under the pointer while dragging (GTK's drag icon isn't opened)");
   check (drag_datasave && drag_dest == FOREIGN && drag_fields[0] == FOREIGN,
          "text dragged onto another task's window is saved to it (DataSave to that window)");
   check (drag_done && drag_len == 11 && memcmp (drag_got, LATIN1_TEXT, 11) == 0,
