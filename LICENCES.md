@@ -11,8 +11,8 @@ or adapted from other projects keep their original licence, listed below.
 |---|---|---|
 | `build/env.sh`, `build/build-deps.sh`, `build/fetch-sources.sh` | [riscos-warzone2100](https://github.com/adyoull/riscos-warzone2100) `build/` (2.3.9-12 tree) | GPL version 2 or later |
 | `tests/fake/mesa-egl/*`, `tests/fake/sdl-wimp/*` | [riscos-mesa](https://github.com/adyoull/riscos-mesa) `tests/host-harness/` (20.3.5-10 tree) | MIT (riscos-mesa's own files) |
-| `gdk/riscos/*` except `gdkriscos-server.c`, `gdktransfer-riscos.c`, `gdkriscosmenu.h` and `meson.build` | GTK 3.24.41 `gdk/broadway/` (client side), renamed broadway → riscos, with riscos-gtk's changes | LGPL version 2.1 or later, as GTK |
-| `gdk/riscos/gdkriscos-server.c`, `gdk/riscos/gdktransfer-riscos.c`, `gdk/riscos/gdkriscosmenu.h`, `gdk/riscos/meson.build`, `gtk/riscos/*` (Wimp menus) | Written for riscos-gtk; part of GTK and its backend, so under GTK's licence | LGPL version 2.1 or later |
+| `gdk/riscos/*` except `gdkriscos-server.c`, `gdktransfer-riscos.c`, `gdkpointer-riscos.c`, `gdkriscosmenu.h` and `meson.build` | GTK 3.24.41 `gdk/broadway/` (client side), renamed broadway → riscos, with riscos-gtk's changes | LGPL version 2.1 or later, as GTK |
+| `gdk/riscos/gdkriscos-server.c`, `gdk/riscos/gdktransfer-riscos.c`, `gdk/riscos/gdkpointer-riscos.c`, `gdk/riscos/gdkriscosmenu.h`, `gdk/riscos/meson.build`, `gtk/riscos/*` (Wimp menus) | Written for riscos-gtk; part of GTK and its backend, so under GTK's licence | LGPL version 2.1 or later |
 | `patches/gtk+3.0-3.24.41-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
 | `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |

@@ -97,3 +97,11 @@ the Wimp side is Latin-1 (type &FFF). Paste is offered while another task
 may hold the clipboard (we can't know at start-up): if nobody answers the
 DataRequest, nothing is pasted. Not done yet: Message_Dragging /
 DragClaim (other tasks' drag previews), ReleaseEntity on quit, files.
+
+## Our own pointer sprites (2026-10-05)
+The Wimp sprite pool has ptr_write and ptr_hand, but the PRMs don't give
+their active points (they're taken from the mask when there is one), and
+there's no resize or move pointer. So riscos-gtk draws every shape itself
+(2bpp, palette, no mask, exact active points) and uses only ptr_default
+from the Wimp, to put the normal pointer back. Easy to switch a shape to a
+Wimp sprite later if the owner prefers the system look.

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (M3: pointer shapes; GTKThemeTest 0.8, 2026-10-05)
+- Pointer shapes (new gdk/riscos/gdkpointer-riscos.c): GTK's cursor names
+  map to RISC OS shapes (gdkcursor-riscos.c): I-beam (text), hand (links),
+  horizontal/vertical/diagonal resize, cross-hair, move. Each is a 2bpp
+  sprite with a palette made at start-up (white shape, black outline, 90
+  dpi, no mask so the given active point is used), set as pointer shape 2
+  with OS_SpriteOp 36. The server shows the shape of the window under the
+  pointer and the normal pointer (Wimp_SpriteOp 36 "ptr_default", shape 1,
+  which also restores the palette) everywhere else, after a mode change,
+  and at exit.
+- Fake Wimp: OS_SpriteOp 36 (user area by name; 2bpp with palette
+  checked) and Wimp_SpriteOp 36. edittest-fake checks the I-beam over a
+  field, the hand over a link, the normal pointer elsewhere and over
+  another task's window, and pictures the pointers (22 checks).
+
 ## Unreleased (GTKThemeTest 0.7, 2026-10-05)
 - Pi report on 0.6: dragging text showed a black rectangle and didn't
   always copy. The rectangle was GTK's drag icon window: GTK gives a

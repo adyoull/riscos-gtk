@@ -100,6 +100,7 @@ typedef struct {
   int x, y, width, height;    /* pixels; x, y = top left of the work area */
   cairo_surface_t *surface;   /* the backing store (a TRGB sprite) */
   char title[TITLE_MAX];      /* indirected title (Latin-1) */
+  int pointer_shape;          /* RISCOS_POINTER_* while the pointer is over it */
 } RiscosWindow;
 
 struct _GdkRiscosServer {
@@ -121,6 +122,7 @@ struct _GdkRiscosServer {
   GHashTable *handles;        /* Wimp handle -> RiscosWindow */
 
   guint32 pointer_window;     /* window the pointer is over (0 = none) */
+  int shown_shape;            /* pointer shape shown (gdkpointer-riscos.c) */
   int last_x, last_y;         /* last pointer position reported (pixels) */
   int buttons;                /* Wimp buttons currently held */
   guint32 grab_window;        /* pointer grab (0 = none) */
@@ -430,6 +432,16 @@ track_pointer (GdkRiscosServer *server)
   if (w)
     under = w->id;
 
+  /* our shape over our window, the normal pointer elsewhere */
+  {
+    int shape = w ? w->pointer_shape : RISCOS_POINTER_DEFAULT;
+    if (shape != server->shown_shape)
+      {
+        _gdk_riscos_pointer_show (shape);
+        server->shown_shape = shape;
+      }
+  }
+
   if (under != server->pointer_window)
     {
       if (server->pointer_window && window_by_id (server, server->pointer_window))
@@ -705,12 +717,16 @@ handle_message (GdkRiscosServer *server, int reason, int *block)
     case MESSAGE_QUIT:
       {
         _kernel_swi_regs r;
+        if (server->shown_shape != RISCOS_POINTER_DEFAULT)
+          _gdk_riscos_pointer_show (RISCOS_POINTER_DEFAULT);
         r.r[0] = server->task;
         r.r[1] = 0x4B534154;
         swi (Wimp_CloseDown, &r);
         exit (0);
       }
     case MESSAGE_MODECHANGE:
+      /* the Wimp puts the normal pointer back; track_pointer sets ours */
+      server->shown_shape = RISCOS_POINTER_DEFAULT;
       read_screen (server);
       send_screen_size (server);
       break;
@@ -882,6 +898,14 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
     }
 }
 
+/* At exit: give the normal pointer back if ours is showing */
+static void
+restore_pointer (void)
+{
+  if (the_server && the_server->shown_shape != RISCOS_POINTER_DEFAULT)
+    _gdk_riscos_pointer_show (RISCOS_POINTER_DEFAULT);
+}
+
 /* ---- the interface for the Broadway-derived GDK code -------------------- */
 
 cairo_user_data_key_t _gdk_riscos_sprite_key;
@@ -928,6 +952,7 @@ _gdk_riscos_server_new (const char *display, GError **error)
     g_warning ("riscos-gtk: the desktop is %d bpp; GTK windows need a 16 or 32 bpp mode",
                1 << server->log2bpp);
   the_server = server;
+  atexit (restore_pointer);
   g_main_context_set_poll_func (NULL, riscos_poll);
   return server;
 }
@@ -1512,4 +1537,21 @@ _gdk_riscos_server_screen_os_size (GdkRiscosServer *server, int *w, int *h)
 {
   *w = server->screen_w << server->xeig;
   *h = server->screen_h << server->yeig;
+}
+
+/* GDK's cursor for window id (gdkwindow-riscos.c): shown while the
+   pointer is over it */
+void
+_gdk_riscos_server_window_set_pointer (GdkRiscosServer *server, gint id, int shape)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL)
+    return;
+  w->pointer_shape = shape;
+  if (server->pointer_window == (guint32) id && shape != server->shown_shape)
+    {
+      _gdk_riscos_pointer_show (shape);
+      server->shown_shape = shape;
+    }
 }

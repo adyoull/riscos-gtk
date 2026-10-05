@@ -30,6 +30,9 @@ int fake_menu_x, fake_menu_y, fake_menus_closed;
 /* Wimp messages: sent by the task (hook), queued for it (fake_queue_message) */
 void (*fake_message_hook)(int reason, int *block, int dest, int icon);
 int fake_dragbox_type = -1, fake_dragboxes;
+const int *fake_ptr_sprite;
+char fake_ptr_name[16] = "ptr_default";
+int fake_ptr_shape = 1, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;
 static int msg_queue[16][65], msg_queue_len, next_my_ref = 1000;
 
 void fake_queue_message(int reason, const int *block)
@@ -236,6 +239,28 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
                 fake_screen.mem[(size_t) (fake_screen.h - 1 - y_up) * (fake_screen.line_length / 4) + x] = p;
             }
         }
+        return NULL;
+    }
+    if (reason == 36) {                             /* set pointer shape */
+        const int *spr = NULL;
+        if ((r->r[0] & 0xF00) == 0x100) {           /* user area, by name */
+            const int *area = (const int *) (long) r->r[1];
+            const char *p = (const char *) area + area[2];
+            int i;
+            for (i = 0; i < area[1]; i++, p += ((const int *) p)[0])
+                if (strncmp(p + 4, (const char *) (long) r->r[2], 12) == 0) spr = (const int *) p;
+            if (!spr) return error("Sprite doesn't exist");
+        } else if ((r->r[0] & 0xF00) == 0x200) spr = (const int *) (long) r->r[2];
+        else return error("pointer: user area only in the fake");
+        /* 256 colours or fewer; a 2bpp sprite (type 2) needs no table */
+        if (((unsigned) spr[10] >> 27) != 2 && r->r[7] == 0) return error("pointer: 2bpp sprites only");
+        if (spr[8] - 44 != 32) return error("pointer: 2bpp sprite without a palette");
+        fake_ptr_sprite = spr;
+        strncpy(fake_ptr_name, (const char *) &spr[1], 12);
+        fake_ptr_name[12] = 0;
+        fake_ptr_shape = r->r[3] & 15;
+        fake_ptr_hx = r->r[4]; fake_ptr_hy = r->r[5];
+        fake_ptr_sets++;
         return NULL;
     }
     return error("SpriteOp reason not faked");
@@ -641,6 +666,14 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         break;
     case 0x400F1:   /* Wimp_TransferBlock: one address space here */
         memcpy((void *) (long) (unsigned) r.r[3], (const void *) (long) (unsigned) r.r[1], (size_t) r.r[4]);
+        break;
+    case 0x400E9:   /* Wimp_SpriteOp: 36 only (the Wimp's pointer sprites) */
+        if (r.r[0] != 36) { e = error("Wimp_SpriteOp reason not faked"); break; }
+        snprintf(fake_ptr_name, sizeof fake_ptr_name, "%s", (const char *) (long) r.r[2]);
+        fake_ptr_sprite = NULL;
+        fake_ptr_shape = r.r[3] & 15;
+        fake_ptr_hx = r.r[4]; fake_ptr_hy = r.r[5];
+        fake_ptr_sets++;
         break;
     case 0x400D0:   /* Wimp_DragBox */
         if (r.r[1] == -1) fake_dragbox_type = -1;

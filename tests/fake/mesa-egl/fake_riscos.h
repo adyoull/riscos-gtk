@@ -92,6 +92,11 @@ extern int fake_log_menus;              /* print each menu opened to stderr */
 extern void (*fake_message_hook)(int reason, int *block, int dest, int icon);
 void fake_queue_message(int reason, const int *block);
 int fake_new_ref(void);                 /* a my_ref for a queued message */
-extern int fake_dragbox_type, fake_dragboxes;   /* Wimp_DragBox: type now (-1 none), calls */
+extern int fake_dragbox_type, fake_dragboxes;
+/* OS_SpriteOp / Wimp_SpriteOp 36: the pointer shape set last (sprite name,
+   its sprite if from a user area, shape number, active point), and calls */
+extern const int *fake_ptr_sprite;
+extern char fake_ptr_name[16];
+extern int fake_ptr_shape, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;   /* Wimp_DragBox: type now (-1 none), calls */
 
 #endif

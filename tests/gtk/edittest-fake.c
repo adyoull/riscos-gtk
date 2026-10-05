@@ -39,6 +39,8 @@ static int paste_request_seen, paste_ds_ref, paste_fetch_seen;
 static int drag_datasave, drag_fields[4], drag_dest, drag_icon, drag_done, drag_ds_ref;
 static char drag_got[64];
 static int drag_len, dragbox_seen, drag_icon_windows;
+static char ptr_seen[4][16];
+static int ptr_seen_shape[4], ptr_seen_hot[4][2];
 static int drop_ds_ref, drop_fetch_seen;
 static char text_after_paste[128], empty_after_drag[128], writable_after_drag[128], empty_after_drop[128];
 static char text_after_dragout[128];
@@ -140,6 +142,59 @@ selected_all (GtkWidget *e)
   int a, b;
   return gtk_editable_get_selection_bounds (GTK_EDITABLE (e), &a, &b) &&
          a == 0 && b == (int) g_utf8_strlen (gtk_entry_get_text (GTK_ENTRY (e)), -1);
+}
+
+static GtkWidget *
+find_type (GtkWidget *w, GType type)
+{
+  GList *kids, *l;
+  GtkWidget *found = NULL;
+
+  if (G_TYPE_CHECK_INSTANCE_TYPE (w, type))
+    return w;
+  if (!GTK_IS_CONTAINER (w))
+    return NULL;
+  kids = gtk_container_get_children (GTK_CONTAINER (w));
+  for (l = kids; l && !found; l = l->next)
+    found = find_type (l->data, type);
+  g_list_free (kids);
+  return found;
+}
+
+/* The pointer sprites, pictured (2bpp: 0 transparent = grey here) */
+extern const int *_gdk_riscos_pointer_area (void);
+
+static void
+save_pointers (const char *path)
+{
+  const int *area = _gdk_riscos_pointer_area ();
+  const char *p = (const char *) area + area[2];
+  int i, x, y, total_w = 0;
+  FILE *f;
+  static unsigned char img[40][400][3];
+
+  memset (img, 0x80, sizeof img);
+  for (i = 0; i < area[1]; i++, p += ((const int *) p)[0])
+    {
+      const int *spr = (const int *) p;
+      int words = spr[4] + 1, h = spr[5] + 1, w = words * 16;
+      const unsigned int *im = (const unsigned int *) (p + spr[8]);
+      for (y = 0; y < h && y < 40; y++)
+        for (x = 0; x < w && total_w + x < 400; x++)
+          {
+            int c = (im[y * words + x / 16] >> ((x % 16) * 2)) & 3;
+            unsigned char v = c == 1 ? 0 : c == 2 ? 255 : 0x80;
+            if (c == 0)
+              continue;
+            img[y][total_w + x][0] = img[y][total_w + x][1] = img[y][total_w + x][2] = v;
+          }
+      total_w += w + 4;
+    }
+  if (!(f = fopen (path, "wb")))
+    return;
+  fprintf (f, "P6\n400 40\n255\n");
+  fwrite (img, 1, sizeof img, f);
+  fclose (f);
 }
 
 /* ---- the other task ---- */
@@ -461,8 +516,45 @@ hook (int reason)
       fake_open_window (FOREIGN, 0, 2048 - 1200, 220, 2048 - 600, 0, 0);
       add (12, 0, 0, 0);          /* Gain_Caret */
       nulls (10);
+      /* pointer shapes: over the field, a plain part, a link button */
+      {
+        int x, y, wd, ht;
+        GtkWidget *link = find_type (tt_window, GTK_TYPE_LINK_BUTTON);
+        rect (tt_entry, &x, &y, &wd, &ht);
+        add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+        add (5, 0, 0, 0);                     /* Pointer_Entering_Window */
+        nulls (6);
+        add (FAKE_NULL, 0, 0, 201);           /* marker: record the pointer */
+        add (FAKE_MOVE, 4, 4, 0);             /* the window's edge: no widget's cursor */
+        nulls (6);
+        add (FAKE_NULL, 0, 0, 202);
+        if (link)
+          {
+            rect (link, &x, &y, &wd, &ht);
+            add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+            nulls (6);
+          }
+        add (FAKE_NULL, 0, 0, 203);
+        add (FAKE_MOVE, -60, 320, 0);         /* off our window, over another task's */
+        add (4, 0, 0, 0);                     /* Pointer_Leaving_Window */
+        nulls (4);
+        add (FAKE_NULL, 0, 0, 204);
+        nulls (4);
+      }
       return;
     }
+  {
+    int pos = fake_wimp_script_pos ();
+    if (pos >= 0 && fake_wimp_script[pos][0] == FAKE_NULL && fake_wimp_script[pos][3] >= 201 &&
+        fake_wimp_script[pos][3] <= 204)
+      {
+        int k = fake_wimp_script[pos][3] - 201;
+        g_strlcpy (ptr_seen[k], fake_ptr_name, sizeof ptr_seen[k]);
+        ptr_seen_shape[k] = fake_ptr_shape;
+        ptr_seen_hot[k][0] = fake_ptr_hx;
+        ptr_seen_hot[k][1] = fake_ptr_hy;
+      }
+  }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
       if (step >= 15)
@@ -511,6 +603,23 @@ main (int argc, char **argv)
     }
 
   check (stage == 1, "theme test window shown and drawn");
+  check (strcmp (ptr_seen[0], "gtk_text") == 0 && ptr_seen_shape[0] == 2 &&
+         ptr_seen_hot[0][0] == 4 && ptr_seen_hot[0][1] == 10,
+         "pointer over a text field: the I-beam (shape 2, active point in its middle)");
+  check (strcmp (ptr_seen[1], "ptr_default") == 0 && ptr_seen_shape[1] == 1,
+         "pointer over a plain part of the window: the normal pointer");
+  check (strcmp (ptr_seen[2], "gtk_hand") == 0, "pointer over a link: the hand");
+  check (strcmp (ptr_seen[3], "ptr_default") == 0 && ptr_seen_shape[3] == 1,
+         "pointer over another task's window: the normal pointer");
+  printf ("# pointers seen: %s/%d (%d,%d), %s/%d, %s/%d, %s/%d; %d pointer changes\n",
+          ptr_seen[0], ptr_seen_shape[0], ptr_seen_hot[0][0], ptr_seen_hot[0][1],
+          ptr_seen[1], ptr_seen_shape[1], ptr_seen[2], ptr_seen_shape[2],
+          ptr_seen[3], ptr_seen_shape[3], fake_ptr_sets);
+  {
+    char path[600];
+    g_snprintf (path, sizeof path, "%s/pointers.ppm", outdir);
+    save_pointers (path);
+  }
   check (menu_n >= 5 && strcmp (menu_text[0], "Cut") == 0 && strcmp (menu_text[1], "Copy") == 0 &&
          strcmp (menu_text[2], "Paste") == 0 && strncmp (menu_text[4], "Select", 6) == 0,
          "Menu on a text field opens its Cut/Copy/Paste/Delete/Select All menu");

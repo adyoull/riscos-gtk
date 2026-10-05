@@ -1,4 +1,4 @@
-GTKThemeTest 0.7 - riscos-gtk theme test
+GTKThemeTest 0.8 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,10 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.8: pointer shapes. Over a text field the pointer is an I-beam,
+over a link a hand; resize, cross-hair and move pointers where GTK uses
+them. Off the window (or over a menu) it's the normal pointer again.
 
 New in 0.7: dragging text no longer shows a black rectangle, and the
 drop always lands where the pointer is (the rectangle was GTK's drag
@@ -68,8 +72,8 @@ arrow. A click elsewhere or Escape closes a menu; choosing with Adjust
 keeps it open (try View > Show grid with Adjust).
 
 Known, not done yet:
-- Pointer shapes are the normal arrow. Drag and drop of files (Save
-  boxes, loading files other than text) is next.
+- Drag and drop of files (Save boxes, loading files other than text) is
+  next.
 - Insert Emoji (in a text field's menu) isn't made for RISC OS yet.
 - Menus have no keyboard navigation of the menu bar itself (F10).
 

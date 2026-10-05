@@ -210,6 +210,8 @@ enum {
   RISCOS_POINTER_COUNT
 };
 int  _gdk_riscos_cursor_get_shape (GdkCursor *cursor);
+void _gdk_riscos_pointer_show (int shape);
+const int *_gdk_riscos_pointer_area (void);
 
 /* riscos-gtk: window properties (gdkproperty-riscos.c), selections
    (gdkselection-riscos.c), the clipboard and data transfer with other

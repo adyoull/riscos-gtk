@@ -725,7 +725,12 @@ gdk_window_riscos_set_device_cursor (GdkWindow *window,
     }
 
   if (!GDK_WINDOW_DESTROYED (window))
-    GDK_DEVICE_GET_CLASS (device)->set_window_cursor (device, window, cursor);
+    {
+      GDK_DEVICE_GET_CLASS (device)->set_window_cursor (device, window, cursor);
+      /* riscos-gtk: the RISC OS pointer shape for it (gdkpointer-riscos.c) */
+      _gdk_riscos_server_window_set_pointer (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                             impl->id, _gdk_riscos_cursor_get_shape (cursor));
+    }
 }
 
 static void
