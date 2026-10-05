@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.12, 2026-10-05)
+- Owner (photo, 0.11): GTK's scroll bars didn't follow the desktop's
+  theme (RISC OS 5 is themeable). Scroll bars are now drawn with the
+  Wimp's window border (tool) sprites, names from the PRMs' "Naming
+  Convention": uicon/dicon/licon/ricon (and pressed p...), the wells
+  (v/hwell caps and section) and sliders (v/hbar ends and middle, pressed
+  while dragged), blicon in the corner. GDK: gdk_riscos_wimp_tool_sprite
+  reads the tool sprite area from Wimp_ReadSysInfo 9 (not in the 2026 PRM
+  text, so the area is checked: readable, sane header, an uicon in it),
+  preferring the screen's resolution suffix (uicon22 at EIG 1). Decoding:
+  8bpp sprites with a 16-entry (old-style) palette.
+- Test data: a few RISC OS 5 (Sovereign) tool and Wimp sprites as PNGs from
+  marutan/riscos-free-icons (Apache-2.0), tests/data/riscos-free-icons;
+  TT_ICONS=that/Sovereign themetest-fake previews widgets in them. The
+  fake Wimp has a tool sprite area (Wimp_ReadSysInfo 9); themetest-fake
+  checks a scrolled window draws with it (33 checks).
+
 ## Unreleased (GTKThemeTest 0.11, 2026-10-05)
 - Owner: redo the theming with the Wimp's sprites read. At start-up
   (gtk_init_check, GTK patch) gtk/riscos/gtkriscostheme.c adds a style

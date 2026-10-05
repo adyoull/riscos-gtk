@@ -173,7 +173,204 @@ find_menu2 (const char *title, const char *first, int from)
 /* The theme in the Wimp's colours and sprites (gtkriscostheme.c): pixels
    of the fake desktop's window colour, and of the fake option and radio
    sprites' unique colours, on each page */
-static int bg_pixels[4], optoff_pixels[4], radiooff_pixels[4];
+static int bg_pixels[4], optoff_pixels[4], radiooff_pixels[4], uicon_pixels[4], vbar_pixels[4];
+
+/* ---- real RISC OS sprites (TT_ICONS): PNGs made into sprites ---- */
+
+/* A 32bpp sprite (90 dpi) with a 1bpp mask from a PNG, appended to the
+   sprite area at area (size words) */
+static int
+png_to_sprite (int *area, int size, const char *file, const char *name)
+{
+  GdkPixbuf *pb = gdk_pixbuf_new_from_file (file, NULL);
+  int w, h, x, y, mwords, bytes, *spr;
+  guchar *px;
+  int stride, has_alpha;
+
+  if (!pb)
+    return 0;
+  w = gdk_pixbuf_get_width (pb);
+  h = gdk_pixbuf_get_height (pb);
+  mwords = (w + 31) / 32;
+  bytes = 44 + w * h * 4 + mwords * 4 * h;
+  if (area[3] + bytes > size * 4)
+    {
+      g_object_unref (pb);
+      return 0;
+    }
+  spr = (int *) ((char *) area + area[3]);
+  memset (spr, 0, bytes);
+  spr[0] = bytes;
+  strncpy ((char *) &spr[1], name, 12);
+  spr[4] = w - 1; spr[5] = h - 1; spr[6] = 0; spr[7] = 31;
+  spr[8] = 44; spr[9] = 44 + w * h * 4;
+  spr[10] = (6 << 27) | (90 << 14) | (90 << 1) | 1;
+  px = gdk_pixbuf_get_pixels (pb);
+  stride = gdk_pixbuf_get_rowstride (pb);
+  has_alpha = gdk_pixbuf_get_has_alpha (pb);
+  for (y = 0; y < h; y++)
+    for (x = 0; x < w; x++)
+      {
+        guchar *p = px + y * stride + x * (has_alpha ? 4 : 3);
+        unsigned char *m = (unsigned char *) spr + spr[9] + y * mwords * 4;
+        spr[11 + y * w + x] = p[0] | p[1] << 8 | p[2] << 16;     /* &BBGGRR */
+        if (!has_alpha || p[3] > 127)
+          m[x >> 3] |= 1 << (x & 7);
+      }
+  area[1]++;
+  area[3] += bytes;
+  g_object_unref (pb);
+  return 1;
+}
+
+static int icon_tools[65536], icon_pool[65536];
+
+static const int *
+icon_pool_lookup (const char *name)
+{
+  const char *p = (const char *) icon_pool + icon_pool[2];
+  int i;
+  for (i = 0; i < icon_pool[1]; i++, p += ((const int *) p)[0])
+    if (strncmp (p + 4, name, 12) == 0)
+      return (const int *) p;
+  return NULL;
+}
+
+/* TT_ICONS=dir: dir/Tools/NAME22.png (window borders, named NAME22 as in
+   a Tools file) and dir/Sprites22/NAME.png (the sprite pool) */
+static void
+load_icons (const char *dir)
+{
+  GDir *d;
+  const char *f;
+  char *path;
+
+  icon_tools[0] = sizeof icon_tools; icon_tools[2] = icon_tools[3] = 16;
+  icon_pool[0] = sizeof icon_pool; icon_pool[2] = icon_pool[3] = 16;
+  path = g_build_filename (dir, "Tools", NULL);
+  if ((d = g_dir_open (path, 0, NULL)))
+    {
+      while ((f = g_dir_read_name (d)))
+        if (g_str_has_suffix (f, ".png"))
+          {
+            char *name = g_strndup (f, strlen (f) - 4), *file = g_build_filename (path, f, NULL);
+            png_to_sprite (icon_tools, G_N_ELEMENTS (icon_tools), file, name);
+            g_free (name);
+            g_free (file);
+          }
+      g_dir_close (d);
+    }
+  g_free (path);
+  path = g_build_filename (dir, "Sprites22", NULL);
+  if ((d = g_dir_open (path, 0, NULL)))
+    {
+      while ((f = g_dir_read_name (d)))
+        if (g_str_has_suffix (f, ".png"))
+          {
+            char *name = g_strndup (f, strlen (f) - 4), *file = g_build_filename (path, f, NULL);
+            png_to_sprite (icon_pool, G_N_ELEMENTS (icon_pool), file, name);
+            g_free (name);
+            g_free (file);
+          }
+      g_dir_close (d);
+    }
+  g_free (path);
+  fake_tool_area_override = icon_tools;
+  fake_pool_lookup = icon_pool_lookup;
+  printf ("# TT_ICONS: %d tool sprites, %d pool sprites from %s\n", icon_tools[1], icon_pool[1], dir);
+}
+
+/* A scrolled window drawn offscreen (GtkOffscreenWindow): pixels of the
+   fake tool sprites' colours (uicon #a01020, vbarmid #aa1020) */
+static int offscreen_stage, offscreen_polls;
+static GtkWidget *offscreen;
+
+static void
+offscreen_step (void)
+{
+  if (offscreen_stage == 0)
+    {
+      GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
+      GtkWidget *area = gtk_drawing_area_new ();
+      offscreen = gtk_offscreen_window_new ();
+      if (getenv ("TT_ICONS"))
+        {
+          /* a preview: a few widgets in the real sprites */
+          GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+          GtkWidget *col = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
+          GtkWidget *tv = gtk_text_view_new (), *w;
+          GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (tv));
+          GtkWidget *combo = gtk_combo_box_text_new ();
+          int i;
+          for (i = 0; i < 40; i++)
+            gtk_text_buffer_insert_at_cursor (buf, "The quick brown fox jumps over the lazy dog. 0123456789\n", -1);
+          gtk_container_add (GTK_CONTAINER (sw), tv);
+          gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw), GTK_POLICY_ALWAYS, GTK_POLICY_ALWAYS);
+          gtk_widget_set_size_request (sw, 300, 200);
+          gtk_box_pack_start (GTK_BOX (box), sw, FALSE, FALSE, 0);
+          w = gtk_check_button_new_with_label ("Option off");
+          gtk_box_pack_start (GTK_BOX (col), w, FALSE, FALSE, 0);
+          w = gtk_check_button_new_with_label ("Option on");
+          gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (w), TRUE);
+          gtk_box_pack_start (GTK_BOX (col), w, FALSE, FALSE, 0);
+          w = gtk_radio_button_new_with_label (NULL, "Radio on");
+          gtk_box_pack_start (GTK_BOX (col), w, FALSE, FALSE, 0);
+          gtk_box_pack_start (GTK_BOX (col), gtk_radio_button_new_with_label_from_widget (GTK_RADIO_BUTTON (w), "Radio off"), FALSE, FALSE, 0);
+          gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "Pop-up");
+          gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 0);
+          gtk_box_pack_start (GTK_BOX (col), combo, FALSE, FALSE, 0);
+          gtk_box_pack_start (GTK_BOX (col), gtk_spin_button_new_with_range (0, 99, 1), FALSE, FALSE, 0);
+          gtk_box_pack_start (GTK_BOX (box), col, FALSE, FALSE, 0);
+          gtk_container_set_border_width (GTK_CONTAINER (box), 8);
+          gtk_container_add (GTK_CONTAINER (offscreen), box);
+        }
+      else
+        {
+          gtk_widget_set_size_request (area, 100, 1000);
+          gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw), GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
+          gtk_container_add (GTK_CONTAINER (sw), area);
+          gtk_widget_set_size_request (sw, 120, 200);
+          gtk_container_add (GTK_CONTAINER (offscreen), sw);
+        }
+      gtk_widget_show_all (offscreen);
+      offscreen_stage = 1;
+    }
+  else if (offscreen_stage == 1 && ++offscreen_polls == 20)
+    {
+      cairo_surface_t *surf = gtk_offscreen_window_get_surface (GTK_OFFSCREEN_WINDOW (offscreen));
+      cairo_surface_t *img;
+      cairo_t *cr;
+      int w = gtk_widget_get_allocated_width (offscreen), h = gtk_widget_get_allocated_height (offscreen);
+      int x, y, stride;
+      unsigned char *d;
+
+      img = cairo_image_surface_create (CAIRO_FORMAT_RGB24, w, h);
+      cr = cairo_create (img);
+      cairo_set_source_surface (cr, surf, 0, 0);
+      cairo_paint (cr);
+      cairo_destroy (cr);
+      cairo_surface_flush (img);
+      d = cairo_image_surface_get_data (img);
+      stride = cairo_image_surface_get_stride (img);
+      for (y = 0; y < h; y++)
+        for (x = 0; x < w; x++)
+          {
+            unsigned int p = *(unsigned int *) (d + y * stride + x * 4) & 0xFFFFFF;
+            if (p == 0xA01020)
+              uicon_pixels[2]++;
+            else if (p == 0xAA1020)
+              vbar_pixels[2]++;
+          }
+      {
+        char path[600];
+        g_snprintf (path, sizeof path, "%s/scrollbar.png", outdir);
+        cairo_surface_write_to_png (img, path);
+      }
+      cairo_surface_destroy (img);
+      gtk_widget_destroy (offscreen);
+      offscreen_stage = 2;
+    }
+}
 
 static void
 count_theme_pixels (int page)
@@ -189,6 +386,7 @@ count_theme_pixels (int page)
           optoff_pixels[page]++;
         else if (p == 0x34AB12)
           radiooff_pixels[page]++;
+
       }
 }
 
@@ -413,6 +611,8 @@ hook (int reason)
       nulls (30);                 /* 5. is added once page 4 is drawn */
       /* then the fake sends Close_Window_Request */
     }
+  if (stage == 1 && offscreen_stage < 2)
+    offscreen_step ();
   if (stage == 1 && tt_notebook)
     {
       int cur = gtk_notebook_get_current_page (GTK_NOTEBOOK (tt_notebook));
@@ -428,6 +628,7 @@ hook (int reason)
           g_snprintf (name, sizeof name, "themetest-page%d.ppm", cur);
           save_ppm (name, 100, 60, 760, 800);
           count_theme_pixels (cur);
+
           if (cur == 3)
             {
               /* 5. Menu click in the context area, then Info */
@@ -480,6 +681,11 @@ main (int argc, char **argv)
   fake_wimp_hook = hook;
   /* the desktop's window colour isn't the standard grey: the theme follows */
   fake_wimp_palette[1] = 0xE0D0C810;     /* #c8d0e0 */
+  if (getenv ("TT_ICONS"))
+    {
+      fake_wimp_palette[1] = 0xDDDDDD10;   /* the standard palette for a preview */
+      load_icons (getenv ("TT_ICONS"));
+    }
   g_snprintf (logpath, sizeof logpath, "%s/GTKThemeTest.Log", outdir);
   targv[0] = argv[0]; targv[1] = argv[1]; targv[2] = logpath; targv[3] = NULL;
   g_setenv ("RISCOS_GTK_MENU_DEBUG", "1", TRUE);
@@ -585,6 +791,9 @@ main (int argc, char **argv)
          "option and radio icons are the Wimp's sprites (optoff, radiooff)");
   printf ("# page pixels: background %d/%d/%d/%d; optoff %d, radiooff %d on page 2\n",
           bg_pixels[0], bg_pixels[1], bg_pixels[2], bg_pixels[3], optoff_pixels[1], radiooff_pixels[1]);
+  check (uicon_pixels[2] == 14 * 14 && vbar_pixels[2] > 20,
+         "scroll bars are drawn with the Wimp's window border sprites (uicon, vbarmid)");
+  printf ("# offscreen scrolled window: %d uicon pixels, %d vbarmid pixels\n", uicon_pixels[2], vbar_pixels[2]);
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL &&
          strstr (logbuf, "Gtk-") == NULL, "no GTK warnings or criticals in the log");

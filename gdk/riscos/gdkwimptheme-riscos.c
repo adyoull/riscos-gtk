@@ -16,6 +16,9 @@
  * screen eig) screen pixels, so a 90 dpi sprite is 1:1 at EIG 1 and a
  * 45 dpi one (old mode 12) is doubled vertically.
  *
+ * gdk_riscos_wimp_tool_sprite () reads the window border sprites the same
+ * way, from the Wimp's tool sprite area.
+ *
  * SWIs as in the RISC OS PRMs: Wimp_SpriteOp (24: select, R2 -> sprite),
  * Wimp_ReadPalette, OS_ReadModeVariable (4, 5, 9 for numbered modes).
  *
@@ -182,9 +185,23 @@ decode (const int *spr, int *xeig, int *yeig)
   if (bpp <= 8)
     {
       int i, colours = 1 << bpp;
-      if (n_pal >= colours || (n_pal > 0 && n_pal >= 16))
+      if (n_pal >= colours)
         for (i = 0; i < colours; i++)
-          pal[i] = i < n_pal ? rgb_of ((unsigned int) spr[11 + 2 * i]) : 0;
+          pal[i] = rgb_of ((unsigned int) spr[11 + 2 * i]);
+      else if (bpp == 8 && n_pal >= 16)
+        /* an old-style 256-colour palette: 16 entries for the low 4 bits
+           of a colour, the high 4 bits adding red (bit 4), green (bits
+           5, 6) and blue (bit 7) as the standard 256-colour palette does
+           (VIDC1's 256-colour modes) */
+        for (i = 0; i < 256; i++)
+          {
+            guint32 b = rgb_of ((unsigned int) spr[11 + 2 * (i & 15)]);
+            int r = (b >> 16) & 0xFF, g = (b >> 8) & 0xFF, bl = b & 0xFF;
+            r = MIN (255, r + ((i & 0x10) ? 0x88 : 0));
+            g = MIN (255, g + ((i & 0x20) ? 0x44 : 0) + ((i & 0x40) ? 0x88 : 0));
+            bl = MIN (255, bl + ((i & 0x80) ? 0x88 : 0));
+            pal[i] = r << 16 | g << 8 | bl;
+          }
       else if (bpp == 8)
         for (i = 0; i < 256; i++)
           pal[i] = default256 (i);
@@ -258,26 +275,14 @@ decode (const int *spr, int *xeig, int *yeig)
   return pb;
 }
 
-/**
- * gdk_riscos_wimp_sprite:
- * @name: a sprite in the Wimp's sprite pool, e.g. "optoff"
- *
- * Returns: (transfer full) (nullable): the sprite at screen pixel size,
- * or %NULL if the Wimp hasn't got it or it can't be read.
- */
-GdkPixbuf *
-gdk_riscos_wimp_sprite (const char *name)
+/* A decoded sprite scaled to screen pixels */
+static GdkPixbuf *
+to_screen (const int *spr)
 {
-  _kernel_swi_regs r;
   GdkPixbuf *pb, *scaled;
   int xeig = 1, yeig = 1, sx, sy, w, h;
 
-  memset (&r, 0, sizeof r);
-  r.r[0] = 24;                     /* select sprite: R2 -> it */
-  r.r[2] = (int) name;
-  if (_kernel_swi (Wimp_SpriteOp, &r, &r) != NULL || r.r[2] == 0)
-    return NULL;
-  pb = decode ((const int *) r.r[2], &xeig, &yeig);
+  pb = decode (spr, &xeig, &yeig);
   if (pb == NULL)
     return NULL;
   sx = xeig - screen_eig (4);
@@ -291,4 +296,148 @@ gdk_riscos_wimp_sprite (const char *name)
   scaled = gdk_pixbuf_scale_simple (pb, w, h, GDK_INTERP_NEAREST);
   g_object_unref (pb);
   return scaled;
+}
+
+/**
+ * gdk_riscos_wimp_sprite:
+ * @name: a sprite in the Wimp's sprite pool, e.g. "optoff"
+ *
+ * Returns: (transfer full) (nullable): the sprite at screen pixel size,
+ * or %NULL if the Wimp hasn't got it or it can't be read.
+ */
+GdkPixbuf *
+gdk_riscos_wimp_sprite (const char *name)
+{
+  _kernel_swi_regs r;
+
+  memset (&r, 0, sizeof r);
+  r.r[0] = 24;                     /* select sprite: R2 -> it */
+  r.r[2] = (int) name;
+  if (_kernel_swi (Wimp_SpriteOp, &r, &r) != NULL || r.r[2] == 0)
+    return NULL;
+  return to_screen ((const int *) r.r[2]);
+}
+
+/* ---- the tool sprites (window furniture) ---------------------------------
+
+   The Wimp keeps the window border sprites (*ToolSprites; names in the
+   PRMs' "Naming Convention": uicon, vbarmid, vwelltcap...) in their own
+   sprite area, not the sprite pool, so Wimp_SpriteOp can't reach them.
+   Wimp_ReadSysInfo 9 gives that area's address (the 2026 PRM text lists
+   no reasons; the area is checked before it's used: readable, a sane
+   sprite area header, and an "uicon" sprite in it). */
+
+#ifndef Wimp_ReadSysInfo
+#define Wimp_ReadSysInfo 0x400F2
+#endif
+#ifndef OS_ValidateAddress
+#define OS_ValidateAddress 0x3A
+#endif
+
+static gboolean
+readable (const void *start, size_t len)
+{
+  _kernel_swi_regs r;
+  int carry = 1;
+
+  r.r[0] = (int) start;
+  r.r[1] = (int) start + (int) len;
+  if (_kernel_swi_c (OS_ValidateAddress, &r, &r, &carry) != NULL)
+    return FALSE;
+  return carry == 0;
+}
+
+/* The sprite called name in the area (names are 12 characters, case
+   ignored), or NULL; every step checked against the area's bounds */
+static const int *
+area_find (const int *area, const char *name)
+{
+  int count = area[1], off = area[2], free_off = area[3], i;
+
+  for (i = 0; i < count && off >= 16 && off + 44 <= free_off; i++)
+    {
+      const int *spr = (const int *) ((const char *) area + off);
+      if (spr[0] < 44 || off + spr[0] > free_off)
+        return NULL;
+      if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0)
+        return spr;
+      off += spr[0];
+    }
+  return NULL;
+}
+
+static gboolean
+sane_area (const int *area)
+{
+  if (area == NULL || ((unsigned int) (gsize) area & 3) || !readable (area, 16))
+    return FALSE;
+  if (area[0] < 16 || area[0] > (16 << 20) || area[1] < 1 || area[1] > 4096 ||
+      area[2] < 16 || area[3] < area[2] || area[3] > area[0])
+    return FALSE;
+  if (!readable (area, area[3]))
+    return FALSE;
+  return area_find (area, "uicon") != NULL || area_find (area, "uicon22") != NULL;
+}
+
+static const int *
+tool_area (void)
+{
+  static const int *area;
+  static gboolean looked;
+  _kernel_swi_regs r;
+
+  if (looked)
+    return area;
+  looked = TRUE;
+  memset (&r, 0, sizeof r);
+  r.r[0] = 9;
+  if (_kernel_swi (Wimp_ReadSysInfo, &r, &r) != NULL)
+    return NULL;
+  if (sane_area ((const int *) r.r[0]))
+    area = (const int *) r.r[0];
+  else if (sane_area ((const int *) r.r[1]))
+    area = (const int *) r.r[1];
+  if (g_getenv ("RISCOS_GTK_DEBUG"))
+    g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
+                (unsigned int) r.r[0], (unsigned int) r.r[1],
+                area ? "a sprite area with uicon" : "not found");
+  return area;
+}
+
+/**
+ * gdk_riscos_wimp_tool_sprite:
+ * @name: a window border (tool) sprite, e.g. "uicon" or "vbarmid"
+ *
+ * Returns: (transfer full) (nullable): the sprite at screen pixel size,
+ * or %NULL.
+ */
+GdkPixbuf *
+gdk_riscos_wimp_tool_sprite (const char *name)
+{
+  const int *area = tool_area (), *spr = NULL;
+  char full[16];
+  const char *suffix;
+
+  if (area == NULL)
+    return NULL;
+  /* A Tools file holds a set per resolution, named with the screen's
+     sprite suffix: "uicon22" for 90 x 90 dpi (EIG 1 x 1), "uicon11" for
+     180 dpi; the plain name is the 90 x 45 dpi set, or the only one. */
+  suffix = screen_eig (4) == 1 && screen_eig (5) == 1 ? "22" :
+           screen_eig (4) == 0 && screen_eig (5) == 0 ? "11" : "";
+  if (*suffix)
+    {
+      g_snprintf (full, sizeof full, "%s%s", name, suffix);
+      spr = area_find (area, full);
+    }
+  if (spr == NULL)
+    spr = area_find (area, name);
+  if (spr == NULL)
+    return NULL;
+  if (g_getenv ("RISCOS_GTK_DEBUG"))
+    g_printerr ("riscos-gtk: tool sprite %.12s: %d words x %d rows, bits %d-%d, mode &%X,"
+                " palette %d, %s\n", (const char *) &spr[1], spr[4] + 1, spr[5] + 1, spr[6], spr[7],
+                (unsigned int) spr[10], (MIN (spr[8], spr[9]) - 44) / 8,
+                spr[8] == spr[9] ? "no mask" : "mask");
+  return to_screen (spr);
 }

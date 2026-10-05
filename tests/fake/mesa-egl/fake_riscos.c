@@ -274,9 +274,50 @@ static void build_pool(void)
     for (y = 0; y < 4; y++) for (x = 0; x < 8; x++) put(s, x, y, 1, x == 7 - y);
 }
 
+/* The Wimp's tool (window border) sprites: a real sprite area, as
+   Wimp_ReadSysInfo 9 gives it. 32bpp sprites, no masks, one colour each:
+   fake_tool_colour (&BBGGRR) + index (see fake_riscos.h). */
+static int tool_area[8192];
+int fake_tool_sprites = 1;
+const char *fake_tool_names[] = {
+    "uicon", "puicon", "dicon", "pdicon", "vwelltcap", "vwellbcap", "vwellt", "vwellb",
+    "vbart", "vbarb", "vbarmid", "pvbart", "pvbarb", "pvbarmid",
+    "licon", "plicon", "ricon", "pricon", "hwelllcap", "hwellrcap", "hwelll", "hwellr",
+    "hbarl", "hbarr", "hbarmid", "phbarl", "phbarr", "phbarmid", "blicon", NULL };
+
+static const int *build_tool_area(void)
+{
+    int i, off = 16;
+    unsigned mode32 = (6u << 27) | (90 << 14) | (90 << 1) | 1;
+    if (tool_area[1]) return tool_area;
+    for (i = 0; fake_tool_names[i]; i++) {
+        int *spr = &tool_area[off / 4], x, y, wpx = 14, h = 14;
+        /* end caps and slider ends are short along the bar */
+        if (strstr(fake_tool_names[i], "cap") || !strcmp(fake_tool_names[i] + strlen(fake_tool_names[i]) - 1, "t") ||
+            strstr(fake_tool_names[i], "bar") ) h = 14;
+        memset(spr, 0, 44 + wpx * h * 4);
+        spr[0] = 44 + wpx * h * 4;
+        strncpy((char *) &spr[1], fake_tool_names[i], 12);
+        spr[4] = wpx - 1; spr[5] = h - 1; spr[6] = 0; spr[7] = 31;
+        spr[8] = spr[9] = 44; spr[10] = (int) mode32;
+        for (y = 0; y < h; y++) for (x = 0; x < wpx; x++)
+            spr[11 + y * wpx + x] = 0x002010A0 + i;   /* &BBGGRR: #a01020, + i in red */
+        off += spr[0];
+    }
+    tool_area[0] = (int) sizeof tool_area; tool_area[1] = i; tool_area[2] = 16; tool_area[3] = off;
+    return tool_area;
+}
+
+int *fake_tool_area_override;
+const int *(*fake_pool_lookup)(const char *name);
+
 static const int *pool_find(const char *name)
 {
     int off = 0;
+    if (fake_pool_lookup) {
+        const int *spr = fake_pool_lookup(name);
+        if (spr) return spr;
+    }
     if (!fake_wimp_sprites) return NULL;
     build_pool();
     while (off < pool_used) {
@@ -665,8 +706,14 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         r.r[0] = reason;
         break;
     }
-    case 0x400F2:   /* Wimp_ReadSysInfo 0: active tasks (0 = no desktop); 5: current task */
+    case 0x400F2:   /* Wimp_ReadSysInfo 0: active tasks (0 = no desktop); 5: current task;
+                       9: the tool sprite area */
         if (r.r[0] == 5) { r.r[0] = 0x4A00; break; }
+        if (r.r[0] == 9) {
+            r.r[0] = fake_tool_area_override ? (int) (long) fake_tool_area_override :
+                     fake_tool_sprites ? (int) (long) build_tool_area() : 0;
+            r.r[1] = 0; break;
+        }
         if (r.r[0] != 0) { e = error("ReadSysInfo reason not faked"); break; }
         r.r[0] = fake_wimp_desktop ? 1 + fake_wimp_tasks : 0;
         break;

@@ -113,6 +113,13 @@ extern int fake_wimp_ptr_write;          /* the Wimp has ptr_write (9 x 20) */
      gright         10x10 numbered mode 28 (8bpp), old-style mask (x <= y)
      left, right    8x4 1bpp at 90 x 45 dpi (8x8 on an EIG 1 screen) */
 extern unsigned int fake_wimp_palette[20];
+/* Wimp_ReadSysInfo 9: the tool (window border) sprites, a sprite area of
+   14x14 32bpp sprites named fake_tool_names[i], each one colour:
+   #a01020 with i added to its red (uicon #a01020, vbarmid i = 10: #aa1020) */
+extern int fake_tool_sprites;
+extern const char *fake_tool_names[];
+extern int *fake_tool_area_override;     /* a test's own tool sprite area instead */
+extern const int *(*fake_pool_lookup)(const char *name);   /* a test's Wimp pool sprites first */
 extern int fake_wimp_sprites;   /* Wimp_DragBox: type now (-1 none), calls */
 
 #endif

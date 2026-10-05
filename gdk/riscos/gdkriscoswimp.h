@@ -22,6 +22,11 @@ gboolean   gdk_riscos_wimp_palette (guint32 rgb[16]);
 GDK_AVAILABLE_IN_ALL
 GdkPixbuf *gdk_riscos_wimp_sprite  (const char *name);
 
+/* A window border sprite (the Wimp's tool sprites, e.g. "uicon",
+ * "vbarmid"; names as in the PRMs) as an RGBA pixbuf, or NULL. */
+GDK_AVAILABLE_IN_ALL
+GdkPixbuf *gdk_riscos_wimp_tool_sprite (const char *name);
+
 G_END_DECLS
 
 #endif

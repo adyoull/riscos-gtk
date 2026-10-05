@@ -15,7 +15,10 @@
  *   - uses the Wimp's own sprites (the sprite pool, so whatever sprite set
  *     the desktop has loaded) for option icons (optoff, opton), radio icons
  *     (radiooff, radioon), the pop-up menu button (gright) and the number
- *     range adjuster arrows (left, right).
+ *     range adjuster arrows (left, right);
+ *   - draws scroll bars with the Wimp's window border (tool) sprites, as
+ *     the Wimp draws its windows' scroll bars, so they follow the desktop's
+ *     theme (*ToolSprites).
  * The sprites are written as PNGs to a directory in /tmp
  * (<Wimp$ScrapDir>) and removed at exit. A sprite the Wimp hasn't got
  * keeps the theme's own picture.
@@ -52,11 +55,10 @@ remove_files (void)
     g_rmdir (dir);
 }
 
-/* Write Wimp sprite name as a PNG; its file URI (and size), or NULL */
+/* Write pb (taken) as file.png; its file URI (and size), or NULL */
 static char *
-sprite_uri (const char *name, int *w, int *h)
+pixbuf_uri (GdkPixbuf *pb, const char *name, int *w, int *h)
 {
-  GdkPixbuf *pb = gdk_riscos_wimp_sprite (name);
   char *file, *uri;
 
   if (pb == NULL)
@@ -85,6 +87,111 @@ sprite_uri (const char *name, int *w, int *h)
   g_ptr_array_add (files, file);
   uri = g_filename_to_uri (file, NULL, NULL);
   return uri;
+}
+
+/* A sprite from the Wimp's sprite pool as a PNG */
+static char *
+sprite_uri (const char *name, int *w, int *h)
+{
+  return pixbuf_uri (gdk_riscos_wimp_sprite (name), name, w, h);
+}
+
+/* A window border (tool) sprite as a PNG (files t_NAME.png) */
+static char *
+tool_uri (const char *name, int *w, int *h)
+{
+  char *file = g_strconcat ("t_", name, NULL);
+  char *uri = pixbuf_uri (gdk_riscos_wimp_tool_sprite (name), file, w, h);
+  g_free (file);
+  return uri;
+}
+
+/* One scroll bar orientation drawn with the Wimp's own window border
+   sprites, as the Wimp draws a window's scroll bars (PRMs, "Naming
+   Convention"): arrows (and pressed arrows), the well (end caps and a
+   section repeated between them) and the slider (end caps and a middle
+   section repeated). Nothing if the arrows, well or slider middle are
+   missing. */
+static void
+scrollbar_rules (GString *css, gboolean vertical)
+{
+  const char *o = vertical ? "vertical" : "horizontal";
+  const char *names[] = {
+    vertical ? "uicon" : "licon", vertical ? "puicon" : "plicon",
+    vertical ? "dicon" : "ricon", vertical ? "pdicon" : "pricon",
+    vertical ? "vwelltcap" : "hwelllcap", vertical ? "vwellbcap" : "hwellrcap",
+    vertical ? "vwellt" : "hwelll",
+    vertical ? "vbart" : "hbarl", vertical ? "vbarb" : "hbarr", vertical ? "vbarmid" : "hbarmid",
+    vertical ? "pvbart" : "phbarl", vertical ? "pvbarb" : "phbarr", vertical ? "pvbarmid" : "phbarmid",
+  };
+  enum { UP, PUP, DOWN, PDOWN, CAP1, CAP2, WELL, BAR1, BAR2, BARMID, PBAR1, PBAR2, PBARMID, N };
+  char *u[N];
+  int w[N], h[N], i, across;
+  const char *start = vertical ? "top" : "left", *end = vertical ? "bottom" : "right";
+  const char *rep = vertical ? "repeat-y" : "repeat-x";
+
+  for (i = 0; i < N; i++)
+    {
+      w[i] = h[i] = 0;
+      u[i] = tool_uri (names[i], &w[i], &h[i]);
+    }
+  if (!u[UP] || !u[DOWN] || !u[WELL] || !u[BARMID])
+    goto out;
+  across = vertical ? w[UP] : h[UP];
+
+  /* the bar itself: the sprites draw it all (the theme's black line
+     between it and the work area stays) */
+  g_string_append_printf (css,
+    "scrollbar.%s { background: none; %s: %dpx; }\n",
+    o, vertical ? "min-width" : "min-height", across);
+
+  /* arrows */
+  g_string_append_printf (css,
+    "scrollbar.%s button { min-width: %dpx; min-height: %dpx; padding: 0; border: none;"
+    " background-color: transparent; background-repeat: no-repeat; background-position: center;"
+    " -gtk-icon-source: none; }\n"
+    "scrollbar.%s button.up { background-image: url(\"%s\"); }\n"
+    "scrollbar.%s button.down { background-image: url(\"%s\"); }\n",
+    o, w[UP], h[UP], o, u[UP], o, u[DOWN]);
+  if (u[PUP] && u[PDOWN])
+    g_string_append_printf (css,
+      "scrollbar.%s button.up:active { background-image: url(\"%s\"); }\n"
+      "scrollbar.%s button.down:active { background-image: url(\"%s\"); }\n",
+      o, u[PUP], o, u[PDOWN]);
+
+  /* the well (the trough): its end caps over a repeated section */
+  g_string_append_printf (css, "scrollbar.%s trough { background-color: transparent;"
+                          " background-image: ", o);
+  if (u[CAP1] && u[CAP2])
+    g_string_append_printf (css, "url(\"%s\"), url(\"%s\"), url(\"%s\");"
+                            " background-repeat: no-repeat, no-repeat, %s;"
+                            " background-position: %s, %s, %s; }\n",
+                            u[CAP1], u[CAP2], u[WELL], rep, start, end, start);
+  else
+    g_string_append_printf (css, "url(\"%s\"); background-repeat: %s; }\n", u[WELL], rep);
+
+  /* the slider: its end caps over a repeated middle; pressed while dragged */
+  g_string_append_printf (css,
+    "scrollbar.%s slider { margin: 0; border: none; border-radius: 0;"
+    " background-color: transparent; %s: %dpx; %s: %dpx; background-image: ",
+    o, vertical ? "min-width" : "min-height", across,
+    vertical ? "min-height" : "min-width",
+    MAX (2 * across, (vertical ? h[BAR1] + h[BAR2] : w[BAR1] + w[BAR2]) + 2));
+  if (u[BAR1] && u[BAR2])
+    g_string_append_printf (css, "url(\"%s\"), url(\"%s\"), url(\"%s\");"
+                            " background-repeat: no-repeat, no-repeat, %s;"
+                            " background-position: %s, %s, %s; }\n",
+                            u[BAR1], u[BAR2], u[BARMID], rep, start, end, start);
+  else
+    g_string_append_printf (css, "url(\"%s\"); background-repeat: %s; }\n", u[BARMID], rep);
+  if (u[PBAR1] && u[PBAR2] && u[PBARMID] && u[BAR1] && u[BAR2])
+    g_string_append_printf (css,
+      "scrollbar.%s slider:active { background-image: url(\"%s\"), url(\"%s\"), url(\"%s\"); }\n",
+      o, u[PBAR1], u[PBAR2], u[PBARMID]);
+
+out:
+  for (i = 0; i < N; i++)
+    g_free (u[i]);
 }
 
 /* Rules for a check or radio node from its off and on sprites */
@@ -138,7 +245,8 @@ make_css (void)
       g_free (u);
     }
 
-  /* number range adjusters */
+  /* number range adjusters: the Wimp's arrows in the theme's raised
+     buttons (Toolbox adjusters are arrows in a 3D-bordered icon) */
   if ((u = sprite_uri ("left", &w, &h)))
     {
       g_string_append_printf (css,
@@ -151,6 +259,16 @@ make_css (void)
       g_string_append_printf (css,
         "spinbutton:not(.vertical) button.up, spinbutton:not(.vertical) button:disabled.up"
         " { background-image: url(\"%s\"); }\n", u);
+      g_free (u);
+    }
+
+  /* scroll bars: the Wimp's window border sprites */
+  scrollbar_rules (css, TRUE);
+  scrollbar_rules (css, FALSE);
+  if ((u = tool_uri ("blicon", &w, &h)))
+    {
+      g_string_append_printf (css, "scrolledwindow junction { background-image: url(\"%s\");"
+                              " background-repeat: no-repeat; background-position: left top; }\n", u);
       g_free (u);
     }
   return g_string_free (css, FALSE);
