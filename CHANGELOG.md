@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.10, 2026-10-05)
+- Owner (0.9: "cursors look good"): the scroll wheel did nothing. Windows
+  now ask for extended scroll requests (extra window flags bit 1, window
+  block +39); the wheel's Scroll_Request (+32/+36 in OS units, multiples
+  of 4, y positive = up) becomes GDK scroll events at the pointer, one
+  step per 64 OS units (at least one, at most 8), up/down/left/right
+  (the protocol's scroll message gained left and right). Which window the
+  wheel goes to is the Wimp's choice (*WimpScroll -Type).
+  RISCOS_GTK_DEBUG logs each request's amounts, to tune the step on the Pi.
+- Fake Wimp: Scroll_Request (script reason 10). edittest-fake scrolls the
+  long list down three nudges and up one (26 checks).
+
 ## Unreleased (GTKThemeTest 0.9, 2026-10-05)
 - Owner: pointers in the RISC OS pointer colours, and the text pointer
   and caret as RISC OS has them.

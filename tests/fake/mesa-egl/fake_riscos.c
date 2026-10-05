@@ -521,6 +521,15 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                     block[0] = fake_pointer[0]; block[1] = fake_pointer[1];
                     block[2] = fake_pointer[2]; block[3] = TARGET_WINDOW; block[4] = -1;
                     break;
+                case 10: {                   /* Scroll_Request (extended): a, b = x, y OS units */
+                    fake_window_t *sw = find_window(TARGET_WINDOW);
+                    if (sw) {
+                        block[1] = sw->x0; block[2] = sw->y0; block[3] = sw->x1; block[4] = sw->y1;
+                        block[5] = sw->sx; block[6] = sw->sy; block[7] = -1;
+                    }
+                    block[8] = e[1]; block[9] = e[2]; block[10] = -1;
+                    break;
+                }
                 case 9:                      /* Menu_Selection */
                     block[0] = e[1]; block[1] = e[2]; block[2] = e[3]; block[3] = -1;
                     fake_menu = NULL;        /* the Wimp closes the tree (Adjust: the task reopens it) */

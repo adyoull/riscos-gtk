@@ -42,6 +42,8 @@ static int drag_len, dragbox_seen, drag_icon_windows;
 static char ptr_seen[4][16];
 static int ptr_seen_shape[4], ptr_seen_hot[4][2], ptr_seen_flags[4];
 static int hand_fill = -1, hand_outline = -1, caret_bar, caret_stem;
+static GtkWidget *list_sw;
+static double wheel_v[3] = { -1, -1, -1 };
 static int drop_ds_ref, drop_fetch_seen;
 static char text_after_paste[128], empty_after_drag[128], writable_after_drag[128], empty_after_drop[128];
 static char text_after_dragout[128];
@@ -513,6 +515,37 @@ next_step (void)
       break;
     case 15:
       g_strlcpy (empty_after_drop, gtk_entry_get_text (GTK_ENTRY (tt_entry_empty)), sizeof empty_after_drop);
+      /* the scroll wheel: the long list on the Lists page */
+      gtk_notebook_set_current_page (GTK_NOTEBOOK (tt_notebook), 2);
+      nulls (20);
+      break;
+    case 16:
+      list_sw = find_type (gtk_notebook_get_nth_page (GTK_NOTEBOOK (tt_notebook), 2),
+                           GTK_TYPE_SCROLLED_WINDOW);
+      if (list_sw)
+        {
+          rect (list_sw, &x, &y, &wd, &ht);
+          add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+          add (5, 0, 0, 0);
+          nulls (4);
+          wheel_v[0] = gtk_adjustment_get_value (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (list_sw)));
+          add (10, 0, -64, 0);       /* three nudges down */
+          nulls (3);
+          add (10, 0, -64, 0);
+          nulls (3);
+          add (10, 0, -64, 0);
+          nulls (10);
+        }
+      break;
+    case 17:
+      if (list_sw)
+        wheel_v[1] = gtk_adjustment_get_value (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (list_sw)));
+      add (10, 0, 64, 0);            /* one nudge up */
+      nulls (10);
+      break;
+    case 18:
+      if (list_sw)
+        wheel_v[2] = gtk_adjustment_get_value (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (list_sw)));
       nulls (6);
       break;
     default:
@@ -617,7 +650,7 @@ hook (int reason)
   }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 15)
+      if (step >= 18)
         return;
       if (step_ready () || waits > 150)
         {
@@ -723,6 +756,11 @@ main (int argc, char **argv)
   check (drop_fetch_seen && strstr (empty_after_drop, "Hello ") != NULL,
          "text saved into the window by another task (DataSave) is dropped into the field");
   printf ("# Empty field after the other task's drop: \"%s\"\n", empty_after_drop);
+  check (list_sw && wheel_v[1] > wheel_v[0] + 10,
+         "the scroll wheel (extended Scroll_Request) scrolls the list down");
+  check (list_sw && wheel_v[2] < wheel_v[1] && wheel_v[2] > wheel_v[0],
+         "and back up, by less for one nudge than for three");
+  printf ("# list scrolled %.0f -> %.0f (3 down) -> %.0f (1 up)\n", wheel_v[0], wheel_v[1], wheel_v[2]);
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL &&
          strstr (logbuf, "Gtk-") == NULL && strstr (logbuf, "Gdk-") == NULL,

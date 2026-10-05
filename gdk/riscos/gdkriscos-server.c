@@ -746,6 +746,49 @@ handle_message (GdkRiscosServer *server, int reason, int *block)
     }
 }
 
+/* The scroll wheel: an "extended" Scroll_Request (the window asks for
+   them with bit 1 of its extra window flags). +32, +36 = how far to
+   scroll in x and y, OS units, multiples of 4 (bottom two bits 0: that's
+   what marks an extended request); y positive = up. How far one wheel
+   nudge goes is the user's *WimpScroll -Speed, so it becomes GTK scroll
+   steps (each about a line), at least one, one per 64 OS units. */
+#define SCROLL_STEP 64
+
+static void
+handle_scroll (GdkRiscosServer *server, int *block)
+{
+  RiscosWindow *w = window_by_handle (server, block[0]);
+  int dx = block[8], dy = block[9], ptr[5] = { 0 };
+  int axis;
+  _kernel_swi_regs r;
+
+  if (w == NULL || ((dx | dy) & 3) != 0)
+    return;                        /* not ours, or a scroll bar's (we have none) */
+  r.r[1] = (int) ptr;
+  if (swi (Wimp_GetPointerInfo, &r) != NULL)
+    return;
+  if (g_getenv ("RISCOS_GTK_DEBUG"))
+    g_printerr ("riscos-gtk: wheel: scroll request %d,%d\n", dx, dy);
+  for (axis = 0; axis < 2; axis++)
+    {
+      int d = axis ? dy : dx, n, i;
+      if (d == 0)
+        continue;
+      n = CLAMP ((ABS (d) + SCROLL_STEP / 2) / SCROLL_STEP, 1, 8);
+      for (i = 0; i < n; i++)
+        {
+          RiscosInputMsg msg;
+          int x = os_to_px_x (server, ptr[0]), y = os_to_px_y (server, ptr[1]);
+
+          memset (&msg, 0, sizeof msg);
+          if (!pointer_msg (server, &msg.pointer, w->id, x, y))
+            return;
+          msg.scroll.dir = axis ? (d > 0 ? 0 : 1) : (d > 0 ? 3 : 2);
+          send (server, &msg, RISCOS_EVENT_SCROLL);
+        }
+    }
+}
+
 /* Is anything worth watching with null events: the pointer over one of our
    windows, or a button held? */
 static gboolean
@@ -827,6 +870,9 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
     case USER_MESSAGE_ACKNOWLEDGE:
       /* one of our recorded messages came back unanswered */
       _gdk_riscos_transfer_message (r.r[0], block);
+      return TRUE;
+    case SCROLL_REQUEST:
+      handle_scroll (server, block);
       return TRUE;
     case MENU_SELECTION:
       if (server->menu_block && server->menu_func)
@@ -1069,7 +1115,8 @@ _gdk_riscos_server_new_window (GdkRiscosServer *server, int x, int y,
   colours[4] = 3;      /* scroll bar outer */
   colours[5] = 1;      /* scroll bar inner */
   colours[6] = 12;     /* title background with input focus */
-  colours[7] = 0;
+  colours[7] = 2;      /* extra window flags: bit 1, extended scroll requests
+                          (the scroll wheel; PRMs, Scroll_Request) */
   /* Work area extent: the whole screen, so the window can grow that big */
   block[10] = 0;
   block[11] = -sh;

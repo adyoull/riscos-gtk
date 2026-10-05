@@ -245,7 +245,10 @@ _gdk_riscos_events_got_input (RiscosInputMsg *message)
 	event->scroll.x_root = message->pointer.root_x;
 	event->scroll.y_root = message->pointer.root_y;
         event->scroll.state = message->pointer.state;
-	event->scroll.direction = message->scroll.dir == 0 ? GDK_SCROLL_UP : GDK_SCROLL_DOWN;
+	/* riscos-gtk: 0 up, 1 down, 2 left, 3 right (the wheel: gdkriscos-server.c) */
+	event->scroll.direction = message->scroll.dir == 0 ? GDK_SCROLL_UP :
+	                          message->scroll.dir == 1 ? GDK_SCROLL_DOWN :
+	                          message->scroll.dir == 2 ? GDK_SCROLL_LEFT : GDK_SCROLL_RIGHT;
 	gdk_event_set_device (event, device_manager->core_pointer);
 	gdk_event_set_seat (event, gdk_device_get_seat (device_manager->core_pointer));
 

@@ -51,6 +51,7 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
      2 = Open_Window_Request (a = width | height << 16, OS units, 0 = same size;
          b, c = move the top left by b, c OS units)
      9 = Menu_Selection (a, b, c = item indices, -1 ends)
+    10 = Scroll_Request, extended (the wheel): a, b = x, y OS units (y + = up)
     17 = User_Message (a = message action, e.g. 0x400C1 ModeChange)
      FAKE_MOVE = pointer to pixel a, b (null event only)
      FAKE_RELEASE = buttons released (null event only)
