@@ -111,6 +111,10 @@ drag (GtkWidget *from, int tx, int ty)
       nulls (2);
     }
   nulls (4);
+  /* GTK's drag updates run on real time (idles, the frame clock): give
+     them some before the release, as a hand would */
+  add (FAKE_SLEEP, 30, 0, 0);
+  add (FAKE_SLEEP, 30, 0, 0);
   add (FAKE_RELEASE, 0, 0, 0);
   nulls (12);
 }
