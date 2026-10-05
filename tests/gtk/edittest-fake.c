@@ -566,6 +566,161 @@ filer_dataload (int handle, int px, int py, const char *file, int type)
   return q[2];
 }
 
+/* ---- ET_SHOTS=dir: screenshots with real RISC OS 5 sprites ----
+   dir as TT_ICONS (Tools/NAME22.png, Sprites22/NAME.png), plus stand-in
+   file_dfe / file_xxx sprites drawn here (the free icon set has none).
+   The pictures go to OUTDIR/shot-*.ppm; the checks aren't meant for it. */
+
+static int shot_tools[65536], shot_pool[65536];
+
+static int
+pixbuf_to_sprite (int *area, int size, GdkPixbuf *pb, const char *name)
+{
+  int w = gdk_pixbuf_get_width (pb), h = gdk_pixbuf_get_height (pb);
+  int mwords = (w + 31) / 32, bytes = 44 + w * h * 4 + mwords * 4 * h, x, y, *spr;
+  guchar *px = gdk_pixbuf_get_pixels (pb);
+  int stride = gdk_pixbuf_get_rowstride (pb), alpha = gdk_pixbuf_get_has_alpha (pb);
+
+  if (area[3] + bytes > size * 4)
+    return 0;
+  spr = (int *) ((char *) area + area[3]);
+  memset (spr, 0, bytes);
+  spr[0] = bytes;
+  strncpy ((char *) &spr[1], name, 12);
+  spr[4] = w - 1; spr[5] = h - 1; spr[6] = 0; spr[7] = 31;
+  spr[8] = 44; spr[9] = 44 + w * h * 4;
+  spr[10] = (6 << 27) | (90 << 14) | (90 << 1) | 1;
+  for (y = 0; y < h; y++)
+    for (x = 0; x < w; x++)
+      {
+        guchar *q = px + y * stride + x * (alpha ? 4 : 3);
+        unsigned char *m = (unsigned char *) spr + spr[9] + y * mwords * 4;
+        spr[11 + y * w + x] = q[0] | q[1] << 8 | q[2] << 16;
+        if (!alpha || q[3] > 127)
+          m[x >> 3] |= 1 << (x & 7);
+      }
+  area[1]++;
+  area[3] += bytes;
+  return 1;
+}
+
+static void
+shot_dir (int *area, const char *dir, const char *sub)
+{
+  char *path = g_build_filename (dir, sub, NULL);
+  GDir *d = g_dir_open (path, 0, NULL);
+  const char *f;
+
+  while (d && (f = g_dir_read_name (d)))
+    if (g_str_has_suffix (f, ".png"))
+      {
+        char *name = g_strndup (f, strlen (f) - 4), *file = g_build_filename (path, f, NULL);
+        GdkPixbuf *pb = gdk_pixbuf_new_from_file (file, NULL);
+        if (pb)
+          {
+            pixbuf_to_sprite (area, 65536, pb, name);
+            g_object_unref (pb);
+          }
+        g_free (name);
+        g_free (file);
+      }
+  if (d)
+    g_dir_close (d);
+  g_free (path);
+}
+
+/* A plain stand-in file icon (34 x 34 at 90 dpi): a page, folded corner,
+   the type's name */
+static GdkPixbuf *
+file_sprite (const char *label)
+{
+  cairo_surface_t *cs = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 34, 34);
+  cairo_t *cr = cairo_create (cs);
+  GdkPixbuf *pb;
+
+  cairo_move_to (cr, 6.5, 1.5);
+  cairo_line_to (cr, 21.5, 1.5);
+  cairo_line_to (cr, 28.5, 8.5);
+  cairo_line_to (cr, 28.5, 32.5);
+  cairo_line_to (cr, 6.5, 32.5);
+  cairo_close_path (cr);
+  cairo_set_source_rgb (cr, 1, 1, 1);
+  cairo_fill_preserve (cr);
+  cairo_set_source_rgb (cr, 0, 0, 0);
+  cairo_set_line_width (cr, 1);
+  cairo_stroke (cr);
+  cairo_move_to (cr, 21.5, 1.5);
+  cairo_line_to (cr, 21.5, 8.5);
+  cairo_line_to (cr, 28.5, 8.5);
+  cairo_stroke (cr);
+  cairo_select_font_face (cr, "DejaVu Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+  cairo_set_font_size (cr, 8);
+  cairo_set_source_rgb (cr, 0, 0.27, 0.6);
+  cairo_move_to (cr, 9, 24);
+  cairo_show_text (cr, label);
+  cairo_destroy (cr);
+  cairo_surface_flush (cs);
+  pb = gdk_pixbuf_get_from_surface (cs, 0, 0, 34, 34);
+  cairo_surface_destroy (cs);
+  return pb;
+}
+
+static const int *
+shot_pool_lookup (const char *name)
+{
+  const char *p = (const char *) shot_pool + shot_pool[2];
+  int i;
+  for (i = 0; i < shot_pool[1]; i++, p += ((const int *) p)[0])
+    if (strncmp (p + 4, name, 12) == 0)
+      return (const int *) p;
+  return NULL;
+}
+
+static void
+shots_setup (const char *dir)
+{
+  GdkPixbuf *pb;
+
+  shot_tools[0] = shot_pool[0] = sizeof shot_tools;
+  shot_tools[2] = shot_tools[3] = shot_pool[2] = shot_pool[3] = 16;
+  shot_dir (shot_tools, dir, "Tools");
+  shot_dir (shot_pool, dir, "Sprites22");
+  pb = file_sprite ("CSV");
+  pixbuf_to_sprite (shot_pool, 65536, pb, "file_dfe");
+  g_object_unref (pb);
+  pb = file_sprite ("");
+  pixbuf_to_sprite (shot_pool, 65536, pb, "file_xxx");
+  g_object_unref (pb);
+  fake_tool_area_override = shot_tools;
+  fake_pool_lookup = shot_pool_lookup;
+  fake_pool_area_override = shot_pool;
+  fake_wimp_palette[1] = 0xDDDDDD10;
+}
+
+static void
+shot (const char *name)
+{
+  char path[600];
+  FILE *f;
+  int x, y;
+
+  if (!getenv ("ET_SHOTS"))
+    return;
+  g_snprintf (path, sizeof path, "%s/shot-%s.ppm", outdir, name);
+  if (!(f = fopen (path, "wb")))
+    return;
+  fprintf (f, "P6\n1280 1024\n255\n");
+  for (y = 0; y < 1024; y++)
+    for (x = 0; x < 1280; x++)
+      {
+        unsigned int p = fake_screen_pixel (x, y);
+        fputc (p & 0xFF, f);
+        fputc ((p >> 8) & 0xFF, f);
+        fputc ((p >> 16) & 0xFF, f);
+      }
+  fclose (f);
+}
+
 /* ---- the steps ---- */
 
 /* Step n has been scripted; is it done (so step n + 1 can start)? */
@@ -741,6 +896,8 @@ next_step (void)
     case 20:     /* Save as...: a Save box */
       tt_last_file[0] = 0;
       click (tt_save_button, tt_window);
+      nulls (20);
+      add (FAKE_NULL, 0, 0, 301);    /* marker: screenshot (ET_SHOTS) */
       break;
     case 21:     /* drag its icon onto the other task's window */
       {
@@ -783,6 +940,8 @@ next_step (void)
       fake_target_window = main_handle;
       tt_last_file[0] = 0;
       click (tt_open_button, tt_window);
+      nulls (20);
+      add (FAKE_NULL, 0, 0, 302);
       break;
     case 23:     /* the Filer drops the saved file on it */
       {
@@ -801,6 +960,7 @@ next_step (void)
       rect (tt_drop_area, &x, &y, &wd, &ht);
       drop_dl_ref = filer_dataload (main_handle, x + wd / 2, y + ht / 2, picture_ro, 0xB60);
       nulls (20);
+      add (FAKE_NULL, 0, 0, 303);
       break;
     case 25:
       g_strlcpy (dropped_file, tt_last_file, sizeof dropped_file);
@@ -879,6 +1039,14 @@ hook (int reason)
     }
   {
     int pos = fake_wimp_script_pos ();
+    static int shot_done[3];
+    if (pos >= 0 && fake_wimp_script[pos][0] == FAKE_NULL && fake_wimp_script[pos][3] >= 301 &&
+        fake_wimp_script[pos][3] <= 303 && !shot_done[fake_wimp_script[pos][3] - 301])
+      {
+        static const char *names[] = { "savebox", "openbox", "dropped" };
+        shot_done[fake_wimp_script[pos][3] - 301] = 1;
+        shot (names[fake_wimp_script[pos][3] - 301]);
+      }
     if (pos >= 0 && fake_wimp_script[pos][0] == FAKE_NULL && fake_wimp_script[pos][3] >= 201 &&
         fake_wimp_script[pos][3] <= 204)
       {
@@ -944,6 +1112,8 @@ main (int argc, char **argv)
   fake_wimp_hook = hook;
   fake_message_hook = message_hook;
   fake_swi_hook = swi_hook;
+  if (getenv ("ET_SHOTS"))
+    shots_setup (getenv ("ET_SHOTS"));
   {
     /* outdir as RISC OS names (UnixLib's mapping: '/' <-> '.') */
     char *ro;
