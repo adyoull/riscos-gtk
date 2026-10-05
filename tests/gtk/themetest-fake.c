@@ -277,6 +277,7 @@ load_icons (const char *dir)
   g_free (path);
   fake_tool_area_override = icon_tools;
   fake_pool_lookup = icon_pool_lookup;
+  fake_pool_area_override = icon_pool;
   printf ("# TT_ICONS: %d tool sprites, %d pool sprites from %s\n", icon_tools[1], icon_pool[1], dir);
 }
 

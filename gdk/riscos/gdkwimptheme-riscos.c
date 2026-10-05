@@ -57,6 +57,8 @@ read_palette (unsigned int pal[20])
 
   memset (pal, 0, 20 * sizeof (unsigned int));
   r.r[1] = (int) pal;
+  r.r[2] = 0x45555254;             /* "TRUE": true colours (else the bottom
+                                      4 bits of each component are 0) */
   return _kernel_swi (Wimp_ReadPalette, &r, &r) == NULL;
 }
 
@@ -298,6 +300,20 @@ to_screen (const int *spr)
   return scaled;
 }
 
+static gboolean readable (const void *start, size_t len);
+static gboolean header_ok (const int *area);
+static const int *area_find (const int *area, const char *name);
+
+#ifndef Wimp_BaseOfSprites
+#define Wimp_BaseOfSprites 0x400EA
+#endif
+
+static gboolean
+debugging (void)
+{
+  return g_getenv ("RISCOS_GTK_DEBUG") != NULL;
+}
+
 /**
  * gdk_riscos_wimp_sprite:
  * @name: a sprite in the Wimp's sprite pool, e.g. "optoff"
@@ -309,13 +325,50 @@ GdkPixbuf *
 gdk_riscos_wimp_sprite (const char *name)
 {
   _kernel_swi_regs r;
+  const int *areas[2] = { NULL, NULL }, *spr = NULL;
+  int i;
 
+  /* the pool is two sprite areas (Wimp_BaseOfSprites: R0 the ROM part,
+     R1 the RAM part, where sprites loaded later, a theme's, override);
+     searched here, then Wimp_SpriteOp 24 if that finds nothing */
   memset (&r, 0, sizeof r);
-  r.r[0] = 24;                     /* select sprite: R2 -> it */
-  r.r[2] = (int) name;
-  if (_kernel_swi (Wimp_SpriteOp, &r, &r) != NULL || r.r[2] == 0)
+  if (_kernel_swi (Wimp_BaseOfSprites, &r, &r) == NULL)
+    {
+      areas[0] = (const int *) r.r[1];
+      areas[1] = (const int *) r.r[0];
+    }
+  for (i = 0; i < 2 && spr == NULL; i++)
+    if (header_ok (areas[i]))
+      spr = area_find (areas[i], name);
+  if (spr == NULL)
+    {
+      _kernel_oserror *e;
+      memset (&r, 0, sizeof r);
+      r.r[0] = 24;                 /* select sprite: R2 -> it */
+      r.r[2] = (int) name;
+      e = _kernel_swi (Wimp_SpriteOp, &r, &r);
+      if (e == NULL && r.r[2] != 0 && r.r[2] != (int) name)
+        spr = (const int *) r.r[2];
+      else if (debugging ())
+        g_printerr ("riscos-gtk: Wimp sprite %s: not in the pool (RAM area &%X %s, ROM area &%X %s);"
+                    " Wimp_SpriteOp 24: %s\n", name,
+                    (unsigned int) (gsize) areas[0], header_ok (areas[0]) ? "ok" : "unreadable",
+                    (unsigned int) (gsize) areas[1], header_ok (areas[1]) ? "ok" : "unreadable",
+                    e ? e->errmess : "no sprite");
+    }
+  if (spr == NULL)
     return NULL;
-  return to_screen ((const int *) r.r[2]);
+  if (debugging ())
+    g_printerr ("riscos-gtk: Wimp sprite %.12s: %d words x %d rows, bits %d-%d, mode &%X,"
+                " palette %d, %s\n", (const char *) &spr[1], spr[4] + 1, spr[5] + 1, spr[6], spr[7],
+                (unsigned int) spr[10], (MIN (spr[8], spr[9]) - 44) / 8,
+                spr[8] == spr[9] ? "no mask" : "mask");
+  {
+    GdkPixbuf *pb = to_screen (spr);
+    if (pb == NULL && debugging ())
+      g_printerr ("riscos-gtk: Wimp sprite %s: couldn't decode it\n", name);
+    return pb;
+  }
 }
 
 /* ---- the tool sprites (window furniture) ---------------------------------
@@ -366,17 +419,37 @@ area_find (const int *area, const char *name)
   return NULL;
 }
 
+/* A readable sprite area with a sane header */
 static gboolean
-sane_area (const int *area)
+header_ok (const int *area)
 {
   if (area == NULL || ((unsigned int) (gsize) area & 3) || !readable (area, 16))
     return FALSE;
-  if (area[0] < 16 || area[0] > (16 << 20) || area[1] < 1 || area[1] > 4096 ||
+  if (area[0] < 16 || area[0] > (64 << 20) || area[1] < 0 || area[1] > 65536 ||
       area[2] < 16 || area[3] < area[2] || area[3] > area[0])
     return FALSE;
-  if (!readable (area, area[3]))
+  return readable (area, area[3]);
+}
+
+static gboolean
+sane_area (const int *area)
+{
+  if (!header_ok (area))
     return FALSE;
   return area_find (area, "uicon") != NULL || area_find (area, "uicon22") != NULL;
+}
+
+/* For the log: what's at p (the first words, if readable) */
+static void
+describe (const char *what, const int *p)
+{
+  if (p && !((unsigned int) (gsize) p & 3) && readable (p, 32))
+    g_printerr ("riscos-gtk: %s &%X: %08X %08X %08X %08X %08X \"%.12s\" readable to free: %s\n",
+                what, (unsigned int) (gsize) p, (unsigned int) p[0], (unsigned int) p[1],
+                (unsigned int) p[2], (unsigned int) p[3], (unsigned int) p[4], (const char *) &p[5],
+                p[3] > 0 && p[3] < (64 << 20) && readable (p, p[3]) ? "yes" : "no");
+  else
+    g_printerr ("riscos-gtk: %s &%X: not readable\n", what, (unsigned int) (gsize) p);
 }
 
 static const int *
@@ -397,10 +470,17 @@ tool_area (void)
     area = (const int *) r.r[0];
   else if (sane_area ((const int *) r.r[1]))
     area = (const int *) r.r[1];
-  if (g_getenv ("RISCOS_GTK_DEBUG"))
-    g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
-                (unsigned int) r.r[0], (unsigned int) r.r[1],
-                area ? "a sprite area with uicon" : "not found");
+  if (debugging ())
+    {
+      g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
+                  (unsigned int) r.r[0], (unsigned int) r.r[1],
+                  area ? "a sprite area with uicon" : "not found");
+      if (area == NULL)
+        {
+          describe ("Wimp_ReadSysInfo 9 R0", (const int *) r.r[0]);
+          describe ("Wimp_ReadSysInfo 9 R1", (const int *) r.r[1]);
+        }
+    }
   return area;
 }
 

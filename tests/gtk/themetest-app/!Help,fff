@@ -1,4 +1,4 @@
-GTKThemeTest 0.13 - riscos-gtk theme test
+GTKThemeTest 0.14 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,10 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.14: Wimp colours read as true colours (white was very light
+grey); the Wimp's sprites looked for in its sprite pool directly
+(Wimp_BaseOfSprites), and more detail in the Log with RISCOS_GTK_DEBUG.
 
 New in 0.13: the Log's first lines say what the theme took from the
 desktop ("riscos-gtk: theme: ..."): Wimp colours, how many Wimp and window

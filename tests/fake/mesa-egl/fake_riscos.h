@@ -119,6 +119,7 @@ extern unsigned int fake_wimp_palette[20];
 extern int fake_tool_sprites;
 extern const char *fake_tool_names[];
 extern int *fake_tool_area_override;     /* a test's own tool sprite area instead */
+extern int *fake_pool_area_override;     /* a test's own sprite pool (Wimp_BaseOfSprites R1) */
 extern const int *(*fake_pool_lookup)(const char *name);   /* a test's Wimp pool sprites first */
 extern int fake_wimp_sprites;   /* Wimp_DragBox: type now (-1 none), calls */
 

@@ -235,6 +235,7 @@ static void build_pool(void)
     unsigned mode32a = (6u << 27) | (90 << 14) | (90 << 1) | 1 | 0x80000000u;
     unsigned mode1h = (1u << 27) | (45 << 14) | (90 << 1) | 1;   /* 90 x 45 dpi */
     if (pool_used) return;
+    pool_used = 4;                     /* a real sprite area: a header first */
     /* optoff/opton: 12x12 8bpp, no palette (standard 256 colours), 1bpp mask;
        border colour &33 (#bb7733), inside &FF (white) / &13 (red #ff0000? see .h) */
     s = pool_sprite("optoff", 12, 12, 8, mode8, 0, 2);
@@ -272,6 +273,11 @@ static void build_pool(void)
     for (y = 0; y < 4; y++) for (x = 0; x < 8; x++) put(s, x, y, 1, x == y);
     s = pool_sprite("right", 8, 4, 1, mode1h, 0, 0);
     for (y = 0; y < 4; y++) for (x = 0; x < 8; x++) put(s, x, y, 1, x == 7 - y);
+    {
+        int off = 4, n = 0;
+        while (off < pool_used) { n++; off += pool[off] / 4; }
+        pool[0] = (int) sizeof pool; pool[1] = n; pool[2] = 16; pool[3] = pool_used * 4;
+    }
 }
 
 /* The Wimp's tool (window border) sprites: a real sprite area, as
@@ -309,6 +315,7 @@ static const int *build_tool_area(void)
 }
 
 int *fake_tool_area_override;
+int *fake_pool_area_override;
 const int *(*fake_pool_lookup)(const char *name);
 
 static const int *pool_find(const char *name)
@@ -320,6 +327,7 @@ static const int *pool_find(const char *name)
     }
     if (!fake_wimp_sprites) return NULL;
     build_pool();
+    off = 4;
     while (off < pool_used) {
         const int *spr = &pool[off];
         if (strncmp((const char *) &spr[1], name, 12) == 0) return spr;
@@ -856,6 +864,12 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         fake_ptr_shape = r.r[3] & 15;
         fake_ptr_hx = r.r[4]; fake_ptr_hy = r.r[5];
         fake_ptr_sets++;
+        break;
+    case 0x400EA:   /* Wimp_BaseOfSprites: R0 ROM area (none), R1 RAM area */
+        r.r[0] = 0;
+        if (fake_pool_area_override) r.r[1] = (int) (long) fake_pool_area_override;
+        else if (fake_wimp_sprites) { build_pool(); r.r[1] = (int) (long) pool; }
+        else r.r[1] = 0;
         break;
     case 0x400E5:   /* Wimp_ReadPalette: R1 -> 20 words */
         memcpy((void *) (long) r.r[1], fake_wimp_palette, sizeof fake_wimp_palette);

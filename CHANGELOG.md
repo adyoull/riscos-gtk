@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.14, 2026-10-05)
+- Owner's 0.13 Log: "Wimp sprites 0 of 7; window border sprites 0 of 27";
+  Wimp_ReadSysInfo 9 = &20045AE0 not taken as a sprite area; the Wimp
+  colours came as #f0f0f0 for white.
+- Wimp_ReadPalette with R2 = "TRUE" (true colours; without it the bottom
+  4 bits of each component are 0, per the PRMs).
+- Wimp sprites: searched in the pool's two areas (Wimp_BaseOfSprites: RAM
+  part first, then ROM), Wimp_SpriteOp 24 as a fallback.
+- RISCOS_GTK_DEBUG: why each Wimp sprite wasn't found or decoded, each
+  sprite's format, and the first words at Wimp_ReadSysInfo 9's R0/R1.
+- Fake Wimp: the sprite pool is a real sprite area (header), returned by
+  Wimp_BaseOfSprites.
+
 ## Unreleased (GTKThemeTest 0.13, 2026-10-05)
 - Owner on 0.12: "still doesnt use the RISC OS widgets". The theme now
   always writes one line to the program's log: Wimp colours read or not,
