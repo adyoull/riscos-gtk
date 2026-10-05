@@ -437,9 +437,10 @@ static void
 describe (const char *what, const int *p)
 {
   if (p && !((unsigned int) (gsize) p & 3) && readable (p, 32))
-    g_printerr ("riscos-gtk: %s &%X: %08X %08X %08X %08X %08X \"%.12s\" readable to free: %s\n",
+    g_printerr ("riscos-gtk: %s &%X: %08X %08X %08X %08X %08X; as a sprite, name \"%.12s\";"
+                " readable to free: %s\n",
                 what, (unsigned int) (gsize) p, (unsigned int) p[0], (unsigned int) p[1],
-                (unsigned int) p[2], (unsigned int) p[3], (unsigned int) p[4], (const char *) &p[5],
+                (unsigned int) p[2], (unsigned int) p[3], (unsigned int) p[4], (const char *) &p[1],
                 p[3] > 0 && p[3] < (64 << 20) && readable (p, p[3]) ? "yes" : "no");
   else
     g_printerr ("riscos-gtk: %s &%X: not readable\n", what, (unsigned int) (gsize) p);
@@ -457,9 +458,11 @@ looks_like_sprite (const int *spr)
 /* The Wimp's tool sprites aren't always a plain sprite area: on a
    RISC OS 5 Pi, Wimp_ReadSysInfo 9's block starts like one (size, count
    90) but its first/free words aren't offsets into it. So a sprite is
-   found three ways: a plain area; by name anywhere in the block (the
-   header 4 bytes before the name); or through a table of pointers to
-   the sprites after the 16-byte header. */
+   found four ways: a plain area; by name anywhere in the block (the
+   header 4 bytes before the name); through a table of pointers to the
+   sprites after the 16-byte header; or through a table of pointers to
+   the sprites at the address in the block's fifth word (on the Pi its
+   +16 and +20 both point to a table of addresses near each other). */
 static const int *tool_block;
 static int tool_how;                  /* 1 area, 2 scan, 3 pointer table */
 
@@ -478,6 +481,25 @@ block_find (const int *block, int how, const char *name)
           if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 &&
               (strlen (name) == 12 || ((const char *) &spr[1])[strlen (name)] == 0) &&
               looks_like_sprite (spr) && off + spr[0] <= size)
+            return spr;
+        }
+      return NULL;
+    }
+  if (how == 4)
+    {
+      /* +16 points to a table of pointers to the sprites (count of them) */
+      const int *table = (const int *) block[4];
+      if (table == NULL || ((gsize) table & 3) || count <= 0 || count > 4096 ||
+          !readable (table, count * 4))
+        return NULL;
+      for (i = 0; i < count; i++)
+        {
+          const int *spr = (const int *) table[i];
+          if (spr == NULL || ((gsize) spr & 3) || !readable (spr, 48))
+            continue;
+          if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 &&
+              (strlen (name) == 12 || ((const char *) &spr[1])[strlen (name)] == 0) &&
+              looks_like_sprite (spr) && readable (spr, spr[0]))
             return spr;
         }
       return NULL;
@@ -503,7 +525,7 @@ try_block (const int *block)
   if (block == NULL || ((gsize) block & 3) || !readable (block, 16) ||
       block[0] < 16 || block[0] > (16 << 20) || !readable (block, block[0]))
     return FALSE;
-  for (how = 1; how <= 3; how++)
+  for (how = 1; how <= 4; how++)
     {
       if (how == 1 && !header_ok (block))
         continue;
@@ -537,7 +559,8 @@ tool_area (void)
       g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
                   (unsigned int) r.r[0], (unsigned int) r.r[1],
                   tool_how == 1 ? "a sprite area" : tool_how == 2 ? "sprites found by name in the block" :
-                  tool_how == 3 ? "a table of sprite pointers" : "not found");
+                  tool_how == 3 ? "a table of sprite pointers" :
+                  tool_how == 4 ? "a table of sprite pointers at +16's address" : "not found");
       if (tool_block == NULL)
         {
           const int *p = (const int *) r.r[0];
@@ -551,7 +574,17 @@ tool_area (void)
                 g_printerr (" %08X", (unsigned int) p[i]);
               g_printerr ("\n");
               if (!((gsize) p[4] & 3) && readable ((const int *) p[4], 48))
-                describe ("R0+16 points to", (const int *) p[4]);
+                {
+                  const int *t = (const int *) p[4];
+                  describe ("R0+16 points to", t);
+                  for (i = 0; i < 3; i++)
+                    if (!((gsize) t[i] & 3) && readable ((const int *) t[i], 64))
+                      {
+                        char what[32];
+                        g_snprintf (what, sizeof what, "table entry %d", i);
+                        describe (what, (const int *) t[i]);
+                      }
+                }
             }
         }
     }

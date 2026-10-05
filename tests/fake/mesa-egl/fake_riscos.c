@@ -293,14 +293,16 @@ const char *fake_tool_names[] = {
 
 static const int *build_tool_area(void)
 {
-    int i, off = 16;
+    /* As a RISC OS 5 Pi's Wimp_ReadSysInfo 9 block (owner's Log, 0.15):
+       +0 a size, +4 the count, +8/+12 words that aren't offsets, +16 and
+       +20 a pointer to a table of pointers to the sprites, which are
+       elsewhere (here: from word 1024 on, outside the block's size). */
+    int i, off = 4096;
+    static int table[64];
     unsigned mode32 = (6u << 27) | (90 << 14) | (90 << 1) | 1;
     if (tool_area[1]) return tool_area;
     for (i = 0; fake_tool_names[i]; i++) {
         int *spr = &tool_area[off / 4], x, y, wpx = 14, h = 14;
-        /* end caps and slider ends are short along the bar */
-        if (strstr(fake_tool_names[i], "cap") || !strcmp(fake_tool_names[i] + strlen(fake_tool_names[i]) - 1, "t") ||
-            strstr(fake_tool_names[i], "bar") ) h = 14;
         memset(spr, 0, 44 + wpx * h * 4);
         spr[0] = 44 + wpx * h * 4;
         strncpy((char *) &spr[1], fake_tool_names[i], 12);
@@ -308,11 +310,12 @@ static const int *build_tool_area(void)
         spr[8] = spr[9] = 44; spr[10] = (int) mode32;
         for (y = 0; y < h; y++) for (x = 0; x < wpx; x++)
             spr[11 + y * wpx + x] = 0x002010A0 + i;   /* &BBGGRR: #a01020, + i in red */
+        table[i] = (int) (long) spr;
         off += spr[0];
     }
-    /* as a RISC OS 5 Pi's Wimp_ReadSysInfo 9 block: size and count right,
-       but the first/free words aren't offsets into it */
-    tool_area[0] = off; tool_area[1] = i; tool_area[2] = 0x0042F3A4; tool_area[3] = 0x00438124;
+    tool_area[0] = 64; tool_area[1] = i; tool_area[2] = 0x0042F3A4; tool_area[3] = 0x00438124;
+    tool_area[4] = tool_area[5] = (int) (long) table;
+    tool_area[6] = 0x234; tool_area[7] = 0x20;
     return tool_area;
 }
 

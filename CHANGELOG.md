@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.16, 2026-10-05)
+- Owner's 0.15 Log: Wimp_ReadSysInfo 9's block: +16 and +20 both
+  &201A3058, which points to a table of addresses &2047xxxx (the sprites,
+  elsewhere); +24 &234, +28 &20, +32 an address inside the block. New
+  fourth way: the table of sprite pointers at +16's address (count from
+  +4). Debug also prints the first table entries as sprites.
+- The fake Wimp's tool block is now laid out as the Pi's (header, +16/+20
+  -> table -> sprites outside the block); the suite takes that way.
+
 ## Unreleased (GTKThemeTest 0.15, 2026-10-05)
 - Owner's 0.14 Log: Wimp sprites 7 of 7 (pool via Wimp_BaseOfSprites;
   4bpp mode 20 without palettes), true colours right. Tool sprites still
