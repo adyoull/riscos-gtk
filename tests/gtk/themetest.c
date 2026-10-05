@@ -649,7 +649,10 @@ report_size (gpointer data)
   gtk_window_get_size (GTK_WINDOW (tt_window), &w, &h);
   gtk_widget_get_preferred_width (tt_window, &mw, &nw);
   gtk_widget_get_preferred_height (tt_window, &mh, &nh);
-  printf ("theme: window %s: %dx%d (min %dx%d, natural %dx%d)\n", (const char *) data, w, h, mw, mh, nw, nh);
+  printf ("theme: window %s: %dx%d (min %dx%d, natural %dx%d); notebook height %d; Apply default style %d, has focus %d\n",
+          (const char *) data, w, h, mw, mh, nw, nh, gtk_widget_get_allocated_height (tt_notebook),
+          gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default"),
+          gtk_widget_has_focus (tt_apply));
   fflush (stdout);
   return FALSE;
 }
@@ -657,6 +660,7 @@ report_size (gpointer data)
 static gboolean
 click_apply (gpointer data)
 {
+  gtk_widget_grab_focus (tt_apply);      /* as a click does */
   gtk_button_clicked (GTK_BUTTON (tt_apply));
   return FALSE;
 }

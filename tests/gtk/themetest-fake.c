@@ -37,6 +37,7 @@ static struct
 static int n_menus;
 static int moved_x0 = -1, moved_y1 = -1, moved_y0, after_x0 = -1, after_y1 = -1, after_y0, tooltip_windows, main_handle, pos_stage;
 static int edit_open_after_leave = -1, edit_title_ok;
+static int nb_h0 = -1, nb_h1 = -1, def0 = -1, def1 = -1, apply_clicked_seen;
 static int combo_right, combo_top, file_left, file_bottom, ctx_x, ctx_y;
 
 static void
@@ -149,6 +150,18 @@ hook (int reason)
 {
   int x, y, wd, ht, i;
 
+  if (stage == 1 && !apply_clicked_seen && gtk_widget_has_focus (tt_apply))
+    apply_clicked_seen = 1;
+  else if (apply_clicked_seen == 1 && fake_wimp_script_pos () > 0)
+    {
+      apply_clicked_seen = 2;   /* a poll later: laid out again */
+    }
+  else if (apply_clicked_seen == 2)
+    {
+      apply_clicked_seen = 3;
+      nb_h1 = gtk_widget_get_allocated_height (tt_notebook);
+      def1 = gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default");
+    }
   if (main_handle)
     for (i = 0; i < FAKE_MAX_WINDOWS; i++)
       if (fake_windows[i].handle == main_handle)
@@ -197,6 +210,8 @@ hook (int reason)
       GList *bar = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
 
       stage = 1;
+      nb_h0 = gtk_widget_get_allocated_height (tt_notebook);
+      def0 = gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default");
       for (i = 0; i < FAKE_MAX_WINDOWS; i++)
         if (fake_windows[i].handle)
           main_handle = fake_windows[i].handle;
@@ -216,6 +231,10 @@ hook (int reason)
       file_left = (120 + x) * 2;
       file_bottom = (1024 - (80 + y + ht)) * 2;
 
+      /* 0. the window has the input focus (the Wimp sends Gain_Caret when
+            the program takes the caret) */
+      add (12, 0, 0, 0);
+      nulls (4);
       /* 1. the pop-up: choose its second entry */
       click (tt_combo, 4);
       add (9, 1, -1, 0);
@@ -407,6 +426,9 @@ main (int argc, char **argv)
          "Edit stays open, its text intact, when the pointer moves off the window onto it");
   check (strstr (logbuf, "button \"Apply\" clicked") != NULL,
          "after a release off the window (over the menu), the next click reaches its button");
+  check (nb_h0 > 0 && nb_h1 == nb_h0 && def0 == 1 && def1 == 1,
+         "Apply is the default button from the start, and its focus moves nothing (the tabs)");
+  printf ("# notebook height %d -> %d after Apply took focus; default style %d -> %d\n", nb_h0, nb_h1, def0, def1);
   check (moved_x0 == 240 + 200 && after_x0 == moved_x0 && after_y1 == moved_y1 && after_y0 == moved_y0,
          "the window stays where the Wimp moved it (Apply clicked, tabs, menus)");
   printf ("# moved to %d,%d (bottom %d); after the tooltip and clicking Apply %d,%d (bottom %d); %d tooltip window(s)\n",

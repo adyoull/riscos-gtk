@@ -101,12 +101,15 @@ button:disabled {
 button:disabled label { color: @wimp3; }
 
 /* R6 default action button: the action button sitting in a sunken
-   channel, 68 OS units high in all (26 + 4 + 4px) */
+   channel, 68 OS units high in all (26 + 4 + 4px). The channel is a
+   box-shadow drawn outside the button, with no margin: a margin made the
+   button row 8px taller or shorter as GTK restyled the default button when
+   it took focus, and the notebook above jumped (seen on the Pi). Leave
+   4px around a default button in layouts (spacing, border width). */
 button.default {
   border-width: 2px;
   /* grey well, then the channel's dark top-left and white bottom-right */
   box-shadow: 0 0 0 2px @wimp1, -2px -2px 0 2px @wimp4, 2px 2px 0 2px @wimp0, 0 0 0 4px @wimp2;
-  margin: 4px;
 }
 
 button.default:active, button.default:checked {

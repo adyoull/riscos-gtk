@@ -57,6 +57,12 @@ RISC OS sizes are in OS units; the desktop runs at 2 OS units per pixel
 | scroll bar (grey well, arrows at both ends) | scrollbar |
 | interactive help (cream) | tooltip |
 
+## Revision 3.2 (2026-10-05)
+- The default button's channel is a box-shadow only, with no margin: the
+  margin came and went as GTK restyled the default button when it took
+  focus, and everything above the button row jumped. Leave 4px round a
+  default button in layouts.
+
 ## Revision 3.1 (2026-10-04)
 - Menu hover rules use child selectors (`menuitem:hover > label`): GTK 3
   makes a submenu's widgets CSS descendants of the item it hangs from, so

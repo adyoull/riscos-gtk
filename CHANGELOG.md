@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.4, 2026-10-05)
+- Pi report: the bottom of the tab area moved when Apply (the default
+  button) was clicked and took focus. The theme's 4px margin on
+  button.default came and went as GTK restyled the default button on
+  focus, so the button row changed height by 8px. The R6 channel is now
+  only a box-shadow, no margin (theme rev 3.2). themetest-fake gives the
+  window the caret (Gain_Caret) so clicks focus buttons as on the Pi, and
+  checks the tab area's height when Apply takes focus (23/23; 556 -> 564
+  before the fix).
+
 ## Unreleased (GTKThemeTest 0.3, 2026-10-05)
 - Pi report: menu bar menus showed garbled text until reopened. GTK pops
   a menu bar menu up twice (press, then release); the second time the
