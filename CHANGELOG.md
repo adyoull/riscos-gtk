@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.11, 2026-10-05)
+- Owner: redo the theming with the Wimp's sprites read. At start-up
+  (gtk_init_check, GTK patch) gtk/riscos/gtkriscostheme.c adds a style
+  provider just above the theme (GTK_STYLE_PROVIDER_PRIORITY_SETTINGS + 1:
+  GtkSettings adds the theme at SETTINGS, not THEME) that redefines
+  @wimp0-15 as the desktop's Wimp colours (Wimp_ReadPalette) and uses the
+  Wimp sprite pool's optoff/opton, radiooff/radioon, gright (pop-up
+  button) and left/right (adjusters), written as PNGs to a temporary
+  directory (removed at exit). Missing sprites keep the theme's pictures;
+  the mixed state keeps the theme's (RISC OS has none).
+  RISCOS_GTK_WIMP_THEME=0 turns it off; RISCOS_GTK_DEBUG logs the CSS.
+- GDK: gdk_riscos_wimp_palette, gdk_riscos_wimp_sprite (new public header
+  gdkriscoswimp.h, gdk/riscos/gdkwimptheme-riscos.c): reads a Wimp sprite
+  (Wimp_SpriteOp 24) and decodes it: 1/2/4/8 bpp with or without palette
+  (Wimp colours / standard 256-colour palette), 16/32 bpp, old-style,
+  1bpp and RISC OS 5 alpha masks, old numbered modes and both mode word
+  forms; scaled to screen pixels by eig.
+- Fake Wimp: Wimp_ReadPalette and a sprite pool in those formats.
+  themetest-fake checks each format decodes, and that the theme draws in
+  a changed desktop palette and with the Wimp's option/radio sprites
+  (32 checks).
+
 ## Unreleased (GTKThemeTest 0.10, 2026-10-05)
 - Owner (0.9: "cursors look good"): the scroll wheel did nothing. Windows
   now ask for extended scroll requests (extra window flags bit 1, window

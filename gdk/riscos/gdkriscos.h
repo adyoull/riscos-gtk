@@ -37,6 +37,7 @@
 #include <gdk/riscos/gdkriscosmonitor.h>
 #include <gdk/riscos/gdkriscosvisual.h>
 #include <gdk/riscos/gdkriscosmenu.h>
+#include <gdk/riscos/gdkriscoswimp.h>
 
 #undef __GDKRISCOS_H_INSIDE__
 

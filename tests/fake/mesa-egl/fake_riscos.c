@@ -176,6 +176,117 @@ static int mode_info(int mode, int *log2bpp, int *flags)
     return 1;
 }
 
+
+/* The Wimp's sprite pool (Wimp_SpriteOp 24 by name), a few sprites in
+   different formats for the theme (gdkwimptheme-riscos.c). See
+   fake_riscos.h for what each is. */
+unsigned int fake_wimp_palette[20] = {
+    0xFFFFFF10, 0xDDDDDD10, 0xBBBBBB10, 0x99999910, 0x77777710, 0x55555510, 0x33333310, 0x00000010,
+    0x99440010, 0x00EEEE10, 0x00CC0010, 0x0000DD10, 0xBBEEEE10, 0x00885510, 0x00BBFF10, 0xFFBB0010,
+    0, 0, 0, 0 };
+int fake_wimp_sprites = 1;
+static int pool[4096], pool_used;
+
+static int *pool_sprite(const char *name, int wpx, int h, int bpp, unsigned mode, int pal_entries,
+                        int mask_kind /* 0 none, 1 old, 2 new 1bpp, 3 alpha 8bpp */)
+{
+    int words = (wpx * bpp + 31) / 32, img_bytes = words * 4 * h, mask_bytes = 0;
+    int *spr = &pool[pool_used];
+    if (mask_kind == 1) mask_bytes = img_bytes;
+    else if (mask_kind == 2) mask_bytes = (wpx + 31) / 32 * 4 * h;
+    else if (mask_kind == 3) mask_bytes = (wpx * 8 + 31) / 32 * 4 * h;
+    memset(spr, 0, 44 + pal_entries * 8 + img_bytes + mask_bytes);
+    strncpy((char *) &spr[1], name, 12);
+    spr[4] = words - 1; spr[5] = h - 1; spr[6] = 0; spr[7] = (wpx * bpp - 1) % 32;
+    spr[8] = 44 + pal_entries * 8;
+    spr[9] = mask_kind ? spr[8] + img_bytes : spr[8];
+    spr[10] = (int) mode;
+    spr[0] = spr[9] + mask_bytes - (mask_kind ? 0 : 0);
+    if (!mask_kind) spr[0] = spr[8] + img_bytes;
+    pool_used += spr[0] / 4;
+    return spr;
+}
+
+static void put(int *spr, int x, int y, int bpp, unsigned v)
+{
+    int words = spr[4] + 1, bit = x * bpp;
+    unsigned char *row = (unsigned char *) spr + spr[8] + y * words * 4;
+    if (bpp == 32) { memcpy(row + x * 4, &v, 4); return; }
+    row[bit >> 3] |= (unsigned char) (v << (bit & 7));
+}
+
+static void put_mask(int *spr, int kind, int bpp, int wpx, int x, int y, int a)
+{
+    unsigned char *m = (unsigned char *) spr + spr[9];
+    if (kind == 1) {                   /* old: same depth as the image */
+        int words = spr[4] + 1, bit = x * bpp;
+        if (a) m[y * words * 4 + (bit >> 3)] |= (unsigned char) (((1u << bpp) - 1) << (bit & 7));
+    } else if (kind == 2) {
+        if (a) m[y * ((wpx + 31) / 32 * 4) + (x >> 3)] |= (unsigned char) (1 << (x & 7));
+    } else if (kind == 3)
+        m[y * ((wpx * 8 + 31) / 32 * 4) + x] = (unsigned char) a;
+}
+
+static void build_pool(void)
+{
+    int *s, x, y;
+    unsigned mode8 = (4u << 27) | (90 << 14) | (90 << 1) | 1;
+    unsigned mode4 = (3u << 27) | (90 << 14) | (90 << 1) | 1;
+    unsigned mode32a = (6u << 27) | (90 << 14) | (90 << 1) | 1 | 0x80000000u;
+    unsigned mode1h = (1u << 27) | (45 << 14) | (90 << 1) | 1;   /* 90 x 45 dpi */
+    if (pool_used) return;
+    /* optoff/opton: 12x12 8bpp, no palette (standard 256 colours), 1bpp mask;
+       border colour &33 (#bb7733), inside &FF (white) / &13 (red #ff0000? see .h) */
+    s = pool_sprite("optoff", 12, 12, 8, mode8, 0, 2);
+    for (y = 0; y < 12; y++) for (x = 0; x < 12; x++) {
+        int edge = x == 0 || y == 0 || x == 11 || y == 11;
+        put(s, x, y, 8, edge ? 0x33 : 0xFF); put_mask(s, 2, 8, 12, x, y, !(x == 0 && y == 0));
+    }
+    s = pool_sprite("opton", 12, 12, 8, mode8, 0, 2);
+    for (y = 0; y < 12; y++) for (x = 0; x < 12; x++) {
+        int edge = x == 0 || y == 0 || x == 11 || y == 11;
+        put(s, x, y, 8, edge ? 0x33 : (x > 3 && x < 8 && y > 3 && y < 8) ? 0x17 : 0xFF);
+        put_mask(s, 2, 8, 12, x, y, 1);
+    }
+    /* radiooff: 12x12 4bpp with its own palette: 0 white, 1 #12ab34 */
+    s = pool_sprite("radiooff", 12, 12, 4, mode4, 16, 2);
+    s[11] = s[12] = (int) 0xFFFFFF00u;
+    s[13] = s[14] = 0x34AB1200;
+    for (y = 0; y < 12; y++) for (x = 0; x < 12; x++) {
+        int d = (2 * x - 11) * (2 * x - 11) + (2 * y - 11) * (2 * y - 11);
+        put(s, x, y, 4, d > 81 ? 1 : 0); put_mask(s, 2, 4, 12, x, y, d <= 121);
+    }
+    /* radioon: 12x12 32bpp (#3456de) with a RISC OS 5 8bpp alpha mask */
+    s = pool_sprite("radioon", 12, 12, 32, mode32a, 0, 3);
+    for (y = 0; y < 12; y++) for (x = 0; x < 12; x++) {
+        put(s, x, y, 32, 0x00DE5634); put_mask(s, 3, 32, 12, x, y, x < 6 ? 255 : 128);
+    }
+    /* gright: 10x10 old numbered mode 28 (8bpp), old-style mask; colour &C0 */
+    s = pool_sprite("gright", 10, 10, 8, 28, 0, 1);
+    for (y = 0; y < 10; y++) for (x = 0; x < 10; x++) {
+        put(s, x, y, 8, 0xC0); put_mask(s, 1, 8, 10, x, y, x <= y);
+    }
+    /* left, right: 8x4 1bpp at 90 x 45 dpi (each row doubled on screen),
+       no palette: Wimp colours 0 and 7 */
+    s = pool_sprite("left", 8, 4, 1, mode1h, 0, 0);
+    for (y = 0; y < 4; y++) for (x = 0; x < 8; x++) put(s, x, y, 1, x == y);
+    s = pool_sprite("right", 8, 4, 1, mode1h, 0, 0);
+    for (y = 0; y < 4; y++) for (x = 0; x < 8; x++) put(s, x, y, 1, x == 7 - y);
+}
+
+static const int *pool_find(const char *name)
+{
+    int off = 0;
+    if (!fake_wimp_sprites) return NULL;
+    build_pool();
+    while (off < pool_used) {
+        const int *spr = &pool[off];
+        if (strncmp((const char *) &spr[1], name, 12) == 0) return spr;
+        off += spr[0] / 4;
+    }
+    return NULL;
+}
+
 static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
 {
     int reason = r->r[0] & 255;
@@ -680,6 +791,12 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         memcpy((void *) (long) (unsigned) r.r[3], (const void *) (long) (unsigned) r.r[1], (size_t) r.r[4]);
         break;
     case 0x400E9:   /* Wimp_SpriteOp 36 and 40 on the Wimp's pointer sprites */
+        if (r.r[0] == 24) {          /* select: R2 -> the sprite (the pool) */
+            const int *spr = pool_find((const char *) (long) r.r[2]);
+            if (!spr) { e = error("Sprite doesn't exist"); break; }
+            r.r[2] = (int) (long) spr;
+            break;
+        }
         if (strcmp((const char *) (long) r.r[2], "ptr_default") != 0 &&
             !(fake_wimp_ptr_write && strcmp((const char *) (long) r.r[2], "ptr_write") == 0)) {
             e = error("Sprite doesn't exist"); break;
@@ -692,6 +809,9 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         fake_ptr_shape = r.r[3] & 15;
         fake_ptr_hx = r.r[4]; fake_ptr_hy = r.r[5];
         fake_ptr_sets++;
+        break;
+    case 0x400E5:   /* Wimp_ReadPalette: R1 -> 20 words */
+        memcpy((void *) (long) r.r[1], fake_wimp_palette, sizeof fake_wimp_palette);
         break;
     case 0x2F:      /* OS_ReadPalette: pointer colours (R1 = 25) only */
         if (r.r[1] != 25 || r.r[0] < 0 || r.r[0] > 3) { e = error("ReadPalette: pointer colours only"); break; }

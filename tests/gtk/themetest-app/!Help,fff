@@ -1,4 +1,4 @@
-GTKThemeTest 0.10 - riscos-gtk theme test
+GTKThemeTest 0.11 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,13 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.11: the theme takes your desktop's own look. The colours are
+your Wimp colours (so a changed desktop palette shows here too), and the
+option icons, radio icons, pop-up menu button and number range arrows are
+the Wimp's own sprites, from whatever sprite set your desktop has loaded.
+(The "mixed" option icon, which RISC OS hasn't got, is still the theme's.)
+*Set RISCOS_GTK_WIMP_THEME 0 before running shows the theme as shipped.
 
 New in 0.10: the scroll wheel scrolls lists, text and anything else that
 scrolls (Shift + wheel scrolls sideways). Which window it scrolls follows

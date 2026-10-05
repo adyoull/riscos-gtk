@@ -18,6 +18,7 @@ gdk_riscos_sources = files(
   'gdktestutils-riscos.c',
   'gdktransfer-riscos.c',
   'gdkvisual-riscos.c',
+  'gdkwimptheme-riscos.c',
   'gdkwindow-riscos.c',
   'gdkriscos-server.c',
 )
@@ -29,6 +30,7 @@ gdk_riscos_public_headers = files(
   'gdkriscosmonitor.h',
   'gdkriscosvisual.h',
   'gdkriscosmenu.h',
+  'gdkriscoswimp.h',
 )
 
 install_headers(gdk_riscos_public_headers, subdir: 'gtk-3.0/gdk/riscos/')

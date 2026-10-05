@@ -107,3 +107,12 @@ from the Wimp, to put the normal pointer back. Easy to switch a shape to a
 Wimp sprite later if the owner prefers the system look.
 Update (0.9, owner): the shapes use the desktop's pointer colours (palette
 kept), and the text pointer is the Wimp's ptr_write when it exists.
+
+## The theme takes the desktop's Wimp colours and sprites (2026-10-05)
+Owner's choice over real Wimp icons as widgets (which would fight GTK's
+own widgets): the shipped CSS theme stays the base (sizes, layout, the
+3D borders in @wimpN colours), and at start-up a provider above it swaps
+in the desktop's Wimp palette and the Wimp sprite pool's option, radio,
+pop-up and adjuster sprites. Sprites are decoded in GDK (not plotted), so
+it needs no redirected VDU output; the PNGs go to a temporary directory
+because GTK 3's CSS has no data: URLs.

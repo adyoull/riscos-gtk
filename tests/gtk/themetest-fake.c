@@ -15,6 +15,7 @@
  * Prints TAP; exit status = failures. MIT licence.
  */
 #include "themetest.h"
+#include <gdk/gdkriscos.h>
 #include <kernel.h>
 #include "fake_riscos.h"
 #include <stdio.h>
@@ -169,6 +170,94 @@ find_menu2 (const char *title, const char *first, int from)
   return -1;
 }
 
+/* The theme in the Wimp's colours and sprites (gtkriscostheme.c): pixels
+   of the fake desktop's window colour, and of the fake option and radio
+   sprites' unique colours, on each page */
+static int bg_pixels[4], optoff_pixels[4], radiooff_pixels[4];
+
+static void
+count_theme_pixels (int page)
+{
+  int x, y;
+  for (y = 60; y < 860; y++)
+    for (x = 100; x < 860; x++)
+      {
+        unsigned int p = fake_screen_pixel (x, y) & 0xFFFFFF;   /* TBGR */
+        if (p == 0xE0D0C8)
+          bg_pixels[page]++;
+        else if (p == 0x3377BB)
+          optoff_pixels[page]++;
+        else if (p == 0x34AB12)
+          radiooff_pixels[page]++;
+      }
+}
+
+/* The sprites as gdk_riscos_wimp_sprite decodes them */
+static int spr_ok[6];
+static char spr_note[256];
+
+static guint32
+px_at (GdkPixbuf *pb, int x, int y, int *alpha)
+{
+  guchar *p = gdk_pixbuf_get_pixels (pb) + y * gdk_pixbuf_get_rowstride (pb) + x * 4;
+  *alpha = p[3];
+  return p[0] << 16 | p[1] << 8 | p[2];
+}
+
+static void
+check_sprites (void)
+{
+  GdkPixbuf *pb;
+
+  int a0, a1;
+  guint32 c0, c1;
+
+  if ((pb = gdk_riscos_wimp_sprite ("optoff")))      /* 8bpp, 256-colour default, 1bpp mask */
+    {
+      c0 = px_at (pb, 0, 0, &a0);
+      c1 = px_at (pb, 1, 0, &a1);
+      spr_ok[0] = gdk_pixbuf_get_width (pb) == 12 && a0 == 0 && a1 == 255 && c1 == 0xBB7733 &&
+                  px_at (pb, 5, 5, &a0) == 0xFFFFFF;
+      g_object_unref (pb);
+    }
+  if ((pb = gdk_riscos_wimp_sprite ("opton")))
+    {
+      spr_ok[1] = px_at (pb, 5, 5, &a0) == 0xFF3333;
+      g_object_unref (pb);
+    }
+  if ((pb = gdk_riscos_wimp_sprite ("radiooff")))    /* 4bpp, own palette */
+    {
+      c0 = px_at (pb, 1, 5, &a0);
+      spr_ok[2] = c0 == 0x12AB34 && a0 == 255 && (px_at (pb, 0, 0, &a1), a1 == 0) &&
+                  px_at (pb, 5, 5, &a0) == 0xFFFFFF;
+      g_object_unref (pb);
+    }
+  if ((pb = gdk_riscos_wimp_sprite ("radioon")))     /* 32bpp, alpha mask */
+    {
+      c0 = px_at (pb, 0, 0, &a0);
+      px_at (pb, 11, 0, &a1);
+      spr_ok[3] = c0 == 0x3456DE && a0 == 255 && a1 == 128;
+      g_object_unref (pb);
+    }
+  if ((pb = gdk_riscos_wimp_sprite ("gright")))      /* numbered mode, old mask */
+    {
+      c0 = px_at (pb, 2, 5, &a0);
+      px_at (pb, 5, 2, &a1);
+      spr_ok[4] = c0 == 0x008888 && a0 == 255 && a1 == 0;
+      g_object_unref (pb);
+    }
+  if ((pb = gdk_riscos_wimp_sprite ("left")))        /* 1bpp, 45 dpi rows doubled */
+    {
+      c0 = px_at (pb, 1, 2, &a0);
+      c1 = px_at (pb, 1, 3, &a1);
+      spr_ok[5] = gdk_pixbuf_get_width (pb) == 8 && gdk_pixbuf_get_height (pb) == 8 &&
+                  c0 == 0 && c1 == 0 && px_at (pb, 0, 2, &a0) == 0xFFFFFF;
+      g_snprintf (spr_note, sizeof spr_note, "left %dx%d", gdk_pixbuf_get_width (pb),
+                  gdk_pixbuf_get_height (pb));
+      g_object_unref (pb);
+    }
+}
+
 static void
 hook (int reason)
 {
@@ -233,6 +322,7 @@ hook (int reason)
       GtkWidget *plain;
 
       stage = 1;
+      check_sprites ();
       menubar_h = gtk_widget_get_allocated_height (tt_menubar);
       nb_h0 = gtk_widget_get_allocated_height (tt_notebook);
       def0 = gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default");
@@ -337,6 +427,7 @@ hook (int reason)
           saved[cur] = 1;
           g_snprintf (name, sizeof name, "themetest-page%d.ppm", cur);
           save_ppm (name, 100, 60, 760, 800);
+          count_theme_pixels (cur);
           if (cur == 3)
             {
               /* 5. Menu click in the context area, then Info */
@@ -387,6 +478,8 @@ main (int argc, char **argv)
   fake_sprite_plot_converts = 0;
   fake_wimp_nulls = 400;             /* the hook scripts the rest once drawn */
   fake_wimp_hook = hook;
+  /* the desktop's window colour isn't the standard grey: the theme follows */
+  fake_wimp_palette[1] = 0xE0D0C810;     /* #c8d0e0 */
   g_snprintf (logpath, sizeof logpath, "%s/GTKThemeTest.Log", outdir);
   targv[0] = argv[0]; targv[1] = argv[1]; targv[2] = logpath; targv[3] = NULL;
   g_setenv ("RISCOS_GTK_MENU_DEBUG", "1", TRUE);
@@ -480,6 +573,18 @@ main (int argc, char **argv)
          "context menu: opens 64 OS units left of the pointer");
   check (strstr (logbuf, "menu \"Info\"") != NULL, "context menu: choosing Info activates it");
 
+  check (spr_ok[0] && spr_ok[1], "Wimp sprites: 8bpp with the standard palette and a 1bpp mask");
+  check (spr_ok[2], "Wimp sprites: 4bpp with its own palette");
+  check (spr_ok[3], "Wimp sprites: 32bpp with a RISC OS 5 alpha mask");
+  check (spr_ok[4], "Wimp sprites: numbered mode with an old-style mask");
+  check (spr_ok[5], "Wimp sprites: 1bpp in Wimp colours, a 45 dpi sprite doubled");
+  printf ("# sprites %d%d%d%d%d%d (%s)\n", spr_ok[0], spr_ok[1], spr_ok[2], spr_ok[3], spr_ok[4], spr_ok[5], spr_note);
+  check (bg_pixels[0] > 100000 && bg_pixels[1] > 100000,
+         "the theme uses the desktop's Wimp colours (window background)");
+  check (optoff_pixels[1] > 20 && radiooff_pixels[1] > 20,
+         "option and radio icons are the Wimp's sprites (optoff, radiooff)");
+  printf ("# page pixels: background %d/%d/%d/%d; optoff %d, radiooff %d on page 2\n",
+          bg_pixels[0], bg_pixels[1], bg_pixels[2], bg_pixels[3], optoff_pixels[1], radiooff_pixels[1]);
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL &&
          strstr (logbuf, "Gtk-") == NULL, "no GTK warnings or criticals in the log");

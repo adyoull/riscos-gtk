@@ -113,3 +113,11 @@ RISC OS sizes are in OS units; the desktop runs at 2 OS units per pixel
 - Option and radio icons are still 16px; RISC OS 5's own sprites are a little larger at 12pt.
 - Pitfall: adding `-GtkTreeView-horizontal-separator` to the treeview rule made GTK 3.24.41 silently fall back to Adwaita (the only sign is a warning about Adwaita's bullet-symbolic.svg). If shoot.sh prints that warning, the theme was not used.
 - Header bars are styled as plain toolbars; apps that put window controls in them will look wrong.
+
+## On RISC OS: the desktop's colours and sprites (riscos-gtk 0.11)
+When a GTK program starts on RISC OS, gtk/riscos/gtkriscostheme.c adds
+CSS above this theme: @wimp0-@wimp15 become the desktop's Wimp colours,
+and check/radio icons, the combo box button and the spin button arrows
+use the Wimp's own sprites (optoff, opton, radiooff, radioon, gright,
+left, right). So write colours in this theme as @wimpN, not literals, or
+they won't follow the desktop. RISCOS_GTK_WIMP_THEME=0 turns it off.

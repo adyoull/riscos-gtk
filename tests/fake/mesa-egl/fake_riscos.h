@@ -100,6 +100,19 @@ extern const int *fake_ptr_sprite;
 extern char fake_ptr_name[16];
 extern int fake_ptr_shape, fake_ptr_flags, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;
 extern int fake_ptr_palette[4];          /* pointer colours (OS_ReadPalette 25), &BBGGRRxx */
-extern int fake_wimp_ptr_write;          /* the Wimp has ptr_write (9 x 20) */   /* Wimp_DragBox: type now (-1 none), calls */
+extern int fake_wimp_ptr_write;          /* the Wimp has ptr_write (9 x 20) */
+/* Wimp_ReadPalette (the 16 Wimp colours, &BBGGRRxx; the standard palette
+   unless a test changes it), and the Wimp sprite pool (Wimp_SpriteOp 24),
+   if fake_wimp_sprites:
+     optoff, opton  12x12 8bpp, standard 256-colour palette, 1bpp mask;
+                    border &33 = #bb7733, inside white (opton: a 4x4 &17 dot)
+     radiooff       12x12 4bpp with a palette: ring #12ab34, inside white,
+                    1bpp mask (round)
+     radioon        12x12 32bpp #3456de, RISC OS 5 alpha mask (left half 255,
+                    right half 128)
+     gright         10x10 numbered mode 28 (8bpp), old-style mask (x <= y)
+     left, right    8x4 1bpp at 90 x 45 dpi (8x8 on an EIG 1 screen) */
+extern unsigned int fake_wimp_palette[20];
+extern int fake_wimp_sprites;   /* Wimp_DragBox: type now (-1 none), calls */
 
 #endif
