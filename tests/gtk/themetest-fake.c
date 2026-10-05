@@ -35,6 +35,8 @@ static struct
   int flags[16], icon[16], n, x, y;
 } menus[MAX_MENUS];
 static int n_menus;
+static int moved_x0 = -1, moved_y1 = -1, moved_y0, after_x0 = -1, after_y1 = -1, after_y0, tooltip_windows, main_handle, pos_stage;
+static int edit_open_after_leave = -1, edit_title_ok;
 static int combo_right, combo_top, file_left, file_bottom, ctx_x, ctx_y;
 
 static void
@@ -147,6 +149,42 @@ hook (int reason)
 {
   int x, y, wd, ht, i;
 
+  if (main_handle)
+    for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+      if (fake_windows[i].handle == main_handle)
+        {
+          if (pos_stage == 1 && moved_x0 < 0 && fake_windows[i].x0 != 240)
+            {
+              moved_x0 = fake_windows[i].x0;
+              moved_y1 = fake_windows[i].y1;
+              moved_y0 = fake_windows[i].y0;
+            }
+          if (pos_stage == 1 && moved_x0 >= 0)
+            {
+              after_x0 = fake_windows[i].x0;
+              after_y1 = fake_windows[i].y1;
+              after_y0 = fake_windows[i].y0;
+            }
+        }
+  {
+    int open = 0;
+    for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+      if (fake_windows[i].handle && fake_windows[i].handle != main_handle && !fake_menu)
+        open++;
+    if (pos_stage == 1 && open > tooltip_windows)
+      tooltip_windows = open;
+  }
+  {
+    int pos = fake_wimp_script_pos ();
+    if (pos >= 0 && fake_wimp_script[pos][0] == FAKE_NULL && fake_wimp_script[pos][3] == 77 &&
+        edit_open_after_leave < 0)
+      {
+        edit_open_after_leave = fake_menu != NULL;
+        if (fake_menu && (fake_menu[7] & 0x100))
+          edit_title_ok = strcmp ((const char *) (long) fake_menu[0], "Edit") == 0 &&
+                          strncmp ((const char *) (long) fake_menu[7 + 3], "Undo", 4) == 0;
+      }
+  }
   if (fake_menu && fake_menus_opened != opened_seen)
     {
       opened_seen = fake_menus_opened;
@@ -159,6 +197,10 @@ hook (int reason)
       GList *bar = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
 
       stage = 1;
+      for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+        if (fake_windows[i].handle)
+          main_handle = fake_windows[i].handle;
+      fake_target_window = main_handle;   /* not its tooltips */
       win_w = gtk_widget_get_allocated_width (tt_window);
       win_h = gtk_widget_get_allocated_height (tt_window);
       file = g_list_nth_data (bar, 0);
@@ -191,6 +233,41 @@ hook (int reason)
       add (FAKE_BUTTONS, 0, 0, 0);
       add (17, 0x400C9, 0, 0);
       nulls (8);
+      /* 3a. Edit from the menu bar, then the pointer goes off the window
+            onto the menu (as on the Pi: leave events), then a click
+            elsewhere closes it */
+      {
+        GList *bar2 = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
+        GtkWidget *edit = g_list_nth_data (bar2, 1);
+        g_list_free (bar2);
+        rect (edit, &x, &y, &wd, &ht);
+        add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+        add (6, x + wd / 2, y + ht / 2, 4);
+        nulls (3);
+        add (FAKE_MOVE, win_w + 40, y + ht + 30, 0);   /* off the window: over the menu */
+        nulls (3);
+        add (FAKE_RELEASE, 0, 0, 0);
+        for (i = 0; i < 8; i++)
+          add (FAKE_SLEEP, 100, 0, 0);
+        add (FAKE_BUTTONS, 0, 0, 0);
+        pos_stage = 0;
+      }
+      add (FAKE_NULL, 0, 0, 77);                      /* marker: check the menu here */
+      add (17, 0x400C9, 0, 0);
+      nulls (8);
+      /* 3b. the Wimp moves the window (a title bar drag), then a button is
+            clicked: the window must stay where it was put */
+      add (2, 0, 200, -100);
+      nulls (8);
+      pos_stage = 1;
+      rect (tt_apply, &x, &y, &wd, &ht);
+      add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);   /* rest on Apply: its tooltip */
+      for (i = 0; i < 12; i++)
+        add (FAKE_SLEEP, 100, 0, 0);
+      pos_stage = 1;
+      add (6, x + wd / 2, y + ht / 2, 4);
+      add (FAKE_RELEASE, 0, 0, 0);
+      nulls (10);
       /* 4. every tab */
       for (i = 1; i < 4; i++)
         {
@@ -220,8 +297,12 @@ hook (int reason)
             {
               /* 5. Menu click in the context area, then Info */
               rect (tt_context_area, &x, &y, &wd, &ht);
-              ctx_x = (120 + x + wd / 2) * 2;
-              ctx_y = (1024 - (80 + y + ht / 2)) * 2 - 1;
+              for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+                if (fake_windows[i].handle == main_handle)
+                  {
+                    ctx_x = fake_windows[i].x0 + (x + wd / 2) * 2;
+                    ctx_y = fake_windows[i].y1 - (y + ht / 2) * 2 - 1;
+                  }
               add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
               add (6, x + wd / 2, y + ht / 2, 2);   /* Menu button */
               add (FAKE_RELEASE, 0, 0, 0);
@@ -264,6 +345,9 @@ main (int argc, char **argv)
   fake_wimp_hook = hook;
   g_snprintf (logpath, sizeof logpath, "%s/GTKThemeTest.Log", outdir);
   targv[0] = argv[0]; targv[1] = argv[1]; targv[2] = logpath; targv[3] = NULL;
+  g_setenv ("RISCOS_GTK_MENU_DEBUG", "1", TRUE);
+  if (getenv ("TT_DEBUG"))
+    g_setenv ("RISCOS_GTK_DEBUG", "1", TRUE);
   if (getenv ("TT_CRIT"))
     g_log_set_handler ("Gtk", G_LOG_LEVEL_CRITICAL, critical_handler, NULL);
   themetest_main (3, targv);
@@ -319,6 +403,14 @@ main (int argc, char **argv)
   check (k >= 0 && !(menus[k].flags[0] & 1),
          "View: Adjust reopens the menu, Show grid now unticked");
 
+  check (edit_open_after_leave == 1 && edit_title_ok,
+         "Edit stays open, its text intact, when the pointer moves off the window onto it");
+  check (strstr (logbuf, "button \"Apply\" clicked") != NULL,
+         "after a release off the window (over the menu), the next click reaches its button");
+  check (moved_x0 == 240 + 200 && after_x0 == moved_x0 && after_y1 == moved_y1 && after_y0 == moved_y0,
+         "the window stays where the Wimp moved it (Apply clicked, tabs, menus)");
+  printf ("# moved to %d,%d (bottom %d); after the tooltip and clicking Apply %d,%d (bottom %d); %d tooltip window(s)\n",
+          moved_x0, moved_y1, moved_y0, after_x0, after_y1, after_y0, tooltip_windows);
   check (pages == 3, "the three other tabs open when clicked");
   check (saved[0] && saved[1] && saved[2] && saved[3], "each page drawn and pictured");
 

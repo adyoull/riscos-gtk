@@ -168,3 +168,13 @@ pass the app folder as an absolute path (as !Run does).
   grab in gtk_menu_shell_activate for a menu open as a Wimp menu.
 - Combo box items are GtkCellViews, not labels: their text comes from the
   model row (first string column).
+
+## Implicit grab and menu bar double pop-up (2026-10-05)
+- X gives the window a button went down in all events until release; the
+  Wimp doesn't. Without doing the same in the backend, a release outside
+  our windows is lost and GDK's own implicit grab sends later presses to
+  the old widget.
+- GtkMenuBar pops its menu up on the press and again on the release: keep
+  the Wimp menu open when the same GtkMenu is popped up again, and never
+  free a menu block straight after replacing or closing it (the Wimp acts
+  on Wimp_CreateMenu at its next poll).

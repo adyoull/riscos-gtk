@@ -20,7 +20,7 @@
 #include <string.h>
 #include <unistd.h>
 
-GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area;
+GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area, *tt_apply;
 int tt_events;
 
 static void
@@ -643,6 +643,25 @@ menubar (void)
 }
 
 static gboolean
+report_size (gpointer data)
+{
+  int w, h, mw, nw, mh, nh;
+  gtk_window_get_size (GTK_WINDOW (tt_window), &w, &h);
+  gtk_widget_get_preferred_width (tt_window, &mw, &nw);
+  gtk_widget_get_preferred_height (tt_window, &mh, &nh);
+  printf ("theme: window %s: %dx%d (min %dx%d, natural %dx%d)\n", (const char *) data, w, h, mw, mh, nw, nh);
+  fflush (stdout);
+  return FALSE;
+}
+
+static gboolean
+click_apply (gpointer data)
+{
+  gtk_button_clicked (GTK_BUTTON (tt_apply));
+  return FALSE;
+}
+
+static gboolean
 open_file_menu (gpointer data)
 {
   GList *items = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
@@ -701,7 +720,7 @@ themetest_main (int argc, char **argv)
 
   row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
   gtk_container_set_border_width (GTK_CONTAINER (row), 8);
-  w = button ("Apply", "The default action button (R6): Return activates it");
+  w = tt_apply = button ("Apply", "The default action button (R6): Return activates it");
   gtk_widget_set_can_default (w, TRUE);
   gtk_box_pack_end (GTK_BOX (row), w, FALSE, FALSE, 0);
   gtk_box_pack_end (GTK_BOX (row), button ("Cancel", NULL), FALSE, FALSE, 0);
@@ -720,6 +739,13 @@ themetest_main (int argc, char **argv)
   /* THEMETEST_MENU: open the File menu by itself (screenshots) */
   if (g_getenv ("THEMETEST_MENU"))
     g_timeout_add (400, open_file_menu, NULL);
+  /* THEMETEST_CLICK: click Apply by itself and report the window size */
+  if (g_getenv ("THEMETEST_CLICK"))
+    {
+      g_timeout_add (500, report_size, (gpointer) "before");
+      g_timeout_add (600, click_apply, NULL);
+      g_timeout_add (900, report_size, (gpointer) "after");
+    }
   /* THEMETEST_QUIT=ms: quit by itself (screenshots, tests) */
   if (g_getenv ("THEMETEST_QUIT"))
     g_timeout_add (atoi (g_getenv ("THEMETEST_QUIT")), (GSourceFunc) gtk_main_quit, NULL);

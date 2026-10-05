@@ -70,6 +70,26 @@ typedef struct
 
 static MenuState *current;
 
+/* *Set RISCOS_GTK_MENU_DEBUG 1: trace menus to stderr (the program's log) */
+static void
+trace (const char *what, MenuState *st)
+{
+  static int on = -1;
+  if (on < 0)
+    on = g_getenv ("RISCOS_GTK_MENU_DEBUG") != NULL;
+  if (on)
+    {
+      GdkEvent *ev = gtk_get_current_event ();
+      g_printerr ("riscos-gtk menu: %s %p (menu %p%s%s; event %d; bar selection %p)\n", what, (void *) st,
+                  st ? (void *) st->menu : NULL,
+                  st && st->parent_shell ? ", menu bar" : "", st && st->combo ? ", pop-up" : "",
+                  ev ? (int) ev->type : -1,
+                  st && st->parent_shell ? (void *) gtk_menu_shell_get_selected_item (GTK_MENU_SHELL (st->parent_shell)) : NULL);
+      if (ev)
+        gdk_event_free (ev);
+    }
+}
+
 /* ---- text ---- */
 
 static GtkWidget *
@@ -353,8 +373,26 @@ refresh (MenuState *st)
     }
 }
 
+static void state_free_now (MenuState *st);
+
+/* Menu memory is freed late: the Wimp may still be drawing a menu tree we
+   have replaced or closed (it acts on Wimp_CreateMenu when it next
+   polls), and freed text showed as garbage on the Pi. Keep the last few. */
+#define KEEP_MENUS 8
+static MenuState *retired[KEEP_MENUS];
+static int retired_next;
+
 static void
 state_free (MenuState *st)
+{
+  if (retired[retired_next])
+    state_free_now (retired[retired_next]);
+  retired[retired_next] = st;
+  retired_next = (retired_next + 1) % KEEP_MENUS;
+}
+
+static void
+state_free_now (MenuState *st)
 {
   guint m;
   int i;
@@ -383,11 +421,13 @@ state_free (MenuState *st)
 static void
 finish (MenuState *st)
 {
+  trace ("finish", st);
   if (current == st)
     current = NULL;
   g_signal_emit_by_name (st->menu, "deactivate");
   if (st->parent_shell && GTK_IS_MENU_SHELL (st->parent_shell))
     gtk_menu_shell_deactivate (GTK_MENU_SHELL (st->parent_shell));
+  trace ("finished", st);
   if (st->combo)
     {
       /* GtkComboBox pressed its button to open the menu; release it */
@@ -473,6 +513,7 @@ menu_event (const int *selection, gboolean adjust, gpointer data)
   MenuState *st = data;
   int k;
 
+  trace (selection ? (adjust ? "chosen (Adjust)" : "chosen") : "closed by the Wimp", st);
   if (selection == NULL)
     st->closed = TRUE;
   else
@@ -568,6 +609,12 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
   if (!GDK_IS_RISCOS_DISPLAY (display) || g_getenv ("RISCOS_GTK_MENUS"))
     return FALSE;                    /* RISCOS_GTK_MENUS set: GTK's own menus */
 
+  if (current && current->menu == menu && !current->handling && !current->closed)
+    {
+      trace ("popup again (kept)", current);
+      return TRUE;                   /* already open as a Wimp menu */
+    }
+
   if (current)
     {
       /* one menu tree at a time (a menu bar switching titles) */
@@ -606,6 +653,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
     }
   position (st, parent_menu_item, func, data, &x, &y);
   current = st;
+  trace ("popup", st);
   gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
                                 x, y, menu_event, st);
   return TRUE;
@@ -618,6 +666,7 @@ _gtk_menu_riscos_popdown (GtkMenu *menu)
 
   if (st == NULL || st->menu != menu || st->handling)
     return;
+  trace ("popdown", st);
   current = NULL;
   gdk_riscos_display_close_menu (gtk_widget_get_display (GTK_WIDGET (menu)));
   state_free (st);

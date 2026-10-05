@@ -124,6 +124,7 @@ struct _GdkRiscosServer {
   int last_x, last_y;         /* last pointer position reported (pixels) */
   int buttons;                /* Wimp buttons currently held */
   guint32 grab_window;        /* pointer grab (0 = none) */
+  guint32 press_window;       /* implicit grab: where the held buttons went down */
   gboolean grab_owner_events;
   guint32 focus_window;       /* window with the caret (0 = none) */
   guint32 last_seen_time;
@@ -310,6 +311,13 @@ pointer_msg (GdkRiscosServer *server, RiscosInputPointerMsg *p,
   if (server->grab_window &&
       !(server->grab_owner_events && under != 0))
     target = server->grab_window;
+  else if (server->buttons && server->press_window && window_by_id (server, server->press_window))
+    /* While a button is held its events, the release too, go to the
+       window it went down in, wherever the pointer is (as X's implicit
+       grab). Else a release over another task's window, or over a Wimp
+       menu just opened from a menu bar, was lost and GDK kept sending
+       later clicks to the old widget. */
+    target = server->press_window;
   w = window_by_id (server, target);
   if (w == NULL)
     return FALSE;
@@ -387,6 +395,11 @@ send_button (GdkRiscosServer *server, guint32 under, int x, int y,
   if (!pointer_msg (server, &msg.pointer, under, x, y))
     return;
   msg.button.button = gdk_button;
+  if (g_getenv ("RISCOS_GTK_DEBUG"))
+    g_printerr ("riscos-gtk: button %d %s: window %u (event window %u), root %d,%d, in window %d,%d, grab %u\n",
+                gdk_button, type == RISCOS_EVENT_BUTTON_PRESS ? "press" : "release",
+                msg.pointer.mouse_window_id, msg.pointer.event_window_id, x, y,
+                msg.pointer.win_x, msg.pointer.win_y, server->grab_window);
   send (server, &msg, type);
 }
 
@@ -444,6 +457,8 @@ track_pointer (GdkRiscosServer *server)
                      RISCOS_EVENT_BUTTON_RELEASE);
         server->buttons &= ~b;
       }
+  if (server->buttons == 0)
+    server->press_window = 0;
 }
 
 /* RISC OS key code -> GDK keyval (0 = not one GDK should see) */
@@ -554,6 +569,8 @@ handle_click (GdkRiscosServer *server, int *block)
     take_caret (w);
   if (server->pointer_window != w->id)
     track_pointer (server);
+  if (server->buttons == 0)
+    server->press_window = w->id;
   for (b = BUT_SELECT; b; b >>= 1)
     if (pressed & b)
       {

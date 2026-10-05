@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.3, 2026-10-05)
+- Pi report: menu bar menus showed garbled text until reopened. GTK pops
+  a menu bar menu up twice (press, then release); the second time the
+  Wimp menu was closed, its memory freed and a new one opened, and the
+  Wimp drew from the freed block. Now the open menu is kept, and menu
+  memory is freed late (the last 8 menus are kept).
+- Backend: implicit grab. A button release with the pointer off our
+  windows (over a Wimp menu just opened from the menu bar) was dropped,
+  so GDK thought the button still held and sent the next click anywhere in
+  the window to the menu bar title (which reopened its menu). Events of a
+  held button now go to the window it went down in.
+- Debugging on the Pi: RISCOS_GTK_MENU_DEBUG traces menus, RISCOS_GTK_DEBUG
+  logs mouse buttons, both to the program's log.
+- Fake Wimp: Open_Window_Request can move a window; FAKE_SLEEP;
+  fake_target_window (scripted events to a chosen window, not the newest);
+  fake_wimp_script_pos(). themetest-fake 22/22: Edit opened, pointer off
+  the window onto the menu and released there (menu stays, text intact),
+  the next click reaches Apply, the window stays where the Wimp moved it.
+
 ## Unreleased (M3: Wimp menus; GTKThemeTest 0.2, 2026-10-04)
 - GtkMenus are shown as Wimp menus (`gtk/riscos/gtkmenu-riscos.c`, hooked
   into gtk_menu_popup_internal / gtk_menu_popdown and

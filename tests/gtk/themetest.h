@@ -2,6 +2,6 @@
 #include <gtk/gtk.h>
 #include <stdarg.h>
 #include <stdlib.h>
-extern GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area;
+extern GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area, *tt_apply;
 extern int tt_events;
 int themetest_main (int argc, char **argv);

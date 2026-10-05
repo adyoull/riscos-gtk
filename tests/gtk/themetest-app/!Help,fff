@@ -1,4 +1,4 @@
-GTKThemeTest 0.2 - riscos-gtk theme test
+GTKThemeTest 0.3 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,12 @@ button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.3: menu text no longer garbled when a menu bar menu first
+opens; after releasing the mouse over a menu (or anywhere outside the
+window) the next click goes where it should (before, it reopened the
+menu bar menu). For a menu trace in the Log: *Set RISCOS_GTK_MENU_DEBUG 1
+before running; *Set RISCOS_GTK_DEBUG 1 also logs mouse buttons.
 
 New in 0.2: menus are real Wimp menus. The menu bar's menus open below
 their titles, pop-ups open to the right of the field, the context menu

@@ -47,7 +47,8 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
      6 = Mouse_Click at pixel a, b of the newest window's visible area
          (from its top left) with buttons c (4 Select, 2 Menu, 1 Adjust);
          the buttons stay held (Wimp_GetPointerInfo) until an FAKE_RELEASE
-     2 = Open_Window_Request (a = width | height << 16, OS units, same top left)
+     2 = Open_Window_Request (a = width | height << 16, OS units, 0 = same size;
+         b, c = move the top left by b, c OS units)
      9 = Menu_Selection (a, b, c = item indices, -1 ends)
     17 = User_Message (a = message action, e.g. 0x400C1 ModeChange)
      FAKE_MOVE = pointer to pixel a, b (null event only)
@@ -57,6 +58,8 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
    then Close_Window_Request.
    fake_wimp_hook, if set, is called before each Poll returns (a frame). */
 extern int fake_sprite_plot_converts, fake_fills;
+extern int fake_target_window;           /* scripted events go here (0 = newest window) */
+int fake_wimp_script_pos(void);          /* script entry last returned, -1 before */
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 extern int fake_wimp_polls, fake_wimp_keys_passed, fake_wimp_tasks;
@@ -72,6 +75,7 @@ extern int fake_wimp_desktop;           /* Wimp_ReadSysInfo 0 reports a desktop 
 #define FAKE_RELEASE 101
 #define FAKE_WHEEL   102
 #define FAKE_NULL    103
+#define FAKE_SLEEP   105      /* a null event after sleeping a ms (timers, tooltips) */
 #define FAKE_BUTTONS 104      /* set the buttons Wimp_GetPointerInfo reports (null event) */
 /* The pointer (OS units, buttons), the wheel count, menus opened,
    OS_Byte 106 calls (pointer on/off) and the internal keys held down

@@ -37,6 +37,10 @@ int fake_window_behind = -1;
 const char *fake_wimp_title;
 int fake_wimp_desktop;
 static int wimp_next_handle = 0x7000, wimp_last_window, wimp_stage, wimp_step;
+/* The window scripted events go to: fake_target_window if set, else the
+   newest one (a program's tooltips and pop-ups are newer windows) */
+int fake_target_window;
+#define TARGET_WINDOW (fake_target_window ? fake_target_window : wimp_last_window)
 static int wimp_created[64], wimp_num_created;     /* windows in creation order */
 
 static _kernel_oserror err = { 1, "fake error" };
@@ -58,6 +62,12 @@ static _kernel_oserror *error(const char *msg)
 {
     snprintf(err.errmess, sizeof err.errmess, "%s", msg);
     return &err;
+}
+
+/* The script entry the last Wimp_Poll returned (-1 before the script) */
+int fake_wimp_script_pos(void)
+{
+    return wimp_stage == 2 ? wimp_step - 1 : -1;
 }
 
 void fake_set_screen(int w, int h, int trgb, int log2bpp)
@@ -240,7 +250,7 @@ static int start_redraw(int *block, fake_window_t *w, const int *wa)
 /* Put the pointer at pixel x, y of the newest window's visible area. */
 static void pointer_to(int x, int y)
 {
-    fake_window_t *w = find_window(wimp_last_window);
+    fake_window_t *w = find_window(TARGET_WINDOW);
     if (!w) return;
     fake_pointer[0] = w->x0 + (x << fake_screen.xeig);
     fake_pointer[1] = w->y1 - (y << fake_screen.yeig) - 1;
@@ -249,7 +259,7 @@ static void pointer_to(int x, int y)
 /* The window under the pointer: the newest one if it's there, else any */
 static int window_at_pointer(void)
 {
-    fake_window_t *w = find_window(wimp_last_window);
+    fake_window_t *w = find_window(TARGET_WINDOW);
     int i;
     if (w && fake_pointer[0] >= w->x0 && fake_pointer[0] < w->x1 &&
         fake_pointer[1] >= w->y0 && fake_pointer[1] < w->y1)
@@ -433,17 +443,19 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                 const int *e = fake_wimp_script[wimp_step++];
                 reason = e[0];
                 wimp_null_due = 1;
-                block[0] = wimp_last_window;
+                block[0] = TARGET_WINDOW;
                 switch (reason) {
                 case 8:                      /* Key_Pressed */
                     block[6] = e[1];
                     break;
                 case 2: {                    /* Open_Window_Request: new width and height, OS units */
-                    fake_window_t *ow = find_window(wimp_last_window);
+                    fake_window_t *ow = find_window(TARGET_WINDOW);
                     int v = e[1];
                     if (ow) {
-                        block[1] = ow->x0; block[4] = ow->y1;
-                        block[3] = ow->x0 + (v & 0xFFFF); block[2] = ow->y1 - (v >> 16);
+                        /* a = width | height << 16 (0: keep the size); b, c = move by (OS units) */
+                        int wd = v ? (v & 0xFFFF) : ow->x1 - ow->x0, ht = v ? (v >> 16) : ow->y1 - ow->y0;
+                        block[1] = ow->x0 + e[2]; block[4] = ow->y1 + e[3];
+                        block[3] = block[1] + wd; block[2] = block[4] - ht;
                         block[5] = ow->sx; block[6] = ow->sy; block[7] = -1;
                     }
                     break;
@@ -452,7 +464,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                     pointer_to(e[1], e[2]);
                     fake_pointer[2] = e[3] ? e[3] : 4;
                     block[0] = fake_pointer[0]; block[1] = fake_pointer[1];
-                    block[2] = fake_pointer[2]; block[3] = wimp_last_window; block[4] = -1;
+                    block[2] = fake_pointer[2]; block[3] = TARGET_WINDOW; block[4] = -1;
                     break;
                 case 9:                      /* Menu_Selection */
                     block[0] = e[1]; block[1] = e[2]; block[2] = e[3]; block[3] = -1;
@@ -470,8 +482,9 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                 case FAKE_WHEEL:   fake_wheel += e[1];     reason = 0; wimp_null_due = 0; break;
                 case FAKE_NULL:                           reason = 0; wimp_null_due = 0; break;
                 case FAKE_BUTTONS: fake_pointer[2] = e[1]; reason = 0; wimp_null_due = 0; break;
+                case FAKE_SLEEP:   usleep(e[1] * 1000);    reason = 0; wimp_null_due = 0; break;
                 }
-            } else { reason = 3; block[0] = wimp_last_window; }
+            } else { reason = 3; block[0] = TARGET_WINDOW; }
         }
         if (fake_wimp_hook) fake_wimp_hook(reason);
         r.r[0] = reason;
