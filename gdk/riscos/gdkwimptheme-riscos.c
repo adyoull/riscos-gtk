@@ -431,13 +431,6 @@ header_ok (const int *area)
   return readable (area, area[3]);
 }
 
-static gboolean
-sane_area (const int *area)
-{
-  if (!header_ok (area))
-    return FALSE;
-  return area_find (area, "uicon") != NULL || area_find (area, "uicon22") != NULL;
-}
 
 /* For the log: what's at p (the first words, if readable) */
 static void
@@ -452,36 +445,117 @@ describe (const char *what, const int *p)
     g_printerr ("riscos-gtk: %s &%X: not readable\n", what, (unsigned int) (gsize) p);
 }
 
+/* Does spr look like a sprite (header values in range)? */
+static gboolean
+looks_like_sprite (const int *spr)
+{
+  return spr[0] >= 44 && spr[0] < (1 << 20) && spr[4] >= 0 && spr[4] < 256 &&
+         spr[5] >= 0 && spr[5] < 1024 && spr[6] >= 0 && spr[6] < 32 && spr[7] >= 0 &&
+         spr[7] < 32 && spr[8] >= 44 && spr[9] >= 44 && spr[8] < spr[0] && spr[9] <= spr[0];
+}
+
+/* The Wimp's tool sprites aren't always a plain sprite area: on a
+   RISC OS 5 Pi, Wimp_ReadSysInfo 9's block starts like one (size, count
+   90) but its first/free words aren't offsets into it. So a sprite is
+   found three ways: a plain area; by name anywhere in the block (the
+   header 4 bytes before the name); or through a table of pointers to
+   the sprites after the 16-byte header. */
+static const int *tool_block;
+static int tool_how;                  /* 1 area, 2 scan, 3 pointer table */
+
 static const int *
+block_find (const int *block, int how, const char *name)
+{
+  int size = block[0], count = block[1], off, i;
+
+  if (how == 1)
+    return area_find (block, name);
+  if (how == 2)
+    {
+      for (off = 16; off + 48 <= size; off += 4)
+        {
+          const int *spr = (const int *) ((const char *) block + off);
+          if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 &&
+              (strlen (name) == 12 || ((const char *) &spr[1])[strlen (name)] == 0) &&
+              looks_like_sprite (spr) && off + spr[0] <= size)
+            return spr;
+        }
+      return NULL;
+    }
+  for (i = 0; i < count && 16 + 4 * i + 4 <= size; i++)
+    {
+      const int *spr = (const int *) block[4 + i];
+      if (spr == NULL || ((gsize) spr & 3) || !readable (spr, 48))
+        continue;
+      if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 &&
+          (strlen (name) == 12 || ((const char *) &spr[1])[strlen (name)] == 0) &&
+          looks_like_sprite (spr) && readable (spr, spr[0]))
+        return spr;
+    }
+  return NULL;
+}
+
+static gboolean
+try_block (const int *block)
+{
+  int how;
+
+  if (block == NULL || ((gsize) block & 3) || !readable (block, 16) ||
+      block[0] < 16 || block[0] > (16 << 20) || !readable (block, block[0]))
+    return FALSE;
+  for (how = 1; how <= 3; how++)
+    {
+      if (how == 1 && !header_ok (block))
+        continue;
+      if (block_find (block, how, "uicon") || block_find (block, how, "uicon22"))
+        {
+          tool_block = block;
+          tool_how = how;
+          return TRUE;
+        }
+    }
+  return FALSE;
+}
+
+static gboolean
 tool_area (void)
 {
-  static const int *area;
   static gboolean looked;
   _kernel_swi_regs r;
 
   if (looked)
-    return area;
+    return tool_block != NULL;
   looked = TRUE;
   memset (&r, 0, sizeof r);
   r.r[0] = 9;
   if (_kernel_swi (Wimp_ReadSysInfo, &r, &r) != NULL)
-    return NULL;
-  if (sane_area ((const int *) r.r[0]))
-    area = (const int *) r.r[0];
-  else if (sane_area ((const int *) r.r[1]))
-    area = (const int *) r.r[1];
+    return FALSE;
+  if (!try_block ((const int *) r.r[0]))
+    try_block ((const int *) r.r[1]);
   if (debugging ())
     {
       g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
                   (unsigned int) r.r[0], (unsigned int) r.r[1],
-                  area ? "a sprite area with uicon" : "not found");
-      if (area == NULL)
+                  tool_how == 1 ? "a sprite area" : tool_how == 2 ? "sprites found by name in the block" :
+                  tool_how == 3 ? "a table of sprite pointers" : "not found");
+      if (tool_block == NULL)
         {
-          describe ("Wimp_ReadSysInfo 9 R0", (const int *) r.r[0]);
+          const int *p = (const int *) r.r[0];
+          describe ("Wimp_ReadSysInfo 9 R0", p);
           describe ("Wimp_ReadSysInfo 9 R1", (const int *) r.r[1]);
+          if (p && !((gsize) p & 3) && readable (p, 64))
+            {
+              int i;
+              g_printerr ("riscos-gtk: R0 +16:");
+              for (i = 4; i < 16; i++)
+                g_printerr (" %08X", (unsigned int) p[i]);
+              g_printerr ("\n");
+              if (!((gsize) p[4] & 3) && readable ((const int *) p[4], 48))
+                describe ("R0+16 points to", (const int *) p[4]);
+            }
         }
     }
-  return area;
+  return tool_block != NULL;
 }
 
 /**
@@ -494,11 +568,11 @@ tool_area (void)
 GdkPixbuf *
 gdk_riscos_wimp_tool_sprite (const char *name)
 {
-  const int *area = tool_area (), *spr = NULL;
+  const int *spr = NULL;
   char full[16];
   const char *suffix;
 
-  if (area == NULL)
+  if (!tool_area ())
     return NULL;
   /* A Tools file holds a set per resolution, named with the screen's
      sprite suffix: "uicon22" for 90 x 90 dpi (EIG 1 x 1), "uicon11" for
@@ -508,10 +582,10 @@ gdk_riscos_wimp_tool_sprite (const char *name)
   if (*suffix)
     {
       g_snprintf (full, sizeof full, "%s%s", name, suffix);
-      spr = area_find (area, full);
+      spr = block_find (tool_block, tool_how, full);
     }
   if (spr == NULL)
-    spr = area_find (area, name);
+    spr = block_find (tool_block, tool_how, name);
   if (spr == NULL)
     return NULL;
   if (g_getenv ("RISCOS_GTK_DEBUG"))

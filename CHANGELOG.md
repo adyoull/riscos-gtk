@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.15, 2026-10-05)
+- Owner's 0.14 Log: Wimp sprites 7 of 7 (pool via Wimp_BaseOfSprites;
+  4bpp mode 20 without palettes), true colours right. Tool sprites still
+  0: Wimp_ReadSysInfo 9's block at &20045AE0 starts 00008D90 0000005A
+  0042F3A4 00438124 201A3058: size and count (90) of a sprite area, but
+  first/free aren't offsets into it. Tool sprites are now found in such a
+  block three ways: a plain area; by name anywhere in the block (header
+  checked); or through a table of sprite pointers after the header.
+  RISCOS_GTK_DEBUG names the way used, or dumps more of the block.
+- The fake Wimp's tool block has the Pi's odd first/free words, so the
+  suite takes the by-name path; TT_ICONS takes the plain-area path.
+
 ## Unreleased (GTKThemeTest 0.14, 2026-10-05)
 - Owner's 0.13 Log: "Wimp sprites 0 of 7; window border sprites 0 of 27";
   Wimp_ReadSysInfo 9 = &20045AE0 not taken as a sprite area; the Wimp

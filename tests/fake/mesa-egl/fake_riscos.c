@@ -310,7 +310,9 @@ static const int *build_tool_area(void)
             spr[11 + y * wpx + x] = 0x002010A0 + i;   /* &BBGGRR: #a01020, + i in red */
         off += spr[0];
     }
-    tool_area[0] = (int) sizeof tool_area; tool_area[1] = i; tool_area[2] = 16; tool_area[3] = off;
+    /* as a RISC OS 5 Pi's Wimp_ReadSysInfo 9 block: size and count right,
+       but the first/free words aren't offsets into it */
+    tool_area[0] = off; tool_area[1] = i; tool_area[2] = 0x0042F3A4; tool_area[3] = 0x00438124;
     return tool_area;
 }
 
