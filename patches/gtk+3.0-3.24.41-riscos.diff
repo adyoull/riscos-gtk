@@ -182,3 +182,118 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
        device = gtk_get_current_event_device ();
  
        _gtk_menu_shell_set_grab_device (menu_shell, device);
+--- a/gtk/gtkmenubar.c	2024-01-24 01:14:34.000000000 +0000
++++ b/gtk/gtkmenubar.c	2026-10-05 18:16:03.690803533 +0100
+@@ -40,6 +40,12 @@
+ #include "config.h"
+ 
+ #include "gtkmenubar.h"
++#ifdef GDK_WINDOWING_RISCOS
++#include "gtkmenu-riscos.h"     /* riscos-gtk: the menu bar as the window menu */
++#define RISCOS_HIDDEN() _gtk_menu_riscos_hide_menubar ()
++#else
++#define RISCOS_HIDDEN() FALSE
++#endif
+ 
+ #include "gtkbindings.h"
+ #include "gtkcsscustomgadgetprivate.h"
+@@ -444,6 +450,13 @@
+ 				  gint      *minimum,
+ 				  gint      *natural)
+ {
++  if (RISCOS_HIDDEN ())
++    {
++      /* riscos-gtk: no menu bar on RISC OS; Menu opens it as a menu */
++      *minimum = *natural = 0;
++      return;
++    }
++
+   gtk_css_gadget_get_preferred_size (GTK_MENU_BAR (widget)->priv->gadget,
+                                      GTK_ORIENTATION_HORIZONTAL,
+                                      -1,
+@@ -456,6 +469,13 @@
+ 				   gint      *minimum,
+ 				   gint      *natural)
+ {
++  if (RISCOS_HIDDEN ())
++    {
++      /* riscos-gtk: no menu bar on RISC OS; Menu opens it as a menu */
++      *minimum = *natural = 0;
++      return;
++    }
++
+   gtk_css_gadget_get_preferred_size (GTK_MENU_BAR (widget)->priv->gadget,
+                                      GTK_ORIENTATION_VERTICAL,
+                                      -1,
+@@ -469,6 +489,13 @@
+                                              gint      *minimum,
+                                              gint      *natural)
+ {
++  if (RISCOS_HIDDEN ())
++    {
++      /* riscos-gtk: no menu bar on RISC OS; Menu opens it as a menu */
++      *minimum = *natural = 0;
++      return;
++    }
++
+   gtk_css_gadget_get_preferred_size (GTK_MENU_BAR (widget)->priv->gadget,
+                                      GTK_ORIENTATION_HORIZONTAL,
+                                      height,
+@@ -482,6 +509,13 @@
+                                              gint      *minimum,
+                                              gint      *natural)
+ {
++  if (RISCOS_HIDDEN ())
++    {
++      /* riscos-gtk: no menu bar on RISC OS; Menu opens it as a menu */
++      *minimum = *natural = 0;
++      return;
++    }
++
+   gtk_css_gadget_get_preferred_size (GTK_MENU_BAR (widget)->priv->gadget,
+                                      GTK_ORIENTATION_VERTICAL,
+                                      width,
+@@ -647,6 +681,19 @@
+ 
+   content_allocation = *allocation;
+   content_allocation.x = content_allocation.y = 0;
++  if (RISCOS_HIDDEN ())
++    {
++      /* riscos-gtk: the hidden bar is 0-1 pixels high; lay its items out
++         at their own size anyway (its window clips them; they're never
++         drawn or clicked), so GTK doesn't squeeze them */
++      int w = 0, h = 0;
++      gtk_css_gadget_get_preferred_size (menu_bar->priv->gadget, GTK_ORIENTATION_HORIZONTAL,
++                                         -1, NULL, &w, NULL, NULL);
++      gtk_css_gadget_get_preferred_size (menu_bar->priv->gadget, GTK_ORIENTATION_VERTICAL,
++                                         w, NULL, &h, NULL, NULL);
++      content_allocation.width = MAX (content_allocation.width, w);
++      content_allocation.height = MAX (content_allocation.height, h);
++    }
+   gtk_css_gadget_allocate (menu_bar->priv->gadget,
+                            &content_allocation,
+                            gtk_widget_get_allocated_baseline (widget),
+@@ -677,7 +724,8 @@
+ gtk_menu_bar_draw (GtkWidget *widget,
+ 		   cairo_t   *cr)
+ {
+-  gtk_css_gadget_draw (GTK_MENU_BAR (widget)->priv->gadget, cr);
++  if (!RISCOS_HIDDEN ())
++    gtk_css_gadget_draw (GTK_MENU_BAR (widget)->priv->gadget, cr);
+ 
+   return FALSE;
+ }
+@@ -758,6 +806,13 @@
+   
+   if (gtk_widget_is_toplevel (toplevel))
+     add_to_window (GTK_WINDOW (toplevel), menubar);
++
++#ifdef GDK_WINDOWING_RISCOS
++  if (old_toplevel)
++    _gtk_menu_riscos_menubar_detach (widget, old_toplevel);
++  if (gtk_widget_is_toplevel (toplevel))
++    _gtk_menu_riscos_menubar_attach (widget, toplevel);
++#endif
+ }
+ 
+ /**

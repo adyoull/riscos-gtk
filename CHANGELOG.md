@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (M3: the window menu; GTKThemeTest 0.5, 2026-10-05)
+- Owner: GTK programs should use menus as RISC OS does, Menu anywhere.
+  A GtkMenuBar now takes no room and draws nothing (gtkmenubar.c patch);
+  a Menu click in its window that no widget used opens one Wimp menu at
+  the pointer (-64 OS units), titled with the program's name, with the
+  menu bar's titles leading to their menus as submenus. Shortcuts,
+  ticks, Adjust all as before; widgets' own context menus come first.
+  RISCOS_GTK_MENUBAR (or RISCOS_GTK_MENUS) keeps GTK's menu bar.
+- The hidden bar lays its items out at their natural size (clipped by its
+  1px window) so GTK doesn't warn about negative content heights.
+- themetest-fake: File > Save and View > Show grid (Adjust) through the
+  window menu, release off the window, menu bar takes no room (25/25).
+
 ## Unreleased (GTKThemeTest 0.4, 2026-10-05)
 - Pi report: the bottom of the tab area moved when Apply (the default
   button) was clicked and took focus. The theme's 4px margin on

@@ -150,14 +150,16 @@ on_message (GtkButton *b, gpointer data)
   gtk_widget_destroy (d);
 }
 
-static void
+static gboolean
 on_context (GtkWidget *w, GdkEventButton *ev, gpointer menu)
 {
   if (ev->type == GDK_BUTTON_PRESS && ev->button == 3)
     {
       say ("Menu button: context menu");
       gtk_menu_popup_at_pointer (GTK_MENU (menu), (GdkEvent *) ev);
+      return TRUE;                   /* used: not the window menu */
     }
+  return FALSE;
 }
 
 static void

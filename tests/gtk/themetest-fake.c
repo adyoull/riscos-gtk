@@ -27,18 +27,19 @@ static int win_w, win_h, opened_seen;
 static const char *outdir;
 
 /* Each Wimp menu opened, decoded */
-#define MAX_MENUS 16
+#define MAX_MENUS 64
 static struct
 {
   char title[64];
   char text[16][96];
-  int flags[16], icon[16], n, x, y;
+  int flags[16], icon[16], sub[16], n, x, y;
 } menus[MAX_MENUS];
 static int n_menus;
 static int moved_x0 = -1, moved_y1 = -1, moved_y0, after_x0 = -1, after_y1 = -1, after_y0, tooltip_windows, main_handle, pos_stage;
 static int edit_open_after_leave = -1, edit_title_ok;
 static int nb_h0 = -1, nb_h1 = -1, def0 = -1, def1 = -1, apply_clicked_seen;
-static int combo_right, combo_top, file_left, file_bottom, ctx_x, ctx_y;
+static int wm_x, wm_y, menubar_h = -1;            /* where the window menu should open */
+static int combo_right, combo_top, ctx_x, ctx_y;
 
 static void
 check (int ok, const char *name)
@@ -87,6 +88,17 @@ click (GtkWidget *w, int buttons)
 }
 
 static void
+menu_click (GtkWidget *w)
+{
+  int x, y, wd, ht;
+  rect (w, &x, &y, &wd, &ht);
+  add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+  add (6, x + wd / 2, y + ht / 2, 2);      /* the Menu button */
+  add (FAKE_RELEASE, 0, 0, 0);
+  nulls (6);
+}
+
+static void
 save_ppm (const char *name, int x0, int y0, int w, int h)
 {
   char path[512];
@@ -109,9 +121,9 @@ save_ppm (const char *name, int x0, int y0, int w, int h)
 }
 
 static void
-record_menu (void)
+record_block (const int *m, int x, int y)
 {
-  const int *m = fake_menu, *it = m + 7;
+  const int *it = m + 7;
   int k = n_menus < MAX_MENUS ? n_menus++ : MAX_MENUS - 1, i;
 
   memset (&menus[k], 0, sizeof menus[k]);
@@ -127,20 +139,32 @@ record_menu (void)
         memcpy (menus[k].text[i], it + 3, 12);
       menus[k].flags[i] = it[0];
       menus[k].icon[i] = it[2];
+      menus[k].sub[i] = it[1] != -1;
       menus[k].n = i + 1;
       if (it[0] & 0x80)
         break;
     }
-  menus[k].x = fake_menu_x;
-  menus[k].y = fake_menu_y;
+  menus[k].x = x;
+  menus[k].y = y;
+  /* and its submenus (the Wimp opens them from their arrows) */
+  for (i = 0, it = m + 7; i < menus[k].n; i++, it += 6)
+    if (it[1] != -1)
+      record_block ((const int *) (long) it[1], -1, -1);
 }
 
+static void
+record_menu (void)
+{
+  record_block (fake_menu, fake_menu_x, fake_menu_y);
+}
+
+/* The k-th menu recorded whose title and first entry are these */
 static int
-find_menu (const char *title, int from)
+find_menu2 (const char *title, const char *first, int from)
 {
   int k;
   for (k = from; k < n_menus; k++)
-    if (strcmp (menus[k].title, title) == 0)
+    if (strcmp (menus[k].title, title) == 0 && strncmp (menus[k].text[0], first, strlen (first)) == 0)
       return k;
   return -1;
 }
@@ -194,8 +218,8 @@ hook (int reason)
       {
         edit_open_after_leave = fake_menu != NULL;
         if (fake_menu && (fake_menu[7] & 0x100))
-          edit_title_ok = strcmp ((const char *) (long) fake_menu[0], "Edit") == 0 &&
-                          strncmp ((const char *) (long) fake_menu[7 + 3], "Undo", 4) == 0;
+          edit_title_ok = strcmp ((const char *) (long) fake_menu[0], "GTKThemeTest") == 0 &&
+                          strcmp ((const char *) (long) fake_menu[7 + 6 + 3], "Edit") == 0;
       }
   }
   if (fake_menu && fake_menus_opened != opened_seen)
@@ -206,10 +230,10 @@ hook (int reason)
   if (stage == 0 && tt_window && gtk_widget_get_mapped (tt_window) && fake_plots > 0 &&
       gtk_widget_get_allocated_width (tt_notebook) > 1)
     {
-      GtkWidget *file, *view;
-      GList *bar = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
+      GtkWidget *plain;
 
       stage = 1;
+      menubar_h = gtk_widget_get_allocated_height (tt_menubar);
       nb_h0 = gtk_widget_get_allocated_height (tt_notebook);
       def0 = gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default");
       for (i = 0; i < FAKE_MAX_WINDOWS; i++)
@@ -218,18 +242,22 @@ hook (int reason)
       fake_target_window = main_handle;   /* not its tooltips */
       win_w = gtk_widget_get_allocated_width (tt_window);
       win_h = gtk_widget_get_allocated_height (tt_window);
-      file = g_list_nth_data (bar, 0);
-      view = g_list_nth_data (bar, 2);
-      g_list_free (bar);
 
       /* expected places, OS units (window top left at pixel 120,80;
          EIG 1; 1024-pixel-high screen) */
       rect (tt_combo, &x, &y, &wd, &ht);
       combo_right = (120 + x + wd) * 2;
       combo_top = (1024 - (80 + y)) * 2;
-      rect (file, &x, &y, &wd, &ht);
-      file_left = (120 + x) * 2;
-      file_bottom = (1024 - (80 + y + ht)) * 2;
+      {
+        /* the window menu is opened by Menu on a plain part of page 1 */
+        GList *kids = gtk_container_get_children (GTK_CONTAINER (
+                        gtk_notebook_get_nth_page (GTK_NOTEBOOK (tt_notebook), 0)));
+        plain = g_list_last (kids)->data;       /* the styled-text label */
+        g_list_free (kids);
+        rect (plain, &x, &y, &wd, &ht);
+        wm_x = (120 + x + wd / 2) * 2 - 64;
+        wm_y = (1024 - (80 + y + ht / 2)) * 2 - 1;
+      }
 
       /* 0. the window has the input focus (the Wimp sends Gain_Caret when
             the program takes the caret) */
@@ -239,29 +267,26 @@ hook (int reason)
       click (tt_combo, 4);
       add (9, 1, -1, 0);
       nulls (8);
-      /* 2. File, then Save */
-      click (file, 4);
-      add (9, 1, -1, 0);
+      /* 2. Menu in the window: File > Save */
+      menu_click (plain);
+      add (9, 0, 1, 0);
       nulls (8);
-      /* 3. View, Show grid with Adjust (stays open), then a click
-            elsewhere closes it (Message_MenusDeleted) */
-      click (view, 4);
+      /* 3. Menu again: View > Show grid with Adjust (stays open), then a
+            click elsewhere closes it (Message_MenusDeleted) */
+      menu_click (plain);
       add (FAKE_BUTTONS, 1, 0, 0);
-      add (9, 0, -1, 0);
+      add (9, 2, 0, 0);
       nulls (8);
       add (FAKE_BUTTONS, 0, 0, 0);
       add (17, 0x400C9, 0, 0);
       nulls (8);
-      /* 3a. Edit from the menu bar, then the pointer goes off the window
-            onto the menu (as on the Pi: leave events), then a click
-            elsewhere closes it */
+      /* 3a. Menu pressed, then the pointer goes off the window onto the
+            menu (leave events) and the button is released there; then a
+            click elsewhere closes it */
       {
-        GList *bar2 = gtk_container_get_children (GTK_CONTAINER (tt_menubar));
-        GtkWidget *edit = g_list_nth_data (bar2, 1);
-        g_list_free (bar2);
-        rect (edit, &x, &y, &wd, &ht);
+        rect (plain, &x, &y, &wd, &ht);
         add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
-        add (6, x + wd / 2, y + ht / 2, 4);
+        add (6, x + wd / 2, y + ht / 2, 2);
         nulls (3);
         add (FAKE_MOVE, win_w + 40, y + ht + 30, 0);   /* off the window: over the menu */
         nulls (3);
@@ -353,7 +378,7 @@ main (int argc, char **argv)
   char *targv[4];
   int saved_out = dup (1), saved_err = dup (2);
   FILE *lf;
-  int pages, f, v, c, p, k, i;
+  int pages, f, v, c, p, k, i, w;
 
   if (argc < 3)
     return 2;
@@ -379,10 +404,11 @@ main (int argc, char **argv)
       fclose (lf);
     }
 
-  p = find_menu ("GTKThemeTest", 0);         /* the pop-up's menu comes first */
-  f = find_menu ("File", 0);
-  v = find_menu ("View", 0);
-  c = p >= 0 ? find_menu ("GTKThemeTest", p + 1) : -1;
+  p = find_menu2 ("GTKThemeTest", "Latin-1", 0);     /* the pop-up */
+  w = find_menu2 ("GTKThemeTest", "File", 0);        /* the window menu */
+  f = find_menu2 ("File", "Open...", 0);             /* its submenus */
+  v = find_menu2 ("View", "Show grid", 0);
+  c = find_menu2 ("GTKThemeTest", "Select all", 0);  /* the context menu */
   pages = (strstr (logbuf, "page 1: Options") != NULL) + (strstr (logbuf, "page 2: Lists") != NULL)
           + (strstr (logbuf, "page 3: Dialogues") != NULL);
 
@@ -406,8 +432,16 @@ main (int argc, char **argv)
          (menus[f].flags[2] & 2) && strcmp (menus[f].text[3], "Quit") == 0 &&
          (menus[f].flags[3] & 0x80),
          "File: Wimp menu with short-cuts, a dotted line before Quit, Quit last");
-  check (f >= 0 && abs (menus[f].x - file_left) <= 4 && abs (menus[f].y - file_bottom) <= 4,
-         "File: opens below its menu bar title");
+  check (w >= 0 && menus[w].n == 4 && strcmp (menus[w].text[1], "Edit") == 0 &&
+         strcmp (menus[w].text[2], "View") == 0 && strcmp (menus[w].text[3], "Help") == 0 &&
+         menus[w].sub[0] && menus[w].sub[1] && menus[w].sub[2] && menus[w].sub[3],
+         "Menu in the window: the program's menu, File/Edit/View/Help leading to submenus");
+  check (w >= 0 && abs (menus[w].x - wm_x) <= 4 && abs (menus[w].y - wm_y) <= 4,
+         "Menu in the window: opens 64 OS units left of the pointer");
+  if (w >= 0)
+    printf ("# window menu at %d,%d (expected %d,%d)\n", menus[w].x, menus[w].y, wm_x, wm_y);
+  check (menubar_h >= 0 && menubar_h <= 1,
+         "the GTK menu bar takes no room in the window");
   check (strstr (logbuf, "menu \"Save\"") != NULL, "File: choosing Save activates it");
 
   check (v >= 0 && (menus[v].flags[0] & 1) && (menus[v].flags[0] & 2) &&
@@ -418,12 +452,15 @@ main (int argc, char **argv)
          "View: Zoom (with its submenu) last");
   check (strstr (logbuf, "menu \"Show grid\" unticked") != NULL,
          "View: an Adjust choice activates the item");
-  k = v >= 0 ? find_menu ("View", v + 1) : -1;
+  /* View appears in each window menu: the 1st (File > Save), the 2nd
+     (the Adjust choice) and the 2nd reopened after it */
+  k = v >= 0 ? find_menu2 ("View", "Show grid", v + 1) : -1;
+  k = k >= 0 ? find_menu2 ("View", "Show grid", k + 1) : -1;
   check (k >= 0 && !(menus[k].flags[0] & 1),
          "View: Adjust reopens the menu, Show grid now unticked");
 
   check (edit_open_after_leave == 1 && edit_title_ok,
-         "Edit stays open, its text intact, when the pointer moves off the window onto it");
+         "the menu stays open, its text intact, when the pointer moves off the window onto it");
   check (strstr (logbuf, "button \"Apply\" clicked") != NULL,
          "after a release off the window (over the menu), the next click reaches its button");
   check (nb_h0 > 0 && nb_h1 == nb_h0 && def0 == 1 && def1 == 1,

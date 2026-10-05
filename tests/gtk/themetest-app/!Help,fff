@@ -1,4 +1,4 @@
-GTKThemeTest 0.4 - riscos-gtk theme test
+GTKThemeTest 0.5 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -15,13 +15,20 @@ Pages
                        view with both scroll bars.
   Dialogues and menus  a message dialogue; a popover; a context menu
                        (click Menu in the box); info bars; a calendar.
-The menu bar at the top (File, Edit, View with ticks and a Zoom submenu,
-Help) and the Cancel / Apply buttons (Apply is the default action
-button) are on every page. Hover for interactive help (tooltips).
+Menu anywhere opens the program's menu (File, Edit, View with ticks and
+a Zoom submenu, Help); the Cancel / Apply buttons (Apply is the default
+action button) are on every page. Hover for interactive help (tooltips).
 
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.5: menus the RISC OS way. There is no menu bar in the window:
+click Menu (the middle button) anywhere in the window for the program's
+menu, with File, Edit, View and Help as submenus. Things with a menu of
+their own keep it: the box on the Dialogues page, and text fields (Cut,
+Copy, Paste...). *Set RISCOS_GTK_MENUBAR 1 before running brings GTK's
+menu bar back.
 
 New in 0.4: the tab area no longer jumps when Apply (the default
 button) is clicked and takes the focus.

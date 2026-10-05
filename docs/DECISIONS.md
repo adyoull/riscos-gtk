@@ -73,3 +73,14 @@ pointer -64 OS units). The old way stays available with RISCOS_GTK_MENUS
 set (for comparison; GTK-drawn menus can't close on a desktop click).
 Not covered: custom widgets inside menus (only labels/short-cuts are
 shown), menu bar keyboard navigation, tear-off menus.
+
+## No menu bar: Menu anywhere opens the program's menu (2026-10-05)
+Owner's choice ("context menu how RISC OS does, middle click anywhere").
+GtkMenuBar is kept (accelerators, mnemonics, app code that updates it)
+but takes no space and isn't drawn; its titles become the entries of a
+Wimp menu titled with the program's name, opened by Menu where no widget
+uses the click. Widgets with their own context menus (text fields, apps'
+canvases) keep them. Programs without a menu bar get nothing on Menu
+unless they provide a context menu. RISCOS_GTK_MENUBAR restores the bar.
+Not handled yet: apps that fill a submenu only when its title is
+activated/selected (e.g. "recent files" built on demand).

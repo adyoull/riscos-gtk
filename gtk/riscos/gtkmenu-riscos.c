@@ -59,7 +59,7 @@ typedef struct
 
 typedef struct
 {
-  GtkMenu *menu;
+  GtkMenuShell *menu;             /* a GtkMenu, or a menu bar for the window menu */
   GtkWidget *parent_shell;        /* a menu bar, or NULL */
   GtkWidget *combo;               /* a combo box the menu belongs to, or NULL */
   GPtrArray *menus;               /* WimpMenu *; [0] is the top */
@@ -216,7 +216,7 @@ item_ticked (GtkWidget *item)
 }
 
 static int
-build (MenuState *st, GtkMenu *menu, const char *title_utf8)
+build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
 {
   GList *kids = gtk_container_get_children (GTK_CONTAINER (menu)), *l;
   GPtrArray *items = g_ptr_array_new ();
@@ -332,7 +332,7 @@ build (MenuState *st, GtkMenu *menu, const char *title_utf8)
       if (GTK_IS_MENU (submenu))
         {
           gchar *sub_title = item_text (item);
-          int child = build (st, GTK_MENU (submenu), sub_title);
+          int child = build (st, GTK_MENU_SHELL (submenu), sub_title);
           g_free (sub_title);
           if (child >= 0)
             {
@@ -424,7 +424,8 @@ finish (MenuState *st)
   trace ("finish", st);
   if (current == st)
     current = NULL;
-  g_signal_emit_by_name (st->menu, "deactivate");
+  if (GTK_IS_MENU (st->menu))
+    g_signal_emit_by_name (st->menu, "deactivate");
   if (st->parent_shell && GTK_IS_MENU_SHELL (st->parent_shell))
     gtk_menu_shell_deactivate (GTK_MENU_SHELL (st->parent_shell));
   trace ("finished", st);
@@ -551,7 +552,7 @@ static void
 position (MenuState *st, GtkWidget *parent_menu_item,
           GtkMenuPositionFunc func, gpointer data, int *x, int *y)
 {
-  GtkMenuPrivate *priv = st->menu->priv;
+  GtkMenuPrivate *priv = GTK_MENU (st->menu)->priv;
   GdkRectangle r;
   int px = 0, py = 0;
   GdkDevice *pointer = gdk_seat_get_pointer (gdk_display_get_default_seat (
@@ -574,7 +575,7 @@ position (MenuState *st, GtkWidget *parent_menu_item,
   else if (func)
     {
       gboolean push_in = FALSE;
-      func (st->menu, x, y, &push_in, data);
+      func (GTK_MENU (st->menu), x, y, &push_in, data);
     }
   else if (priv->rect_window && (priv->rect.width > 1 || priv->rect.height > 1))
     {
@@ -609,7 +610,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
   if (!GDK_IS_RISCOS_DISPLAY (display) || g_getenv ("RISCOS_GTK_MENUS"))
     return FALSE;                    /* RISCOS_GTK_MENUS set: GTK's own menus */
 
-  if (current && current->menu == menu && !current->handling && !current->closed)
+  if (current && current->menu == GTK_MENU_SHELL (menu) && !current->handling && !current->closed)
     {
       trace ("popup again (kept)", current);
       return TRUE;                   /* already open as a Wimp menu */
@@ -626,7 +627,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
     }
 
   st = g_new0 (MenuState, 1);
-  st->menu = g_object_ref (menu);
+  st->menu = g_object_ref (GTK_MENU_SHELL (menu));
   st->menus = g_ptr_array_new ();
   st->mem = g_ptr_array_new_with_free_func (g_free);
   if (parent_menu_shell && GTK_IS_MENU_BAR (parent_menu_shell))
@@ -642,7 +643,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
   if (parent_menu_item && GTK_IS_MENU_ITEM (parent_menu_item))
     title_owned = item_text (parent_menu_item);
 
-  built = build (st, menu, title_owned ? title_owned : title);
+  built = build (st, GTK_MENU_SHELL (menu), title_owned ? title_owned : title);
   g_free (title_owned);
   if (built < 0)
     {
@@ -664,7 +665,7 @@ _gtk_menu_riscos_popdown (GtkMenu *menu)
 {
   MenuState *st = current;
 
-  if (st == NULL || st->menu != menu || st->handling)
+  if (st == NULL || st->menu != GTK_MENU_SHELL (menu) || st->handling)
     return;
   trace ("popdown", st);
   current = NULL;
@@ -675,5 +676,102 @@ _gtk_menu_riscos_popdown (GtkMenu *menu)
 gboolean
 _gtk_menu_riscos_is_open (GtkMenu *menu)
 {
-  return current && current->menu == menu;
+  return current && current->menu == GTK_MENU_SHELL (menu);
+}
+
+/* ---- the window menu: RISC OS style menus from a GtkMenuBar ---- */
+
+/* RISC OS programs have no menu bar: Menu (the middle button) anywhere in
+   a window opens the program's menu at the pointer. So a GtkMenuBar takes
+   no space and draws nothing (gtkmenubar.c asks
+   _gtk_menu_riscos_hide_menubar ()), and a Menu click in its window that no
+   widget used opens one Wimp menu, titled with the program's name, whose
+   entries are the menu bar's titles leading to their menus as submenus.
+   The menu bar still exists, so its keyboard short-cuts still work.
+   *Set RISCOS_GTK_MENUBAR 1 keeps GTK's menu bar instead. */
+
+gboolean
+_gtk_menu_riscos_hide_menubar (void)
+{
+  static int hide = -1;
+
+  if (hide < 0)
+    hide = g_getenv ("RISCOS_GTK_MENUBAR") == NULL && g_getenv ("RISCOS_GTK_MENUS") == NULL;
+  return hide;
+}
+
+static gboolean
+open_window_menu (GtkMenuShell *bar, GdkEventButton *event)
+{
+  GdkDisplay *display = gtk_widget_get_display (GTK_WIDGET (bar));
+  const char *title = g_get_application_name ();
+  MenuState *st;
+
+  if (!GDK_IS_RISCOS_DISPLAY (display))
+    return FALSE;
+  if (current)
+    {
+      MenuState *old = current;
+      current = NULL;
+      gdk_riscos_display_close_menu (display);
+      if (!old->handling)
+        state_free (old);
+    }
+  if (title == NULL)
+    title = g_get_prgname ();
+  st = g_new0 (MenuState, 1);
+  st->menu = g_object_ref (bar);
+  st->menus = g_ptr_array_new ();
+  st->mem = g_ptr_array_new_with_free_func (g_free);
+  if (build (st, bar, title) < 0)
+    {
+      state_free (st);
+      return FALSE;
+    }
+  current = st;
+  trace ("window menu", st);
+  /* at the pointer, 64 OS units to its left, as RISC OS programs do */
+  gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
+                                (int) event->x_root - 32, (int) event->y_root, menu_event, st);
+  return TRUE;
+}
+
+static gboolean
+window_button_press (GtkWidget *window, GdkEventButton *event, gpointer data)
+{
+  GtkWidget *bar = g_object_get_data (G_OBJECT (window), "riscos-gtk-window-menu");
+
+  /* GDK button 3 is RISC OS's Menu button. Only a click no widget took
+     (a widget's own context menu comes first) reaches the window. */
+  if (event->type != GDK_BUTTON_PRESS || event->button != 3 || bar == NULL ||
+      !gtk_widget_get_visible (bar) || !gtk_widget_is_sensitive (bar))
+    return FALSE;
+  return open_window_menu (GTK_MENU_SHELL (bar), event);
+}
+
+void
+_gtk_menu_riscos_menubar_attach (GtkWidget *bar, GtkWidget *toplevel)
+{
+  if (!_gtk_menu_riscos_hide_menubar () || !GTK_IS_WINDOW (toplevel) ||
+      !GDK_IS_RISCOS_DISPLAY (gtk_widget_get_display (toplevel)))
+    return;
+  /* the window's first menu bar is its menu */
+  if (g_object_get_data (G_OBJECT (toplevel), "riscos-gtk-window-menu") == NULL)
+    {
+      g_object_set_data (G_OBJECT (toplevel), "riscos-gtk-window-menu", bar);
+      if (!g_object_get_data (G_OBJECT (toplevel), "riscos-gtk-window-menu-hooked"))
+        {
+          g_object_set_data (G_OBJECT (toplevel), "riscos-gtk-window-menu-hooked", GINT_TO_POINTER (1));
+          gtk_widget_add_events (toplevel, GDK_BUTTON_PRESS_MASK);
+          g_signal_connect_after (toplevel, "button-press-event", G_CALLBACK (window_button_press), NULL);
+        }
+    }
+}
+
+void
+_gtk_menu_riscos_menubar_detach (GtkWidget *bar, GtkWidget *toplevel)
+{
+  if (GTK_IS_WINDOW (toplevel) &&
+      g_object_get_data (G_OBJECT (toplevel), "riscos-gtk-window-menu") == bar)
+    g_object_set_data (G_OBJECT (toplevel), "riscos-gtk-window-menu", NULL);
 }
