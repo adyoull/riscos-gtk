@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.17, 2026-10-05)
+- Owner: 0.16's scroll bars are correct on the Pi (tool sprites through
+  the pointer table). "All sheets (mixed)" didn't change when clicked:
+  GTK keeps a check button inconsistent until the program clears it, and
+  themetest didn't. It now clears it on the first toggle (mixed -> on ->
+  off), as a tri-state option should behave.
+
 ## Unreleased (GTKThemeTest 0.16, 2026-10-05)
 - Owner's 0.15 Log: Wimp_ReadSysInfo 9's block: +16 and +20 both
   &201A3058, which points to a table of addresses &2047xxxx (the sprites,

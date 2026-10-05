@@ -54,6 +54,10 @@ on_button (GtkButton *b, gpointer name)
 static void
 on_toggled (GtkToggleButton *b, gpointer name)
 {
+  /* GTK leaves a "mixed" (inconsistent) option mixed whatever the user
+     does: the program has to clear it. The first click makes it on. */
+  if (gtk_toggle_button_get_inconsistent (b))
+    gtk_toggle_button_set_inconsistent (b, FALSE);
   say ("%s %s", (const char *) name, gtk_toggle_button_get_active (b) ? "on" : "off");
 }
 
