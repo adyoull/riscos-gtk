@@ -1,4 +1,4 @@
-GTKThemeTest 0.17 - riscos-gtk theme test
+GTKThemeTest 0.18 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -13,8 +13,10 @@ Pages
                        a switch; sliders, progress and level bars.
   Lists and text       a long list and a tree with scroll bars; a text
                        view with both scroll bars.
-  Dialogues and menus  a message dialogue; a popover; a context menu
-                       (click Menu in the box); info bars; a calendar.
+  Dialogues and menus  a message dialogue; a popover; Save as... and
+                       Open... (Save and Open boxes); a box to drop files
+                       on; a context menu (click Menu in the box); info
+                       bars; a calendar.
 Menu anywhere opens the program's menu (File, Edit, View with ticks and
 a Zoom submenu, Help); the Cancel / Apply buttons (Apply is the default
 action button) are on every page. Hover for interactive help (tooltips).
@@ -22,6 +24,16 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.18: Save boxes and files. On the Dialogues and menus page:
+- Save as... opens a RISC OS Save box. Drag its file icon to a Filer
+  window: GTKThemeTest saves a small CSV file (Accounts/csv) there, with
+  its file type. Or drop it on another program (e.g. Edit) to load it
+  there. Typing a full name (ADFS::HD4.$.Accounts/csv) and OK also saves.
+- Open... opens an Open box: drag a file to it from a Filer window.
+- Drag any file from a Filer window onto "Drop a file here": its name
+  shows there.
+The status line and the Log say which file was chosen or dropped.
 
 New in 0.17: "All sheets (mixed)" changes when clicked (on, then off).
 

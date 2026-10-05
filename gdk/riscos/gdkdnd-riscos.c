@@ -515,7 +515,8 @@ gdk_riscos_drag_context_drop_status (GdkDragContext *context)
    pixel x, y; the data waits in gdktransfer-riscos.c as the selection
    RISCOS_DROP. GTK sees a drag that enters, moves and drops there. */
 void
-_gdk_riscos_dnd_incoming (GdkDisplay *display, GdkWindow *window, gint x_root, gint y_root)
+_gdk_riscos_dnd_incoming (GdkDisplay *display, GdkWindow *window, gint x_root, gint y_root,
+                          gboolean text, gboolean uri)
 {
   GdkDragContext *dest;
   GdkSeat *seat = gdk_display_get_default_seat (display);
@@ -529,8 +530,13 @@ _gdk_riscos_dnd_incoming (GdkDisplay *display, GdkWindow *window, gint x_root, g
   dest->is_source = FALSE;
   dest->source_window = g_object_ref (window);
   dest->dest_window = g_object_ref (window);
-  for (i = 0; i < G_N_ELEMENTS (targets); i++)
-    dest->targets = g_list_append (dest->targets, gdk_atom_intern_static_string (targets[i]));
+  /* a file from the Filer is a file URI (text/uri-list); text files
+     also offer their text */
+  if (uri)
+    dest->targets = g_list_append (dest->targets, gdk_atom_intern_static_string ("text/uri-list"));
+  if (text)
+    for (i = 0; i < G_N_ELEMENTS (targets); i++)
+      dest->targets = g_list_append (dest->targets, gdk_atom_intern_static_string (targets[i]));
   dest->actions = GDK_ACTION_COPY;
   dest->suggested_action = GDK_ACTION_COPY;
   if (seat)

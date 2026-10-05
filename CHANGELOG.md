@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.18, 2026-10-05)
+- M4 starts: RISC OS Save boxes and Open boxes for GtkFileChooserNative
+  (GTK patch: MODE_RISCOS in gtkfilechoosernative.c; gtk/riscos/
+  gtkfilechooser-riscos.c). Save: drag the file icon (Wimp sprite
+  file_xxx for the name's type, DragASprite) to a Filer window or another
+  program; DataSave / DataSaveAck give the name; after the program saves,
+  the file gets its type (OS_File 18) and the receiver Message_DataLoad.
+  OK takes a full name, or the program's current folder plus the leaf.
+  Open / Select folder: drag a file (directory) from the Filer to the box,
+  or type its full name. RISCOS_GTK_NATIVE_CHOOSER=0 keeps GTK's own.
+- Files dropped from the Filer on a GTK window (Message_DataLoad) reach the
+  widget as a file:// URI (text/uri-list); text files also as their text.
+  gdk_riscos_window_set_load_func() lets a window take dropped files
+  itself.
+- New GDK API (gdkriscoswimp.h): gdk_riscos_path_to_unix/_from_unix,
+  gdk_riscos_save_drag_begin/_drop/_done, gdk_riscos_window_set_load_func.
+- Apps ship GTK's compiled GSettings schemas (share/glib-2.0/schemas):
+  GtkFileChooserNative builds GTK's own chooser too, which needs
+  org.gtk.Settings.FileChooser, and GLib stops the program without it.
+- GTKThemeTest: Save as..., Open... and a file drop area on the Dialogues
+  page. edittest-fake: 9 new checks (35).
+
 ## Unreleased (GTKThemeTest 0.17, 2026-10-05)
 - Owner: 0.16's scroll bars are correct on the Pi (tool sprites through
   the pointer table). "All sheets (mixed)" didn't change when clicked:

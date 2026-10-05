@@ -1,7 +1,8 @@
 /*
  * edittest-fake.c - text fields on the fake RISC OS: their menu, the
  * clipboard shared with other tasks, and dragging text (within the
- * program, out to another task, and in from one). Runs tests/gtk/themetest.c
+ * program, out to another task, and in from one); Save boxes and Open
+ * boxes (GtkFileChooserNative) and files dropped from the Filer. Runs tests/gtk/themetest.c
  * on tests/fake/mesa-egl/fake_riscos.c under qemu-arm-aligntrap; the
  * "other task" (0x5B00) is this file, answering the program's Wimp
  * messages as the PRMs' data transfer protocol says.
@@ -13,9 +14,11 @@
 #include "themetest.h"
 #include <kernel.h>
 #include "fake_riscos.h"
+#include <gdk/gdkriscos.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define OTHER_TASK 0x5B00
 #define FOREIGN    0x5551        /* another task's window, left of ours */
@@ -47,6 +50,21 @@ static double wheel_v[3] = { -1, -1, -1 };
 static int drop_ds_ref, drop_fetch_seen;
 static char text_after_paste[128], empty_after_drag[128], writable_after_drag[128], empty_after_drop[128];
 static char text_after_dragout[128];
+
+/* M4: Save box, Open box, files dropped */
+#define LAST_STEP 26
+static char save_target[512], save_target_ro[512];    /* outdir/Accounts.csv, both forms */
+static char picture_ro[512], picture_unix[512];
+static int save_box_handle, save_box_ox, save_box_oy;
+static int save_ds_seen, save_ds_type, save_ds_ref;
+static char save_ds_leaf[64];
+static int save_dl_seen, save_dl_type, save_dl_task;
+static char save_dl_path[512];
+static char dragasprite[32];
+static int dragasprite_starts, dragasprite_stops, filetype_set = -1;
+static int open_dl_ref, open_ack, drop_dl_ref, drop_ack;
+static char saved_file[256], opened_file[256], dropped_file[256];
+static int save_box_seen, open_box_seen;
 
 static void
 check (int ok, const char *name)
@@ -288,6 +306,20 @@ message_hook (int reason, int *b, int dest, int icon)
           q[6] = 8;                   /* small: two fills, then the rest */
           queue (18, q, 6, b[2], 28);
         }
+      else if (dest == FOREIGN && b[3] == 0 && b[10] != 0xFFF)
+        {
+          /* a Save box's icon dropped on the other task's window (a
+             Filer window, say): it answers with where to save */
+          save_ds_seen++;
+          save_ds_type = b[10];
+          save_ds_ref = b[2];
+          g_strlcpy (save_ds_leaf, (const char *) &b[11], sizeof save_ds_leaf);
+          memcpy (&q[5], &b[5], 16);
+          q[9] = 100;                 /* not -1: a safe save */
+          q[10] = b[10];
+          g_strlcpy ((char *) &q[11], save_target_ro, 200);
+          queue (17, q, 2, b[2], 44 + (int) strlen (save_target_ro) + 1);
+        }
       else if (dest == FOREIGN && b[3] == 0)
         {
           drag_datasave = b[10] == 0xFFF;
@@ -299,6 +331,23 @@ message_hook (int reason, int *b, int dest, int icon)
           queue (18, q, 6, b[2], 28);
           drag_ds_ref = b[2];
         }
+      break;
+    case 3:                           /* DataLoad: the Save box's file is saved */
+      if (reason == 18 && dest == OTHER_TASK && b[3] != 0)
+        {
+          save_dl_seen++;
+          save_dl_type = b[10];
+          save_dl_task = dest;
+          g_strlcpy (save_dl_path, (const char *) &b[11], sizeof save_dl_path);
+          memcpy (q, b, b[0]);
+          queue (17, q, 4, b[2], b[0]);
+        }
+      break;
+    case 4:                           /* DataLoadAck from the program */
+      if (open_dl_ref && b[3] == open_dl_ref)
+        open_ack++;
+      if (drop_dl_ref && b[3] == drop_dl_ref)
+        drop_ack++;
       break;
     case 7:                           /* RAMTransmit from the program */
       if (export_datasave && !export_done)
@@ -394,6 +443,129 @@ dbg_motion (GtkWidget *w, GdkEvent *e, gpointer d)
   return FALSE;
 }
 
+/* SWIs only this test needs: OS_File 5/18 on files in outdir,
+   DragASprite. Called inside the fake's SWI lock: no SWIs here. */
+static int
+swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
+{
+  static _kernel_oserror notfound = { 0xD6, "Not found" };
+
+  switch (no & ~0x20000)
+    {
+    case 0x08:                         /* OS_File */
+      if (r->r[0] == 5)
+        {
+          char unix_path[600], *d = unix_path;
+          const char *p = (const char *) (long) r->r[1];
+          struct stat st;
+          *d++ = '/';
+          for (; *p && d < unix_path + sizeof unix_path - 1; p++)
+            *d++ = *p == '.' ? '/' : *p == '/' ? '.' : *p;
+          *d = 0;
+          if (stat (unix_path, &st) != 0)
+            {
+              r->r[0] = 0;
+              return 1;
+            }
+          r->r[0] = 1;
+          r->r[2] = (int) 0xFFFFFF00;  /* typed &FFF (as UnixLib leaves it) */
+          r->r[3] = 0;
+          r->r[4] = (int) st.st_size;
+          r->r[5] = 3;
+          return 1;
+        }
+      if (r->r[0] == 18)
+        {
+          filetype_set = r->r[2];
+          return 1;
+        }
+      *e = &notfound;
+      return 1;
+    case 0x42400:                      /* DragASprite_Start */
+      dragasprite_starts++;
+      g_strlcpy (dragasprite, (const char *) (long) r->r[2], sizeof dragasprite);
+      return 1;
+    case 0x42401:                      /* DragASprite_Stop */
+      dragasprite_stops++;
+      return 1;
+    }
+  return 0;
+}
+
+/* A toplevel of ours (not the main window) with this title, shown */
+static GtkWidget *
+box_window (const char *title)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  GtkWidget *found = NULL;
+
+  for (l = tops; l; l = l->next)
+    if (l->data != tt_window && gtk_widget_get_mapped (l->data) &&
+        g_strcmp0 (gtk_window_get_title (l->data), title) == 0)
+      found = l->data;
+  g_list_free (tops);
+  return found;
+}
+
+/* Scripted events go to the fake window under GtkWindow top (its handle,
+   its top left in pixels) */
+static int
+target_box (GtkWidget *top, int *ox, int *oy)
+{
+  int i;
+
+  gdk_window_get_origin (gtk_widget_get_window (top), ox, oy);
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle && fake_windows[i].handle != main_handle &&
+        fake_windows[i].handle != FOREIGN && (fake_windows[i].x0 >> 1) == *ox &&
+        1024 - (fake_windows[i].y1 >> 1) == *oy)
+      {
+        fake_target_window = fake_windows[i].handle;
+        return fake_windows[i].handle;
+      }
+  return 0;
+}
+
+static void
+click (GtkWidget *w, GtkWidget *top)
+{
+  int x, y, wd, ht;
+  GtkAllocation a;
+
+  gtk_widget_get_allocation (w, &a);
+  gtk_widget_translate_coordinates (w, top, 0, 0, &x, &y);
+  wd = a.width;
+  ht = a.height;
+  add (FAKE_MOVE, x + wd / 2, y + ht / 2, 0);
+  add (6, x + wd / 2, y + ht / 2, 4);
+  nulls (2);
+  add (FAKE_RELEASE, 0, 0, 0);
+  nulls (10);
+}
+
+/* A Filer's Message_DataLoad of file (RISC OS name) onto window handle
+   at pixel x, y of our main window */
+static int
+filer_dataload (int handle, int px, int py, const char *file, int type)
+{
+  int q[64], i;
+
+  memset (q, 0, sizeof q);
+  q[5] = handle;
+  q[6] = -1;
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle == handle)
+      {
+        q[7] = fake_windows[i].x0 + px * 2;
+        q[8] = fake_windows[i].y1 - py * 2;
+      }
+  q[9] = 1234;
+  q[10] = type;
+  g_strlcpy ((char *) &q[11], file, 200);
+  queue (17, q, 3, 0, 44 + (int) strlen (file) + 1);
+  return q[2];
+}
+
 /* ---- the steps ---- */
 
 /* Step n has been scripted; is it done (so step n + 1 can start)? */
@@ -414,6 +586,16 @@ step_ready (void)
       return strcmp (gtk_entry_get_text (GTK_ENTRY (tt_entry)), UTF8_TEXT) == 0;
     case 12:
       return drag_done;
+    case 20:
+      return box_window ("Save as") != NULL;
+    case 21:
+      return save_dl_seen > 0;
+    case 22:
+      return box_window ("Open") != NULL;
+    case 23:
+      return open_ack > 0 && tt_last_file[0] && box_window ("Open") == NULL;
+    case 24:
+      return drop_ack > 0 && g_str_has_suffix (tt_last_file, "Picture.png");
     default:
       return waits > 10;
     }
@@ -552,6 +734,81 @@ next_step (void)
         wheel_v[2] = gtk_adjustment_get_value (gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (list_sw)));
       nulls (6);
       break;
+    case 19:     /* M4: the Dialogues page */
+      gtk_notebook_set_current_page (GTK_NOTEBOOK (tt_notebook), 3);
+      nulls (20);
+      break;
+    case 20:     /* Save as...: a Save box */
+      tt_last_file[0] = 0;
+      click (tt_save_button, tt_window);
+      break;
+    case 21:     /* drag its icon onto the other task's window */
+      {
+        GtkWidget *box = box_window ("Save as");
+        GtkWidget *icon = box ? find_type (gtk_bin_get_child (GTK_BIN (box)), GTK_TYPE_EVENT_BOX) : NULL;
+        int x, y, i, sx, sy, tx, ty;
+        GtkAllocation a;
+
+        save_box_seen = box != NULL;
+        if (!icon || !(save_box_handle = target_box (box, &save_box_ox, &save_box_oy)))
+          {
+            nulls (4);
+            break;
+          }
+        gtk_widget_get_allocation (icon, &a);
+        gtk_widget_translate_coordinates (icon, box, 0, 0, &x, &y);
+        sx = x + a.width / 2;
+        sy = y + a.height / 2;
+        tx = 50 - save_box_ox;         /* FOREIGN: pixels 0-110, 300-600 */
+        ty = 450 - save_box_oy;
+        add (FAKE_MOVE, sx, sy, 0);
+        add (6, sx, sy, 4);
+        nulls (3);
+        for (i = 1; i <= 8; i++)
+          {
+            add (FAKE_MOVE, sx + (tx - sx) * i / 8, sy + (ty - sy) * i / 8, 0);
+            nulls (2);
+          }
+        add (FAKE_SLEEP, 30, 0, 0);
+        add (FAKE_RELEASE, 0, 0, 0);
+        nulls (6);
+        /* the program saves; the box waits for the file, then DataLoad */
+        for (i = 0; i < 12; i++)
+          add (FAKE_SLEEP, 100, 0, 0);
+        nulls (6);
+      }
+      break;
+    case 22:     /* Open...: an Open box */
+      g_strlcpy (saved_file, tt_last_file, sizeof saved_file);
+      fake_target_window = main_handle;
+      tt_last_file[0] = 0;
+      click (tt_open_button, tt_window);
+      break;
+    case 23:     /* the Filer drops the saved file on it */
+      {
+        GtkWidget *box = box_window ("Open");
+        int ox, oy, h;
+        open_box_seen = box != NULL;
+        if (box && (h = target_box (box, &ox, &oy)))
+          open_dl_ref = filer_dataload (h, 20, 20, save_target_ro, 0xDFE);
+        fake_target_window = main_handle;
+        nulls (20);
+      }
+      break;
+    case 24:     /* a picture dropped from the Filer on the drop area */
+      g_strlcpy (opened_file, tt_last_file, sizeof opened_file);
+      tt_last_file[0] = 0;
+      rect (tt_drop_area, &x, &y, &wd, &ht);
+      drop_dl_ref = filer_dataload (main_handle, x + wd / 2, y + ht / 2, picture_ro, 0xB60);
+      nulls (20);
+      break;
+    case 25:
+      g_strlcpy (dropped_file, tt_last_file, sizeof dropped_file);
+      nulls (6);
+      break;
+    case 26:
+      nulls (6);
+      break;
     default:
       return;  /* the script ends: the window closes */
     }
@@ -654,7 +911,7 @@ hook (int reason)
   }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 18)
+      if (step >= LAST_STEP)
         return;
       if (step_ready () || waits > 150)
         {
@@ -672,7 +929,8 @@ hook (int reason)
 int
 main (int argc, char **argv)
 {
-  char logpath[600], logbuf[16384] = "", *line;
+  char logpath[600], *line;
+  static char logbuf[65536];
   char *targv[4];
   int saved_out = dup (1), saved_err = dup (2);
   FILE *lf;
@@ -685,6 +943,20 @@ main (int argc, char **argv)
   fake_wimp_nulls = 400;
   fake_wimp_hook = hook;
   fake_message_hook = message_hook;
+  fake_swi_hook = swi_hook;
+  {
+    /* outdir as RISC OS names (UnixLib's mapping: '/' <-> '.') */
+    char *ro;
+    g_snprintf (save_target, sizeof save_target, "%s/Accounts.csv", outdir);
+    ro = gdk_riscos_path_from_unix (save_target);
+    g_strlcpy (save_target_ro, ro, sizeof save_target_ro);
+    g_free (ro);
+    g_snprintf (picture_unix, sizeof picture_unix, "%s/Picture.png", outdir);
+    ro = gdk_riscos_path_from_unix (picture_unix);
+    g_strlcpy (picture_ro, ro, sizeof picture_ro);
+    g_free (ro);
+    unlink (save_target);
+  }
   g_snprintf (logpath, sizeof logpath, "%s/GTKEditTest.Log", outdir);
   targv[0] = argv[0]; targv[1] = argv[1]; targv[2] = logpath; targv[3] = NULL;
   g_setenv ("RISCOS_GTK_MENU_DEBUG", "1", TRUE);
@@ -765,10 +1037,47 @@ main (int argc, char **argv)
   check (list_sw && wheel_v[2] < wheel_v[1] && wheel_v[2] > wheel_v[0],
          "and back up, by less for one nudge than for three");
   printf ("# list scrolled %.0f -> %.0f (3 down) -> %.0f (1 up)\n", wheel_v[0], wheel_v[1], wheel_v[2]);
+  {
+    struct stat st;
+    int saved = stat (save_target, &st) == 0 && st.st_size > 0;
+    check (save_box_seen && save_box_handle,
+           "Save as... (GtkFileChooserNative) opens a RISC OS Save box");
+    check (dragasprite_starts >= 1 && strncmp (dragasprite, "file_", 5) == 0 && dragasprite_stops >= 1,
+           "dragging its icon drags the file sprite (DragASprite_Start/Stop)");
+    printf ("# DragASprite: \"%s\", %d starts, %d stops\n", dragasprite, dragasprite_starts, dragasprite_stops);
+    check (save_ds_seen == 1 && save_ds_type == 0xDFE && strcmp (save_ds_leaf, "Accounts/csv") == 0,
+           "dropped on another window: Message_DataSave of \"Accounts/csv\", type CSV (&DFE)");
+    printf ("# DataSave: \"%s\" &%03X\n", save_ds_leaf, save_ds_type);
+    check (strcmp (saved_file, save_target) == 0 && saved,
+           "the program saves to the name in the DataSaveAck (as a UnixLib name)");
+    printf ("# saved to \"%s\" (asked \"%s\")\n", saved_file, save_target_ro);
+    check (save_dl_seen == 1 && strcmp (save_dl_path, save_target_ro) == 0 && save_dl_type == 0xDFE,
+           "then the receiver gets Message_DataLoad of the saved file");
+    check (filetype_set == 0xDFE, "and the file gets its type (OS_File 18, &DFE)");
+    check (open_box_seen && open_ack == 1, "Open... opens an Open box; a file dropped on it is acknowledged (DataLoadAck)");
+    check (strcmp (opened_file, save_target) == 0, "and is the file chosen");
+    printf ("# opened \"%s\"\n", opened_file);
+    check (drop_ack == 1 && strcmp (dropped_file, picture_unix) == 0,
+           "a file dropped from the Filer on a widget arrives as a file URI (text/uri-list)");
+    printf ("# dropped \"%s\"\n", dropped_file);
+  }
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
-  check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL &&
-         strstr (logbuf, "Gtk-") == NULL && strstr (logbuf, "Gdk-") == NULL,
-         "no GTK warnings or criticals in the log");
+  {
+    /* GtkFileChooserNative always builds GTK's own file chooser too (unused
+       here); its places list asks for an icon theme the app doesn't ship,
+       which GTK mentions once. Anything else counts. */
+    char *icon = strstr (logbuf, "Gtk-WARNING **");
+    int others = 0;
+    if (icon && strstr (icon, "Could not find the icon") && strstr (icon, "Could not find the icon") < icon + 60)
+      {
+        char *end = strstr (icon, "icon-theme.freedesktop.org/releases");
+        if (end)
+          memset (icon, ' ', end - icon);
+      }
+    others = strstr (logbuf, "CRITICAL") || strstr (logbuf, "WARNING") ||
+             strstr (logbuf, "Gtk-") || strstr (logbuf, "Gdk-");
+    check (!others, "no GTK warnings or criticals in the log (but the file chooser's icon theme note)");
+  }
 
   printf ("# log:\n");
   for (line = strtok (logbuf, "\n"); line; line = strtok (NULL, "\n"))

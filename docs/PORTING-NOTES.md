@@ -196,3 +196,15 @@ pass the app folder as an absolute path (as !Run does).
   box), +8 box x0 y0 x1 y1, +24 parent box.
 - RISCOS_GTK_DEBUG traces the clipboard and DnD messages
   ("riscos-gtk transfer:", "riscos-gtk dnd:").
+
+## GSettings schemas for the file choosers (2026-10-05)
+GtkFileChooserNative always builds a GtkFileChooserDialog (its fallback),
+and setting its action to Save reads org.gtk.Settings.FileChooser. With no
+compiled schemas GLib stops the program ("No GSettings schemas are
+installed"). Apps ship share/glib-2.0/schemas/gschemas.compiled (compiled
+from GTK's schema XML by build-app.sh) next to share/themes, found through
+XDG_DATA_DIRS. Settings live in GLib's memory backend (nothing is kept).
+The fallback dialog's places list also asks for an icon theme once
+("Could not find the icon 'user-home-symbolic-ltr'"): harmless. Shipping
+an empty hicolor theme to quiet it makes GTK abort on the missing
+image-missing icon instead, so don't.

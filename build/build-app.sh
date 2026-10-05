@@ -39,6 +39,11 @@ mv "$A/fonts/LICENSE" "$A/fonts/Licence,fff"
   > "$A/fonts/fonts.conf"
 python3 -c 'import sys, xml.dom.minidom as m; m.parse(sys.argv[1])' "$A/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$A/share/themes/RISCOS/"
+# GTK's GSettings schemas (the file choosers, colour chooser, emoji
+# chooser need them: GLib stops the program without), found through
+# XDG_DATA_DIRS = the app's share directory
+mkdir -p "$A/share/glib-2.0/schemas"
+glib-compile-schemas --strict --targetdir="$A/share/glib-2.0/schemas" "$STAGE/share/glib-2.0/schemas"
 rm -f "$OUT/$NAME-$VERSION.zip"
 python3 "$RCD_DIR/package/rozip.py" "$OUT/$NAME-$VERSION.zip" -C "$OUT" "!$NAME"
 ls -la "$A/$PROG,ff8"

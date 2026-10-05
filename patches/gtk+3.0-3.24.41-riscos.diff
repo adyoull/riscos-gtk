@@ -144,6 +144,61 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
    GtkDragSourceInfo *info;
    GList *targets = NULL;
    GList *tmp_list;
+--- a/gtk/gtkfilechoosernative.c	2026-10-05 21:46:50.101986767 +0100
++++ b/gtk/gtkfilechoosernative.c	2026-10-05 21:46:50.120181767 +0100
+@@ -213,6 +213,7 @@
+   MODE_WIN32,
+   MODE_QUARTZ,
+   MODE_PORTAL,
++  MODE_RISCOS,     /* riscos-gtk: a RISC OS Save box (gtkfilechooser-riscos.c) */
+ };
+ 
+ enum {
+@@ -738,6 +739,7 @@
+     case MODE_PORTAL:
+     case MODE_WIN32:
+     case MODE_QUARTZ:
++    case MODE_RISCOS:
+       return g_slist_copy_deep (self->custom_files, (GCopyFunc)g_object_ref, NULL);
+ 
+     case MODE_FALLBACK:
+@@ -765,6 +767,11 @@
+     self->mode = MODE_QUARTZ;
+ #endif
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  if (self->mode == MODE_FALLBACK && gtk_file_chooser_native_riscos_show (self))
++    self->mode = MODE_RISCOS;
++#endif
++
+   if (self->mode == MODE_FALLBACK &&
+       gtk_file_chooser_native_portal_show (self))
+     self->mode = MODE_PORTAL;
+@@ -798,6 +805,11 @@
+     case MODE_PORTAL:
+       gtk_file_chooser_native_portal_hide (self);
+       break;
++    case MODE_RISCOS:
++#ifdef GDK_WINDOWING_RISCOS
++      gtk_file_chooser_native_riscos_hide (self);
++#endif
++      break;
+     }
+ }
+ 
+--- a/gtk/gtkfilechoosernativeprivate.h	2026-10-05 21:46:50.105654021 +0100
++++ b/gtk/gtkfilechoosernativeprivate.h	2026-10-05 21:50:02.868089086 +0100
+@@ -69,6 +69,10 @@
+ gboolean gtk_file_chooser_native_portal_show (GtkFileChooserNative *self);
+ void gtk_file_chooser_native_portal_hide (GtkFileChooserNative *self);
+ 
++/* riscos-gtk: a RISC OS Save box / Open box (gtkfilechooser-riscos.c) */
++gboolean gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self);
++void gtk_file_chooser_native_riscos_hide (GtkFileChooserNative *self);
++
+ G_END_DECLS
+ 
+ #endif /* __GTK_FILE_CHOOSER_NATIVE_PRIVATE_H__ */
 --- a/gtk/gtkmain.c	2026-10-05 20:26:45.272464431 +0100
 +++ b/gtk/gtkmain.c	2026-10-05 20:26:45.287016409 +0100
 @@ -118,6 +118,9 @@
@@ -390,14 +445,14 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      {
        strong.x     -= arrow_width;
 --- a/gtk/meson.build	2024-01-24 01:14:34.000000000 +0000
-+++ b/gtk/meson.build	2026-10-05 20:26:45.288036904 +0100
++++ b/gtk/meson.build	2026-10-05 21:46:50.121635659 +0100
 @@ -862,6 +862,11 @@
    gtk_sources += gtk_use_wayland_sources
  endif
  
 +if riscos_enabled
 +  # riscos-gtk: GtkMenus as Wimp menus (copied in from riscos-gtk's gtk/riscos)
-+  gtk_sources += files('gtkmenu-riscos.c', 'gtkriscostheme.c')
++  gtk_sources += files('gtkmenu-riscos.c', 'gtkriscostheme.c', 'gtkfilechooser-riscos.c')
 +endif
 +
  if win32_enabled

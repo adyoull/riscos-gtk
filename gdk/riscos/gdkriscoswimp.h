@@ -27,6 +27,41 @@ GdkPixbuf *gdk_riscos_wimp_sprite  (const char *name);
 GDK_AVAILABLE_IN_ALL
 GdkPixbuf *gdk_riscos_wimp_tool_sprite (const char *name);
 
+/* M4: RISC OS file transfer (Save boxes, files dropped on windows).
+ * Paths: RISC OS form "ADFS::HD4.$.Docs.Report/txt" <-> UnixLib form
+ * "/ADFS::HD4/$/Docs/Report.txt". Both return newly allocated strings. */
+GDK_AVAILABLE_IN_ALL
+char      *gdk_riscos_path_to_unix   (const char *riscos_path);
+GDK_AVAILABLE_IN_ALL
+char      *gdk_riscos_path_from_unix (const char *unix_path);
+
+/* Called once the receiver of a save drag has replied (DataSaveAck): path
+ * is where to save, in RISC OS form; safe is FALSE for <Wimp$Scrap> (on
+ * its way to another program). Call gdk_riscos_save_done() after saving. */
+typedef void     (*GdkRiscosSaveFunc) (const char *path, gboolean safe, gpointer data);
+/* A file (RISC OS path) dropped from the Filer on a window. Return TRUE
+ * to take it (the Filer gets DataLoadAck). */
+typedef gboolean (*GdkRiscosLoadFunc) (const char *riscos_path, int filetype, gpointer data);
+
+/* Start dragging a file icon: sprite from the Wimp pool (e.g. "file_fff"),
+ * box at root pixel x, y, size w x h. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_save_drag_begin (GdkDisplay *display, const char *sprite,
+                                       int root_x, int root_y, int w, int h);
+/* End the drag: offer leafname (RISC OS form) to what is under the
+ * pointer. FALSE if nothing to save to (our own window, the background). */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_save_drop  (GdkDisplay *display, const char *leafname,
+                                  int filetype, int size,
+                                  GdkRiscosSaveFunc func, gpointer data);
+/* After saving: tell the receiver it's there (Message_DataLoad). */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_save_done  (const char *path);
+/* Take files dropped from the Filer on window (NULL func to stop). */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_load_func (GdkWindow *window,
+                                            GdkRiscosLoadFunc func, gpointer data);
+
 G_END_DECLS
 
 #endif

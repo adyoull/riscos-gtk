@@ -238,7 +238,8 @@ gboolean _gdk_riscos_transfer_drop_foreign (GdkWindow *source, GdkAtom selection
 void     _gdk_riscos_transfer_drop_done (gboolean success);
 void     _gdk_riscos_transfer_message (int reason, int *block);
 void     _gdk_riscos_dnd_incoming (GdkDisplay *display, GdkWindow *window,
-                                   gint x_root, gint y_root);
+                                   gint x_root, gint y_root,
+                                   gboolean text, gboolean uri);
 
 void _gdk_riscos_cursor_update_theme (GdkCursor *cursor);
 void _gdk_riscos_cursor_display_finalize (GdkDisplay *display);

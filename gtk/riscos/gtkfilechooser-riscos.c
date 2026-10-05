@@ -1,0 +1,605 @@
+/*
+ * gtkfilechooser-riscos.c - riscos-gtk: GtkFileChooserNative as RISC OS
+ * Save boxes and Open boxes.
+ *
+ * Save (GTK_FILE_CHOOSER_ACTION_SAVE): a Save box, as RISC OS programs
+ * have. Its file icon (the Wimp's sprite for the file's type, file_xxx)
+ * is dragged to a Filer window, or to another program, and dropped:
+ * Message_DataSave goes to the window under the pointer and its reply
+ * (Message_DataSaveAck) names the file to save to, which is what the
+ * program gets (gtk_file_chooser_get_file). After it has saved, the
+ * receiver is sent Message_DataLoad (the data transfer protocol; another
+ * program then loads <Wimp$Scrap>). OK saves to a full name typed in the
+ * field (ADFS::HD4.$.Docs.Report/txt), or into the dialogue's current
+ * folder if the program set one.
+ *
+ * Open, Select folder: an Open box. A file (or a directory) dragged here
+ * from a Filer window is chosen; a full name can also be typed.
+ *
+ * Names in the field are RISC OS names ("Report/txt"); GTK gets UnixLib
+ * names ("/ADFS::HD4/$/Docs/Report.txt").
+ *
+ * *Set RISCOS_GTK_NATIVE_CHOOSER 0 uses GTK's own file chooser instead.
+ *
+ * Part of GTK: LGPL version 2.1 or later. Copyright (C) 2026 Andrew Youll.
+ */
+#include "config.h"
+
+#include "gtkfilechoosernativeprivate.h"
+#include "gtknativedialogprivate.h"
+#include "gtkfilechooser.h"
+#include "gtkwindow.h"
+#include "gtkdialog.h"
+#include "gtkbox.h"
+#include "gtkbutton.h"
+#include "gtkentry.h"
+#include "gtklabel.h"
+#include "gtkimage.h"
+#include "gtkeventbox.h"
+#include "gtkintl.h"
+
+#include "riscos/gdkriscos.h"
+#include <glib/gstdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define FILETYPE_DIR   0x1000
+#define FILETYPE_APP   0x2000
+
+typedef struct
+{
+  GtkFileChooserNative *self;
+  GtkFileChooserAction action;
+  GtkWidget *window, *entry, *hint, *icon;
+  char *sprite;                 /* the icon's sprite (file_xxx) */
+  gboolean pressed, dragging;
+  double press_x, press_y;
+} RiscosBox;
+
+/* After a drag save: waiting for the program to write the file, then
+   Message_DataLoad to the receiver */
+typedef struct
+{
+  char *riscos_path, *unix_path;
+  gboolean existed;
+  GStatBuf before;
+  goffset last_size;
+  int polls, stable;
+} SaveWait;
+
+static gboolean
+debug (void)
+{
+  return g_getenv ("RISCOS_GTK_DEBUG") != NULL;
+}
+
+/* ---- file types ---- */
+
+static const struct { const char *ext; int type; } types[] = {
+  { "txt", 0xFFF }, { "text", 0xFFF }, { "c", 0xFFF }, { "h", 0xFFF }, { "md", 0xFFF },
+  { "csv", 0xDFE }, { "html", 0xFAF }, { "htm", 0xFAF }, { "png", 0xB60 },
+  { "jpg", 0xC85 }, { "jpeg", 0xC85 }, { "gif", 0x695 }, { "pdf", 0xADF },
+  { "zip", 0xA91 }, { "svg", 0xAAD }, { "xml", 0xF80 }, { "json", 0xF13 },
+  { "css", 0xF79 }, { "js", 0xF81 }, { "bmp", 0x69C }, { "tif", 0xFF0 },
+  { "tiff", 0xFF0 }, { "wav", 0xFB1 }, { "mp3", 0x1AD }, { "ogg", 0xF8F },
+};
+
+/* The type of a RISC OS leaf name, from its extension ("Report/txt") */
+static int
+leaf_type (const char *leaf)
+{
+  const char *ext = strrchr (leaf, '/');
+  guint i;
+
+  if (ext == NULL)
+    return 0xFFD;               /* Data */
+  for (i = 0; i < G_N_ELEMENTS (types); i++)
+    if (g_ascii_strcasecmp (ext + 1, types[i].ext) == 0)
+      return types[i].type;
+  return 0xFFD;
+}
+
+static const char *
+leaf_of (const char *riscos_name)
+{
+  const char *dot = strrchr (riscos_name, '.');
+  const char *colon = strrchr (riscos_name, ':');
+
+  if (colon && (!dot || colon > dot))
+    dot = colon;
+  return dot ? dot + 1 : riscos_name;
+}
+
+/* A full RISC OS name (with a file system, a disc or a root) */
+static gboolean
+is_full_name (const char *name)
+{
+  return strchr (name, ':') || strchr (name, '$') || strchr (name, '<')
+         || name[0] == '@' || name[0] == '&' || name[0] == '%';
+}
+
+/* The Wimp sprite for a type, as an image */
+static GtkWidget *
+file_icon (int type, char **sprite)
+{
+  GdkPixbuf *pb;
+  GtkWidget *image;
+
+  *sprite = g_strdup_printf ("file_%03x", type);
+  pb = gdk_riscos_wimp_sprite (*sprite);
+  if (pb == NULL && type != 0xFFD)
+    {
+      g_free (*sprite);
+      *sprite = g_strdup ("file_xxx");
+      pb = gdk_riscos_wimp_sprite (*sprite);
+    }
+  if (pb)
+    {
+      image = gtk_image_new_from_pixbuf (pb);
+      g_object_unref (pb);
+    }
+  else
+    image = gtk_image_new_from_icon_name ("text-x-generic", GTK_ICON_SIZE_DIALOG);
+  gtk_widget_set_size_request (image, 68, 68);
+  return image;
+}
+
+/* ---- the end of a box ---- */
+
+static void box_free (RiscosBox *box);
+
+static void
+on_box_destroy (GtkWidget *w, RiscosBox *box)
+{
+  box->window = NULL;
+}
+
+/* Close the box and answer the program (files set first, for ACCEPT) */
+static void
+finish (RiscosBox *box, int response, GFile *file)
+{
+  GtkFileChooserNative *self = box->self;
+
+  if (self->mode_data == box)
+    self->mode_data = NULL;
+  if (file)
+    {
+      g_slist_free_full (self->custom_files, g_object_unref);
+      self->custom_files = g_slist_prepend (NULL, file);
+    }
+  box_free (box);
+  g_object_ref (self);
+  _gtk_native_dialog_emit_response (GTK_NATIVE_DIALOG (self), response);
+  g_object_unref (self);
+}
+
+static void
+box_free (RiscosBox *box)
+{
+  g_idle_remove_by_data (box);
+  g_object_set_data (G_OBJECT (box->self), "riscos-gtk-dropped", NULL);
+  if (box->window)
+    {
+      g_signal_handlers_disconnect_by_func (box->window, on_box_destroy, box);
+      gtk_widget_destroy (box->window);
+    }
+  g_free (box->sprite);
+  g_free (box);
+}
+
+static void
+on_cancel (GtkButton *b, RiscosBox *box)
+{
+  finish (box, GTK_RESPONSE_CANCEL, NULL);
+}
+
+static gboolean
+on_delete (GtkWidget *w, GdkEvent *ev, RiscosBox *box)
+{
+  finish (box, GTK_RESPONSE_DELETE_EVENT, NULL);
+  return TRUE;
+}
+
+static gboolean
+on_key (GtkWidget *w, GdkEventKey *ev, RiscosBox *box)
+{
+  if (ev->keyval == GDK_KEY_Escape)
+    {
+      finish (box, GTK_RESPONSE_CANCEL, NULL);
+      return TRUE;
+    }
+  return FALSE;
+}
+
+/* A RISC OS name as a GFile */
+static GFile *
+file_for (const char *riscos_name)
+{
+  char *unix_path = gdk_riscos_path_to_unix (riscos_name);
+  GFile *f = g_file_new_for_path (unix_path);
+
+  g_free (unix_path);
+  return f;
+}
+
+/* The RISC OS name of a GFile, or NULL */
+static char *
+riscos_name_of (GFile *file)
+{
+  char *path = file ? g_file_get_path (file) : NULL;
+  char *name = path ? gdk_riscos_path_from_unix (path) : NULL;
+
+  g_free (path);
+  return name;
+}
+
+/* ---- Save box ---- */
+
+static gboolean
+save_wait_poll (gpointer data)
+{
+  SaveWait *w = data;
+  GStatBuf st;
+  gboolean exists = g_stat (w->unix_path, &st) == 0;
+
+  w->polls++;
+  if (exists)
+    {
+      gboolean changed = !w->existed || st.st_mtime != w->before.st_mtime
+                         || st.st_size != w->before.st_size;
+      if (st.st_size == w->last_size)
+        w->stable++;
+      else
+        w->stable = 0;
+      w->last_size = st.st_size;
+      /* written (and no longer growing), or there a while (saved in the
+         same second, same size) */
+      if ((changed && w->stable >= 1) || w->polls >= 8)
+        {
+          if (debug ())
+            g_printerr ("riscos-gtk: Save box: %s saved (%ld bytes)\n", w->riscos_path,
+                        (long) st.st_size);
+          gdk_riscos_save_done (w->riscos_path);
+          goto done;
+        }
+    }
+  if (w->polls < 240)           /* a minute */
+    return G_SOURCE_CONTINUE;
+  if (debug ())
+    g_printerr ("riscos-gtk: Save box: %s never saved\n", w->riscos_path);
+done:
+  g_free (w->riscos_path);
+  g_free (w->unix_path);
+  g_free (w);
+  return G_SOURCE_REMOVE;
+}
+
+/* The receiver answered the drop: save there */
+static void
+on_save_to (const char *riscos_path, gboolean safe, gpointer data)
+{
+  RiscosBox *box = data;
+  SaveWait *w = g_new0 (SaveWait, 1);
+
+  w->riscos_path = g_strdup (riscos_path);
+  w->unix_path = gdk_riscos_path_to_unix (riscos_path);
+  if (!safe)
+    g_unlink (w->unix_path);    /* <Wimp$Scrap>: wait for the new one */
+  w->existed = g_stat (w->unix_path, &w->before) == 0;
+  w->last_size = -1;
+  g_timeout_add (250, save_wait_poll, w);
+  if (debug ())
+    g_printerr ("riscos-gtk: Save box: save to %s (%s)\n", riscos_path, safe ? "safe" : "scrap");
+  finish (box, GTK_RESPONSE_ACCEPT, g_file_new_for_path (w->unix_path));
+}
+
+static gboolean
+on_icon_press (GtkWidget *w, GdkEventButton *ev, RiscosBox *box)
+{
+  if (ev->type != GDK_BUTTON_PRESS || ev->button != 1)
+    return FALSE;
+  box->pressed = TRUE;
+  box->dragging = FALSE;
+  box->press_x = ev->x_root;
+  box->press_y = ev->y_root;
+  return TRUE;
+}
+
+static gboolean
+on_icon_motion (GtkWidget *w, GdkEventMotion *ev, RiscosBox *box)
+{
+  GtkWidget *top;
+  GtkAllocation a;
+  int x = 0, y = 0, ox = 0, oy = 0;
+
+  if (!box->pressed || box->dragging)
+    return FALSE;
+  if (ABS (ev->x_root - box->press_x) < 4 && ABS (ev->y_root - box->press_y) < 4)
+    return TRUE;
+  box->dragging = TRUE;
+  top = gtk_widget_get_toplevel (box->icon);
+  gtk_widget_get_allocation (box->icon, &a);
+  gtk_widget_translate_coordinates (box->icon, top, 0, 0, &x, &y);
+  gdk_window_get_origin (gtk_widget_get_window (top), &ox, &oy);
+  gdk_riscos_save_drag_begin (gtk_widget_get_display (w), box->sprite,
+                              ox + x, oy + y, a.width, a.height);
+  return TRUE;
+}
+
+static gboolean
+on_icon_release (GtkWidget *w, GdkEventButton *ev, RiscosBox *box)
+{
+  char *name, *leaf;
+
+  if (ev->button != 1 || !box->pressed)
+    return FALSE;
+  box->pressed = FALSE;
+  if (!box->dragging)
+    return TRUE;
+  box->dragging = FALSE;
+  name = g_strdup (gtk_entry_get_text (GTK_ENTRY (box->entry)));
+  leaf = g_strdup (leaf_of (name));
+  if (*leaf == '\0')
+    {
+      g_free (leaf);
+      leaf = g_strdup ("Untitled");
+    }
+  if (!gdk_riscos_save_drop (gtk_widget_get_display (w), leaf, leaf_type (leaf), 0,
+                             on_save_to, box))
+    gtk_widget_show (box->hint);   /* dropped on us, or the background */
+  g_free (leaf);
+  g_free (name);
+  return TRUE;
+}
+
+/* The field's name changed: the icon follows its type */
+static void
+on_name_changed (GtkEditable *e, RiscosBox *box)
+{
+  GtkWidget *parent = box->icon;
+  GtkWidget *image = gtk_bin_get_child (GTK_BIN (parent));
+  char *sprite = NULL;
+  int type = leaf_type (leaf_of (gtk_entry_get_text (GTK_ENTRY (box->entry))));
+  GtkWidget *fresh = file_icon (type, &sprite);
+
+  if (box->sprite && strcmp (sprite, box->sprite) == 0)
+    {
+      g_free (sprite);
+      g_object_ref_sink (fresh);
+      g_object_unref (fresh);
+      return;
+    }
+  g_free (box->sprite);
+  box->sprite = sprite;
+  gtk_container_remove (GTK_CONTAINER (parent), image);
+  gtk_container_add (GTK_CONTAINER (parent), fresh);
+  gtk_widget_show (fresh);
+}
+
+static void
+on_save_ok (GtkWidget *w, RiscosBox *box)
+{
+  const char *name = gtk_entry_get_text (GTK_ENTRY (box->entry));
+  char *folder;
+
+  if (*name == '\0')
+    return;
+  if (is_full_name (name))
+    {
+      finish (box, GTK_RESPONSE_ACCEPT, file_for (name));
+      return;
+    }
+  folder = riscos_name_of (box->self->current_folder);
+  if (folder)
+    {
+      char *full = g_strconcat (folder, ".", name, NULL);
+      g_free (folder);
+      finish (box, GTK_RESPONSE_ACCEPT, file_for (full));
+      g_free (full);
+      return;
+    }
+  gtk_widget_show (box->hint);
+}
+
+/* ---- Open box ---- */
+
+static gboolean
+open_idle (gpointer data)
+{
+  RiscosBox *box = data;
+  GFile *file = g_object_steal_data (G_OBJECT (box->self), "riscos-gtk-dropped");
+
+  finish (box, GTK_RESPONSE_ACCEPT, file);
+  return G_SOURCE_REMOVE;
+}
+
+/* A file dropped on the box from the Filer */
+static gboolean
+on_load (const char *riscos_path, int filetype, gpointer data)
+{
+  RiscosBox *box = data;
+  gboolean dir = filetype == FILETYPE_DIR || filetype == FILETYPE_APP;
+
+  if (box->action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER ? !dir : dir)
+    {
+      gtk_widget_show (box->hint);
+      return FALSE;
+    }
+  if (debug ())
+    g_printerr ("riscos-gtk: Open box: %s (&%03X)\n", riscos_path, filetype);
+  if (g_object_get_data (G_OBJECT (box->self), "riscos-gtk-dropped"))
+    return TRUE;                /* already chosen */
+  g_object_set_data_full (G_OBJECT (box->self), "riscos-gtk-dropped",
+                          file_for (riscos_path), g_object_unref);
+  /* not from inside the Wimp message */
+  g_idle_add (open_idle, box);
+  return TRUE;
+}
+
+static void
+on_open_ok (GtkWidget *w, RiscosBox *box)
+{
+  const char *name = gtk_entry_get_text (GTK_ENTRY (box->entry));
+
+  if (is_full_name (name))
+    finish (box, GTK_RESPONSE_ACCEPT, file_for (name));
+  else
+    gtk_widget_show (box->hint);
+}
+
+static void
+on_open_realize (GtkWidget *w, RiscosBox *box)
+{
+  gdk_riscos_window_set_load_func (gtk_widget_get_window (w), on_load, box);
+}
+
+/* ---- show, hide ---- */
+
+static GtkWidget *
+buttons (RiscosBox *box, GCallback ok, const char *ok_label)
+{
+  GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *cancel = gtk_button_new_with_mnemonic (box->self->cancel_label ? box->self->cancel_label
+                                                    : _("_Cancel"));
+  GtkWidget *okb = gtk_button_new_with_mnemonic (box->self->accept_label ? box->self->accept_label
+                                                 : ok_label);
+
+  g_signal_connect (cancel, "clicked", G_CALLBACK (on_cancel), box);
+  g_signal_connect (okb, "clicked", ok, box);
+  gtk_widget_set_can_default (okb, TRUE);
+  gtk_box_pack_end (GTK_BOX (row), okb, FALSE, FALSE, 0);
+  gtk_box_pack_end (GTK_BOX (row), cancel, FALSE, FALSE, 0);
+  gtk_window_set_default (GTK_WINDOW (box->window), okb);
+  return row;
+}
+
+gboolean
+gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
+{
+  GtkFileChooserAction action = gtk_file_chooser_get_action (GTK_FILE_CHOOSER (self));
+  const char *env = g_getenv ("RISCOS_GTK_NATIVE_CHOOSER");
+  GtkWindow *parent = gtk_native_dialog_get_transient_for (GTK_NATIVE_DIALOG (self));
+  const char *title = gtk_native_dialog_get_title (GTK_NATIVE_DIALOG (self));
+  RiscosBox *box;
+  GtkWidget *vb, *w;
+  gboolean save = action == GTK_FILE_CHOOSER_ACTION_SAVE;
+
+  if (env && strcmp (env, "0") == 0)
+    return FALSE;
+  if (!save && action != GTK_FILE_CHOOSER_ACTION_OPEN
+      && action != GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER)
+    return FALSE;               /* create folder: GTK's own */
+  if (!GDK_IS_RISCOS_DISPLAY (gdk_display_get_default ()))
+    return FALSE;
+
+  box = g_new0 (RiscosBox, 1);
+  box->self = self;
+  box->action = action;
+  box->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_title (GTK_WINDOW (box->window), title ? title : save ? _("Save as") : _("Open"));
+  gtk_window_set_resizable (GTK_WINDOW (box->window), FALSE);
+  gtk_window_set_type_hint (GTK_WINDOW (box->window), GDK_WINDOW_TYPE_HINT_DIALOG);
+  if (parent)
+    {
+      gtk_window_set_transient_for (GTK_WINDOW (box->window), parent);
+      gtk_window_set_position (GTK_WINDOW (box->window), GTK_WIN_POS_CENTER_ON_PARENT);
+    }
+  else
+    gtk_window_set_position (GTK_WINDOW (box->window), GTK_WIN_POS_MOUSE);
+  gtk_window_set_modal (GTK_WINDOW (box->window),
+                        gtk_native_dialog_get_modal (GTK_NATIVE_DIALOG (self)));
+  g_signal_connect (box->window, "destroy", G_CALLBACK (on_box_destroy), box);
+  g_signal_connect (box->window, "delete-event", G_CALLBACK (on_delete), box);
+  g_signal_connect (box->window, "key-press-event", G_CALLBACK (on_key), box);
+
+  vb = gtk_box_new (GTK_ORIENTATION_VERTICAL, 8);
+  gtk_container_set_border_width (GTK_CONTAINER (vb), 12);
+  gtk_container_add (GTK_CONTAINER (box->window), vb);
+  box->entry = gtk_entry_new ();
+  gtk_entry_set_activates_default (GTK_ENTRY (box->entry), TRUE);
+  gtk_entry_set_width_chars (GTK_ENTRY (box->entry), 28);
+
+  if (save)
+    {
+      char *name = riscos_name_of (self->current_file);
+      char *leaf;
+
+      if (name == NULL)
+        name = self->current_name ? gdk_riscos_path_from_unix (self->current_name)
+                                  : g_strdup (_("Untitled"));
+      leaf = g_strdup (leaf_of (name));
+      /* the icon, to drag */
+      box->icon = gtk_event_box_new ();
+      gtk_event_box_set_visible_window (GTK_EVENT_BOX (box->icon), FALSE);
+      gtk_widget_add_events (box->icon, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK
+                             | GDK_BUTTON_MOTION_MASK);
+      gtk_container_add (GTK_CONTAINER (box->icon), file_icon (leaf_type (leaf), &box->sprite));
+      gtk_widget_set_halign (box->icon, GTK_ALIGN_CENTER);
+      gtk_widget_set_tooltip_text (box->icon, _("Drag this icon to a directory display to save"));
+      g_signal_connect (box->icon, "button-press-event", G_CALLBACK (on_icon_press), box);
+      g_signal_connect (box->icon, "motion-notify-event", G_CALLBACK (on_icon_motion), box);
+      g_signal_connect (box->icon, "button-release-event", G_CALLBACK (on_icon_release), box);
+      gtk_box_pack_start (GTK_BOX (vb), box->icon, FALSE, FALSE, 0);
+      gtk_entry_set_text (GTK_ENTRY (box->entry), name);
+      g_signal_connect (box->entry, "changed", G_CALLBACK (on_name_changed), box);
+      gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
+      box->hint = gtk_label_new (_("To save, drag the icon to a directory display."));
+      gtk_box_pack_start (GTK_BOX (vb), box->hint, FALSE, FALSE, 0);
+      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_save_ok), _("_Save")),
+                          FALSE, FALSE, 0);
+      g_free (leaf);
+      g_free (name);
+    }
+  else
+    {
+      gboolean folder = action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
+      char *name = riscos_name_of (self->current_folder);
+
+      w = gtk_label_new (folder ? _("Drag a directory here from a Filer window,\n"
+                                    "or type its full name.")
+                                : _("Drag a file here from a Filer window,\n"
+                                    "or type its full name."));
+      gtk_label_set_justify (GTK_LABEL (w), GTK_JUSTIFY_CENTER);
+      gtk_widget_set_size_request (w, -1, 60);
+      gtk_box_pack_start (GTK_BOX (vb), w, FALSE, FALSE, 0);
+      if (name)
+        {
+          char *text = g_strconcat (name, ".", NULL);
+          gtk_entry_set_text (GTK_ENTRY (box->entry), text);
+          g_free (text);
+        }
+      gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
+      box->hint = gtk_label_new (folder ? _("That isn't a directory.") : _("Give the file's full name."));
+      gtk_box_pack_start (GTK_BOX (vb), box->hint, FALSE, FALSE, 0);
+      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_open_ok), _("_Open")),
+                          FALSE, FALSE, 0);
+      g_signal_connect (box->window, "realize", G_CALLBACK (on_open_realize), box);
+      g_free (name);
+    }
+
+  self->mode_data = box;
+  gtk_widget_show_all (box->window);
+  gtk_widget_hide (box->hint);
+  gtk_widget_grab_focus (box->entry);
+  if (save)
+    {
+      /* the leaf selected, ready to type over (as RISC OS does) */
+      const char *text = gtk_entry_get_text (GTK_ENTRY (box->entry));
+      int start = g_utf8_pointer_to_offset (text, leaf_of (text));
+      gtk_editable_select_region (GTK_EDITABLE (box->entry), start, -1);
+    }
+  if (debug ())
+    g_printerr ("riscos-gtk: %s box shown\n", save ? "Save" : "Open");
+  return TRUE;
+}
+
+void
+gtk_file_chooser_native_riscos_hide (GtkFileChooserNative *self)
+{
+  RiscosBox *box = self->mode_data;
+
+  if (box == NULL)
+    return;
+  self->mode_data = NULL;
+  box_free (box);
+}

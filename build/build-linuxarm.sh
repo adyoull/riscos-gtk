@@ -58,6 +58,11 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
   'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf' -d "$HA/fonts"
 "$REPO_DIR/tests/render/mkfontsconf.sh" "$HA/fonts" "$HA/fontcache" > "$HA/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$HA/share/themes/RISCOS/"
+# GTK's GSettings schemas (the file choosers, colour chooser, emoji
+# chooser need them: GLib stops the program without), found through
+# XDG_DATA_DIRS = the app's share directory
+mkdir -p "$HA/share/glib-2.0/schemas"
+glib-compile-schemas --strict --targetdir="$HA/share/glib-2.0/schemas" "$STAGE/share/glib-2.0/schemas"
 
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \

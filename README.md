@@ -18,7 +18,7 @@ on the fake Wimp under QEMU; !GTKHello is the first Pi test.
 | M1 | Dependency stack: GLib, then libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | done: all built, tested on the Pi and QEMU |
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | works on the fake Wimp (QEMU); Pi test pending |
 | M3 | Keyboard, popups as Wimp menus, pointer shapes, clipboard | — |
-| M4 | Native file chooser, drag and drop, packaging; AbiWord | — |
+| M4 | Native file chooser, drag and drop, packaging; AbiWord | started: Save/Open boxes, file drops (0.18) |
 
 Design decisions and why: [docs/DECISIONS.md](docs/DECISIONS.md). What
 UnixLib does and doesn't do that matters here:

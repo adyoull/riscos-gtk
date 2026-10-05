@@ -116,3 +116,17 @@ in the desktop's Wimp palette and the Wimp sprite pool's option, radio,
 pop-up and adjuster sprites. Sprites are decoded in GDK (not plotted), so
 it needs no redirected VDU output; the PNGs go to a temporary directory
 because GTK 3's CSS has no data: URLs.
+
+## Save boxes and Open boxes for GtkFileChooserNative (2026-10-05)
+RISC OS has no file selector: programs save by dragging a file icon from
+a Save box to a Filer window, and open what the Filer drops on them. So
+GtkFileChooserNative (the API GTK programs use for "native" dialogs, as on
+Windows and macOS) becomes a Save box or an Open box (MODE_RISCOS, tried
+before the portal). GtkFileChooserDialog used directly is still GTK's own
+dialog for now. The box answers the program only once the receiver has
+named the file (DataSaveAck), so the program saves as it always does,
+through UnixLib names; the backend then sends DataLoad (and sets the file
+type from the name's extension), as the data transfer protocol asks. The
+field holds RISC OS names (Report/txt), so leaf names look as on RISC OS.
+Not done yet: saving straight into another program by RAM transfer (it
+goes through <Wimp$Scrap>), several files at once, DataOpen.

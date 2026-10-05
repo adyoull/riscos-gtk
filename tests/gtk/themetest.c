@@ -22,6 +22,8 @@
 
 GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area, *tt_apply;
 GtkWidget *tt_entry, *tt_entry_empty;
+GtkWidget *tt_save_button, *tt_open_button, *tt_drop_area;
+char tt_last_file[256];             /* the last file chosen or dropped */
 int tt_events;
 
 static void
@@ -153,6 +155,67 @@ on_message (GtkButton *b, gpointer data)
   say ("dialogue closed: %s", r == GTK_RESPONSE_ACCEPT ? "Save" : r == 1 ? "Discard"
        : r == GTK_RESPONSE_CANCEL ? "Cancel" : "closed");
   gtk_widget_destroy (d);
+}
+
+/* GtkFileChooserNative: on RISC OS a Save box (drag the icon to a Filer
+   window) or an Open box (drag a file to it) */
+static void
+on_chooser (GtkButton *b, gpointer data)
+{
+  gboolean save = GPOINTER_TO_INT (data);
+  GtkFileChooserNative *n = gtk_file_chooser_native_new (save ? "Save as" : "Open",
+                                                         GTK_WINDOW (tt_window),
+                                                         save ? GTK_FILE_CHOOSER_ACTION_SAVE
+                                                              : GTK_FILE_CHOOSER_ACTION_OPEN,
+                                                         NULL, NULL);
+  int r;
+
+  if (save)
+    gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (n), "Accounts.csv");
+  say ("%s box opened", save ? "Save" : "Open");
+  r = gtk_native_dialog_run (GTK_NATIVE_DIALOG (n));
+  if (r == GTK_RESPONSE_ACCEPT)
+    {
+      char *path = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (n));
+      g_strlcpy (tt_last_file, path ? path : "", sizeof tt_last_file);
+      if (save && path)
+        {
+          /* save something, so the receiver has a file */
+          GError *err = NULL;
+          if (!g_file_set_contents (path, "Month,Total\nOctober,2026\n", -1, &err))
+            {
+              say ("Save failed: %s", err->message);
+              g_error_free (err);
+            }
+          else
+            say ("saved %s", path);
+        }
+      else
+        say ("chosen: %s", path ? path : "(none)");
+      g_free (path);
+    }
+  else
+    say ("%s box cancelled", save ? "Save" : "Open");
+  g_object_unref (n);
+}
+
+/* A file dropped from the Filer arrives as a file:// URI */
+static void
+on_drop_received (GtkWidget *w, GdkDragContext *ctx, gint x, gint y,
+                  GtkSelectionData *sel, guint info, guint time, gpointer data)
+{
+  char **uris = gtk_selection_data_get_uris (sel);
+  char *path = uris && uris[0] ? g_filename_from_uri (uris[0], NULL, NULL) : NULL;
+
+  if (path)
+    {
+      g_strlcpy (tt_last_file, path, sizeof tt_last_file);
+      gtk_label_set_text (GTK_LABEL (gtk_bin_get_child (GTK_BIN (w))), path);
+      say ("dropped: %s", path);
+    }
+  gtk_drag_finish (ctx, path != NULL, FALSE, time);
+  g_free (path);
+  g_strfreev (uris);
 }
 
 static gboolean
@@ -540,6 +603,26 @@ page_popups (void)
   gtk_menu_button_set_popover (GTK_MENU_BUTTON (pb), pop);
   gtk_box_pack_start (GTK_BOX (row), pb, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (page), frame ("Dialogues", row), FALSE, FALSE, 0);
+
+  /* files: Save box, Open box, a drop target */
+  row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  tt_save_button = w = gtk_button_new_with_label ("Save as...");
+  g_signal_connect (w, "clicked", G_CALLBACK (on_chooser), GINT_TO_POINTER (TRUE));
+  gtk_widget_set_tooltip_text (w, "A Save box: drag its icon to a Filer window");
+  gtk_box_pack_start (GTK_BOX (row), w, FALSE, FALSE, 0);
+  tt_open_button = w = gtk_button_new_with_label ("Open...");
+  g_signal_connect (w, "clicked", G_CALLBACK (on_chooser), GINT_TO_POINTER (FALSE));
+  gtk_widget_set_tooltip_text (w, "An Open box: drag a file to it from a Filer window");
+  gtk_box_pack_start (GTK_BOX (row), w, FALSE, FALSE, 0);
+  tt_drop_area = gtk_event_box_new ();
+  l = gtk_label_new ("Drop a file here from a Filer window");
+  gtk_widget_set_size_request (l, 260, 40);
+  gtk_container_add (GTK_CONTAINER (tt_drop_area), l);
+  gtk_drag_dest_set (tt_drop_area, GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
+  gtk_drag_dest_add_uri_targets (tt_drop_area);
+  g_signal_connect (tt_drop_area, "drag-data-received", G_CALLBACK (on_drop_received), NULL);
+  gtk_box_pack_start (GTK_BOX (row), tt_drop_area, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (page), frame ("Files", row), FALSE, FALSE, 0);
 
   /* context menu on Menu click */
   context_menu = gtk_menu_new ();

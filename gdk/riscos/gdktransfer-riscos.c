@@ -31,7 +31,7 @@
  * DataSaveAck (2), DataLoad (3), DataLoadAck (4), RAMFetch (6),
  * RAMTransmit (7), ClaimEntity (&F), DataRequest (&10); Wimp_SendMessage
  * (17 User_Message, 18 Recorded; 19 = returned unanswered),
- * Wimp_TransferBlock, Wimp_GetPointerInfo, Wimp_DragBox, OS_File 5/6/10/255.
+ * Wimp_TransferBlock, Wimp_GetPointerInfo, Wimp_DragBox, OS_File 5/6/10/18/255; DragASprite_Start/Stop; OS_Byte 161.
  *
  * Copyright (C) 2026 Andrew Youll. LGPL-2.1-or-later, as the GTK code it
  * plugs into.
@@ -41,6 +41,7 @@
 #include "gdkprivate-riscos.h"
 #include "gdkdisplay-riscos.h"
 #include "gdkriscos-server.h"
+#include "gdkriscoswimp.h"
 
 #include <string.h>
 #include <kernel.h>
@@ -74,8 +75,15 @@
 #ifndef Wimp_GetPointerInfo
 #define Wimp_GetPointerInfo 0x400CF
 #endif
+#ifndef OS_Byte
+#define OS_Byte 0x06
+#endif
 #ifndef OS_File
 #define OS_File 0x08
+#endif
+#ifndef DragASprite_Start
+#define DragASprite_Start 0x42400
+#define DragASprite_Stop  0x42401
 #endif
 
 static gboolean debug;
@@ -118,8 +126,21 @@ static struct
   int size, got;
 } in;
 
-/* Text dropped on us, waiting for GTK to ask for it (UTF-8) */
-static char *drop_text;
+/* Text dropped on us, waiting for GTK to ask for it (UTF-8), and/or a
+   file dropped from the Filer (a file:// URI list) */
+static char *drop_text, *drop_uri;
+
+/* A Save box's drag (gdk_riscos_save_drop): the DataSave sent, then the
+   receiver's DataSaveAck, kept for the DataLoad after the program saved */
+static struct
+{
+  GdkRiscosSaveFunc func;
+  gpointer data;
+  int datasave_ref;
+  int ack[64];                /* their DataSaveAck */
+  gboolean acked;
+  int filetype;                    /* to set after saving */
+} save;
 
 static GdkRiscosServer *
 server (void)
@@ -464,7 +485,8 @@ in_finish (const char *data, int len)
     {
       g_free (drop_text);
       drop_text = text;
-      _gdk_riscos_dnd_incoming (gdk_window_get_display (in.window), in.window, in.x, in.y);
+      _gdk_riscos_dnd_incoming (gdk_window_get_display (in.window), in.window, in.x, in.y,
+                                TRUE, drop_uri != NULL);
     }
   else
     g_free (text);
@@ -578,7 +600,18 @@ _gdk_riscos_transfer_convert (GdkWindow *requestor, GdkAtom selection, GdkAtom t
 {
   if (selection == gdk_atom_intern_static_string ("RISCOS_DROP"))
     {
-      if (drop_text && target == gdk_atom_intern_static_string ("TARGETS"))
+      if (drop_uri && target == gdk_atom_intern_static_string ("text/uri-list"))
+        _gdk_riscos_property_set (requestor, property,
+                                  gdk_atom_intern_static_string ("text/uri-list"), 8,
+                                  (const guchar *) drop_uri, strlen (drop_uri), FALSE);
+      else if (!drop_text && drop_uri && target == gdk_atom_intern_static_string ("TARGETS"))
+        {
+          GdkAtom atoms[2] = { gdk_atom_intern_static_string ("TARGETS"),
+                               gdk_atom_intern_static_string ("text/uri-list") };
+          _gdk_riscos_property_set (requestor, property, gdk_atom_intern_static_string ("ATOM"),
+                                    32, (const guchar *) atoms, sizeof atoms, FALSE);
+        }
+      else if (drop_text && target == gdk_atom_intern_static_string ("TARGETS"))
         set_targets (requestor, property);
       else if (drop_text && is_text_target (target))
         _gdk_riscos_property_set (requestor, property,
@@ -714,6 +747,239 @@ _gdk_riscos_transfer_drop_done (gboolean success)
 {
   g_free (drop_text);
   drop_text = NULL;
+  g_free (drop_uri);
+  drop_uri = NULL;
+}
+
+/* ---- file names, Save boxes and loading files --------------------------- */
+
+/**
+ * gdk_riscos_path_to_unix:
+ * @riscos_path: a RISC OS file name, e.g. "ADFS::HD4.$.Docs.Report/txt"
+ *
+ * Returns: (transfer full): the same file as UnixLib names it
+ * ("/ADFS::HD4/$/Docs/Report.txt"): '.' and '/' swapped, a '/' in front.
+ * UnixLib maps it back when the program opens it.
+ */
+char *
+gdk_riscos_path_to_unix (const char *riscos_path)
+{
+  GString *s = g_string_new ("/");
+  const char *p;
+
+  for (p = riscos_path; *p; p++)
+    g_string_append_c (s, *p == '.' ? '/' : *p == '/' ? '.' : *p);
+  return g_string_free (s, FALSE);
+}
+
+/**
+ * gdk_riscos_path_from_unix:
+ * @unix_path: a file name as gdk_riscos_path_to_unix gives
+ *
+ * Returns: (transfer full): the RISC OS file name.
+ */
+char *
+gdk_riscos_path_from_unix (const char *unix_path)
+{
+  GString *s = g_string_new (NULL);
+  const char *p = unix_path[0] == '/' ? unix_path + 1 : unix_path;
+
+  for (; *p; p++)
+    g_string_append_c (s, *p == '/' ? '.' : *p == '.' ? '/' : *p);
+  return g_string_free (s, FALSE);
+}
+
+/* A file:// URI list (one file) for a RISC OS file name */
+static char *
+uri_list (const char *riscos_path)
+{
+  char *unix_path = gdk_riscos_path_to_unix (riscos_path);
+  char *uri = g_filename_to_uri (unix_path, NULL, NULL);
+  char *list = uri ? g_strconcat (uri, "\r\n", NULL) : NULL;
+
+  g_free (unix_path);
+  g_free (uri);
+  return list;
+}
+
+/**
+ * gdk_riscos_save_drag_begin:
+ * @display: the display
+ * @sprite: a sprite in the Wimp's pool, e.g. "file_fff"
+ * @root_x, @root_y, @width, @height: where the icon is (root pixels)
+ *
+ * A Save box's file icon is being dragged: the Wimp shows the sprite
+ * following the pointer (DragASprite), or a dashed box (Wimp_DragBox) if
+ * DragASprite isn't there.
+ */
+void
+gdk_riscos_save_drag_begin (GdkDisplay *display, const char *sprite,
+                            gint root_x, gint root_y, gint width, gint height)
+{
+  _kernel_swi_regs r;
+  int box[4], sw = 0, sh = 0, xe = 1, ye = 1;
+  GdkRiscosServer *s = server ();
+
+  if (s == NULL)
+    return;
+  _gdk_riscos_server_screen_os_size (s, &sw, &sh);
+  {
+    int px_w = gdk_screen_get_width (gdk_display_get_default_screen (display));
+    int px_h = gdk_screen_get_height (gdk_display_get_default_screen (display));
+    xe = px_w > 0 ? sw / px_w : 2;
+    ye = px_h > 0 ? sh / px_h : 2;
+  }
+  /* screen OS units, from the bottom left */
+  box[0] = root_x * xe;
+  box[1] = sh - (root_y + height) * ye;
+  box[2] = (root_x + width) * xe;
+  box[3] = sh - root_y * ye;
+  /* the user's choice (*Configure DragASprite: CMOS byte 28 bit 1) */
+  memset (&r, 0, sizeof r);
+  r.r[0] = 161;
+  r.r[1] = 28;
+  if (_kernel_swi (OS_Byte, &r, &r) != NULL || (r.r[2] & 2))
+    {
+      memset (&r, 0, sizeof r);
+      r.r[0] = 0x85;               /* centred in the box, a drop shadow */
+  r.r[1] = 1;                      /* the Wimp's sprite pool */
+  r.r[2] = (int) sprite;
+  r.r[3] = (int) box;
+      if (_kernel_swi (DragASprite_Start, &r, &r) == NULL)
+        {
+          TRACE ("DragASprite_Start %s\n", sprite);
+          return;
+        }
+    }
+  {
+    int block[11];
+    memset (block, 0, sizeof block);
+    block[1] = 5;                  /* a fixed size dashed box */
+    memcpy (&block[2], box, sizeof box);
+    block[6] = -0x10000;
+    block[7] = -0x10000;
+    block[8] = sw + 0x10000;
+    block[9] = sh + 0x10000;
+    r.r[1] = (int) block;
+    _kernel_swi (Wimp_DragBox, &r, &r);
+  }
+}
+
+/**
+ * gdk_riscos_save_drop:
+ * @display: the display
+ * @leafname: the file's RISC OS leaf name
+ * @filetype: its file type
+ * @size: its estimated size (bytes)
+ * @func: called with the full RISC OS name to save to (from the
+ *   receiver's Message_DataSaveAck), and whether it's "safe" (a real file;
+ *   not, for <Wimp$Scrap> on its way to another program); after saving,
+ *   call gdk_riscos_save_done())
+ * @data: for @func
+ *
+ * The drag ended: ends the Wimp's drag and sends Message_DataSave to the
+ * window under the pointer (a Filer window, another program's window or
+ * the icon bar). Returns %FALSE (and @func won't be called) if it ended
+ * over this program or the desktop background.
+ */
+gboolean
+gdk_riscos_save_drop (GdkDisplay *display, const char *leafname, int filetype, int size,
+                      GdkRiscosSaveFunc func, gpointer data)
+{
+  _kernel_swi_regs r;
+  int ptr[5], block[64];
+
+  memset (&r, 0, sizeof r);
+  _kernel_swi (DragASprite_Stop, &r, &r);
+  r.r[1] = -1;
+  _kernel_swi (Wimp_DragBox, &r, &r);
+  r.r[1] = (int) ptr;
+  if (_kernel_swi (Wimp_GetPointerInfo, &r, &r) != NULL)
+    return FALSE;
+  if (ptr[3] == -1 || gdk_window_for_handle (ptr[3]))
+    return FALSE;
+  header (block, MESSAGE_DATASAVE, 0, 44 + (int) strlen (leafname) + 1);
+  block[5] = ptr[3];
+  block[6] = ptr[4];
+  block[7] = ptr[0];
+  block[8] = ptr[1];
+  block[9] = size;
+  block[10] = filetype;
+  g_strlcpy ((char *) &block[11], leafname, 212);
+  memset (&save, 0, sizeof save);
+  save.func = func;
+  save.data = data;
+  save.filetype = filetype;
+  save.datasave_ref = send_message (USER_MESSAGE, block, ptr[3], ptr[4]);
+  TRACE ("Save box: DataSave \"%s\" (&%03X) to window &%X (ref %d)\n", leafname, filetype,
+         (unsigned int) ptr[3], save.datasave_ref);
+  return save.datasave_ref != 0;
+}
+
+/**
+ * gdk_riscos_save_done:
+ * @riscos_path: the file the program saved (what the save function got)
+ *
+ * After saving: tells the receiver (Message_DataLoad) that the file is
+ * there, as the data transfer protocol asks. Another program then loads
+ * it from <Wimp$Scrap>; the Filer just acknowledges.
+ */
+void
+gdk_riscos_save_done (const char *riscos_path)
+{
+  _kernel_swi_regs r;
+  int *block = save.ack;
+
+  if (!save.acked)
+    return;
+  r.r[0] = 5;
+  r.r[1] = (int) riscos_path;
+  if (_kernel_swi (OS_File, &r, &r) != NULL || r.r[0] != 1)
+    return;
+  /* a typed file (load address &FFFtttxx) of another type: give it the
+     type it was offered as (programs writing through UnixLib may not) */
+  if ((r.r[2] & 0xFFF00000) == (int) 0xFFF00000
+      && ((r.r[2] >> 8) & 0xFFF) != save.filetype && save.filetype != 0xFFD)
+    {
+      _kernel_swi_regs t;
+      int size = r.r[4];
+      t.r[0] = 18;
+      t.r[1] = (int) riscos_path;
+      t.r[2] = save.filetype;
+      _kernel_swi (OS_File, &t, &t);
+      r.r[4] = size;
+    }
+  block[3] = block[2];
+  block[4] = MESSAGE_DATALOAD;
+  block[9] = r.r[4];
+  g_strlcpy ((char *) &block[11], riscos_path, 212);
+  block[0] = (44 + strlen (riscos_path) + 1 + 3) & ~3;
+  out_reset ();
+  /* if nobody loads it, a scrap file is ours to delete; never a file
+     saved into a Filer window */
+  out.scrap = save.ack[9] == -1;
+  out.dataload_ref = send_message (USER_MESSAGE_RECORDED, block, block[1], 0);
+  save.acked = FALSE;
+  TRACE ("Save box: saved, DataLoad %s\n", riscos_path);
+}
+
+/**
+ * gdk_riscos_window_set_load_func:
+ * @window: a toplevel
+ * @func: (nullable): called when a file is dropped on @window from the
+ *   Filer (Message_DataLoad) with its RISC OS name and type; returns
+ *   %TRUE if it took the file (the Filer gets Message_DataLoadAck)
+ * @data: for @func
+ *
+ * Without one, a file dropped on a window goes to the GTK widget under
+ * the pointer as a drop of a file:// URI (text/uri-list; text files also
+ * as their text).
+ */
+void
+gdk_riscos_window_set_load_func (GdkWindow *window, GdkRiscosLoadFunc func, gpointer data)
+{
+  g_object_set_data (G_OBJECT (window), "riscos-gtk-load-func", func);
+  g_object_set_data (G_OBJECT (window), "riscos-gtk-load-data", data);
 }
 
 /* Wimp messages (17, 18) and returned ones (19), from the server */
@@ -795,6 +1061,8 @@ _gdk_riscos_transfer_message (int reason, int *block)
               if (in.purpose != IN_NONE)
                 in_finish (NULL, 0);
               _gdk_riscos_server_os_to_px (server (), &x, &y);
+              g_free (drop_uri);
+              drop_uri = NULL;
               in.purpose = IN_DROP;
               in.window = g_object_ref (window);
               in.x = x;
@@ -815,22 +1083,53 @@ _gdk_riscos_transfer_message (int reason, int *block)
           if (in.purpose != IN_NONE && block[3] == in.ack_ref)
             in_dataload (block, TRUE);
         }
-      else if (block[10] == FILETYPE_TEXT)
+      else
         {
-          /* a text file dropped from the Filer */
+          /* a file dropped from the Filer */
           GdkWindow *window = gdk_window_for_handle (block[5]);
-          if (window)
+          GdkRiscosLoadFunc func = window ? g_object_get_data (G_OBJECT (window), "riscos-gtk-load-func") : NULL;
+          int x = block[7], y = block[8];
+
+          if (window == NULL)
+            break;
+          _gdk_riscos_server_os_to_px (server (), &x, &y);
+          if (func)
             {
-              int x = block[7], y = block[8];
-              if (in.purpose != IN_NONE)
-                in_finish (NULL, 0);
-              _gdk_riscos_server_os_to_px (server (), &x, &y);
+              if (func ((const char *) &block[11], block[10],
+                        g_object_get_data (G_OBJECT (window), "riscos-gtk-load-data")))
+                {
+                  int peer = block[1];
+                  block[3] = block[2];
+                  block[4] = MESSAGE_DATALOADACK;
+                  send_message (USER_MESSAGE, block, peer, 0);
+                }
+              break;
+            }
+          if (in.purpose != IN_NONE)
+            in_finish (NULL, 0);
+          g_free (drop_uri);
+          drop_uri = uri_list ((const char *) &block[11]);
+          if (block[10] == FILETYPE_TEXT)
+            {
+              /* its text, and the file */
               in.purpose = IN_DROP;
               in.window = g_object_ref (window);
               in.x = x;
               in.y = y;
               if (!in_dataload (block, FALSE))
                 in_reset ();
+            }
+          else if (drop_uri)
+            {
+              /* the file, as a file:// URI */
+              int peer = block[1];
+              g_free (drop_text);
+              drop_text = NULL;
+              block[3] = block[2];
+              block[4] = MESSAGE_DATALOADACK;
+              send_message (USER_MESSAGE, block, peer, 0);
+              TRACE ("file dropped: %s", drop_uri);
+              _gdk_riscos_dnd_incoming (gdk_window_get_display (window), window, x, y, FALSE, TRUE);
             }
         }
       break;
@@ -843,6 +1142,16 @@ _gdk_riscos_transfer_message (int reason, int *block)
     case MESSAGE_DATASAVEACK:
       if (block[3] != 0 && out.data && block[3] == out.datasave_ref)
         out_datasaveack (block);
+      else if (block[3] != 0 && save.func && block[3] == save.datasave_ref)
+        {
+          GdkRiscosSaveFunc func = save.func;
+          memcpy (save.ack, block, sizeof save.ack);
+          save.acked = TRUE;
+          save.func = NULL;
+          TRACE ("Save box: DataSaveAck %s (%s)\n", (const char *) &block[11],
+                 block[9] == -1 ? "unsafe" : "safe");
+          func ((const char *) &block[11], block[9] != -1, save.data);
+        }
       break;
 
     case MESSAGE_DATALOADACK:
