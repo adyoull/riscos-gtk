@@ -9,13 +9,16 @@
  * only change the mouse pointer when it is within the work area of one of
  * its windows").
  *
- * Each shape is a 2bpp sprite with a palette, made here at start-up (no
- * mask, so the active point given is used), set as pointer shape 2 with
- * OS_SpriteOp 36. Colour 0 is transparent, 1 black, 2 white. The normal
- * pointer comes back with Wimp_SpriteOp 36 "ptr_default" as shape 1, which
- * also restores the pointer palette (all shapes share it).
+ * The text pointer is the Wimp's own ptr_write (RISC OS's text pointer,
+ * the caret's shape) when the Wimp has it. The others, and the text
+ * pointer otherwise, are our own: each a 2bpp sprite (no mask, so the active point given is
+ * used), set as pointer shape 2 with OS_SpriteOp 36, keeping the pointer
+ * palette: the shapes are in the desktop's pointer colours, filled with
+ * the lighter of pointer colours 1 and 2 and outlined with the darker
+ * (pick_colours). Colour 0 is transparent. The normal pointer comes back
+ * with Wimp_SpriteOp 36 "ptr_default" as shape 1.
  *
- * Shapes are drawn as a white area; a black outline is added round it.
+ * Shapes are drawn as a filled area; an outline is added round it.
  * The sprites say 90 dpi, so they are 1:1 on the usual EIG 1 desktop.
  *
  * SWIs as in the RISC OS PRMs: OS_SpriteOp 36 (R3 bits 0-3 = shape;
@@ -37,6 +40,9 @@
 #ifndef OS_SpriteOp
 #define OS_SpriteOp 0x2E
 #endif
+#ifndef OS_ReadPalette
+#define OS_ReadPalette 0x2F
+#endif
 #ifndef Wimp_SpriteOp
 #define Wimp_SpriteOp 0x400E9
 #endif
@@ -51,6 +57,7 @@ typedef struct
 } Shape;
 
 static int *area;             /* one sprite area with every shape */
+static int fill_colour = 2, outline_colour = 1;   /* pointer colours the area uses */
 
 /* ---- the drawings: is pixel (x, y) of shape s white? ---------------- */
 
@@ -133,11 +140,11 @@ colour (int s, int x, int y)
   int dx, dy;
 
   if (white (s, x - 1, y - 1))
-    return 2;
+    return fill_colour;
   for (dy = -1; dy <= 1; dy++)
     for (dx = -1; dx <= 1; dx++)
       if (white (s, x - 1 + dx, y - 1 + dy))
-        return 1;
+        return outline_colour;
   return 0;
 }
 
@@ -153,6 +160,7 @@ make_area (void)
       int w = MIN (shapes[s].w + 2, MAXW), h = MIN (shapes[s].h + 2, MAXH);
       size += 44 + 32 + ((w * 2 + 31) / 32) * 4 * h;
     }
+  g_free (area);
   area = g_malloc0 (size);
   area[0] = size;
   area[2] = 16;                    /* first sprite */
@@ -189,6 +197,65 @@ make_area (void)
   area[3] = p - (char *) area;     /* first free */
 }
 
+/* The desktop's own pointer colours: the shapes use the lighter of
+   pointer colours 1 and 2 to fill and the darker to outline, as the normal
+   pointer does, and the pointer palette is left alone (OS_SpriteOp 36 R3
+   bit 5), so they follow the RISC OS pointer colours (the ptr_default
+   palette, or what the user has set). Read with OS_ReadPalette (R1 = 25:
+   pointer colour; R2 = &BBGGRRxx). */
+static int
+luma (int colour)
+{
+  _kernel_swi_regs r;
+  unsigned int v;
+
+  r.r[0] = colour;
+  r.r[1] = 25;
+  if (_kernel_swi (OS_ReadPalette, &r, &r) != NULL)
+    return colour == 1 ? 0 : 255;  /* unknown: 1 dark, 2 light */
+  v = (unsigned int) r.r[2];
+  return (int) ((((v >> 8) & 0xFF) * 3 + ((v >> 16) & 0xFF) * 6 + ((v >> 24) & 0xFF)) / 10);
+}
+
+static void
+pick_colours (void)
+{
+  int fill = luma (2) >= luma (1) ? 2 : 1, outline = 3 - fill;
+
+  if (area == NULL || fill != fill_colour || outline != outline_colour)
+    {
+      fill_colour = fill;
+      outline_colour = outline;
+      make_area ();
+    }
+}
+
+/* The Wimp's own pointer sprite name (ptr_write: RISC OS's text pointer,
+   shaped like the caret) as shape 2, in the desktop's pointer colours,
+   with its active point in its middle (Wimp_SpriteOp 40 reads its size:
+   R3 width, R4 height in pixels). FALSE if the Wimp hasn't got it. */
+static gboolean
+show_wimp_sprite (const char *name)
+{
+  _kernel_swi_regs r;
+  int w, h;
+
+  memset (&r, 0, sizeof r);
+  r.r[0] = 40;
+  r.r[2] = (int) name;
+  if (_kernel_swi (Wimp_SpriteOp, &r, &r) != NULL)
+    return FALSE;
+  w = r.r[3];
+  h = r.r[4];
+  memset (&r, 0, sizeof r);
+  r.r[0] = 36;
+  r.r[2] = (int) name;
+  r.r[3] = 2 | (1 << 5);           /* shape 2; keep the pointer palette */
+  r.r[4] = w / 2;
+  r.r[5] = h / 2;
+  return _kernel_swi (Wimp_SpriteOp, &r, &r) == NULL;
+}
+
 /* Show shape (RISCOS_POINTER_*) as the pointer */
 void
 _gdk_riscos_pointer_show (int shape)
@@ -207,12 +274,14 @@ _gdk_riscos_pointer_show (int shape)
       _kernel_swi (Wimp_SpriteOp, &r, &r);
       return;
     }
-  if (area == NULL)
-    make_area ();
+  if (shape == RISCOS_POINTER_TEXT && show_wimp_sprite ("ptr_write"))
+    return;
+  pick_colours ();
+  memset (&r, 0, sizeof r);
   r.r[0] = 36 + 256;               /* user area, sprite by name */
   r.r[1] = (int) area;
   r.r[2] = (int) shapes[shape].name;
-  r.r[3] = 2;
+  r.r[3] = 2 | (1 << 5);           /* shape 2; keep the pointer palette */
   r.r[4] = shapes[shape].hx + 1;   /* + the outline */
   r.r[5] = shapes[shape].hy + 1;
   if (_kernel_swi (OS_SpriteOp, &r, &r) != NULL)

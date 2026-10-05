@@ -1,4 +1,4 @@
-GTKThemeTest 0.8 - riscos-gtk theme test
+GTKThemeTest 0.9 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,11 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.9: pointers in the desktop's pointer colours (the same colours
+as the normal arrow pointer); over text, the Wimp's own text pointer
+(ptr_write). The text caret is the RISC OS caret: red, with a short bar
+across its top and bottom.
 
 New in 0.8: pointer shapes. Over a text field the pointer is an I-beam,
 over a link a hand; resize, cross-hair and move pointers where GTK uses

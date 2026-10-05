@@ -342,3 +342,39 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
    GtkDragSourceInfo *info;
    GList *targets = NULL;
    GList *tmp_list;
+--- a/gtk/gtkstylecontext.c	2026-10-05 19:51:01.216783640 +0100
++++ b/gtk/gtkstylecontext.c	2026-10-05 19:51:01.239917866 +0100
+@@ -2862,6 +2862,18 @@
+   cairo_rectangle (cr, x - offset, y, stem_width, height);
+   cairo_fill (cr);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: the RISC OS caret, an I: a bar 2 pixels each side of the
++     stem across its top and bottom (gtktextview.c's
++     text_window_invalidate_cursors redraws that much) */
++  if (height >= 4)
++    {
++      cairo_rectangle (cr, x - offset - 2, y, stem_width + 4, 1);
++      cairo_rectangle (cr, x - offset - 2, y + height - 1, stem_width + 4, 1);
++      cairo_fill (cr);
++    }
++#endif
++
+   if (draw_arrow)
+     {
+       gint arrow_width;
+--- a/gtk/gtktextview.c	2026-10-05 19:51:01.224716194 +0100
++++ b/gtk/gtktextview.c	2026-10-05 19:51:01.242416328 +0100
+@@ -10290,6 +10290,12 @@
+   strong.x     -= stem_width / 2;
+   strong.width += stem_width;
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: the RISC OS caret's bars (gtkstylecontext.c) */
++  strong.x     -= 3;
++  strong.width += 6;
++#endif
++
+   if (draw_arrow)
+     {
+       strong.x     -= arrow_width;

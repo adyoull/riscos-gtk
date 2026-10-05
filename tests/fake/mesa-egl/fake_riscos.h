@@ -97,6 +97,8 @@ extern int fake_dragbox_type, fake_dragboxes;
    its sprite if from a user area, shape number, active point), and calls */
 extern const int *fake_ptr_sprite;
 extern char fake_ptr_name[16];
-extern int fake_ptr_shape, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;   /* Wimp_DragBox: type now (-1 none), calls */
+extern int fake_ptr_shape, fake_ptr_flags, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;
+extern int fake_ptr_palette[4];          /* pointer colours (OS_ReadPalette 25), &BBGGRRxx */
+extern int fake_wimp_ptr_write;          /* the Wimp has ptr_write (9 x 20) */   /* Wimp_DragBox: type now (-1 none), calls */
 
 #endif

@@ -31,8 +31,10 @@ int fake_menu_x, fake_menu_y, fake_menus_closed;
 void (*fake_message_hook)(int reason, int *block, int dest, int icon);
 int fake_dragbox_type = -1, fake_dragboxes;
 const int *fake_ptr_sprite;
+int fake_wimp_ptr_write = 1;
 char fake_ptr_name[16] = "ptr_default";
-int fake_ptr_shape = 1, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;
+int fake_ptr_shape = 1, fake_ptr_flags = 1, fake_ptr_hx, fake_ptr_hy, fake_ptr_sets;
+int fake_ptr_palette[4] = { 0, 0xFFFF0010, 0x99000010, 0x0000FF10 };  /* OS_ReadPalette 25 */
 static int msg_queue[16][65], msg_queue_len, next_my_ref = 1000;
 
 void fake_queue_message(int reason, const int *block)
@@ -259,6 +261,7 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
         strncpy(fake_ptr_name, (const char *) &spr[1], 12);
         fake_ptr_name[12] = 0;
         fake_ptr_shape = r->r[3] & 15;
+        fake_ptr_flags = r->r[3];
         fake_ptr_hx = r->r[4]; fake_ptr_hy = r->r[5];
         fake_ptr_sets++;
         return NULL;
@@ -667,13 +670,23 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     case 0x400F1:   /* Wimp_TransferBlock: one address space here */
         memcpy((void *) (long) (unsigned) r.r[3], (const void *) (long) (unsigned) r.r[1], (size_t) r.r[4]);
         break;
-    case 0x400E9:   /* Wimp_SpriteOp: 36 only (the Wimp's pointer sprites) */
+    case 0x400E9:   /* Wimp_SpriteOp 36 and 40 on the Wimp's pointer sprites */
+        if (strcmp((const char *) (long) r.r[2], "ptr_default") != 0 &&
+            !(fake_wimp_ptr_write && strcmp((const char *) (long) r.r[2], "ptr_write") == 0)) {
+            e = error("Sprite doesn't exist"); break;
+        }
+        if (r.r[0] == 40) { r.r[3] = 9; r.r[4] = 20; r.r[5] = 0; r.r[6] = 27; break; }  /* 9 x 20 */
         if (r.r[0] != 36) { e = error("Wimp_SpriteOp reason not faked"); break; }
+        fake_ptr_flags = r.r[3];
         snprintf(fake_ptr_name, sizeof fake_ptr_name, "%s", (const char *) (long) r.r[2]);
         fake_ptr_sprite = NULL;
         fake_ptr_shape = r.r[3] & 15;
         fake_ptr_hx = r.r[4]; fake_ptr_hy = r.r[5];
         fake_ptr_sets++;
+        break;
+    case 0x2F:      /* OS_ReadPalette: pointer colours (R1 = 25) only */
+        if (r.r[1] != 25 || r.r[0] < 0 || r.r[0] > 3) { e = error("ReadPalette: pointer colours only"); break; }
+        r.r[2] = r.r[3] = fake_ptr_palette[r.r[0]];
         break;
     case 0x400D0:   /* Wimp_DragBox */
         if (r.r[1] == -1) fake_dragbox_type = -1;

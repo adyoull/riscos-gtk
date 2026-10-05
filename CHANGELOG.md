@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.9, 2026-10-05)
+- Owner: pointers in the RISC OS pointer colours, and the text pointer
+  and caret as RISC OS has them.
+- Our pointer sprites now use the desktop's pointer colours: filled with
+  the lighter of pointer colours 1 and 2, outlined with the darker (read
+  with OS_ReadPalette, R1 = 25), and OS_SpriteOp 36 keeps the pointer
+  palette (R3 bit 5).
+- The text pointer is the Wimp's own ptr_write (Wimp_SpriteOp 36, active
+  point in its middle from Wimp_SpriteOp 40), ours if the Wimp hasn't one.
+- GTK patch: the text caret is the RISC OS caret, an I: red stem with a bar
+  2 px each side across its top and bottom (gtkstylecontext.c); GtkTextView
+  redraws that much (gtktextview.c).
+- Fake Wimp: OS_ReadPalette 25, Wimp_SpriteOp 40 and ptr_write.
+  edittest-fake checks ptr_write, the colours, and the caret's bars (24).
+
 ## Unreleased (M3: pointer shapes; GTKThemeTest 0.8, 2026-10-05)
 - Pointer shapes (new gdk/riscos/gdkpointer-riscos.c): GTK's cursor names
   map to RISC OS shapes (gdkcursor-riscos.c): I-beam (text), hand (links),

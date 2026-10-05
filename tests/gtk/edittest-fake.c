@@ -40,7 +40,8 @@ static int drag_datasave, drag_fields[4], drag_dest, drag_icon, drag_done, drag_
 static char drag_got[64];
 static int drag_len, dragbox_seen, drag_icon_windows;
 static char ptr_seen[4][16];
-static int ptr_seen_shape[4], ptr_seen_hot[4][2];
+static int ptr_seen_shape[4], ptr_seen_hot[4][2], ptr_seen_flags[4];
+static int hand_fill = -1, hand_outline = -1, caret_bar, caret_stem;
 static int drop_ds_ref, drop_fetch_seen;
 static char text_after_paste[128], empty_after_drag[128], writable_after_drag[128], empty_after_drop[128];
 static char text_after_dragout[128];
@@ -161,7 +162,8 @@ find_type (GtkWidget *w, GType type)
   return found;
 }
 
-/* The pointer sprites, pictured (2bpp: 0 transparent = grey here) */
+/* The pointer sprites, pictured in the fake desktop's pointer colours
+   (0 transparent = grey here) */
 extern const int *_gdk_riscos_pointer_area (void);
 
 static void
@@ -183,10 +185,12 @@ save_pointers (const char *path)
         for (x = 0; x < w && total_w + x < 400; x++)
           {
             int c = (im[y * words + x / 16] >> ((x % 16) * 2)) & 3;
-            unsigned char v = c == 1 ? 0 : c == 2 ? 255 : 0x80;
+            unsigned int v = (unsigned int) fake_ptr_palette[c];   /* &BBGGRRxx */
             if (c == 0)
               continue;
-            img[y][total_w + x][0] = img[y][total_w + x][1] = img[y][total_w + x][2] = v;
+            img[y][total_w + x][0] = v >> 8;
+            img[y][total_w + x][1] = v >> 16;
+            img[y][total_w + x][2] = v >> 24;
           }
       total_w += w + 4;
     }
@@ -195,6 +199,41 @@ save_pointers (const char *path)
   fprintf (f, "P6\n400 40\n255\n");
   fwrite (img, 1, sizeof img, f);
   fclose (f);
+}
+
+/* The caret in the Writable field (it has the focus, no selection): the
+   widest run of red (Wimp colour 11) pixels in a row, the tallest in a
+   column */
+static void
+measure_caret (void)
+{
+  int x, y, wd, ht, i, x0 = 0, y0 = 0, px, py;
+
+  rect (tt_entry, &x, &y, &wd, &ht);
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle == main_handle)
+      {
+        x0 = (fake_windows[i].x0 >> 1) + x;
+        y0 = 1024 - (fake_windows[i].y1 >> 1) + y;
+      }
+  for (py = y0; py < y0 + ht; py++)
+    {
+      int run = 0;
+      for (px = x0; px < x0 + wd; px++)
+        {
+          run = (fake_screen_pixel (px, py) & 0xFFFFFF) == 0x0000DD ? run + 1 : 0;
+          caret_bar = MAX (caret_bar, run);
+        }
+    }
+  for (px = x0; px < x0 + wd; px++)
+    {
+      int run = 0;
+      for (py = y0; py < y0 + ht; py++)
+        {
+          run = (fake_screen_pixel (px, py) & 0xFFFFFF) == 0x0000DD ? run + 1 : 0;
+          caret_stem = MAX (caret_stem, run);
+        }
+    }
 }
 
 /* ---- the other task ---- */
@@ -425,6 +464,7 @@ next_step (void)
       break;
     case 10:     /* Menu, Select All, then drag the text onto another task's window */
       g_strlcpy (text_after_paste, gtk_entry_get_text (GTK_ENTRY (tt_entry)), sizeof text_after_paste);
+      measure_caret ();
       menu_click (tt_entry);
       break;
     case 11:
@@ -551,6 +591,26 @@ hook (int reason)
         int k = fake_wimp_script[pos][3] - 201;
         g_strlcpy (ptr_seen[k], fake_ptr_name, sizeof ptr_seen[k]);
         ptr_seen_shape[k] = fake_ptr_shape;
+        ptr_seen_flags[k] = fake_ptr_flags;
+        if (k == 2 && fake_ptr_sprite)
+          {
+            /* the hand's colours: its middle is filled, its first pixel
+               from the left on that row is outline */
+            const int *spr = fake_ptr_sprite;
+            int words = spr[4] + 1, y = (spr[5] + 1) * 2 / 3, x;
+            const unsigned int *im = (const unsigned int *) ((const char *) spr + spr[8]);
+            for (x = 0; x < words * 16; x++)
+              {
+                int c = (im[y * words + x / 16] >> ((x % 16) * 2)) & 3;
+                if (c && hand_outline < 0)
+                  hand_outline = c;
+                else if (c && hand_outline >= 0 && c != hand_outline)
+                  {
+                    hand_fill = c;
+                    break;
+                  }
+              }
+          }
         ptr_seen_hot[k][0] = fake_ptr_hx;
         ptr_seen_hot[k][1] = fake_ptr_hy;
       }
@@ -603,12 +663,18 @@ main (int argc, char **argv)
     }
 
   check (stage == 1, "theme test window shown and drawn");
-  check (strcmp (ptr_seen[0], "gtk_text") == 0 && ptr_seen_shape[0] == 2 &&
-         ptr_seen_hot[0][0] == 4 && ptr_seen_hot[0][1] == 10,
-         "pointer over a text field: the I-beam (shape 2, active point in its middle)");
+  check (strcmp (ptr_seen[0], "ptr_write") == 0 && ptr_seen_shape[0] == 2 &&
+         (ptr_seen_flags[0] & 0x20) && ptr_seen_hot[0][0] == 4 && ptr_seen_hot[0][1] == 10,
+         "pointer over a text field: the Wimp's ptr_write (shape 2, desktop colours, active point in its middle)");
   check (strcmp (ptr_seen[1], "ptr_default") == 0 && ptr_seen_shape[1] == 1,
          "pointer over a plain part of the window: the normal pointer");
-  check (strcmp (ptr_seen[2], "gtk_hand") == 0, "pointer over a link: the hand");
+  check (strcmp (ptr_seen[2], "gtk_hand") == 0 && (ptr_seen_flags[2] & 0x20),
+         "pointer over a link: the hand, keeping the desktop's pointer colours");
+  check (hand_fill == 1 && hand_outline == 2,
+         "our pointers use the desktop's pointer colours: the lighter (1) fills, the darker (2) outlines");
+  check (caret_bar >= 5 && caret_stem >= 8,
+         "the text caret is the RISC OS caret: red, with bars across its top and bottom");
+  printf ("# caret: widest red row %d px, tallest red column %d px\n", caret_bar, caret_stem);
   check (strcmp (ptr_seen[3], "ptr_default") == 0 && ptr_seen_shape[3] == 1,
          "pointer over another task's window: the normal pointer");
   printf ("# pointers seen: %s/%d (%d,%d), %s/%d, %s/%d, %s/%d; %d pointer changes\n",

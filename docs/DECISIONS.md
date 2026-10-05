@@ -105,3 +105,5 @@ there's no resize or move pointer. So riscos-gtk draws every shape itself
 (2bpp, palette, no mask, exact active points) and uses only ptr_default
 from the Wimp, to put the normal pointer back. Easy to switch a shape to a
 Wimp sprite later if the owner prefers the system look.
+Update (0.9, owner): the shapes use the desktop's pointer colours (palette
+kept), and the text pointer is the Wimp's ptr_write when it exists.
