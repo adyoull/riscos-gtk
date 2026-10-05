@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.13, 2026-10-05)
+- Owner on 0.12: "still doesnt use the RISC OS widgets". The theme now
+  always writes one line to the program's log: Wimp colours read or not,
+  Wimp sprites found (of 7), window border sprites found (of 27), and
+  whether the PNGs could be written (and where), to see on the Pi which
+  step fails.
+
 ## Unreleased (GTKThemeTest 0.12, 2026-10-05)
 - Owner (photo, 0.11): GTK's scroll bars didn't follow the desktop's
   theme (RISC OS 5 is themeable). Scroll bars are now drawn with the

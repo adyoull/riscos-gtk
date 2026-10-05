@@ -41,6 +41,8 @@
 #include <string.h>
 
 static char *dir;               /* the PNGs */
+/* for the Log: sprites asked for, found, written */
+static int pool_asked, pool_found, tool_asked, tool_found, write_failed;
 static GPtrArray *files;
 
 static void
@@ -68,6 +70,7 @@ pixbuf_uri (GdkPixbuf *pb, const char *name, int *w, int *h)
       dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
       if (dir == NULL)
         {
+          write_failed++;
           g_object_unref (pb);
           return NULL;
         }
@@ -77,6 +80,7 @@ pixbuf_uri (GdkPixbuf *pb, const char *name, int *w, int *h)
   file = g_strdup_printf ("%s/%s.png", dir, name);
   if (!gdk_pixbuf_save (pb, file, "png", NULL, NULL))
     {
+      write_failed++;
       g_free (file);
       g_object_unref (pb);
       return NULL;
@@ -93,7 +97,11 @@ pixbuf_uri (GdkPixbuf *pb, const char *name, int *w, int *h)
 static char *
 sprite_uri (const char *name, int *w, int *h)
 {
-  return pixbuf_uri (gdk_riscos_wimp_sprite (name), name, w, h);
+  GdkPixbuf *pb = gdk_riscos_wimp_sprite (name);
+  pool_asked++;
+  if (pb)
+    pool_found++;
+  return pixbuf_uri (pb, name, w, h);
 }
 
 /* A window border (tool) sprite as a PNG (files t_NAME.png) */
@@ -101,7 +109,12 @@ static char *
 tool_uri (const char *name, int *w, int *h)
 {
   char *file = g_strconcat ("t_", name, NULL);
-  char *uri = pixbuf_uri (gdk_riscos_wimp_tool_sprite (name), file, w, h);
+  GdkPixbuf *pb = gdk_riscos_wimp_tool_sprite (name);
+  char *uri;
+  tool_asked++;
+  if (pb)
+    tool_found++;
+  uri = pixbuf_uri (pb, file, w, h);
   g_free (file);
   return uri;
 }
@@ -290,6 +303,11 @@ _gtk_riscos_theme_init (GdkDisplay *display)
     return;
 
   css = make_css ();
+  /* one line in every program's log, so a report shows what was used */
+  g_printerr ("riscos-gtk: theme: Wimp colours %s; Wimp sprites %d of %d; window border sprites"
+              " %d of %d; %s%s\n", strstr (css, "@define-color") ? "yes" : "no",
+              pool_found, pool_asked, tool_found, tool_asked,
+              write_failed ? "COULDN'T WRITE the PNGs in " : "PNGs in ", dir ? dir : g_get_tmp_dir ());
   if (g_getenv ("RISCOS_GTK_DEBUG"))
     g_printerr ("riscos-gtk theme:\n%s", css);
   provider = gtk_css_provider_new ();
