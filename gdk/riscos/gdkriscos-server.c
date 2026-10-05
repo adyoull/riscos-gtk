@@ -58,7 +58,7 @@ enum {
   CLOSE_WINDOW_REQUEST = 3, POINTER_LEAVING_WINDOW = 4,
   POINTER_ENTERING_WINDOW = 5, MOUSE_CLICK = 6, KEY_PRESSED = 8,
   MENU_SELECTION = 9, SCROLL_REQUEST = 10, LOSE_CARET = 11, GAIN_CARET = 12,
-  USER_MESSAGE = 17, USER_MESSAGE_RECORDED = 18
+  USER_MESSAGE = 17, USER_MESSAGE_RECORDED = 18, USER_MESSAGE_ACKNOWLEDGE = 19
 };
 #define MESSAGE_QUIT        0
 #define MESSAGE_PREQUIT     8
@@ -410,10 +410,11 @@ gdk_button_for (int wimp_button)
 }
 
 /* Read the pointer and send motion, crossing and release events for what
-   changed since the last look. */
-static void
+   changed since the last look. TRUE if it sent any. */
+static gboolean
 track_pointer (GdkRiscosServer *server)
 {
+  guint32 serial = server->next_serial;
   int block[5];
   _kernel_swi_regs r;
   RiscosWindow *w;
@@ -422,7 +423,7 @@ track_pointer (GdkRiscosServer *server)
 
   r.r[1] = (int) block;
   if (swi (Wimp_GetPointerInfo, &r) != NULL)
-    return;
+    return FALSE;
   x = os_to_px_x (server, block[0]);
   y = os_to_px_y (server, block[1]);
   w = window_by_handle (server, block[3]);
@@ -459,6 +460,7 @@ track_pointer (GdkRiscosServer *server)
       }
   if (server->buttons == 0)
     server->press_window = 0;
+  return server->next_serial != serial;
 }
 
 /* RISC OS key code -> GDK keyval (0 = not one GDK should see) */
@@ -696,7 +698,7 @@ handle_open_request (GdkRiscosServer *server, int *block)
 }
 
 static void
-handle_message (GdkRiscosServer *server, int *block)
+handle_message (GdkRiscosServer *server, int reason, int *block)
 {
   switch (block[4])
     {
@@ -722,6 +724,8 @@ handle_message (GdkRiscosServer *server, int *block)
         }
       break;
     default:
+      /* the clipboard and data transfer (gdktransfer-riscos.c) */
+      _gdk_riscos_transfer_message (reason, block);
       break;
     }
 }
@@ -755,9 +759,9 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
   switch (r.r[0])
     {
     case NULL_REASON:
-      if (want_nulls (server))
-        track_pointer (server);
-      return FALSE;
+      /* motion (each one: a drag needs to see the pointer move, not
+         only where it ended up) */
+      return want_nulls (server) && track_pointer (server);
     case REDRAW_WINDOW_REQUEST:
       handle_redraw (server, block);
       return FALSE;                /* drawn here: nothing for GDK */
@@ -802,7 +806,11 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
       return TRUE;
     case USER_MESSAGE:
     case USER_MESSAGE_RECORDED:
-      handle_message (server, block);
+      handle_message (server, r.r[0], block);
+      return TRUE;
+    case USER_MESSAGE_ACKNOWLEDGE:
+      /* one of our recorded messages came back unanswered */
+      _gdk_riscos_transfer_message (r.r[0], block);
       return TRUE;
     case MENU_SELECTION:
       if (server->menu_block && server->menu_func)
@@ -882,7 +890,11 @@ static cairo_user_data_key_t _gdk_riscos_sprite_data_key;
 GdkRiscosServer *
 _gdk_riscos_server_new (const char *display, GError **error)
 {
-  static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED, 0 };
+  /* PreQuit, ModeChange, MenusDeleted; the data transfer protocol:
+     DataSave, DataSaveAck, DataLoad, DataLoadAck, RAMFetch, RAMTransmit,
+     ClaimEntity, DataRequest */
+  static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED,
+                                  1, 2, 3, 4, 6, 7, 0xF, 0x10, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;
@@ -1454,4 +1466,50 @@ void
 gdk_riscos_utf8_to_latin1 (const char *utf8, char *out, gint size)
 {
   utf8_to_latin1 (utf8, out, size);
+}
+
+/* ---- for gdktransfer-riscos.c ------------------------------------------- */
+
+int
+_gdk_riscos_server_get_task (GdkRiscosServer *server)
+{
+  return server->task;
+}
+
+guint32
+_gdk_riscos_server_id_for_handle (GdkRiscosServer *server, int handle)
+{
+  RiscosWindow *w = window_by_handle (server, handle);
+  return w ? w->id : 0;
+}
+
+/* The Wimp handle of the window with the caret, else any of ours */
+int
+_gdk_riscos_server_focus_handle (GdkRiscosServer *server)
+{
+  RiscosWindow *w = window_by_id (server, server->focus_window);
+  GHashTableIter iter;
+  gpointer value;
+
+  if (w)
+    return w->handle;
+  g_hash_table_iter_init (&iter, server->windows);
+  while (g_hash_table_iter_next (&iter, NULL, &value))
+    if (((RiscosWindow *) value)->visible)
+      return ((RiscosWindow *) value)->handle;
+  return 0;
+}
+
+void
+_gdk_riscos_server_os_to_px (GdkRiscosServer *server, int *x, int *y)
+{
+  *x = os_to_px_x (server, *x);
+  *y = os_to_px_y (server, *y);
+}
+
+void
+_gdk_riscos_server_screen_os_size (GdkRiscosServer *server, int *w, int *h)
+{
+  *w = server->screen_w << server->xeig;
+  *h = server->screen_h << server->yeig;
 }

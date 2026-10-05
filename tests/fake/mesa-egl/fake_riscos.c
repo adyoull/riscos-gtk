@@ -27,6 +27,26 @@ int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 int fake_pointer[3], fake_wheel, fake_menus_opened, fake_pointer_shape = 1;
 const int *fake_menu;
 int fake_menu_x, fake_menu_y, fake_menus_closed;
+/* Wimp messages: sent by the task (hook), queued for it (fake_queue_message) */
+void (*fake_message_hook)(int reason, int *block, int dest, int icon);
+int fake_dragbox_type = -1, fake_dragboxes;
+static int msg_queue[16][65], msg_queue_len, next_my_ref = 1000;
+
+void fake_queue_message(int reason, const int *block)
+{
+    int words = (block[0] + 3) / 4;
+    if (msg_queue_len >= 16) return;
+    if (words > 64) words = 64;
+    memset(msg_queue[msg_queue_len], 0, sizeof msg_queue[0]);
+    msg_queue[msg_queue_len][0] = reason;
+    memcpy(&msg_queue[msg_queue_len][1], block, words * 4);
+    msg_queue_len++;
+}
+
+int fake_new_ref(void)
+{
+    return next_my_ref++;
+}
 unsigned char fake_keys_down[128];
 int fake_log_menus;
 static int wimp_null_due, fake_wimp_title_window;
@@ -436,7 +456,12 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
             reason = 0; wimp_step++;
         } else {
             if (wimp_stage == 1) { wimp_stage = 2; wimp_step = 0; wimp_null_due = 0; }
-            if (wimp_null_due && !(r.r[0] & 1)) {
+            if (msg_queue_len) {             /* messages from other tasks first */
+                reason = msg_queue[0][0];
+                memcpy(block, &msg_queue[0][1], 64 * 4);
+                memmove(msg_queue[0], msg_queue[1], (size_t) (msg_queue_len - 1) * sizeof msg_queue[0]);
+                msg_queue_len--;
+            } else if (wimp_null_due && !(r.r[0] & 1)) {
                 reason = 0;                  /* a null event after each entry */
                 wimp_null_due = 0;
             } else if (wimp_step < fake_wimp_script_len) {
@@ -604,6 +629,21 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         e = error("OS_Plot code not faked");
         break;
     }
+    case 0x400E7:   /* Wimp_SendMessage: sender and my_ref filled in */
+        block = (int *) (long) r.r[1];
+        if (r.r[0] >= 17 && r.r[0] <= 19) {
+            block[1] = 0x4A00;
+            if (r.r[0] != 19) block[2] = next_my_ref++;
+        }
+        if (fake_message_hook) fake_message_hook(r.r[0], block, r.r[2], r.r[3]);
+        break;
+    case 0x400F1:   /* Wimp_TransferBlock: one address space here */
+        memcpy((void *) (long) (unsigned) r.r[3], (const void *) (long) (unsigned) r.r[1], (size_t) r.r[4]);
+        break;
+    case 0x400D0:   /* Wimp_DragBox */
+        if (r.r[1] == -1) fake_dragbox_type = -1;
+        else { fake_dragbox_type = ((int *) (long) r.r[1])[1]; fake_dragboxes++; }
+        break;
     case 0x400CA:   /* Wimp_GetRectangle: only ever one rectangle */
         r.r[0] = 0;
         full_clip();

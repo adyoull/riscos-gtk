@@ -297,3 +297,48 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
  }
  
  /**
+--- a/gtk/gtkdnd.c	2026-10-05 18:41:03.693007447 +0100
++++ b/gtk/gtkdnd.c	2026-10-05 18:41:03.706545490 +0100
+@@ -1704,6 +1704,15 @@
+  * If the caller passes out_needs_icon == NULL, it means that
+  * the caller does not care.
+  */
++static GdkDragContext *gtk_drag_begin_internal_real (GtkWidget *widget, gboolean *out_needs_icon,
++                                                      GtkTargetList *target_list, GdkDragAction actions,
++                                                      gint button, const GdkEvent *event, int x, int y);
++
++/* riscos-gtk: work on a copy of the event. Without a GDK-managed drag
++ * (gtk_drag_is_managed: only X11, Wayland and Win32 have one), the GTK
++ * grab added below cancels the source widget's gestures, which frees the
++ * event they passed in (GtkEntry's drag gesture passes its last event),
++ * and it was read after that (gdk_event_get_screen). */
+ GdkDragContext *
+ gtk_drag_begin_internal (GtkWidget           *widget,
+                          gboolean            *out_needs_icon,
+@@ -1714,6 +1723,26 @@
+                          int                  x,
+                          int                  y)
+ {
++  GdkEvent *copy = event ? gdk_event_copy (event) : NULL;
++  GdkDragContext *context;
++
++  context = gtk_drag_begin_internal_real (widget, out_needs_icon, target_list, actions,
++                                          button, copy, x, y);
++  if (copy)
++    gdk_event_free (copy);
++  return context;
++}
++
++static GdkDragContext *
++gtk_drag_begin_internal_real (GtkWidget           *widget,
++                              gboolean            *out_needs_icon,
++                              GtkTargetList       *target_list,
++                              GdkDragAction        actions,
++                              gint                 button,
++                              const GdkEvent      *event,
++                              int                  x,
++                              int                  y)
++{
+   GtkDragSourceInfo *info;
+   GList *targets = NULL;
+   GList *tmp_list;

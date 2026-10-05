@@ -52,7 +52,7 @@ riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
 | `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
-| `tests/gtk/` | The M2 test: hello.c (!GTKHello) and hellotest.c (the same on the fake Wimp) |
+| `tests/gtk/` | hello.c (!GTKHello) and hellotest.c; themetest.c (!GTKThemeTest) with themetest-fake.c (menus) and edittest-fake.c (text fields, clipboard, drag and drop) on the fake Wimp |
 | `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |
 
 ## Licence

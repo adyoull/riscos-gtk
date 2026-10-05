@@ -178,3 +178,21 @@ pass the app folder as an absolute path (as !Run does).
   the Wimp menu open when the same GtkMenu is popped up again, and never
   free a menu block straight after replacing or closing it (the Wimp acts
   on Wimp_CreateMenu at its next poll).
+
+## Selections, the clipboard and drag and drop (2026-10-05)
+- Broadway's selection code was stubs, so a GtkEntry's menu never opened:
+  it waits for the clipboard's TARGETS before popping up (30 s timeout).
+  convert_selection must always answer with a GDK_SELECTION_NOTIFY.
+- Without a GDK-managed drag (gtk_drag_is_managed: X11, Wayland, Win32),
+  gtk_drag_begin_internal's GTK grab cancels the source widget's gestures
+  and GtkEntry's trigger event is freed while still in use (a crash in
+  gdk_event_get_screen); patched to copy the event.
+- GTK's drag update runs in an idle (priority GDK_PRIORITY_REDRAW + 5) and
+  needs motion events as they happen. The backend's poll function used to
+  keep polling the Wimp after a null event that queued motion, so GDK
+  compressed a whole drag into its last motion; now it returns at once.
+- Wimp_DragBox's block layout isn't in the 2026 PRM text (only the SWI
+  page); the classic layout is used: +0 window, +4 type (5 = fixed size
+  box), +8 box x0 y0 x1 y1, +24 parent box.
+- RISCOS_GTK_DEBUG traces the clipboard and DnD messages
+  ("riscos-gtk transfer:", "riscos-gtk dnd:").

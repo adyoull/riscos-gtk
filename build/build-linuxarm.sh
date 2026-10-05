@@ -68,11 +68,22 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
 TT=$REPO_DIR/out/themetest-linuxarm
 rm -rf "$TT"; mkdir -p "$TT"
 
+# Text fields on the fake Wimp: their menu, the clipboard with other
+# tasks, dragging text in, out and between fields.
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/edittest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
+  -o "$REPO_DIR/out/edittest-fake-linuxarm" -Wl,--wrap=freopen \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+ET=$REPO_DIR/out/edittest-linuxarm
+rm -rf "$ET"; mkdir -p "$ET"
+
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 run themetest-fake "$HA" "$TT"
+run edittest-fake "$HA" "$ET"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"
 exit $failed

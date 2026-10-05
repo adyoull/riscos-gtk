@@ -85,5 +85,12 @@ extern const int *fake_menu;            /* the open Wimp_CreateMenu block (NULL 
 extern int fake_menu_x, fake_menu_y, fake_menus_closed;
 extern unsigned char fake_keys_down[128];
 extern int fake_log_menus;              /* print each menu opened to stderr */
+/* Wimp_SendMessage calls (after the fake fills in the sender, 0x4A00,
+   and my_ref), and messages from "other tasks" for Wimp_Poll to return
+   (reason 17/18/19, block) before the next script entry. */
+extern void (*fake_message_hook)(int reason, int *block, int dest, int icon);
+void fake_queue_message(int reason, const int *block);
+int fake_new_ref(void);                 /* a my_ref for a queued message */
+extern int fake_dragbox_type, fake_dragboxes;   /* Wimp_DragBox: type now (-1 none), calls */
 
 #endif

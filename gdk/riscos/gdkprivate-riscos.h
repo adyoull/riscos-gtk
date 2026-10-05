@@ -202,6 +202,42 @@ gboolean _gdk_riscos_window_simulate_button   (GdkWindow       *window,
 						 GdkEventType     button_pressrelease);
 void _gdk_riscos_window_resize_surface        (GdkWindow *window);
 
+/* riscos-gtk: RISC OS pointer shapes (gdkcursor-riscos.c, gdkriscos-server.c) */
+enum {
+  RISCOS_POINTER_DEFAULT, RISCOS_POINTER_TEXT, RISCOS_POINTER_HAND,
+  RISCOS_POINTER_H_RESIZE, RISCOS_POINTER_V_RESIZE, RISCOS_POINTER_NWSE_RESIZE,
+  RISCOS_POINTER_NESW_RESIZE, RISCOS_POINTER_CROSS, RISCOS_POINTER_MOVE,
+  RISCOS_POINTER_COUNT
+};
+int  _gdk_riscos_cursor_get_shape (GdkCursor *cursor);
+
+/* riscos-gtk: window properties (gdkproperty-riscos.c), selections
+   (gdkselection-riscos.c), the clipboard and data transfer with other
+   tasks (gdktransfer-riscos.c), drops from them (gdkdnd-riscos.c) */
+void     _gdk_riscos_property_set (GdkWindow *window, GdkAtom property, GdkAtom type,
+                                   gint format, const guchar *data, gint length,
+                                   gboolean append);
+gboolean _gdk_riscos_property_take (GdkWindow *window, GdkAtom property, gboolean delete,
+                                    GdkAtom *type, gint *format, guchar **data, gint *length);
+void     _gdk_riscos_properties_window_destroyed (GdkWindow *window);
+void     _gdk_riscos_selection_event (GdkEventType type, GdkWindow *window,
+                                      GdkWindow *requestor, GdkAtom selection,
+                                      GdkAtom target, GdkAtom property, guint32 time);
+void     _gdk_riscos_selection_lost (GdkDisplay *display, GdkAtom selection);
+void     _gdk_riscos_clipboard_claimed (void);
+gboolean _gdk_riscos_transfer_convert (GdkWindow *requestor, GdkAtom selection,
+                                       GdkAtom target, GdkAtom property);
+gboolean _gdk_riscos_transfer_notify (GdkWindow *requestor, GdkAtom selection,
+                                      GdkAtom target, GdkAtom property);
+GdkWindow *_gdk_riscos_transfer_window_at (GdkDisplay *display, int target[4]);
+gboolean _gdk_riscos_transfer_drag_box (gboolean start);
+gboolean _gdk_riscos_transfer_drop_foreign (GdkWindow *source, GdkAtom selection,
+                                            GList *targets, const int target[4]);
+void     _gdk_riscos_transfer_drop_done (gboolean success);
+void     _gdk_riscos_transfer_message (int reason, int *block);
+void     _gdk_riscos_dnd_incoming (GdkDisplay *display, GdkWindow *window,
+                                   gint x_root, gint y_root);
+
 void _gdk_riscos_cursor_update_theme (GdkCursor *cursor);
 void _gdk_riscos_cursor_display_finalize (GdkDisplay *display);
 

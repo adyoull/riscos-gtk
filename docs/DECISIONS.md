@@ -84,3 +84,16 @@ canvases) keep them. Programs without a menu bar get nothing on Menu
 unless they provide a context menu. RISCOS_GTK_MENUBAR restores the bar.
 Not handled yet: apps that fill a submenu only when its title is
 activated/selected (e.g. "recent files" built on demand).
+
+## Clipboard and drag and drop on the Wimp's data transfer protocol (2026-10-05)
+GTK's X-style selections stay as they are inside the program (GTK
+shortcuts a selection it owns itself). Between tasks the backend speaks
+the PRMs' protocol: CLIPBOARD = Message_ClaimEntity flags 4 and
+Message_DataRequest; data moves by RAM transfer, else <Wimp$Scrap>. A
+drag from GTK dropped on another task's window is a save to it
+(Message_DataSave), as from a RISC OS Save box; the Wimp draws a dashed
+drag box (Wimp_DragBox type 5) instead of GTK's drag icon window. Text on
+the Wimp side is Latin-1 (type &FFF). Paste is offered while another task
+may hold the clipboard (we can't know at start-up): if nobody answers the
+DataRequest, nothing is pasted. Not done yet: Message_Dragging /
+DragClaim (other tasks' drag previews), ReleaseEntity on quit, files.

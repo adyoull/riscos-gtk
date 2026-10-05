@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area, *tt_apply;
+GtkWidget *tt_entry, *tt_entry_empty;
 int tt_events;
 
 static void
@@ -252,12 +253,12 @@ page_buttons (void)
 
   /* fields */
   col = vbox (6);
-  w = gtk_entry_new ();
+  tt_entry = w = gtk_entry_new ();
   gtk_entry_set_text (GTK_ENTRY (w), "Accounts2026/csv");
   g_signal_connect (w, "activate", G_CALLBACK (on_entry_activate), "Writable");
   gtk_widget_set_tooltip_text (w, "A writable icon (R7): click and type");
   gtk_box_pack_start (GTK_BOX (col), labelled ("Writable", w), FALSE, FALSE, 0);
-  w = gtk_entry_new ();
+  tt_entry_empty = w = gtk_entry_new ();
   gtk_entry_set_placeholder_text (GTK_ENTRY (w), "Type here");
   g_signal_connect (w, "activate", G_CALLBACK (on_entry_activate), "Empty");
   gtk_box_pack_start (GTK_BOX (col), labelled ("Empty", w), FALSE, FALSE, 0);

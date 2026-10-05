@@ -67,6 +67,7 @@ _gdk_riscos_selection_window_destroyed (GdkWindow *window)
 	  g_free (info);
 	}
     }
+  _gdk_riscos_properties_window_destroyed (window);
 }
 
 gboolean
@@ -104,9 +105,54 @@ _gdk_riscos_display_set_selection_owner (GdkDisplay *display,
       info->selection = selection;
 
       owner_list = g_slist_prepend (owner_list, info);
+
+      /* riscos-gtk: the RISC OS clipboard is ours now */
+      if (selection == GDK_SELECTION_CLIPBOARD)
+        _gdk_riscos_clipboard_claimed ();
     }
 
   return TRUE;
+}
+
+/* riscos-gtk: another task claimed the clipboard (Message_ClaimEntity):
+   GTK's owner loses it. */
+void
+_gdk_riscos_selection_lost (GdkDisplay *display, GdkAtom selection)
+{
+  GdkWindow *owner = _gdk_riscos_display_get_selection_owner (display, selection);
+  GdkEvent *event;
+
+  if (owner == NULL)
+    return;
+  _gdk_riscos_display_set_selection_owner (display, NULL, selection, GDK_CURRENT_TIME, FALSE);
+  event = gdk_event_new (GDK_SELECTION_CLEAR);
+  event->selection.window = g_object_ref (owner);
+  event->selection.selection = selection;
+  event->selection.time = GDK_CURRENT_TIME;
+  gdk_event_put (event);
+  gdk_event_free (event);
+}
+
+/* riscos-gtk: queue a selection event, as an X server would send it */
+void
+_gdk_riscos_selection_event (GdkEventType type,
+                             GdkWindow   *window,
+                             GdkWindow   *requestor,
+                             GdkAtom      selection,
+                             GdkAtom      target,
+                             GdkAtom      property,
+                             guint32      time)
+{
+  GdkEvent *event = gdk_event_new (type);
+
+  event->selection.window = g_object_ref (window);
+  event->selection.requestor = requestor ? g_object_ref (requestor) : NULL;
+  event->selection.selection = selection;
+  event->selection.target = target;
+  event->selection.property = property;
+  event->selection.time = time;
+  gdk_event_put (event);
+  gdk_event_free (event);
 }
 
 GdkWindow *
@@ -131,6 +177,12 @@ _gdk_riscos_display_get_selection_owner (GdkDisplay *display,
   return NULL;
 }
 
+/* riscos-gtk: GTK asks for a selection's value (as X's ConvertSelection).
+   It answers with a GDK_SELECTION_NOTIFY to the requestor, the value in
+   its "GDK_SELECTION" property. A selection owned in this program (drag
+   and drop between its widgets) goes to the owner as a selection request;
+   the clipboard and data dropped from another task come over the Wimp's
+   data transfer protocol (gdktransfer-riscos.c). */
 void
 _gdk_riscos_display_convert_selection (GdkDisplay *display,
 					 GdkWindow *requestor,
@@ -138,7 +190,15 @@ _gdk_riscos_display_convert_selection (GdkDisplay *display,
 					 GdkAtom    target,
 					 guint32    time)
 {
-  g_warning ("convert_selection not implemented");
+  GdkWindow *owner = _gdk_riscos_display_get_selection_owner (display, selection);
+  GdkAtom property = gdk_atom_intern_static_string ("GDK_SELECTION");
+
+  if (owner)
+    _gdk_riscos_selection_event (GDK_SELECTION_REQUEST, owner, requestor,
+                                 selection, target, property, time);
+  else if (!_gdk_riscos_transfer_convert (requestor, selection, target, property))
+    _gdk_riscos_selection_event (GDK_SELECTION_NOTIFY, requestor, NULL,
+                                 selection, target, GDK_NONE, time);
 }
 
 gint
@@ -148,16 +208,24 @@ _gdk_riscos_display_get_selection_property (GdkDisplay *display,
 					      GdkAtom    *ret_type,
 					      gint       *ret_format)
 {
+  gint length = 0;
+  GdkAtom type = GDK_NONE;
+  gint format = 0;
+  guchar *value = NULL;
+
+  if (!_gdk_riscos_property_take (requestor, gdk_atom_intern_static_string ("GDK_SELECTION"),
+                                  TRUE, &type, &format, &value, &length))
+    length = 0;
   if (ret_type)
-    *ret_type = GDK_NONE;
+    *ret_type = type;
   if (ret_format)
-    *ret_format = 0;
+    *ret_format = format;
   if (data)
-    *data = NULL;
+    *data = value;
+  else
+    g_free (value);
 
-  g_warning ("get_selection_property not implemented");
-
-  return 0;
+  return length;
 }
 
 void
@@ -170,7 +238,11 @@ _gdk_riscos_display_send_selection_notify (GdkDisplay      *display,
 {
   g_return_if_fail (GDK_IS_DISPLAY (display));
 
-  g_warning ("send_selection_notify not implemented");
+  /* the reply to a request made for another task? */
+  if (_gdk_riscos_transfer_notify (requestor, selection, target, property))
+    return;
+  _gdk_riscos_selection_event (GDK_SELECTION_NOTIFY, requestor, NULL,
+                               selection, target, property, time);
 }
 
 

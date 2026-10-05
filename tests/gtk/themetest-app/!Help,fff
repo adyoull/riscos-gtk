@@ -1,4 +1,4 @@
-GTKThemeTest 0.5 - riscos-gtk theme test
+GTKThemeTest 0.6 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -22,6 +22,22 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.6: text fields and the clipboard.
+- Menu on a text field gives its Cut / Copy / Paste / Delete / Select All
+  menu (before 0.6 it didn't open).
+- Copy and Cut put the text on the RISC OS clipboard, so Paste works in
+  other programs (Edit, StrongED...), and Paste here takes what another
+  program copied. RISC OS text is Latin-1: characters outside it become ?.
+- Select some text and drag it with Select: into another field here (a
+  copy), onto another program's window (it's saved there, as if dragged
+  from a Save box), or onto a Filer window (saved as a text file called
+  TextFile). The Wimp shows a dashed box while you drag.
+- Text dragged into this window from another program, or a text file
+  dropped from the Filer, goes into the field under the pointer.
+- Adjust in a text field no longer pastes (an X Window habit).
+*Set RISCOS_GTK_DEBUG 1 before running also logs the clipboard and
+drag and drop messages.
 
 New in 0.5: menus the RISC OS way. There is no menu bar in the window:
 click Menu (the middle button) anywhere in the window for the program's
@@ -47,8 +63,9 @@ arrow. A click elsewhere or Escape closes a menu; choosing with Adjust
 keeps it open (try View > Show grid with Adjust).
 
 Known, not done yet:
-- No clipboard between programs yet, no drag and drop, pointer shapes
-  are the normal arrow.
+- Pointer shapes are the normal arrow. Drag and drop of files (Save
+  boxes, loading files other than text) is next.
+- Insert Emoji (in a text field's menu) isn't made for RISC OS yet.
 - Menus have no keyboard navigation of the menu bar itself (F10).
 
 Needs SharedUnixLibrary 1.16+ and ARMEABISupport (PackMan), and a 32bpp

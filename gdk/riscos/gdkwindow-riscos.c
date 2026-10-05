@@ -437,6 +437,10 @@ gdk_window_riscos_show (GdkWindow *window, gboolean already_mapped)
     _gdk_make_event (GDK_WINDOW (window), GDK_MAP, NULL, FALSE);
 
   riscos_display = GDK_RISCOS_DISPLAY (gdk_window_get_display (window));
+  /* riscos-gtk: GTK's drag icon isn't shown: the Wimp draws a dashed box
+     while dragging (gdkdnd-riscos.c), as RISC OS programs do */
+  if (impl->type_hint == GDK_WINDOW_TYPE_HINT_DND)
+    return;
   if (_gdk_riscos_server_window_show (riscos_display->server, impl->id))
     queue_flush (window);
 
@@ -579,12 +583,13 @@ static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)
 {
+  GDK_WINDOW_IMPL_RISCOS (window->impl)->type_hint = hint;
 }
 
 static GdkWindowTypeHint
 gdk_riscos_window_get_type_hint (GdkWindow *window)
 {
-  return GDK_WINDOW_TYPE_HINT_NORMAL;
+  return GDK_WINDOW_IMPL_RISCOS (window->impl)->type_hint;
 }
 
 static void

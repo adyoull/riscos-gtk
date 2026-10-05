@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased (M3: text fields, the clipboard, dragging text; GTKThemeTest 0.6, 2026-10-05)
+- Pi report: text fields had no Cut/Copy/Paste menu, and dragging text
+  did nothing. GtkEntry/GtkTextView open their menu only after asking the
+  clipboard for its TARGETS; the backend's convert_selection was a stub,
+  so the answer never came (GTK gives up after 30 s). Selections now work:
+  window properties are kept in memory (gdkproperty-riscos.c), a
+  conversion goes to an owner in this program as a selection request, and
+  the answer comes back as a selection notify.
+- The RISC OS clipboard (gdktransfer-riscos.c): Copy/Cut broadcasts
+  Message_ClaimEntity; another task's claim clears GTK's owner. Paste
+  from another task: Message_DataRequest, DataSave, RAMFetch/RAMTransmit
+  (or DataSaveAck/<Wimp$Scrap>/DataLoad). Another task pasting ours: its
+  DataRequest gets DataSave, then RAM transfer or a file. Latin-1 <-> UTF-8.
+- Drag and drop: between our widgets in-process (as GDK's Win32 "local"
+  protocol); onto another task's window, icon bar or Filer window, the
+  text is saved there with Message_DataSave; text saved into our window by
+  another task (DataSave) or a text file from the Filer (DataLoad &FFF) is
+  dropped into the widget under the pointer. Wimp_DragBox (dashed box)
+  while dragging; GTK's drag icon window is not shown.
+- GTK patch: gtk_drag_begin_internal works on a copy of the trigger event
+  (without a GDK-managed drag, its own grab cancelled GtkEntry's gesture,
+  which freed the event, and it was read afterwards).
+- Backend: each pointer motion is handed to GLib at once (it was queued
+  until a non-null Wimp event, so GTK only saw where a drag ended up).
+- gtk-enable-primary-paste off: Adjust no longer pastes X's PRIMARY.
+- edittest-fake (new, 17 checks): the field's menu, Copy to and Paste from
+  another task, dragging text out, between fields, and in. The fake Wimp
+  has Wimp_SendMessage (with a hook), queued messages from "other tasks",
+  Wimp_TransferBlock and Wimp_DragBox. hellotest gives GTK's frame clock
+  real time after the toggle-size request (it could fail under load).
+- Groundwork for pointer shapes: GDK cursor names map to RISC OS shapes
+  (not applied yet).
+
 ## Unreleased (M3: the window menu; GTKThemeTest 0.5, 2026-10-05)
 - Owner: GTK programs should use menus as RISC OS does, Menu anywhere.
   A GtkMenuBar now takes no room and draws nothing (gtkmenubar.c patch);

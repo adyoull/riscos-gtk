@@ -42,7 +42,66 @@
 struct _GdkRiscosCursor
 {
   GdkCursor cursor;
+  int shape;                  /* riscos-gtk: RISCOS_POINTER_* */
 };
+
+/* riscos-gtk: the RISC OS pointer for a GTK cursor name (GTK 3 uses CSS
+   names) or an old X cursor type */
+static const struct { const char *name; int shape; } pointer_names[] = {
+  { "text", RISCOS_POINTER_TEXT }, { "vertical-text", RISCOS_POINTER_TEXT },
+  { "xterm", RISCOS_POINTER_TEXT },
+  { "pointer", RISCOS_POINTER_HAND }, { "hand1", RISCOS_POINTER_HAND },
+  { "hand2", RISCOS_POINTER_HAND },
+  { "ew-resize", RISCOS_POINTER_H_RESIZE }, { "col-resize", RISCOS_POINTER_H_RESIZE },
+  { "e-resize", RISCOS_POINTER_H_RESIZE }, { "w-resize", RISCOS_POINTER_H_RESIZE },
+  { "sb_h_double_arrow", RISCOS_POINTER_H_RESIZE },
+  { "ns-resize", RISCOS_POINTER_V_RESIZE }, { "row-resize", RISCOS_POINTER_V_RESIZE },
+  { "n-resize", RISCOS_POINTER_V_RESIZE }, { "s-resize", RISCOS_POINTER_V_RESIZE },
+  { "sb_v_double_arrow", RISCOS_POINTER_V_RESIZE },
+  { "nwse-resize", RISCOS_POINTER_NWSE_RESIZE }, { "nw-resize", RISCOS_POINTER_NWSE_RESIZE },
+  { "se-resize", RISCOS_POINTER_NWSE_RESIZE },
+  { "nesw-resize", RISCOS_POINTER_NESW_RESIZE }, { "ne-resize", RISCOS_POINTER_NESW_RESIZE },
+  { "sw-resize", RISCOS_POINTER_NESW_RESIZE },
+  { "crosshair", RISCOS_POINTER_CROSS }, { "cell", RISCOS_POINTER_CROSS },
+  { "cross", RISCOS_POINTER_CROSS }, { "tcross", RISCOS_POINTER_CROSS },
+  { "move", RISCOS_POINTER_MOVE }, { "all-scroll", RISCOS_POINTER_MOVE },
+  { "grab", RISCOS_POINTER_MOVE }, { "grabbing", RISCOS_POINTER_MOVE },
+  { "fleur", RISCOS_POINTER_MOVE },
+};
+
+static int
+shape_for_name (const char *name)
+{
+  guint i;
+  for (i = 0; name && i < G_N_ELEMENTS (pointer_names); i++)
+    if (strcmp (name, pointer_names[i].name) == 0)
+      return pointer_names[i].shape;
+  return RISCOS_POINTER_DEFAULT;
+}
+
+static int
+shape_for_type (GdkCursorType type)
+{
+  switch (type)
+    {
+    case GDK_XTERM: return RISCOS_POINTER_TEXT;
+    case GDK_HAND1: case GDK_HAND2: return RISCOS_POINTER_HAND;
+    case GDK_SB_H_DOUBLE_ARROW: case GDK_LEFT_SIDE: case GDK_RIGHT_SIDE: return RISCOS_POINTER_H_RESIZE;
+    case GDK_SB_V_DOUBLE_ARROW: case GDK_TOP_SIDE: case GDK_BOTTOM_SIDE: return RISCOS_POINTER_V_RESIZE;
+    case GDK_TOP_LEFT_CORNER: case GDK_BOTTOM_RIGHT_CORNER: return RISCOS_POINTER_NWSE_RESIZE;
+    case GDK_TOP_RIGHT_CORNER: case GDK_BOTTOM_LEFT_CORNER: return RISCOS_POINTER_NESW_RESIZE;
+    case GDK_CROSSHAIR: case GDK_CROSS: case GDK_TCROSS: return RISCOS_POINTER_CROSS;
+    case GDK_FLEUR: return RISCOS_POINTER_MOVE;
+    default: return RISCOS_POINTER_DEFAULT;
+    }
+}
+
+int
+_gdk_riscos_cursor_get_shape (GdkCursor *cursor)
+{
+  return cursor && GDK_IS_RISCOS_CURSOR (cursor) ? ((GdkRiscosCursor *) cursor)->shape
+                                                 : RISCOS_POINTER_DEFAULT;
+}
 
 struct _GdkRiscosCursorClass
 {
@@ -99,6 +158,7 @@ _gdk_riscos_display_get_cursor_for_type (GdkDisplay    *display,
                           "cursor-type", cursor_type,
                           "display", display,
 			  NULL);
+  private->shape = shape_for_type (cursor_type);
 
   return GDK_CURSOR (private);
 }
@@ -147,6 +207,7 @@ _gdk_riscos_display_get_cursor_for_name (GdkDisplay  *display,
                           "cursor-type", GDK_CURSOR_IS_PIXMAP,
                           "display", display,
                           NULL);
+  private->shape = shape_for_name (name);
 
   return GDK_CURSOR (private);
 }

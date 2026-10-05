@@ -83,6 +83,18 @@ void               _gdk_riscos_server_window_set_title         (GdkRiscosServer 
 void               _gdk_riscos_server_get_screen_size          (GdkRiscosServer    *server,
 								  int                *width,
 								  int                *height);
+/* riscos-gtk: for gdktransfer-riscos.c */
+int                _gdk_riscos_server_get_task                 (GdkRiscosServer    *server);
+guint32            _gdk_riscos_server_id_for_handle            (GdkRiscosServer    *server,
+                                                                int                 handle);
+int                _gdk_riscos_server_focus_handle             (GdkRiscosServer    *server);
+void               _gdk_riscos_server_os_to_px                 (GdkRiscosServer    *server,
+                                                                int                *x,
+                                                                int                *y);
+void               _gdk_riscos_server_screen_os_size           (GdkRiscosServer    *server,
+                                                                int                *w,
+                                                                int                *h);
+
 /* The sprite area behind a surface from _gdk_riscos_server_create_surface */
 extern cairo_user_data_key_t _gdk_riscos_sprite_key;
 

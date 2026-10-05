@@ -115,6 +115,9 @@ hook (int reason)
       add (2, (900 * 2) | ((500 * 2) << 16), 0, 0);
       for (x = 0; x < 30; x++)
         add (FAKE_NULL, 0, 0, 0);
+      /* GTK's frame clock runs on real time: give it some */
+      for (x = 0; x < 10; x++)
+        add (FAKE_SLEEP, 20, 0, 0);
       /* then the fake sends Close_Window_Request */
     }
 }

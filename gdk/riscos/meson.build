@@ -15,6 +15,7 @@ gdk_riscos_sources = files(
   'gdkscreen-riscos.c',
   'gdkselection-riscos.c',
   'gdktestutils-riscos.c',
+  'gdktransfer-riscos.c',
   'gdkvisual-riscos.c',
   'gdkwindow-riscos.c',
   'gdkriscos-server.c',

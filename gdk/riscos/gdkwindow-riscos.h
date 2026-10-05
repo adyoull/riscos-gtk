@@ -62,6 +62,7 @@ struct _GdkWindowImplRiscos
 
   gboolean visible;
   gboolean maximized;
+  GdkWindowTypeHint type_hint;
   int transient_for;
 
   int pre_maximize_x;

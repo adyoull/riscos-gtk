@@ -240,7 +240,8 @@ gdk_riscos_screen_get_setting (GdkScreen   *screen,
    *     the default desktop font, Homerton.Medium 12pt;
    *   - the RISCOS theme (shipped in the app's share/themes/RISCOS);
    *   - no animations, real scroll bars, no header bars in dialogs (the
-   *     Wimp gives every window its own title bar). */
+   *     Wimp gives every window its own title bar);
+   *   - Adjust doesn't paste (X's middle-button paste). */
   static const struct { const char *name; const char *s; int i; } defaults[] = {
     { "gtk-theme-name", "RISCOS", 0 },
     { "gtk-font-name", "DejaVu Sans 12", 0 },
@@ -257,6 +258,9 @@ gdk_riscos_screen_get_setting (GdkScreen   *screen,
     { "gtk-cursor-blink", NULL, 0 },
     { "gtk-menu-images", NULL, 0 },
     { "gtk-button-images", NULL, 0 },
+    /* Adjust (GDK's middle button) mustn't paste the X-style PRIMARY
+       selection into text: there's no such thing on RISC OS */
+    { "gtk-enable-primary-paste", NULL, 0 },
   };
   guint k;
 
