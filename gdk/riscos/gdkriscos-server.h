@@ -95,6 +95,10 @@ void               _gdk_riscos_server_window_set_pointer       (GdkRiscosServer 
 void               _gdk_riscos_server_window_set_furniture     (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 unsigned            furniture);
+gboolean           _gdk_riscos_server_window_get_grip          (GdkRiscosServer    *server,
+                                                                 gint                id,
+                                                                 int                *width,
+                                                                 int                *height);
 void               _gdk_riscos_server_window_set_as_menu       (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 gboolean            as_menu);

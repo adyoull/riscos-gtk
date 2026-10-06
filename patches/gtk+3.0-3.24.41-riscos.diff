@@ -99,6 +99,76 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      error('\'file\' print backed needs to be enabled')
    endif
  else
+--- a/gtk/gtkbuilder.c	2026-10-06 17:45:16.679192845 +0100
++++ b/gtk/gtkbuilder.c	2026-10-06 17:45:16.708830825 +0100
+@@ -401,6 +401,45 @@
+   return g_string_free (symbol_name, FALSE);
+ }
+ 
++#ifdef GDK_WINDOWING_RISCOS
++/* RISC OS programs are linked statically and can't look up symbols in
++ * themselves, so the types GtkBuilder files name from outside GTK (GTK's
++ * own are registered by gtk_test_register_all_types) are listed here.
++ */
++static const struct {
++  const gchar *name;
++  GTypeGetFunc func;
++} riscos_builder_types[] = {
++  { "PangoFontFamily", pango_font_family_get_type },
++  { "PangoFontFace", pango_font_face_get_type },
++  { "PangoFontDescription", pango_font_description_get_type },
++  { "PangoAttrList", pango_attr_list_get_type },
++  { "PangoTabArray", pango_tab_array_get_type },
++  { "GdkPixbuf", gdk_pixbuf_get_type },
++  { "GAppInfo", g_app_info_get_type },
++  { "GIcon", g_icon_get_type },
++  { "GThemedIcon", g_themed_icon_get_type },
++  { "GFileIcon", g_file_icon_get_type },
++  { "GEmblemedIcon", g_emblemed_icon_get_type },
++  { "GFile", g_file_get_type },
++  { "GFileInfo", g_file_info_get_type },
++  { "GMenu", g_menu_get_type },
++  { "GMenuModel", g_menu_model_get_type },
++  { "GListModel", g_list_model_get_type },
++  { "GListStore", g_list_store_get_type },
++  { "GSimpleAction", g_simple_action_get_type },
++  { "GSimpleActionGroup", g_simple_action_group_get_type },
++  { "GApplication", g_application_get_type },
++  { "GCancellable", g_cancellable_get_type },
++  { "GSettings", g_settings_get_type },
++  { "GBinding", g_binding_get_type },
++  { "GStrv", g_strv_get_type },
++  { "GDate", g_date_get_type },
++  { "GDateTime", g_date_time_get_type },
++  { "GVariant", g_variant_get_gtype },
++};
++#endif
++
+ static GType
+ _gtk_builder_resolve_type_lazily (const gchar *name)
+ {
+@@ -409,12 +448,20 @@
+   gchar *symbol;
+   GType gtype = G_TYPE_INVALID;
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  guint i;
++
++  for (i = 0; i < G_N_ELEMENTS (riscos_builder_types); i++)
++    if (strcmp (name, riscos_builder_types[i].name) == 0)
++      return riscos_builder_types[i].func ();
++#endif
++
+   if (!module)
+     module = g_module_open (NULL, 0);
+ 
+   symbol = type_name_mangle (name);
+ 
+-  if (g_module_symbol (module, symbol, (gpointer)&func))
++  if (module && g_module_symbol (module, symbol, (gpointer)&func))
+     gtype = func ();
+ 
+   g_free (symbol);
 --- a/gtk/gtkcalendar.c	2026-10-06 16:51:03.112128143 +0100
 +++ b/gtk/gtkcalendar.c	2026-10-06 16:51:36.495658243 +0100
 @@ -72,6 +72,10 @@

@@ -180,3 +180,12 @@ context menu would take the click): in a window with a menu, Menu over a
 multi-line text view now gives the program's menu, as RISC OS editors do;
 single-line fields keep their Cut/Copy/Paste menu. Printing is off until
 GTK has a RISC OS print route.
+
+## A drawn size grip, not Wimp scroll bars (2026-10-06)
+The Wimp draws its Adjust Size icon only in the scroll bar column, and GTK
+windows have no Wimp scroll bars. Owner's choice (of: drawn grip / a real,
+empty Wimp scroll bar column beside GTK's own): resizable document windows
+get the desktop's `sicon` sprite drawn in the corner of the work area, and
+a press there starts the Wimp's own size drag. GTK scroll bars that run
+into the corner stop short of it. Dialogue boxes get none (as on RISC OS);
+they keep the toggle size icon.

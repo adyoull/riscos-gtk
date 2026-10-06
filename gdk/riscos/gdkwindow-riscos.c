@@ -650,6 +650,37 @@ gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient)
                                          impl->id, transient);
 }
 
+/**
+ * gdk_riscos_window_get_size_grip:
+ * @window: a toplevel
+ * @width: (out): the grip's width in pixels
+ * @height: (out): its height
+ *
+ * A resizable document window (not a dialogue box) has a size grip (the
+ * desktop's Adjust Size icon sprite) drawn in its bottom right corner.
+ *
+ * Returns: %TRUE if @window has one
+ */
+gboolean
+gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height)
+{
+  GdkWindowImplRiscos *impl;
+  int w = 0, h = 0;
+  gboolean has;
+
+  g_return_val_if_fail (GDK_IS_WINDOW (window), FALSE);
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return FALSE;
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  has = _gdk_riscos_server_window_get_grip (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                            impl->id, &w, &h);
+  if (width)
+    *width = w;
+  if (height)
+    *height = h;
+  return has;
+}
+
 static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)

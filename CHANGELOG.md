@@ -1,6 +1,31 @@
 # Changelog
 
-## Unreleased (!L3afpad 0.1, GTKThemeTest 0.25, 2026-10-06)
+## Unreleased (!L3afpad 0.2, GTKThemeTest 0.26, 2026-10-06)
+- **Options > Font crashed !L3afpad** (owner's Log: "Unknown type
+  PangoFontFamily specified in treemodel model", then an EMT trap).
+  GtkBuilder finds types it hasn't seen by looking up `*_get_type` in the
+  program with GModule, which a statically linked RISC OS program can't
+  do; GTK's own types are covered by gtk_test_register_all_types, but the
+  font chooser's list store names Pango types. GTK patch (gtkbuilder.c):
+  on RISC OS, a table of the Pango, GdkPixbuf and GIO types builder files
+  name (PangoFontFamily/Face, GAppInfo, GIcon, GFile, GMenu...).
+- **Size grip** (owner: "the draggable corner in the bottom right"). The
+  Wimp only puts its Adjust Size icon where a window's scroll bars meet,
+  and GTK windows have no Wimp scroll bars. Resizable document windows
+  (not dialogue boxes) now show the desktop's own size icon sprite
+  (`sicon`, from the window border sprites; a plain ridged corner if
+  there isn't one) in the work area's bottom right corner; Select or
+  Adjust on it starts the Wimp's own size drag (Wimp_DragBox 2), Select
+  bringing the window to the front. A GTK scroll bar running into that
+  corner is given a margin so it stops above (or beside) the grip, as a
+  Wimp scroll bar stops at the Adjust Size icon (gtkriscostheme.c).
+  New `gdk_riscos_window_get_size_grip()`. `RISCOS_GTK_SIZE_GRIP=0` turns
+  it off.
+- Tests: l3afpad-fake 15 (font dialogue opens and lists fonts; grip drawn,
+  starts DragBox 2 without a GTK click; scroll bar ends above it; no grip
+  on a dialogue). Fake Wimp has `sicon`/`psicon` tool sprites.
+
+## !L3afpad 0.1, GTKThemeTest 0.25 (2026-10-06)
 - 0.24 confirmed on the Pi (owner's photo of the Log: no warnings left,
   icons from sprites 25 of 25).
 - **!L3afpad 0.1**: L3afpad 0.8.18.1.11 (GPL-2+; Ubuntu universe source),

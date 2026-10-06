@@ -40,6 +40,9 @@
 #include "gtkstyleprovider.h"
 #include "gtkicontheme.h"
 #include "gtksettings.h"
+#include "gtkscrollbar.h"
+#include "gtkorientable.h"
+#include "gtkwindow.h"
 
 #include "riscos/gdkriscos.h"
 #include <glib/gstdio.h>
@@ -458,6 +461,99 @@ icons_init (GdkDisplay *display)
     }
 }
 
+/* The size grip (gdkriscos-server.c) is drawn over the window's bottom
+   right corner. A scroll bar that runs into that corner stops short of
+   it, as a Wimp scroll bar stops at the Adjust Size icon: a vertical one
+   gets a bottom margin, a horizontal one an end margin, so that it ends
+   at the grip's edge.
+   Checked after a window's scroll bars have been given their places. */
+#define GRIP_MARGIN_KEY "riscos-gtk-grip-margin"
+
+static void
+fit_scrollbar (GtkWidget *bar, gpointer data)
+{
+  GtkWidget *top = data;
+  int gw = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-w"));
+  int gh = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-h"));
+  int ours = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (bar), GRIP_MARGIN_KEY));
+  int ww = gtk_widget_get_allocated_width (top), wh = gtk_widget_get_allocated_height (top);
+  gboolean vertical = gtk_orientable_get_orientation (GTK_ORIENTABLE (bar)) == GTK_ORIENTATION_VERTICAL;
+  GtkAllocation a;
+  int x, y, want, margin;
+
+  if (!gtk_widget_get_mapped (bar) || !gtk_widget_translate_coordinates (bar, top, 0, 0, &x, &y))
+    return;
+  gtk_widget_get_allocation (bar, &a);
+  margin = vertical ? gtk_widget_get_margin_bottom (bar) : gtk_widget_get_margin_end (bar);
+  /* where the bar would end without our margin */
+  if (vertical)
+    want = gw > 0 && x + a.width > ww - gw ? y + a.height + ours - (wh - gh) : 0;
+  else
+    want = gw > 0 && y + a.height > wh - gh ? x + a.width + ours - (ww - gw) : 0;
+  /* only a bar that runs into the corner, not one that ends well above */
+  if (want <= 0 || want > (vertical ? gh : gw))
+    want = 0;
+  if (want == ours)
+    return;
+  margin = MAX (0, margin - ours + want);
+  g_object_set_data (G_OBJECT (bar), GRIP_MARGIN_KEY, GINT_TO_POINTER (want));
+  if (vertical)
+    gtk_widget_set_margin_bottom (bar, margin);
+  else
+    gtk_widget_set_margin_end (bar, margin);
+}
+
+static void
+find_scrollbars (GtkWidget *w, gpointer top)
+{
+  if (GTK_IS_SCROLLBAR (w))
+    fit_scrollbar (w, top);
+  else if (GTK_IS_CONTAINER (w))
+    gtk_container_forall (GTK_CONTAINER (w), find_scrollbars, top);
+}
+
+static gboolean
+grip_check (gpointer data)
+{
+  GtkWidget *top = data;
+  GdkWindow *win = gtk_widget_get_window (top);
+  int gw = 0, gh = 0;
+
+  g_object_set_data (G_OBJECT (top), "riscos-gtk-grip-pending", NULL);
+  if (win && gtk_widget_get_realized (top))
+    {
+      if (!gdk_riscos_window_get_size_grip (win, &gw, &gh))
+        gw = gh = 0;
+      g_object_set_data (G_OBJECT (top), "riscos-gtk-grip-w", GINT_TO_POINTER (gw));
+      g_object_set_data (G_OBJECT (top), "riscos-gtk-grip-h", GINT_TO_POINTER (gh));
+      gtk_container_forall (GTK_CONTAINER (top), find_scrollbars, top);
+    }
+  g_object_unref (top);
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+grip_hook (GSignalInvocationHint *hint, guint n, const GValue *params, gpointer data)
+{
+  GtkWidget *w = g_value_get_object (&params[0]);
+
+  if (GTK_IS_WINDOW (w) && !g_object_get_data (G_OBJECT (w), "riscos-gtk-grip-pending"))
+    {
+      g_object_set_data (G_OBJECT (w), "riscos-gtk-grip-pending", GINT_TO_POINTER (1));
+      g_idle_add_full (G_PRIORITY_HIGH_IDLE + 10, grip_check, g_object_ref (w), NULL);
+    }
+  return TRUE;
+}
+
+static void
+grip_init (void)
+{
+  if (g_strcmp0 (g_getenv ("RISCOS_GTK_SIZE_GRIP"), "0") == 0)
+    return;
+  g_signal_add_emission_hook (g_signal_lookup ("size-allocate", GTK_TYPE_WIDGET), 0,
+                              grip_hook, NULL, NULL);
+}
+
 void
 _gtk_riscos_theme_init (GdkDisplay *display)
 {
@@ -470,6 +566,7 @@ _gtk_riscos_theme_init (GdkDisplay *display)
   if (done || display == NULL || !GDK_IS_RISCOS_DISPLAY (display))
     return;
   done = TRUE;
+  grip_init ();
   if (env && strcmp (env, "0") == 0)
     return;
 

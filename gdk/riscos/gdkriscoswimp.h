@@ -67,6 +67,7 @@ void       gdk_riscos_window_set_load_func (GdkWindow *window,
  * gets a delete event. */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient);
+gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height);
 
 /* A Wimp error box (Wimp_ReportError, OK button) saying message,
  * "Message from" the program. */

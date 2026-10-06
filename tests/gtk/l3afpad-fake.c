@@ -32,6 +32,10 @@ static char typed[256], menu_titles[8][32], file_menu[16][48], title_after_save[
 static int n_titles, n_file_items, save_as_index = -1, save_ds_seen, save_ds_type, save_dl_seen;
 static char save_ds_leaf[64], save_target[512], save_target_ro[512], drop_file[512], drop_file_ro[512];
 static int save_box_seen, drop_ack, quit_asked;
+static int font_index = -1, options_index = -1, font_dialog_seen, font_families;
+static unsigned int grip_pixel, grip_drag_type = -1, grip_presses_before, grip_presses_after;
+static int font_dialog_grip = -1;
+static int presses, bar_bottom = -1, win_h, grip_h_px;
 
 static void
 check (int ok, const char *name)
@@ -276,6 +280,26 @@ shot (const char *name)
 
 /* ---- the steps ---- */
 
+static GtkWidget *
+font_dialog (void)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  GtkWidget *d = NULL;
+
+  for (l = tops; l; l = l->next)
+    if (GTK_IS_FONT_CHOOSER_DIALOG (l->data) && gtk_widget_get_mapped (l->data))
+      d = l->data;
+  g_list_free (tops);
+  return d;
+}
+
+static gboolean
+count_rows (GtkTreeModel *m, GtkTreePath *p, GtkTreeIter *it, gpointer d)
+{
+  (*(int *) d)++;
+  return FALSE;
+}
+
 static gboolean
 step_ready (void)
 {
@@ -297,6 +321,10 @@ step_ready (void)
       return save_dl_seen > 0;
     case 6:
       return drop_ack > 0;
+    case 8:
+      return menu_seen && fake_menu != NULL;
+    case 9:
+      return font_dialog () != NULL;
     default:
       return waits > 10;
     }
@@ -429,12 +457,98 @@ next_step (void)
         nulls (4);
       }
       break;
+    case 8:      /* Menu again, for Options > Font */
+      gtk_widget_translate_coordinates (view, main_win, 40, 40, &x, &y);
+      add (FAKE_MOVE, x, y, 0);
+      add (6, x, y, 2);
+      add (FAKE_RELEASE, 0, 0, 0);
+      nulls (10);
+      break;
+    case 9:      /* Options > Font...: GTK's font dialogue */
+      {
+        const int *subs[16];
+        char tops[8][48], items[16][48];
+        int i, n = menu_entries (fake_menu, tops, 8, subs);
+        for (i = 0; i < n; i++)
+          if (strstr (tops[i], "Options"))
+            options_index = i;
+        if (options_index >= 0 && subs[options_index])
+          {
+            int m = menu_entries (subs[options_index], items, 16, NULL);
+            for (i = 0; i < m; i++)
+              if (strncmp (items[i], "Font", 4) == 0)
+                font_index = i;
+          }
+        if (font_index >= 0)
+          add (9, options_index, font_index, -1);
+        nulls (40);
+      }
+      break;
+    case 10:     /* look at it, then Cancel */
+      shot ("font");
+      {
+        GtkWidget *d = font_dialog ();
+        GtkWidget *tv = d ? find_type (d, GTK_TYPE_TREE_VIEW) : NULL;
+        font_dialog_seen = d != NULL;
+        if (d)
+          font_dialog_grip = gdk_riscos_window_get_size_grip (gtk_widget_get_window (d), NULL, NULL);
+        if (tv && gtk_tree_view_get_model (GTK_TREE_VIEW (tv)))
+          gtk_tree_model_foreach (gtk_tree_view_get_model (GTK_TREE_VIEW (tv)), count_rows,
+                                  &font_families);
+        if (d)
+          gtk_dialog_response (GTK_DIALOG (d), GTK_RESPONSE_CANCEL);
+        nulls (10);
+      }
+      break;
+    case 11:     /* the size grip in the bottom right corner */
+      {
+        GtkAllocation a;
+        int i;
+        gtk_widget_get_allocation (main_win, &a);
+        for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+          if (fake_windows[i].handle == main_handle)
+            {
+              int px = (fake_windows[i].x1 >> fake_screen.xeig) - 3;
+              int py = fake_screen.h - 1 - (fake_windows[i].y0 >> fake_screen.yeig) - 2;
+              grip_pixel = fake_screen.mem[py * fake_screen.w + px] & 0xFFFFFF;
+            }
+        grip_presses_before = presses;
+        fake_dragbox_type = -1;
+        add (FAKE_MOVE, a.width - 3, a.height - 3, 0);
+        add (6, a.width - 3, a.height - 3, 4);
+        nulls (2);
+        add (FAKE_RELEASE, 0, 0, 0);
+        nulls (4);
+      }
+      break;
+    case 12:
+      shot ("grip");
+      {
+        GtkWidget *sw = find_type (main_win, GTK_TYPE_SCROLLED_WINDOW);
+        GtkWidget *bar = sw ? gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (sw)) : NULL;
+        int bx, by, gw;
+        win_h = gtk_widget_get_allocated_height (main_win);
+        gdk_riscos_window_get_size_grip (gtk_widget_get_window (main_win), &gw, &grip_h_px);
+        if (bar && gtk_widget_translate_coordinates (bar, main_win, 0, 0, &bx, &by))
+          bar_bottom = by + gtk_widget_get_allocated_height (bar);
+      }
+      grip_drag_type = fake_dragbox_type;
+      grip_presses_after = presses;
+      nulls (4);
+      break;
     default:
       return;
     }
   printf ("# step %d (DataSave %d, DataLoad %d, box %d, Save As at %d, drop ack %d)\n", step,
           save_ds_seen, save_dl_seen, save_box_seen, save_as_index, drop_ack);
   fflush (stdout);
+}
+
+static gboolean
+count_press (GtkWidget *w, GdkEventButton *ev, gpointer d)
+{
+  presses++;
+  return FALSE;
 }
 
 static gboolean
@@ -492,6 +606,7 @@ hook (int reason)
               main_handle = fake_windows[i].handle;
           fake_target_window = main_handle;
           g_signal_connect (main_win, "key-press-event", G_CALLBACK (dbg_key), "window");
+          g_signal_connect (main_win, "button-press-event", G_CALLBACK (count_press), NULL);
           if (getenv ("L3_NOMNEMONIC"))
             g_object_set (gtk_settings_get_default (), "gtk-enable-mnemonics", FALSE, NULL);
           if (getenv ("L3_DEBUG2"))
@@ -506,7 +621,7 @@ hook (int reason)
     }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 7)
+      if (step >= 12)
         {
           if (!quit_asked)
             {
@@ -622,6 +737,20 @@ main (int argc, char **argv)
            "a RISC OS text file dropped on the text is inserted once (Latin-1 read as such)");
   }
   printf ("# after the drop: \"%s\"\n", text_after_drop);
+  check (font_dialog_seen && font_families > 0,
+         "Options > Font opens GTK's font dialogue, listing the fonts");
+  printf ("# font dialogue: Options at %d, Font at %d, %d rows\n", options_index, font_index,
+          font_families);
+  check (grip_pixel == 0x2010BD,
+         "the window shows the desktop's size icon (sicon) in its bottom right corner");
+  check (grip_drag_type == 2 && grip_presses_after == grip_presses_before,
+         "Select on it starts the Wimp's size drag (DragBox 2), not a GTK click");
+  printf ("# grip pixel &%06X, DragBox type %d, GTK presses %u -> %u\n", grip_pixel,
+          (int) grip_drag_type, grip_presses_before, grip_presses_after);
+  check (font_dialog_grip == 0, "a dialogue box (the font dialogue) has no size icon");
+  check (grip_h_px > 0 && bar_bottom > 0 && bar_bottom <= win_h - grip_h_px,
+         "the text's scroll bar stops above the size icon, as a Wimp scroll bar does");
+  printf ("# scroll bar ends at %d, window %d high, grip %d\n", bar_bottom, win_h, grip_h_px);
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL,
          "no GTK warnings or criticals in the log");
   check (stat (save_target, &st) == 0, "and it quits when its window is closed");

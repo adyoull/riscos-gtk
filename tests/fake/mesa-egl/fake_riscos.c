@@ -294,7 +294,8 @@ const char *fake_tool_names[] = {
     "uicon", "puicon", "dicon", "pdicon", "vwelltcap", "vwellbcap", "vwellt", "vwellb",
     "vbart", "vbarb", "vbarmid", "pvbart", "pvbarb", "pvbarmid",
     "licon", "plicon", "ricon", "pricon", "hwelllcap", "hwellrcap", "hwelll", "hwellr",
-    "hbarl", "hbarr", "hbarmid", "phbarl", "phbarr", "phbarmid", "blicon", NULL };
+    "hbarl", "hbarr", "hbarmid", "phbarl", "phbarr", "phbarmid", "blicon", "sicon", "psicon",
+    NULL };
 
 static const int *build_tool_area(void)
 {

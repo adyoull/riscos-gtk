@@ -116,7 +116,8 @@ extern unsigned int fake_wimp_palette[20];
 /* Wimp_ReadSysInfo 9: the tool (window border) sprites, a sprite area of
    14x14 32bpp sprites named fake_tool_names[i] (with first/free words
    that aren't offsets, as a Pi's), each one colour:
-   #a01020 with i added to its red (uicon #a01020, vbarmid i = 10: #aa1020) */
+   #a01020 with i added to its red (uicon #a01020, vbarmid i = 10: #aa1020,
+   sicon i = 29: #bd1020) */
 extern int fake_tool_sprites;
 extern const char *fake_tool_names[];
 extern int fake_window_flags[256];       /* each window's flags (Wimp_CreateWindow +28), by handle & 255 */

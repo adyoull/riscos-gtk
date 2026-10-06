@@ -218,3 +218,15 @@ symbolic only), and its symbolic SVGs are made into GTK's .symbolic.png
 at build time with the host's gtk-encode-symbolic-svg (libgtk-3-bin).
 At run time gtkriscostheme.c adds RISCOS-Wimp (the desktop's sprites) in
 the theme's temporary directory and sets gtk-icon-theme-name to it.
+
+## GtkBuilder and static linking (2026-10-06)
+GtkBuilder resolves a type name it hasn't seen registered by looking up
+`name_get_type` in the program with GModule (dlsym). A statically linked
+RISC OS program can't, so a .ui file naming a type from outside GTK fails
+("Unknown type PangoFontFamily specified in treemodel model") and the
+widget can crash (the font chooser did). GTK's own types are covered by
+gtk_test_register_all_types(); the others builder files use are listed in
+the gtkbuilder.c patch. A program with its own .ui files naming its own
+types must call g_type_ensure() on them first, and
+gtk_builder_connect_signals() can't find handlers by name either (use
+gtk_builder_add_callback_symbol()).

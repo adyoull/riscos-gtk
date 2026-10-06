@@ -39,6 +39,8 @@
 #include "gdkriscos-server.h"
 #include "gdkprivate-riscos.h"
 #include "gdkriscosmenu.h"
+#include "gdkriscoswimp.h"
+#include <gdk/gdkcairo.h>
 #include <gdk/gdkkeysyms.h>
 
 #include <glib.h>
@@ -50,6 +52,9 @@
 
 #ifndef Wimp_ForceRedraw
 #define Wimp_ForceRedraw 0x400D1
+#endif
+#ifndef Wimp_DragBox
+#define Wimp_DragBox 0x400D0
 #endif
 
 /* Poll reason codes */
@@ -135,6 +140,10 @@ struct _GdkRiscosServer {
   gboolean grab_owner_events;
   guint32 focus_window;       /* window with the caret (0 = none) */
   guint32 last_seen_time;
+  /* the size grip drawn in resizable windows' bottom right corner */
+  GdkPixbuf *grip;
+  gboolean grip_read;
+  int grip_w, grip_h;           /* pixels */
 };
 
 struct _GdkRiscosServerClass {
@@ -161,6 +170,7 @@ gdk_riscos_server_finalize (GObject *object)
   GdkRiscosServer *server = GDK_RISCOS_SERVER (object);
   g_hash_table_destroy (server->handles);
   g_hash_table_destroy (server->windows);
+  g_clear_object (&server->grip);
   G_OBJECT_CLASS (gdk_riscos_server_parent_class)->finalize (object);
 }
 
@@ -591,6 +601,121 @@ take_caret (RiscosWindow *w)
   swi (Wimp_SetCaretPosition, &r);
 }
 
+/* The size grip. The Wimp puts its Adjust Size icon only where a window's
+   scroll bars meet, and GTK windows have no Wimp scroll bars (GTK draws
+   its own), so a resizable document window (title bar and back icon:
+   not a dialogue box) gets the desktop's own
+   size icon sprite ("sicon", from the window border sprites) drawn in the
+   bottom right corner of its work area. Select or Adjust there starts the
+   Wimp's own size drag (Wimp_DragBox type 2); Select also brings the
+   window to the front, as the real icon does (PRMs, Adjust Size Icon). */
+static gboolean
+grip_for (GdkRiscosServer *server, RiscosWindow *w, unsigned furniture)
+{
+  /* document windows only: dialogue boxes (no back icon) have none, as
+     on RISC OS, and keep the toggle size icon */
+  if (!(furniture & RISCOS_FURNITURE_RESIZE) || !(furniture & RISCOS_FURNITURE_TITLE) ||
+      !(furniture & RISCOS_FURNITURE_BACK) ||
+      w->is_temp || w->as_menu)
+    return FALSE;
+  if (!server->grip_read)
+    {
+      server->grip_read = TRUE;
+      if (g_strcmp0 (g_getenv ("RISCOS_GTK_SIZE_GRIP"), "0") == 0)
+        server->grip_w = server->grip_h = 0;
+      else if ((server->grip = gdk_riscos_wimp_tool_sprite ("sicon")))
+        {
+          server->grip_w = gdk_pixbuf_get_width (server->grip);
+          server->grip_h = gdk_pixbuf_get_height (server->grip);
+        }
+      else
+        {
+          server->grip_w = 40 >> server->xeig;
+          server->grip_h = 40 >> server->yeig;
+        }
+    }
+  return server->grip_w > 0 && w->width > 2 * server->grip_w && w->height > 2 * server->grip_h;
+}
+
+static gboolean
+has_grip (GdkRiscosServer *server, RiscosWindow *w)
+{
+  return grip_for (server, w, w->furniture);
+}
+
+/* For GTK (gtkriscostheme.c): the grip's size if the window has one (or
+   will have, at its next showing), so scroll bars in that corner can stop
+   short of it, as a Wimp scroll bar stops at the Adjust Size icon. */
+gboolean
+_gdk_riscos_server_window_get_grip (GdkRiscosServer *server, gint id, int *width, int *height)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL || !grip_for (server, w, w->visible ? w->furniture : w->furniture_wanted))
+    return FALSE;
+  *width = server->grip_w;
+  *height = server->grip_h;
+  return TRUE;
+}
+
+static void
+paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface)
+{
+  int sw = cairo_image_surface_get_width (surface), sh = cairo_image_surface_get_height (surface);
+  int x = MIN (w->width, sw) - server->grip_w, y = MIN (w->height, sh) - server->grip_h;
+  cairo_t *cr;
+
+  if (x < 0 || y < 0)
+    return;
+  cr = cairo_create (surface);
+  if (server->grip)
+    {
+      gdk_cairo_set_source_pixbuf (cr, server->grip, x, y);
+      cairo_paint (cr);
+    }
+  else
+    {
+      /* no sicon sprite: a plain ridged corner in the window greys */
+      int i, gw = server->grip_w, gh = server->grip_h;
+      cairo_rectangle (cr, x, y, gw, gh);
+      cairo_set_source_rgb (cr, 0.8, 0.8, 0.8);
+      cairo_fill (cr);
+      cairo_set_line_width (cr, 1);
+      for (i = 1; i <= 3; i++)
+        {
+          double d = i * gw / 4.0;
+          cairo_move_to (cr, x + gw - d, y + gh - 0.5);
+          cairo_line_to (cr, x + gw - 0.5, y + gh - d);
+          cairo_set_source_rgb (cr, 0.4, 0.4, 0.4);
+          cairo_stroke (cr);
+          cairo_move_to (cr, x + gw - d + 1.5, y + gh - 0.5);
+          cairo_line_to (cr, x + gw - 0.5, y + gh - d + 1.5);
+          cairo_set_source_rgb (cr, 1, 1, 1);
+          cairo_stroke (cr);
+        }
+      cairo_rectangle (cr, x + 0.5, y + 0.5, gw - 1, gh - 1);
+      cairo_set_source_rgb (cr, 0, 0, 0);
+      cairo_stroke (cr);
+    }
+  cairo_destroy (cr);
+  cairo_surface_flush (surface);
+}
+
+static void
+start_size_drag (GdkRiscosServer *server, RiscosWindow *w, gboolean to_front)
+{
+  int block[10];
+  _kernel_swi_regs r;
+
+  if (to_front)
+    open_window (server, w, -1);
+  memset (block, 0, sizeof block);
+  block[0] = w->handle;
+  block[1] = 2;                      /* drag window size: the Wimp does it */
+  r.r[1] = (int) block;
+  swi (Wimp_DragBox, &r);
+}
+
 static void
 handle_click (GdkRiscosServer *server, int *block)
 {
@@ -609,6 +734,12 @@ handle_click (GdkRiscosServer *server, int *block)
     return;
   if (w->id != server->focus_window && !w->is_temp)
     take_caret (w);
+  if ((pressed & (BUT_SELECT | BUT_ADJUST)) && server->buttons == 0 && has_grip (server, w) &&
+      x >= w->x + w->width - server->grip_w && y >= w->y + w->height - server->grip_h)
+    {
+      start_size_drag (server, w, (pressed & BUT_SELECT) != 0);
+      return;
+    }
   if (server->pointer_window != w->id)
     track_pointer (server);
   if (server->buttons == 0)
@@ -1501,6 +1632,8 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
   if (!w->visible)
     return;
   cairo_surface_flush (surface);
+  if (has_grip (server, w))
+    paint_grip (server, w, surface);
   width = cairo_image_surface_get_width (surface);
   height = cairo_image_surface_get_height (surface);
   sync_sprite (surface);
