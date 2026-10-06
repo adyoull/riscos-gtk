@@ -46,6 +46,9 @@ static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, 
 static char text_after_dataopen[128], text_after_iconload[128];
 static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
 static int main_centred = -1, choices_centred = -1, main_cx, main_cy, choices_cx, choices_cy;
+static int printsave_seen, typeknown_seen, print_box_seen, print_box_title_ok, print_box_gadgets, print_button_at[4];
+static int print_index = -1, preview_index = -1, preview_seen, preview_back_off, preview_print_shown;
+static char preview_label[64];
 static int reports_before, ib_menu_x, ib_menu_y, ib_click_x;
 static char prequit_text[256];
 static char letter[512], letter_ro[512], note3[512], note3_ro[512];
@@ -222,6 +225,20 @@ message_hook (int reason, int *b, int dest, int icon)
       else
         drop_ack++;                   /* our drop taken */
       break;
+    case 0x80142:                     /* PrintSave: !Printers says the printer's free */
+      if (reason == 18 && dest == 0)
+        {
+          printsave_seen++;
+          memcpy (q, b, 256);
+          queue (17, q, 0x80140, b[2], 256);          /* PrintFile */
+          memset (q, 0, sizeof q);
+          q[10] = 0xFF9;
+          queue (18, q, 0x80145, 0, 48);              /* PrintTypeOdd */
+        }
+      break;
+    case 0x80146:                     /* PrintTypeKnown: it prints itself */
+      typeknown_seen++;
+      break;
     case 8:                           /* PreQuit acknowledged: it objects */
       if (reason == 19)
         prequit_ack++;
@@ -334,6 +351,71 @@ dialog_titled (const char *title, GType type)
   return d;
 }
 
+static GtkWidget *
+preview_window (void)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  GtkWidget *d = NULL;
+
+  for (l = tops; l; l = l->next)
+    if (gtk_widget_get_mapped (l->data) && gtk_window_get_title (l->data) &&
+        g_str_has_prefix (gtk_window_get_title (l->data), "Preview:"))
+      d = l->data;
+  g_list_free (tops);
+  return d;
+}
+
+/* A widget of type with the label text, in top */
+static GtkWidget *
+labelled (GtkWidget *w, GType type, const char *text)
+{
+  GtkWidget *found = NULL;
+
+  if (G_TYPE_CHECK_INSTANCE_TYPE (w, type))
+    {
+      const char *t = GTK_IS_BUTTON (w) ? gtk_button_get_label (GTK_BUTTON (w))
+                    : GTK_IS_LABEL (w) ? gtk_label_get_text (GTK_LABEL (w)) : NULL;
+      if (t && strcmp (t, text) == 0)
+        return w;
+    }
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *kids = gtk_container_get_children (GTK_CONTAINER (w)), *l;
+      for (l = kids; l && !found; l = l->next)
+        found = labelled (l->data, type, text);
+      g_list_free (kids);
+    }
+  return found;
+}
+
+static GtkWidget *
+page_label (GtkWidget *w)
+{
+  GtkWidget *found = NULL;
+
+  if (GTK_IS_LABEL (w) && g_str_has_prefix (gtk_label_get_text (GTK_LABEL (w)), "Page "))
+    return w;
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *kids = gtk_container_get_children (GTK_CONTAINER (w)), *l;
+      for (l = kids; l && !found; l = l->next)
+        found = page_label (l->data);
+      g_list_free (kids);
+    }
+  return found;
+}
+
+static void
+open_window_menu (void)
+{
+  int x, y;
+  gtk_widget_translate_coordinates (view, main_win, 40, 40, &x, &y);
+  add (FAKE_MOVE, x, y, 0);
+  add (6, x, y, 2);
+  add (FAKE_RELEASE, 0, 0, 0);
+  nulls (10);
+}
+
 static void
 iconbar_click (int buttons)
 {
@@ -403,6 +485,8 @@ step_ready (void)
       return font_dialog () != NULL;
     case 13:
     case 21:
+    case 24:
+    case 27:
       return menu_seen && fake_menu != NULL;
     case 14:
       return dialog_titled ("L3afpad choices", GTK_TYPE_DIALOG) != NULL;
@@ -420,6 +504,12 @@ step_ready (void)
       return ok;
     case 19:
       return prequit_ack > 0;
+    case 22:
+      return dialog_titled ("Fake LaserJet", GTK_TYPE_WINDOW) != NULL;
+    case 23:
+      return fake_print_ended > 0 || fake_print_aborted > 0;
+    case 25:
+      return preview_window () != NULL;
     default:
       return waits > 10;
     }
@@ -742,11 +832,111 @@ next_step (void)
       g_strlcpy (prequit_text, fake_report_text, sizeof prequit_text);
       nulls (10);
       break;
-    case 21:     /* still here; Menu on the icon again (the text still unsaved) */
+    case 21:     /* still here: Menu over the text, for File > Print... */
+      still_running_after_cancel = 1;
+      open_window_menu ();
+      break;
+    case 22:
+      if (getenv ("L3_DEBUG"))
+        {
+          GdkRiscosPrinter pi;
+          gboolean ok = gdk_riscos_printer_info (&pi);
+          printf ("# printer_info %d \"%s\" %d dpi, paper %.1f x %.1f\n", ok, pi.name, pi.dpi_x,
+                  pi.paper_width, pi.paper_height);
+        }
+      {
+        const int *subs[16];
+        char tops[8][48], items[16][48];
+        int i, m;
+        menu_entries (fake_menu, tops, 8, subs);
+        m = subs[0] ? menu_entries (subs[0], items, 16, NULL) : 0;
+        for (i = 0; i < m; i++)
+          if (g_str_has_prefix (items[i], "Print..."))
+            print_index = i;
+          else if (g_str_has_prefix (items[i], "Print Preview"))
+            preview_index = i;
+        if (print_index >= 0)
+          add (9, 0, print_index, -1);
+        nulls (20);
+      }
+      break;
+    case 23:     /* the Print box: 2 copies, Print */
+      shot ("printbox");
+      {
+        GtkWidget *d = dialog_titled ("Fake LaserJet", GTK_TYPE_WINDOW);
+        static const char *const gadgets[] = { "All", "From", "to", "Copies", "Scale", "%",
+                                               "Upright", "Sideways", "Draft", "Save", "Cancel",
+                                               "Print", NULL };
+        print_box_seen = d != NULL;
+        print_box_title_ok = d != NULL;
+        if (d)
+          {
+            int i;
+            GtkWidget *print = labelled (d, GTK_TYPE_BUTTON, "Print"), *spin;
+            GtkAllocation a;
+            for (i = 0; gadgets[i]; i++)
+              if (labelled (d, GTK_TYPE_WIDGET, gadgets[i]))
+                print_box_gadgets++;
+            if (print)
+              {
+                gtk_widget_get_allocation (print, &a);
+                print_button_at[0] = a.x;
+                print_button_at[1] = a.y;
+                print_button_at[2] = a.width;
+                print_button_at[3] = a.height;
+              }
+            spin = find_type (d, GTK_TYPE_SPIN_BUTTON);
+            if (spin)
+              gtk_spin_button_set_value (GTK_SPIN_BUTTON (spin), 2);
+            if (print)
+              gtk_button_clicked (GTK_BUTTON (print));
+          }
+        nulls (20);
+      }
+      break;
+    case 24:     /* then File > Print Preview */
+      if (getenv ("L3_DEBUG"))
+        {
+          GtkWidget *bar = g_object_get_data (G_OBJECT (main_win), "riscos-gtk-window-menu");
+          printf ("# bar %p sensitive %d, view sensitive %d, grab %p\n", (void *) bar,
+                  bar ? gtk_widget_is_sensitive (bar) : -1, gtk_widget_is_sensitive (view),
+                  (void *) gtk_grab_get_current ());
+        }
+      open_window_menu ();
+      break;
+    case 25:
+      printf ("# Print at %d, Print Preview at %d in the File menu\n", print_index, preview_index);
+      if (preview_index >= 0)
+        add (9, 0, preview_index, -1);
+      nulls (30);
+      break;
+    case 26:
+      shot ("preview");
+      {
+        GtkWidget *pw = preview_window ();
+        preview_seen = pw != NULL;
+        if (pw)
+          {
+            GtkWidget *back = labelled (pw, GTK_TYPE_BUTTON, "Back");
+            GtkWidget *print = labelled (pw, GTK_TYPE_BUTTON, "Print");
+            preview_back_off = back && !gtk_widget_is_sensitive (back);
+            preview_print_shown = print && gtk_widget_get_visible (print);
+            /* "Page 1 of n" */
+            {
+              GtkWidget *lab = page_label (pw);
+              if (lab)
+                g_strlcpy (preview_label, gtk_label_get_text (GTK_LABEL (lab)), sizeof preview_label);
+            }
+            gtk_widget_destroy (pw);
+          }
+        nulls (10);
+      }
+      break;
+    case 27:     /* still here; Menu on the icon again (the text still unsaved) */
       still_running_after_cancel = 1;
       iconbar_click (2);
       break;
-    case 22:     /* Quit */
+    case 28:     /* Quit */
       fake_target_window = main_handle;
       fake_target_icon = -1;
       {
@@ -867,7 +1057,7 @@ hook (int reason)
     }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 22)
+      if (step >= 28)
         {
           /* Quit was chosen: L3afpad should end; if not, stop it */
           if (++quit_asked > 200)
@@ -1058,6 +1248,36 @@ main (int argc, char **argv)
   check (prequit_ack == 1 && prequit_dialog && still_running_after_cancel,
          "PreQuit with unsaved text: a question box (Cancel / Discard); Cancel objects, it keeps running");
   printf ("# PreQuit asked: \"%s\"\n", prequit_text);
+  check (print_box_seen && print_box_title_ok,
+         "File > Print... opens the RISC OS Print box, titled with the printer's name");
+  check (print_box_gadgets == 12 && print_button_at[0] == 250 && print_button_at[1] == 162 &&
+         print_button_at[2] >= 57 && print_button_at[2] <= 66 && print_button_at[3] == 26,
+         "the Print box has the Toolbox PrintDbox's gadgets (All/From/to, Copies, Scale %, "
+         "Upright/Sideways, Draft, Save/Cancel/Print)");
+  printf ("# Print box: %d of 12 gadgets, Print button at %d,%d %d x %d\n", print_box_gadgets,
+          print_button_at[0], print_button_at[1], print_button_at[2], print_button_at[3]);
+  check (printsave_seen == 1 && typeknown_seen == 1,
+         "Print asks !Printers (PrintSave), and answers its PrintTypeOdd with PrintTypeKnown");
+  check (fake_print_jobs == 1 && fake_print_pages >= 1 && fake_print_copies == 2 &&
+         fake_print_ended == 1 && fake_print_aborted == 0,
+         "it prints through the printer driver: a job, its pages, 2 copies, EndJob");
+  printf ("# printed \"%s\": %d pages, %d copies, rectangle %d,%d,%d,%d, sprite %d x %d, "
+          "scale %d/%d %d/%d\n", fake_print_title, fake_print_pages, fake_print_copies,
+          fake_print_rect[0], fake_print_rect[1], fake_print_rect[2], fake_print_rect[3],
+          fake_print_sprite_w, fake_print_sprite_h, fake_print_scale[0], fake_print_scale[2],
+          fake_print_scale[1], fake_print_scale[3]);
+  check (fake_print_rect[2] == 1488 && fake_print_rect[3] == 2105 && fake_print_sprite_w == 2480 &&
+         fake_print_sprite_h == 3508 && fake_print_scale[0] == 1488 && fake_print_scale[2] == 4960,
+         "each page is the whole A4 paper (1488 x 2105 OS units) at the printer's 300 dpi");
+  check (fake_print_ink > 1000 && fake_print_ink_top > 100 && fake_print_ink_top < 400 &&
+         fake_print_ink_left > 180 && fake_print_ink_left < 300,
+         "the text is on the page, inside L3afpad's margins (20 mm left, its header in the top margin)");
+  printf ("# ink: %d pixels, first row %d, first column %d\n", fake_print_ink, fake_print_ink_top,
+          fake_print_ink_left);
+  check (preview_seen && g_str_has_prefix (preview_label, "Page 1 of ") && preview_back_off &&
+         preview_print_shown,
+         "File > Print Preview shows the pages in a window (Page 1 of n, Back, Next, Print)");
+  printf ("# preview: \"%s\"\n", preview_label);
   check (quit_chosen && !forced_quit && fake_reports == reports_before + 1,
          "Quit from the icon bar menu with unsaved text asks; Discard quits");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL,

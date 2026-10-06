@@ -125,4 +125,8 @@ gboolean           _gdk_riscos_iconbar_message                 (int             
 void               _gdk_riscos_iconbar_startup                 (int                 task,
                                                                  const char         *task_name);
 
+/* gdkprint-riscos.c: the printing messages (and our PrintSave bouncing) */
+gboolean           _gdk_riscos_print_message                   (int                 reason,
+                                                                 int                *block);
+
 #endif /* __GDK_RISCOS_SERVER__ */

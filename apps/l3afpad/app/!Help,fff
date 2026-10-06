@@ -26,11 +26,14 @@ Using it
 - File > Open: an Open box. Drag a file to it from a Filer window.
 - File > New empties the window (asking to save first): RISC OS runs one
   copy of a program, so there's no second window.
+- File > Print...: the RISC OS Print box (All or From/to pages, Copies,
+  Scale, Upright/Sideways, Draft; Save keeps the settings). It prints to
+  the printer set up in !Printers. File > Print Preview shows the pages
+  first, with Print to print them.
 - Text in UTF-8 and other encodings is detected when opening; RISC OS's
   Latin-1 is read through the Iconv module.
 
 Not yet
-- Printing (GTK has no printing on RISC OS yet).
 - Double-clicking a text file when L3afpad isn't loaded starts your usual
   editor, not L3afpad (it doesn't claim Text files in its !Boot).
 - One window (one text) at a time.

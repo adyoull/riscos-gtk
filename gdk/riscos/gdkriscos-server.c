@@ -874,8 +874,9 @@ handle_open_request (GdkRiscosServer *server, int *block)
 static void
 handle_message (GdkRiscosServer *server, int reason, int *block)
 {
-  /* the icon bar icon: files opened from the Filer, PreQuit */
-  if (_gdk_riscos_iconbar_message (reason, block))
+  /* printing (!Printers' answers), the icon bar icon: files opened from
+     the Filer, PreQuit */
+  if (_gdk_riscos_print_message (reason, block) || _gdk_riscos_iconbar_message (reason, block))
     return;
   switch (block[4])
     {
@@ -1051,7 +1052,8 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
       return TRUE;
     case USER_MESSAGE_ACKNOWLEDGE:
       /* one of our recorded messages came back unanswered */
-      _gdk_riscos_transfer_message (r.r[0], block);
+      if (!_gdk_riscos_print_message (r.r[0], block))
+        _gdk_riscos_transfer_message (r.r[0], block);
       return TRUE;
     case SCROLL_REQUEST:
       handle_scroll (server, block);
@@ -1144,9 +1146,11 @@ _gdk_riscos_server_new (const char *display, GError **error)
 {
   /* PreQuit, ModeChange, MenusDeleted; the data transfer protocol:
      DataSave, DataSaveAck, DataLoad, DataLoadAck, DataOpen (the icon bar),
-     RAMFetch, RAMTransmit, ClaimEntity, DataRequest */
+     RAMFetch, RAMTransmit, ClaimEntity, DataRequest; printing: PrintFile,
+     PrintError, PrintTypeOdd, SetPrinter */
   static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED,
-                                  1, 2, 3, 4, 5, 6, 7, 0xF, 0x10, 0 };
+                                  1, 2, 3, 4, 5, 6, 7, 0xF, 0x10,
+                                  0x80140, 0x80144, 0x80145, 0x80147, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;

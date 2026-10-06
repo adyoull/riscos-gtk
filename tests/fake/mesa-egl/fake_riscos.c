@@ -354,6 +354,16 @@ static const int *pool_find(const char *name)
     return NULL;
 }
 
+/* Printing (the PDriver module): a fake printer that records what it's given */
+int fake_pdriver = 1, fake_print_dpi = 300;
+const char *fake_print_name = "Fake LaserJet";
+int fake_print_paper[2] = { 595276, 841890 };       /* A4, millipoints */
+int fake_print_jobs, fake_print_pages, fake_print_copies, fake_print_ended, fake_print_aborted;
+int fake_print_rect[4], fake_print_scale[4], fake_print_sprite_w, fake_print_sprite_h;
+int fake_print_ink, fake_print_ink_top = -1, fake_print_ink_left = -1;
+char fake_print_title[64];
+static int print_drawing, print_rect_id;
+
 static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
 {
     int reason = r->r[0] & 255;
@@ -381,6 +391,22 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
         area[1]++;
         area[3] += size;
         fake_sprite_creates++;
+        return NULL;
+    }
+    if (reason == 52 && print_drawing) {           /* to the printer: recorded */
+        const int *spr = (const int *) (long) r->r[2];
+        const int *f = (const int *) (long) r->r[6];
+        const unsigned int *pix = (const unsigned int *) ((const char *) spr + spr[8]);
+        int w = spr[4] + 1, h = spr[5] + 1, x, y;
+        fake_print_sprite_w = w; fake_print_sprite_h = h;
+        if (f) memcpy(fake_print_scale, f, sizeof fake_print_scale);
+        fake_print_ink = 0; fake_print_ink_top = fake_print_ink_left = -1;
+        for (y = 0; y < h; y++) for (x = 0; x < w; x++)
+            if ((pix[(size_t) y * w + x] & 0xFFFFFF) != 0xFFFFFF) {
+                fake_print_ink++;
+                if (fake_print_ink_top < 0) fake_print_ink_top = y;
+                if (fake_print_ink_left < 0 || x < fake_print_ink_left) fake_print_ink_left = x;
+            }
         return NULL;
     }
     if (reason == 34 || reason == 52) {             /* put sprite (scaled) */
@@ -869,6 +895,42 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         e = error("OS_Plot code not faked");
         break;
     }
+    case 0x80140:   /* PDriver_Info */
+        if (!fake_pdriver) { e = error("No printer driver"); break; }
+        r.r[0] = 0; r.r[1] = r.r[2] = fake_print_dpi; r.r[3] = 1;
+        r.r[4] = (int) (long) fake_print_name; r.r[5] = r.r[6] = fake_print_dpi; r.r[7] = 0;
+        break;
+    case 0x80143:   /* PDriver_PageSize: the paper, the printable area (5 mm in) */
+        if (!fake_pdriver) { e = error("No printer driver"); break; }
+        r.r[1] = fake_print_paper[0]; r.r[2] = fake_print_paper[1];
+        r.r[3] = 14173; r.r[4] = 14173;
+        r.r[5] = fake_print_paper[0] - 14173; r.r[6] = fake_print_paper[1] - 14173;
+        break;
+    case 0x80145:   /* PDriver_SelectJob */
+        if (r.r[0]) { fake_print_jobs++; strncpy(fake_print_title, r.r[1] ? (const char *) (long) r.r[1] : "", 63); }
+        r.r[0] = 0;
+        break;
+    case 0x80148: fake_print_ended++; break;          /* PDriver_EndJob */
+    case 0x80149: fake_print_aborted++; break;        /* PDriver_AbortJob */
+    case 0x8014B:   /* PDriver_GiveRectangle */
+        print_rect_id = r.r[0];
+        memcpy(fake_print_rect, (const void *) (long) r.r[1], sizeof fake_print_rect);
+        break;
+    case 0x8014C:   /* PDriver_DrawPage: one rectangle, the one given */
+        fake_print_pages++; fake_print_copies = r.r[0];
+        if (r.r[1]) memcpy((void *) (long) r.r[1], fake_print_rect, sizeof fake_print_rect);
+        r.r[0] = 1; r.r[2] = print_rect_id; print_drawing = 1;
+        break;
+    case 0x8014D:   /* PDriver_GetRectangle: no more */
+        r.r[0] = 0; print_drawing = 0;
+        break;
+    case 0x406C0: case 0x406C1: break;                /* Hourglass_On / Off */
+    case 0x0D:      /* OS_Find: "printer:" only */
+        if (r.r[0] == 0 && r.r[1] == 0x77) break;
+        if ((r.r[0] & 0xC0) && r.r[1] && !strcmp((const char *) (long) r.r[1], "printer:")) { r.r[0] = 0x77; break; }
+        if (fake_swi_hook && fake_swi_hook(no, &r, &e)) break;
+        e = error("OS_Find: not faked");
+        break;
     case 0x400DF:   /* Wimp_ReportError: recorded; answered with fake_report_answer */
         fake_reports++;
         strncpy(fake_report_text, (const char *) (long) r.r[0] + 4, sizeof fake_report_text - 1);

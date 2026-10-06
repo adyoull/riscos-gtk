@@ -13,6 +13,7 @@ gdk_riscos_sources = files(
   'gdkkeys-riscos.c',
   'gdkmonitor-riscos.c',
   'gdkpointer-riscos.c',
+  'gdkprint-riscos.c',
   'gdkproperty-riscos.c',
   'gdkscreen-riscos.c',
   'gdkselection-riscos.c',

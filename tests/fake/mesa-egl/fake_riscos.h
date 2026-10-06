@@ -69,6 +69,17 @@ extern char fake_iconbar_sprite[16];
    the answer it gives (1 OK, 2 Cancel, 3 the first extra button) */
 extern int fake_reports, fake_report_flags, fake_report_answer;
 extern char fake_report_text[256], fake_report_buttons[64];
+/* The printer (PDriver SWIs): installed?, its resolution, name, paper
+   (millipoints); what was printed: jobs, pages, copies (last DrawPage),
+   EndJob / AbortJob calls, the rectangle given (OS units), the page
+   sprite's size and plot scale, its non-white pixels (and the first such
+   row and column), the job's title */
+extern int fake_pdriver, fake_print_dpi, fake_print_paper[2];
+extern const char *fake_print_name;
+extern int fake_print_jobs, fake_print_pages, fake_print_copies, fake_print_ended, fake_print_aborted;
+extern int fake_print_rect[4], fake_print_scale[4], fake_print_sprite_w, fake_print_sprite_h;
+extern int fake_print_ink, fake_print_ink_top, fake_print_ink_left;
+extern char fake_print_title[64];
 int fake_wimp_script_pos(void);          /* script entry last returned, -1 before */
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;

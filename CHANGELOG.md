@@ -1,6 +1,46 @@
 # Changelog
 
-## Unreleased (UnixLib 5.0.3.3: !L3afpad 0.6, GTKThemeTest 0.30, GTKHello 0.5, GTKTest 0.6, 2026-10-06)
+## Unreleased (printing: !L3afpad 0.7, GTKThemeTest 0.31, 2026-10-06)
+- **Printing** through RISC OS's printer drivers (owner's choices: the
+  Toolbox Print box, bitmap pages, a preview window of our own).
+  - GTK patch: gtkprintoperation-unix.c hands every platform function to
+    the new `gtk/gtkprint-riscos.c` on RISC OS (GTK's print back-end
+    modules aren't used).
+  - **Print box:** the Toolbox PrintDbox, laid out from the Toolbox
+    manual's print-2.png (320 x 196 pixels at 2 OS units): All / From [ ]
+    to [ ]; Copies; Scale %; Upright / Sideways; Draft; Save, Cancel,
+    Print (default). Its title is the printer's name. Save keeps the
+    settings for the program's next Print without printing.
+  - **Pages:** GTK draws each page into a white 32bpp sprite on the
+    printer's paper (PDriver_PageSize) at its resolution, at most 300 dpi
+    (Draft 150); sideways pages are turned by GTK; scale by GTK; copies by
+    the printer driver.
+  - **GDK (`gdk/riscos/gdkprint-riscos.c`):** the printer protocol with
+    !Printers (Message_PrintSave broadcast; PrintFile then PrintTypeOdd
+    answered with PrintTypeKnown; PrintError shown; a DataSaveAck (busy,
+    wants to queue) refused; no !Printers: straight to the driver), then
+    "printer:" + PDriver_SelectJob, and per page PDriver_GiveRectangle
+    (the whole paper in OS units at its bottom left), PDriver_DrawPage
+    with the copies, OS_SpriteOp 52 scaled to the paper for each
+    rectangle, PDriver_GetRectangle; PDriver_EndJob (AbortJob on an
+    error), the previous job back, hourglass on meanwhile. PrintFile,
+    PrintError, PrintTypeOdd and SetPrinter added to Wimp_Initialise's
+    list. The PDriver SWIs aren't in the 2026 PRM: numbers and registers
+    from the RISC OS 3 PRMs as in DeskLib's PDriver veneers and Print
+    library.
+  - **Print Preview:** the pages drawn at 90 dpi (actual size on the
+    desktop) and shown in a window: Page n of m, Back, Next, and Print
+    (the program's own Print menu item). Page Up/Down, Escape.
+  - New API (gdkriscoswimp.h): `gdk_riscos_printer_info`,
+    `gdk_riscos_print_begin/_page_surface/_page/_end`.
+- **!L3afpad 0.7:** printing on (File > Print..., Print Preview); !Help.
+- Tests: l3afpad-fake 34 (Print box gadgets and layout, the !Printers
+  messages, the printed job: one page, 2 copies, the A4 paper 1488 x 2105
+  OS units at 300 dpi = 2480 x 3508 pixels, the text inside L3afpad's
+  margins; the preview). Fake Wimp: a fake printer (PDriver SWIs,
+  "printer:", hourglass) recording what it's given.
+
+## UnixLib 5.0.3.3: !L3afpad 0.6, GTKThemeTest 0.30, GTKHello 0.5, GTKTest 0.6 (2026-10-06)
 - **Relinked against UnixLib 5.0.3.3** (owner's request; riscos-unixlib
   handoff 2026-10-06-all-ports-unixlib-5.0.3.3: fork with threads, waits
   in read/write/stdio (eventfd, used by GLib, can be cancelled), getserv*,

@@ -611,6 +611,92 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
        device = gtk_get_current_event_device ();
  
        _gtk_menu_shell_set_grab_device (menu_shell, device);
+--- a/gtk/gtkprintoperation-unix.c	2026-10-06 22:41:26.392691856 +0100
++++ b/gtk/gtkprintoperation-unix.c	2026-10-06 22:41:26.412027387 +0100
+@@ -31,6 +31,9 @@
+ #include <glib/gstdio.h>
+ #include "gtkprintoperation-private.h"
+ #include "gtkprintoperation-portal.h"
++#ifdef GDK_WINDOWING_RISCOS
++#include "gtkprint-riscos.h"   /* riscos-gtk: RISC OS printer drivers */
++#endif
+ #include "gtkmessagedialog.h"
+ #include "gtkprinter-private.h"
+ 
+@@ -1234,6 +1237,9 @@
+ 						  GtkWindow         *parent,
+ 						  gboolean          *do_print)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  return _gtk_print_operation_riscos_run_dialog (op, show_dialog, parent, do_print);
++#endif
+   if (gtk_should_use_portal ())
+     return gtk_print_operation_portal_run_dialog (op, show_dialog, parent, do_print);
+   else
+@@ -1245,6 +1251,10 @@
+                                                         GtkWindow                  *parent,
+ 							GtkPrintOperationPrintFunc  print_cb)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_print_operation_riscos_run_dialog_async (op, show_dialog, parent, print_cb);
++  return;
++#endif
+   if (gtk_should_use_portal ())
+     gtk_print_operation_portal_run_dialog_async (op, show_dialog, parent, print_cb);
+   else
+@@ -1257,6 +1267,10 @@
+                                                       GtkWindow         *parent,
+                                                       const gchar       *filename)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_print_operation_riscos_launch_preview (op, surface, parent, filename);
++  return;
++#endif
+   if (gtk_should_use_portal ())
+     gtk_print_operation_portal_launch_preview (op, surface, parent, filename);
+   else
+@@ -1270,6 +1284,9 @@
+ 							      gdouble           *dpi_y,
+ 							      gchar            **target)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  return _gtk_print_operation_riscos_create_preview_surface (op, page_setup, dpi_x, dpi_y, target);
++#endif
+   return gtk_print_operation_unix_create_preview_surface (op, page_setup, dpi_x, dpi_y, target);
+ }
+ 
+@@ -1278,6 +1295,10 @@
+ 							      GtkPageSetup      *page_setup,
+ 							      cairo_surface_t   *surface)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_print_operation_riscos_resize_preview_surface (op, page_setup, surface);
++  return;
++#endif
+   gtk_print_operation_unix_resize_preview_surface (op, page_setup, surface);
+ }
+ 
+@@ -1286,6 +1307,10 @@
+ 							  cairo_surface_t   *surface,
+ 							  cairo_t           *cr)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_print_operation_riscos_preview_start_page (op, surface, cr);
++  return;
++#endif
+   gtk_print_operation_unix_preview_start_page (op, surface, cr);
+ }
+ 
+@@ -1294,5 +1319,9 @@
+ 							cairo_surface_t   *surface,
+ 							cairo_t           *cr)
+ {
++#ifdef GDK_WINDOWING_RISCOS
++  _gtk_print_operation_riscos_preview_end_page (op, surface, cr);
++  return;
++#endif
+   gtk_print_operation_unix_preview_end_page (op, surface, cr);
+ }
 --- a/gtk/gtkstylecontext.c	2026-10-05 19:51:01.216783640 +0100
 +++ b/gtk/gtkstylecontext.c	2026-10-05 19:51:01.239917866 +0100
 @@ -2862,6 +2862,18 @@
@@ -648,7 +734,7 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      {
        strong.x     -= arrow_width;
 --- a/gtk/meson.build	2024-01-24 01:14:34.000000000 +0000
-+++ b/gtk/meson.build	2026-10-06 21:06:09.761196753 +0100
++++ b/gtk/meson.build	2026-10-06 22:41:26.557738155 +0100
 @@ -862,6 +862,12 @@
    gtk_sources += gtk_use_wayland_sources
  endif
@@ -656,7 +742,7 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
 +if riscos_enabled
 +  # riscos-gtk: GtkMenus as Wimp menus (copied in from riscos-gtk's gtk/riscos)
 +  gtk_sources += files('gtkmenu-riscos.c', 'gtkriscostheme.c', 'gtkfilechooser-riscos.c',
-+                       'gtkiconbar-riscos.c')
++                       'gtkiconbar-riscos.c', 'gtkprint-riscos.c')
 +endif
 +
  if win32_enabled

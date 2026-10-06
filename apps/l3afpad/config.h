@@ -7,8 +7,8 @@
 #define VERSION "0.8.18.1.11"
 #define GETTEXT_PACKAGE "l3afpad"
 #define LOCALEDIR "/<L3afpad$Dir>/locale"
-/* no print backends on RISC OS yet */
-#define ENABLE_PRINT 0
+/* printing through RISC OS's printer drivers (riscos-gtk's GtkPrintOperation) */
+#define ENABLE_PRINT 1
 #define ENABLE_XINPUT2 0
 /* the window icon (L3afpad's PNG, in the application) */
 #ifndef ICONDIR

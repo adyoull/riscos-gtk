@@ -221,3 +221,12 @@ latest is 1.3 (5.0.3.2). Owner's choice (of: overlay now / wait for
 crossdev 1.4): crossdev 1.3 with the 5.0.3.3 release library swapped in
 (build/unixlib-overlay.sh, checksum-checked; headers unchanged), until a
 crossdev release carries 5.0.3.3; a handoff asks Crossdev for 1.4.
+
+## Printing (2026-10-06)
+Owner's choices: the Toolbox PrintDbox as the Print box (not GTK's
+GtkPrintUnixDialog); bitmap pages (each page a sprite at the printer's
+resolution, at most 300 dpi, sent through PDriver: works with every RISC
+OS printer driver and matches the screen) rather than a Draw/Font Manager
+cairo back end; Print Preview as riscos-gtk's own window (GTK's runs a
+Linux previewer). !Printers' queue (a busy printer asking for a file) is
+refused rather than saving a printable file.

@@ -171,6 +171,33 @@ GDK_AVAILABLE_IN_ALL
 void     gdk_riscos_iconbar_menu_position (gint click_x, gint n_items,
                                            gint *root_x, gint *root_y);
 
+/* ---- Printing (gdkprint-riscos.c; GTK's side is gtk/gtkprint-riscos.c) ---
+ * Through the printer driver !Printers has set up (the PDriver module). */
+typedef struct {
+  char name[64];               /* the printer's name (UTF-8) */
+  int dpi_x, dpi_y;            /* its resolution */
+  gboolean colour;
+  double paper_width, paper_height;     /* points */
+  double left, bottom, right, top;      /* the margins it can't print in, points */
+} GdkRiscosPrinter;
+
+/* FALSE if no printer driver is loaded */
+GDK_AVAILABLE_IN_ALL
+gboolean         gdk_riscos_printer_info       (GdkRiscosPrinter *printer);
+/* Ask !Printers, open the printer, start a job */
+GDK_AVAILABLE_IN_ALL
+gboolean         gdk_riscos_print_begin        (const char *title, GError **error);
+/* A white page to draw on (width x height pixels), the same each page */
+GDK_AVAILABLE_IN_ALL
+cairo_surface_t *gdk_riscos_print_page_surface (int width, int height);
+/* Print it, covering the paper (points) */
+GDK_AVAILABLE_IN_ALL
+gboolean         gdk_riscos_print_page         (double paper_width, double paper_height,
+                                                int copies, GError **error);
+/* End the job (abort: abandon it) */
+GDK_AVAILABLE_IN_ALL
+void             gdk_riscos_print_end          (gboolean abort);
+
 G_END_DECLS
 
 #endif

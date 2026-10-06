@@ -253,3 +253,12 @@ gtk_init():
 - make the window's delete-event hide it (after asking to save), so the
   program stays on the icon bar; start without a window unless given a
   file.
+
+## Printing (2026-10-06)
+GtkPrintOperation works as it is: gtk_print_operation_run (PRINT_DIALOG,
+PRINT or PREVIEW) shows the RISC OS Print box, prints through !Printers'
+printer, and previews in riscos-gtk's own window (whose Print button
+activates the program's menu item labelled "Print"). A program built with
+printing switched off for want of print back ends (L3afpad's ENABLE_PRINT)
+can switch it on. GtkPageSetupUnixDialog (Page Setup) isn't replaced: the
+paper comes from the printer driver.
