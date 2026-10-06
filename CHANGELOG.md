@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased (!L3afpad 0.4, GTKThemeTest 0.28, 2026-10-06)
+## Unreleased (!L3afpad 0.5, GTKThemeTest 0.29, 2026-10-06)
+- **Windows open in the middle of the screen** (owner: the application and
+  Choices windows should). A toplevel GTK hasn't placed (no position
+  asked for: GTK_WIN_POS_NONE, no gtk_window_move, so no GDK_HINT_POS /
+  USER_POS) is centred on the screen the first time it's shown, then
+  reopens where it was (gdkwindow-riscos.c, `placed`). Windows GTK places
+  keep their place: Save/Open boxes at the pointer, message dialogues on
+  their parent. `RISCOS_GTK_CENTRE=0` turns it off.
+- Tests: l3afpad-fake 27 (L3afpad's window and the Choices window open
+  centred).
+
+## !L3afpad 0.4, GTKThemeTest 0.28 (2026-10-06)
 - **The icon bar done as our other RISC OS programs do it** (owner: 0.3's
   was "nothing like RISC OS"; looked at Reel, !FFmpeg's front end, YTDL,
   NetStats, RDPClient):

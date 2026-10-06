@@ -445,6 +445,26 @@ gdk_window_riscos_show (GdkWindow *window, gboolean already_mapped)
      while dragging (gdkdnd-riscos.c), as RISC OS programs do */
   if (impl->type_hint == GDK_WINDOW_TYPE_HINT_DND)
     return;
+  /* riscos-gtk: a program's window or dialogue box that GTK hasn't placed
+     (no position asked for: GTK_WIN_POS_NONE, no gtk_window_move) opens
+     in the middle of the screen the first time, as RISC OS programs'
+     windows do; after that it reopens where it was */
+  if (!impl->placed && window->window_type == GDK_WINDOW_TOPLEVEL)
+    {
+      impl->placed = TRUE;
+      if (!(impl->geometry_hints_mask & (GDK_HINT_POS | GDK_HINT_USER_POS)) &&
+          g_strcmp0 (g_getenv ("RISCOS_GTK_CENTRE"), "0") != 0)
+        {
+          int sw, sh, x, y;
+          _gdk_riscos_server_get_screen_size (riscos_display->server, &sw, &sh);
+          x = MAX (0, (sw - window->width) / 2);
+          y = MAX (0, (sh - window->height) / 2);
+          window->x = x;
+          window->y = y;
+          _gdk_riscos_server_window_move_resize (riscos_display->server, impl->id, TRUE,
+                                                 x, y, window->width, window->height);
+        }
+    }
   if (_gdk_riscos_server_window_show (riscos_display->server, impl->id))
     queue_flush (window);
 

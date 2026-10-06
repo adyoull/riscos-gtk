@@ -45,6 +45,7 @@ static int hidden_after_close, empty_after_close;
 static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, prequit_dialog;
 static char text_after_dataopen[128], text_after_iconload[128];
 static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
+static int main_centred = -1, choices_centred = -1, main_cx, main_cy, choices_cx, choices_cy;
 static int reports_before, ib_menu_x, ib_menu_y, ib_click_x;
 static char prequit_text[256];
 static char letter[512], letter_ro[512], note3[512], note3_ro[512];
@@ -137,6 +138,23 @@ fake_handle_of (GtkWidget *top, int *ox, int *oy)
         fake_windows[i].handle != FOREIGN && (fake_windows[i].x0 >> 1) == *ox &&
         1024 - (fake_windows[i].y1 >> 1) == *oy)
       return fake_windows[i].handle;
+  return 0;
+}
+
+/* Is Wimp window handle in the middle of the 1280 x 1024 (2560 x 2048 OS
+   units) screen? (its work area's centre within 4 OS units) */
+static int
+centred (int handle, int *cx, int *cy)
+{
+  int i;
+
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (handle && fake_windows[i].handle == handle)
+      {
+        *cx = (fake_windows[i].x0 + fake_windows[i].x1) / 2;
+        *cy = (fake_windows[i].y0 + fake_windows[i].y1) / 2;
+        return abs (*cx - 1280) <= 4 && abs (*cy - 1024) <= 4;
+      }
   return 0;
 }
 
@@ -428,6 +446,7 @@ next_step (void)
   switch (step)
     {
     case 1:      /* type */
+      main_centred = centred (main_handle, &main_cx, &main_cy);
       type (getenv ("L3_TYPE") ? getenv ("L3_TYPE") : "Hello RISC OS");
       nulls (6);
       break;
@@ -644,6 +663,11 @@ next_step (void)
         GList *checks = NULL;
         GtkWidget *grid;
         choices_seen = d != NULL;
+        if (d)
+          {
+            int ox, oy;
+            choices_centred = centred (fake_handle_of (d, &ox, &oy), &choices_cx, &choices_cy);
+          }
         if (d)
           {
             grid = find_type (gtk_dialog_get_content_area (GTK_DIALOG (d)), GTK_TYPE_GRID);
@@ -956,6 +980,8 @@ main (int argc, char **argv)
   printf ("# icon bar: %d icon(s), sprite \"%s\", flags &%X\n", fake_iconbar_icons,
           fake_iconbar_sprite, fake_iconbar_flags);
   check (stage == 1 && window_after_select, "Select on the icon opens L3afpad's window, drawn");
+  check (main_centred == 1, "L3afpad's window opens in the middle of the screen");
+  printf ("# window centre %d,%d OS units (screen 2560 x 2048)\n", main_cx, main_cy);
   check (strcmp (typed, "Hello RISC OS") == 0, "typing goes into the text");
   printf ("# typed \"%s\"\n", typed);
   check (n_titles >= 4 && strstr (menu_titles[0], "File") && strstr (menu_titles[1], "Edit"),
@@ -1021,6 +1047,8 @@ main (int argc, char **argv)
   check (choices_seen && choices_wrap_applied && strstr (choices_text, "\n1\n") != NULL,
          "Choices... opens the Choices window; Set applies word wrap and saves the Choices file");
   printf ("# Choices file: %s\n", g_strescape (choices_text, NULL));
+  check (choices_centred == 1, "the Choices window opens in the middle of the screen");
+  printf ("# Choices centre %d,%d OS units\n", choices_cx, choices_cy);
   check (hidden_after_close && empty_after_close,
          "the close icon empties and hides the window; L3afpad stays on the icon bar");
   check (dataopen_ack == 1 && strstr (text_after_dataopen, "Opened by DataOpen") && visible_after_dataopen,
