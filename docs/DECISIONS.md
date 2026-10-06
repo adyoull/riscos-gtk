@@ -214,3 +214,10 @@ second handing its file over. So the GTK icon bar menu is Info,
 Choices... (only when there are settings), Quit; Open... and Close are
 gone (RISC OS opens by dragging to the icon or double-clicking, and closes
 with the close icon).
+
+## UnixLib 5.0.3.3 before a crossdev release has it (2026-10-06)
+Owner: relink against UnixLib's latest release (5.0.3.3). riscos-crossdev's
+latest is 1.3 (5.0.3.2). Owner's choice (of: overlay now / wait for
+crossdev 1.4): crossdev 1.3 with the 5.0.3.3 release library swapped in
+(build/unixlib-overlay.sh, checksum-checked; headers unchanged), until a
+crossdev release carries 5.0.3.3; a handoff asks Crossdev for 1.4.

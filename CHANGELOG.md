@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased (!L3afpad 0.5, GTKThemeTest 0.29, 2026-10-06)
+## Unreleased (UnixLib 5.0.3.3: !L3afpad 0.6, GTKThemeTest 0.30, GTKHello 0.5, GTKTest 0.6, 2026-10-06)
+- **Relinked against UnixLib 5.0.3.3** (owner's request; riscos-unixlib
+  handoff 2026-10-06-all-ports-unixlib-5.0.3.3: fork with threads, waits
+  in read/write/stdio (eventfd, used by GLib, can be cancelled), getserv*,
+  heap gaps, swprintf, exit codes). No riscos-crossdev release has it yet,
+  so (owner's choice) `build/unixlib-overlay.sh` makes a copy of crossdev
+  1.3 with the v5.0.3.3 release's libunixlib.a (sha256 e24f16c3…, checked);
+  the public headers are the same as 5.0.3.2's, so only the link changes.
+  `build/env.sh` sets UNIXLIB_VERSION from the library's checksum and
+  notes when it isn't 5.0.3.3. Every program checked to contain 5.0.3.3's
+  `__pthread_held_wait`. !Help files say "riscos-crossdev 1.3 and UnixLib
+  5.0.3.3". PThreadTicker stays 0.03.
+
+## !L3afpad 0.5, GTKThemeTest 0.29 (2026-10-06)
 - **Windows open in the middle of the screen** (owner: the application and
   Choices windows should). A toplevel GTK hasn't placed (no position
   asked for: GTK_WIN_POS_NONE, no gtk_window_move, so no GDK_HINT_POS /

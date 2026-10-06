@@ -42,6 +42,18 @@ make check       # the same tests as ARM Linux code under qemu-arm-aligntrap
 
 riscos-crossdev's `docs/SETUP.md` lists what its toolchain and QEMU need.
 
+The current packages link **UnixLib 5.0.3.3**, which no riscos-crossdev
+release carries yet (1.3 has 5.0.3.2). Until one does, make a copy of the
+1.3 checkout with the riscos-unixlib v5.0.3.3 release's `libunixlib.a`
+(public headers unchanged) and build with it:
+
+```sh
+build/unixlib-overlay.sh ../riscos-crossdev ../riscos-crossdev-ul5033 libunixlib.a
+RCD_DIR=$PWD/../riscos-crossdev-ul5033 make ...
+```
+
+`build/env.sh` says which UnixLib it links (a note unless 5.0.3.3).
+
 ## Layout
 
 | Path | What |

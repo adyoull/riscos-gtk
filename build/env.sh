@@ -53,6 +53,18 @@ if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnuea
   return 1 2>/dev/null || exit 1
 fi
 
+# Which UnixLib the programs link (riscos-crossdev 1.3 has 5.0.3.2; until a
+# crossdev release has 5.0.3.3, build/unixlib-overlay.sh makes a copy of
+# 1.3 with the 5.0.3.3 release's library)
+case $(sha256sum "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" 2>/dev/null | cut -c1-64) in
+  e24f16c3f4612aae3871ceff521ab86b0d3ac4cc689d734e0e4085d02c774adf) UNIXLIB_VERSION=5.0.3.3 ;;
+  1153b5de33fc6bd5eb74e4d19ec7674c14ab070c07063f3e07571faa340b0aa1) UNIXLIB_VERSION=5.0.3.2 ;;
+  *) UNIXLIB_VERSION=unknown ;;
+esac
+export UNIXLIB_VERSION
+[ "$TARGET" != riscos ] || [ "$UNIXLIB_VERSION" = 5.0.3.3 ] ||
+  echo "env.sh: note: linking UnixLib $UNIXLIB_VERSION, not 5.0.3.3 (see build/unixlib-overlay.sh)" >&2
+
 export BUILD=$(gcc -dumpmachine)
 if [ "$TARGET" = riscos ]; then
   export HOST=arm-riscos-gnueabihf TCBIN=$GCCSDK_ENV/bin MESON_SYSTEM=riscos CMAKE_SYSTEM=GNU

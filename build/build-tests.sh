@@ -6,7 +6,7 @@
 # with a fonts.conf, and PThreadTicker.
 . "$(dirname "$0")/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-tests.sh: RISC OS only (TARGET=riscos)" >&2; exit 1; }
-VERSION=${VERSION:-0.5}
+VERSION=${VERSION:-0.6}
 OUT=$REPO_DIR/out
 A=$OUT/!GTKTest
 mkdir -p "$OUT"
