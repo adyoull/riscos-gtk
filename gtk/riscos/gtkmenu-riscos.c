@@ -38,6 +38,7 @@
 #include "gtktogglebutton.h"
 #include "gtkbox.h"
 #include "gtkmain.h"
+#include "gtktextview.h"
 #include "gtkcellview.h"
 #include "gtkcomboboxtext.h"
 #include "gtkmenu-riscos.h"
@@ -749,12 +750,44 @@ window_button_press (GtkWidget *window, GdkEventButton *event, gpointer data)
   return open_window_menu (GTK_MENU_SHELL (bar), event);
 }
 
+/* Menu over a multi-line text view in a window with a menu: the program's
+   menu, as in a RISC OS editor's document window (Edit, StrongED), not
+   GTK's Cut/Copy/Paste menu for the view (the program's own Edit menu has
+   those). Text fields keep theirs. GTK hands every event to this first
+   (gdk_event_handler_set), so the view never sees the click. */
+static void
+event_handler (GdkEvent *event, gpointer data)
+{
+  if (event->type == GDK_BUTTON_PRESS && event->button.button == 3 && event->any.window)
+    {
+      GtkWidget *w = NULL, *top, *bar;
+
+      gdk_window_get_user_data (event->any.window, (gpointer *) &w);
+      if (w && GTK_IS_WIDGET (w) && gtk_widget_get_ancestor (w, GTK_TYPE_TEXT_VIEW))
+        {
+          top = gtk_widget_get_toplevel (w);
+          bar = top ? g_object_get_data (G_OBJECT (top), "riscos-gtk-window-menu") : NULL;
+          if (bar && gtk_widget_is_sensitive (bar) &&
+              open_window_menu (GTK_MENU_SHELL (bar), &event->button))
+            return;
+        }
+    }
+  gtk_main_do_event (event);
+}
+
 void
 _gtk_menu_riscos_menubar_attach (GtkWidget *bar, GtkWidget *toplevel)
 {
+  static gboolean handler_set;
+
   if (!_gtk_menu_riscos_hide_menubar () || !GTK_IS_WINDOW (toplevel) ||
       !GDK_IS_RISCOS_DISPLAY (gtk_widget_get_display (toplevel)))
     return;
+  if (!handler_set)
+    {
+      handler_set = TRUE;
+      gdk_event_handler_set (event_handler, NULL, NULL);
+    }
   /* the window's first menu bar is its menu */
   if (g_object_get_data (G_OBJECT (toplevel), "riscos-gtk-window-menu") == NULL)
     {

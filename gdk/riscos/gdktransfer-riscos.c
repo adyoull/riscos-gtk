@@ -595,6 +595,65 @@ _gdk_riscos_clipboard_claimed (void)
   TRACE ("ClaimEntity (clipboard)\n");
 }
 
+/* Data for a drop (selection RISCOS_DROP) is given one request at a
+   time, from the main loop: GTK can ask twice for one drop (the widget's
+   drag-drop handler and GTK_DEST_DEFAULT_DROP), and as on X11 the second
+   answer must come after the first was used (gtk_drag_finish ->
+   _gdk_riscos_transfer_drop_done), when there is nothing left to give.
+   Answered at once, a GtkTextView with GTK_DEST_DEFAULT_ALL (L3afpad)
+   inserted dropped text twice. */
+typedef struct { GdkWindow *requestor; GdkAtom target, property; } DropRequest;
+static GQueue drop_requests = G_QUEUE_INIT;
+static guint drop_idle;
+
+static void
+drop_answer (GdkWindow *requestor, GdkAtom target, GdkAtom property)
+{
+  GdkAtom selection = gdk_atom_intern_static_string ("RISCOS_DROP");
+
+  if (drop_uri && target == gdk_atom_intern_static_string ("text/uri-list"))
+    _gdk_riscos_property_set (requestor, property,
+                              gdk_atom_intern_static_string ("text/uri-list"), 8,
+                              (const guchar *) drop_uri, strlen (drop_uri), FALSE);
+  else if (!drop_text && drop_uri && target == gdk_atom_intern_static_string ("TARGETS"))
+    {
+      GdkAtom atoms[2] = { gdk_atom_intern_static_string ("TARGETS"),
+                           gdk_atom_intern_static_string ("text/uri-list") };
+      _gdk_riscos_property_set (requestor, property, gdk_atom_intern_static_string ("ATOM"),
+                                32, (const guchar *) atoms, sizeof atoms, FALSE);
+    }
+  else if (drop_text && target == gdk_atom_intern_static_string ("TARGETS"))
+    set_targets (requestor, property);
+  else if (drop_text && is_text_target (target))
+    _gdk_riscos_property_set (requestor, property,
+                              gdk_atom_intern_static_string ("UTF8_STRING"), 8,
+                              (const guchar *) drop_text, strlen (drop_text), FALSE);
+  else
+    property = GDK_NONE;          /* nothing (left) to give */
+  _gdk_riscos_selection_event (GDK_SELECTION_NOTIFY, requestor, NULL, selection, target,
+                               property, GDK_CURRENT_TIME);
+}
+
+static gboolean
+drop_requests_idle (gpointer data)
+{
+  DropRequest *r = g_queue_pop_head (&drop_requests);
+
+  if (r)
+    {
+      if (!GDK_WINDOW_DESTROYED (r->requestor))
+        drop_answer (r->requestor, r->target, r->property);
+      g_object_unref (r->requestor);
+      g_free (r);
+    }
+  if (g_queue_is_empty (&drop_requests))
+    {
+      drop_idle = 0;
+      return G_SOURCE_REMOVE;
+    }
+  return G_SOURCE_CONTINUE;      /* the next after GDK's events (higher priority) */
+}
+
 /* A selection with no owner in this program: the clipboard in another
    task, or text dropped on us. TRUE if the answer will come. */
 gboolean
@@ -603,27 +662,14 @@ _gdk_riscos_transfer_convert (GdkWindow *requestor, GdkAtom selection, GdkAtom t
 {
   if (selection == gdk_atom_intern_static_string ("RISCOS_DROP"))
     {
-      if (drop_uri && target == gdk_atom_intern_static_string ("text/uri-list"))
-        _gdk_riscos_property_set (requestor, property,
-                                  gdk_atom_intern_static_string ("text/uri-list"), 8,
-                                  (const guchar *) drop_uri, strlen (drop_uri), FALSE);
-      else if (!drop_text && drop_uri && target == gdk_atom_intern_static_string ("TARGETS"))
-        {
-          GdkAtom atoms[2] = { gdk_atom_intern_static_string ("TARGETS"),
-                               gdk_atom_intern_static_string ("text/uri-list") };
-          _gdk_riscos_property_set (requestor, property, gdk_atom_intern_static_string ("ATOM"),
-                                    32, (const guchar *) atoms, sizeof atoms, FALSE);
-        }
-      else if (drop_text && target == gdk_atom_intern_static_string ("TARGETS"))
-        set_targets (requestor, property);
-      else if (drop_text && is_text_target (target))
-        _gdk_riscos_property_set (requestor, property,
-                                  gdk_atom_intern_static_string ("UTF8_STRING"), 8,
-                                  (const guchar *) drop_text, strlen (drop_text), FALSE);
-      else
-        return FALSE;
-      _gdk_riscos_selection_event (GDK_SELECTION_NOTIFY, requestor, NULL, selection, target,
-                                   property, GDK_CURRENT_TIME);
+      DropRequest *r = g_new0 (DropRequest, 1);
+
+      r->requestor = g_object_ref (requestor);
+      r->target = target;
+      r->property = property;
+      g_queue_push_tail (&drop_requests, r);
+      if (!drop_idle)
+        drop_idle = g_idle_add (drop_requests_idle, NULL);
       return TRUE;
     }
 

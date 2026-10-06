@@ -554,6 +554,9 @@ handle_key (GdkRiscosServer *server, int *block)
 
   state = modifier_state (server) & ~(GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK);
   keyval = keyval_for (block[6], &state);
+  if (g_getenv ("RISCOS_GTK_KEY_DEBUG"))  /* the Log, for key problems */
+    g_printerr ("riscos-gtk: key &%X in window &%X -> keyval %x state %x%s\n", block[6], block[0],
+                keyval, state, w ? "" : " (not ours)");
   if (w == NULL || keyval == 0)
     {
       /* Not ours (F12, hot keys...): give it back to the Wimp. */

@@ -186,6 +186,12 @@ gdk_riscos_keymap_translate_keyboard_state (GdkKeymap       *keymap,
     *effective_group = 0;
   if (level)
     *level = 0;
+  /* riscos-gtk: no modifier went into choosing the keyval (the Wimp gives
+     the character itself). Left unset, GTK's key hash read garbage here,
+     took Alt as "consumed" and matched menu mnemonics (Alt+E for _Edit) on
+     plain keys: L3afpad lost every e, o and space typed. */
+  if (consumed_modifiers)
+    *consumed_modifiers = 0;
   return TRUE;
 }
 

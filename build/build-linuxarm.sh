@@ -89,12 +89,33 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
 ET=$REPO_DIR/out/edittest-linuxarm
 rm -rf "$ET"; mkdir -p "$ET"
 
+# L3afpad (the first real GTK program) on the fake Wimp: its sources with
+# its RISC OS patch, main renamed, driven by tests/gtk/l3afpad-fake.c
+L3V=0.8.18.1.11
+L3=$SRC/l3afpad-$L3V
+rm -rf "$L3"; tar -xzf "$DL/l3afpad_$L3V.orig.tar.gz" -C "$SRC"
+(cd "$L3" && patch -p1 -s < "$REPO_DIR/patches/l3afpad-$L3V-riscos.diff")
+cp "$REPO_DIR/apps/l3afpad/config.h" "$L3/src/"
+L3O=$REPO_DIR/out/l3afpad-objs-linuxarm
+rm -rf "$L3O"; mkdir -p "$L3O"
+for f in "$L3"/src/*.c "$REPO_DIR/apps/l3afpad/riscos-l3afpad.c"; do
+  (cd "$L3O" && $CC $RO_CFLAGS -c -w -DHAVE_CONFIG_H -D__riscos=1 -Dmain=l3afpad_main \
+    -DICONDIR="\"$REPO_DIR/apps/l3afpad/app/share/icons\"" -I"$L3/src" $(pkg-config --cflags gtk+-3.0) "$f")
+done
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+  "$REPO_DIR/tests/gtk/l3afpad-fake.c" "$L3O"/*.o -o "$REPO_DIR/out/l3afpad-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+L3T=$REPO_DIR/out/l3afpad-linuxarm
+rm -rf "$L3T"; mkdir -p "$L3T"
+
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 run themetest-fake "$HA" "$TT"
 run edittest-fake "$HA" "$ET"
+run l3afpad-fake "$HA" "$L3T"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"
 exit $failed

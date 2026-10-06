@@ -1,4 +1,4 @@
-GTKThemeTest 0.24 - riscos-gtk theme test
+GTKThemeTest 0.25 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -24,6 +24,11 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.25: fixes found by the first real program (L3afpad): typing no
+longer loses letters in windows with a menu; text dropped into a text
+view goes in once; Menu over a text view (Lists and text page) gives the
+program's menu.
 
 New in 0.24: no more warnings in the Log after opening a file dialogue
 or the calendar; the calendar's week starts on your territory's first

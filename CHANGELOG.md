@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased (!L3afpad 0.1, GTKThemeTest 0.25, 2026-10-06)
+- 0.24 confirmed on the Pi (owner's photo of the Log: no warnings left,
+  icons from sprites 25 of 25).
+- **!L3afpad 0.1**: L3afpad 0.8.18.1.11 (GPL-2+; Ubuntu universe source),
+  the first real GTK program ported. build/build-l3afpad.sh: no configure
+  (apps/l3afpad/config.h; printing off), patches/l3afpad-*-riscos.diff:
+  New empties the window (asking to save) instead of starting a second
+  copy; extra dropped files ignored (no second copy); no stdin read.
+  apps/l3afpad/riscos-l3afpad.c: fonts and data from the application,
+  messages to <Wimp$ScrapDir>.L3afpad.Log (opened once), a RISC OS file
+  name from !Run made a UnixLib one, RISCOS_GTK_DEFAULT_FILETYPE=fff.
+  App: !Run (%*0: a file dropped on the application opens), !Boot,
+  !Sprites (from L3afpad's icon, tools/png2sprite.py), !Help, Licence
+  (GPL-2) and LicenceLGPL, DejaVu Sans Mono too.
+- Found by L3afpad, fixed in the backend:
+  - **Typing lost e, o and space** in a window with a menu: the keymap
+    (gdkkeys-riscos.c) left translate_keyboard_state's consumed modifiers
+    unset, so GTK's key hash matched menu mnemonics (Alt+E _Edit, Alt+O
+    _Options...) on plain keys. Now 0.
+  - **Text dropped on a GtkTextView went in twice** (GTK asks twice: the
+    view's drag-drop and GTK_DEST_DEFAULT_DROP). Drop data is now given
+    one request at a time from the main loop, so the second comes after
+    gtk_drag_finish and gets nothing, as on X11.
+  - **Menu over a multi-line text view in a window with a menu** opens the
+    program's menu (as in Edit or StrongED), not GTK's Cut/Copy/Paste menu
+    for the view; text fields keep theirs (gtkmenu-riscos.c, an event
+    handler ahead of GTK's).
+  - Save boxes: a name without an extension is the program's type if it
+    sets RISCOS_GTK_DEFAULT_FILETYPE (hex), else Data.
+  - RISCOS_GTK_KEY_DEBUG logs each key (code, keyval) to the Log.
+- build-app.sh: copies any other files the application has (!Boot,
+  !Sprites, Licence...), fills @VERSION@ in !Help, EXTRA_FONTS.
+- Tests: l3afpad-fake (10: start, type, Menu gives L3afpad's menu, File >
+  Save As is a Save box, drag-save as Text, saved, title, a Latin-1 text
+  file dropped in once, no warnings, quit) added to build-linuxarm.sh.
+
 ## Unreleased (GTKThemeTest 0.24, 2026-10-06)
 - Owner's 0.23 Log: icons from sprites 25 of 25 (every Wimp sprite looked
   for was there). Two warnings remained, both fixed:

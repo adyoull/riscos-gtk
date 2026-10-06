@@ -1,0 +1,81 @@
+diff -ru a/src/callback.c b/src/callback.c
+--- a/src/callback.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/callback.c	2026-10-06 17:01:05.226836093 +0100
+@@ -36,6 +36,13 @@
+ }
+ 
+ void on_file_new(void)
++#ifdef __riscos
++{
++	/* RISC OS runs one copy of a program (no second process to start):
++	   New empties the window, asking to save first, as Close does */
++	on_file_close();
++}
++#else
+ {
+ 	gchar *comline;
+ 	gchar *option;
+@@ -49,6 +56,7 @@
+ 	g_spawn_command_line_async(comline, NULL);
+ 	g_free(comline);
+ }
++#endif
+ 
+ void on_file_open(void)
+ #ifdef ENABLE_CSDI
+diff -ru a/src/dnd.c b/src/dnd.c
+--- a/src/dnd.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/dnd.c	2026-10-06 17:01:05.227237707 +0100
+@@ -139,6 +139,10 @@
+ 			filename = g_strstrip(parse_file_uri(files[i]));
+ 			if (i + j == 0)
+ 				dnd_open_first_file(filename);
++#ifdef __riscos
++			else
++				;	/* one copy of the program: the first file only */
++#else
+ 			else {
+ 				if (i + j == 1)
+ 					save_config_file();
+@@ -154,6 +158,7 @@
+ 				g_spawn_command_line_async(comline, NULL);
+ 				g_free(comline);
+ 			}
++#endif
+ 			g_free(filename);
+ 			i++;
+ 		}
+diff -ru a/src/main.c b/src/main.c
+--- a/src/main.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/main.c	2026-10-06 17:01:05.226206952 +0100
+@@ -191,11 +191,20 @@
+ 		fi->filename = parse_file_uri(argv[1]);
+ }
+ 
++#ifdef __riscos
++/* riscos-l3afpad.c: the program's environment on RISC OS */
++void riscos_l3afpad_init(gint *argc, gchar ***argv);
++#endif
++
+ gint main(gint argc, gchar **argv)
+ {
+ 	Conf *conf;
+ 	gchar *stdin_data = NULL;
+ 
++#ifdef __riscos
++	riscos_l3afpad_init(&argc, &argv);
++#endif
++
+ 	bindtextdomain(PACKAGE, LOCALEDIR);
+ 	bind_textdomain_codeset(PACKAGE, "UTF-8");
+ 	textdomain(PACKAGE);
+@@ -264,7 +273,8 @@
+ 
+ 	if (pub->fi->filename)
+ 		file_open_real(pub->mw->view, pub->fi);
+-#ifdef G_OS_UNIX
++#if defined(G_OS_UNIX) && !defined(__riscos)
++	/* (RISC OS: a Wimp task's stdin is the keyboard; nothing is piped) */
+ 	else
+ 		stdin_data = gedit_utils_get_stdin();
+ #endif

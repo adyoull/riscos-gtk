@@ -170,3 +170,13 @@ RISC OS-style set). Names RISC OS has a picture for come from the Wimp
 sprite pool at start-up, like the rest of the theme; everything else
 from a trimmed Adwaita 3.36 (PNG). The list of names is
 theme/icons-list.txt.
+
+## L3afpad, the first real program; Menu over a text view (2026-10-06)
+L3afpad (tiny, GTK 3 only, GtkFileChooserDialog, text view, menus) was
+ported as !L3afpad. RISC OS runs one copy of a program, so "New" empties
+the window instead of starting another copy. Its window is all text view,
+so the program's menu would be unreachable with Menu (the view's own
+context menu would take the click): in a window with a menu, Menu over a
+multi-line text view now gives the program's menu, as RISC OS editors do;
+single-line fields keep their Cut/Copy/Paste menu. Printing is off until
+GTK has a RISC OS print route.

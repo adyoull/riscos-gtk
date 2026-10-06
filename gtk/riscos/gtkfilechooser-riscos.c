@@ -25,6 +25,9 @@
  * Names in the field are RISC OS names ("Report/txt"); GTK gets UnixLib
  * names ("/ADFS::HD4/$/Docs/Report.txt").
  *
+ * A name without an extension is Data (&FFD), unless the program sets
+ * RISCOS_GTK_DEFAULT_FILETYPE (hex, e.g. "fff" for a text editor).
+ *
  * *Set RISCOS_GTK_NATIVE_CHOOSER 0 uses GTK's own file chooser instead
  * (for both).
  *
@@ -118,7 +121,14 @@ leaf_type (const char *leaf)
   guint i;
 
   if (ext == NULL)
-    return 0xFFD;               /* Data */
+    {
+      /* no extension: the program's own type if it says (a text editor:
+         RISCOS_GTK_DEFAULT_FILETYPE=fff), else Data */
+      const char *def = g_getenv ("RISCOS_GTK_DEFAULT_FILETYPE");
+      char *end = NULL;
+      long t = def ? strtol (def, &end, 16) : -1;
+      return def && end && *end == '\0' && t >= 0 && t <= 0xFFF ? (int) t : 0xFFD;
+    }
   for (i = 0; i < G_N_ELEMENTS (types); i++)
     if (g_ascii_strcasecmp (ext + 1, types[i].ext) == 0)
       return types[i].type;

@@ -1,0 +1,29 @@
+L3afpad @VERSION@ - a simple text editor (GTK 3) for RISC OS
+
+L3afpad 0.8.18.1.11 by Tarot Osuji and Steven Honeyman (GPL version 2),
+on GTK 3 through riscos-gtk's RISC OS backend: the first real GTK program
+in the riscos-gtk project.
+
+Using it
+- Run it, or drop a text file on !L3afpad in a Filer window.
+- Click Menu over the window for its menu (File, Edit, Search, Options,
+  Help). Keyboard short-cuts are shown in the menus (^S save, ^O open...).
+- Drag a text file from a Filer window onto the window to open it.
+- File > Save As: a RISC OS Save box. Drag its icon to a Filer window, or
+  give a full name and click Save. Names without an extension are saved
+  as Text (&FFF).
+- File > Open: an Open box. Drag a file to it from a Filer window.
+- File > New empties the window (asking to save first): RISC OS runs one
+  copy of a program, so there's no second window.
+- Text in UTF-8 and other encodings is detected when opening; RISC OS's
+  Latin-1 is read through the Iconv module.
+
+Not yet
+- Printing (GTK has no printing on RISC OS yet).
+- Double-clicking a text file doesn't open it here (no icon bar icon yet).
+
+Messages go to <Wimp$ScrapDir>.L3afpad.Log. Please send it, with a note of
+anything that behaves differently from a RISC OS editor.
+
+Licences: L3afpad GPL v2; GTK, GLib and friends LGPL; icons from GNOME's
+Adwaita (LGPL v3 / CC-BY-SA 3.0); DejaVu fonts (free licence, in fonts).

@@ -28,12 +28,20 @@ fi
 size=$(stat -c %s "$A/$PROG,ff8")
 slot=$(( (size + 4 * 1024 * 1024 + 1023) / 1024 ))
 sed "s/@SLOT@/$slot/g" "$FILES/!Run,feb" > "$A/!Run,feb"
-cp "$FILES/!Help,fff" "$A/"
+sed "s/@VERSION@/$VERSION/g" "$FILES/!Help,fff" > "$A/!Help,fff"
+# anything else the application has (!Boot, !Sprites, ...)
+for f in "$FILES"/*; do
+  case "$(basename "$f")" in '!Run,feb'|'!Help,fff') ;; *) cp -r "$f" "$A/" ;; esac
+done
 cp "$GCCSDK_ENV"/riscos/PThrTicker,ffa "$GCCSDK_ENV"/riscos/PThreadTicker-ReadMe,fff \
    "$GCCSDK_ENV"/riscos/PThreadTicker-Licence,fff "$A/"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' \
   'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf' 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Oblique.ttf' \
   'dejavu-fonts-ttf-2.37/LICENSE' -d "$A/fonts"
+# more DejaVu faces an application wants (e.g. EXTRA_FONTS="DejaVuSansMono.ttf")
+for f in ${EXTRA_FONTS:-}; do
+  unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" "dejavu-fonts-ttf-2.37/ttf/$f" -d "$A/fonts"
+done
 mv "$A/fonts/LICENSE" "$A/fonts/Licence,fff"
 "$REPO_DIR/tests/render/mkfontsconf.sh" "/<$NAME\$Dir>/fonts" "/<Wimp\$ScrapDir>/$NAME/fontcache" \
   > "$A/fonts/fonts.conf"
