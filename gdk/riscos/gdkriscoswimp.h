@@ -77,13 +77,22 @@ void       gdk_riscos_report_error (const char *message);
 
 /* ---- The icon bar (gdkiconbar-riscos.c, gtk/gtkiconbar-riscos.c) ------
  *
- * Every GTK program gets an icon on the icon bar, with a menu of Info,
- * Open..., Close, Choices... and Quit; files double-clicked in the Filer
- * (Message_DataOpen, for the types claimed) or dropped on the icon are
- * opened. By default GTK does these with the program's GtkApplication
- * (activate, open, the "preferences" and "quit" actions) or its own menu
- * items (Open, Preferences, Close, Quit). A program can set its own
- * handlers, the Info box text, the sprite and the file types, before
+ * Every GTK program gets an icon on the icon bar, as riscos-gtk's other
+ * RISC OS programs have (Reel, !FFmpeg, YTDL, NetStats):
+ *   Select / Adjust   show the program's window (or make one);
+ *   Menu              Info >  (About this program: Name, Purpose, Author,
+ *                              Version)
+ *                     Choices...  (only if the program has settings)
+ *                     Quit
+ * Files double-clicked in the Filer (Message_DataOpen, for the types
+ * claimed), dropped on the icon, or saved to it by another program are
+ * opened; Message_PreQuit with unsaved work asks (Cancel / Discard); a
+ * second copy hands its file to the first and goes.
+ *
+ * By default GTK uses the program's GtkApplication (activate, open, the
+ * "preferences" and "quit" actions) or its own menu items (Preferences/
+ * Settings/Choices, Quit). A program can set its own handlers, the Info
+ * text, the sprite, the file types and its start-up file before
  * gtk_init(). RISCOS_GTK_ICONBAR=0 (or gdk_riscos_iconbar_disable())
  * leaves the icon bar alone.
  */
@@ -94,15 +103,11 @@ typedef struct {
      in <Wimp$Scrap> (load it as untitled; it's deleted afterwards).
      Return FALSE if it couldn't be opened. */
   gboolean (*open_file) (const char *unix_path, int filetype, gboolean scrap, gpointer data);
-  /* Open...: let the user choose a file */
-  void     (*open)      (gpointer data);
-  /* Close: close the program's current window */
-  void     (*close)     (gpointer data);
-  /* Choices...: the program's settings */
+  /* Choices...: the program's settings (NULL: no Choices item) */
   void     (*choices)   (gpointer data);
-  /* Quit (ask about unsaved work first) */
+  /* Quit */
   void     (*quit)      (gpointer data);
-  /* TRUE if there is unsaved work (desktop shutdown, Task Manager Quit) */
+  /* TRUE if there is unsaved work (Quit and PreQuit ask first) */
   gboolean (*unsaved)   (gpointer data);
 } GdkRiscosIconbarHandlers;
 
@@ -121,19 +126,25 @@ void     gdk_riscos_iconbar_set_sprite   (const char *sprite);
 /* Load files of this type when they are double-clicked (Message_DataOpen) */
 GDK_AVAILABLE_IN_ALL
 void     gdk_riscos_iconbar_add_filetype (int filetype);
+/* The file the program was started with (RISC OS name): if a copy is
+   already running, it gets the file (Message_DataLoad) and this one goes */
+GDK_AVAILABLE_IN_ALL
+void     gdk_riscos_iconbar_set_start_file (const char *riscos_path);
 /* No icon bar icon for this program (call before gtk_init) */
 GDK_AVAILABLE_IN_ALL
 void     gdk_riscos_iconbar_disable      (void);
+/* A RISC OS question box (Wimp_ReportError, a question, new style): Cancel
+   and button. TRUE if button was chosen. */
+GDK_AVAILABLE_IN_ALL
+gboolean gdk_riscos_ask                  (const char *message, const char *button);
 
 /* For GTK's side (gtk/gtkiconbar-riscos.c). Events come from the Wimp
-   poll: queue an idle, don't run GTK code there (except PREQUIT, which
-   must say at once whether the program objects). */
+   poll: queue an idle, don't run GTK code there. */
 typedef enum {
   GDK_RISCOS_ICONBAR_SELECT,
   GDK_RISCOS_ICONBAR_MENU,
   GDK_RISCOS_ICONBAR_ADJUST,
-  GDK_RISCOS_ICONBAR_OPEN_FILE,
-  GDK_RISCOS_ICONBAR_PREQUIT
+  GDK_RISCOS_ICONBAR_OPEN_FILE
 } GdkRiscosIconbarEventType;
 
 typedef struct {
@@ -142,8 +153,6 @@ typedef struct {
   const char *path;            /* OPEN_FILE: UnixLib name */
   int filetype;
   gboolean scrap;
-  gboolean shutdown;           /* PREQUIT: the desktop is shutting down */
-  gboolean object;             /* PREQUIT, set by the handler: don't quit yet */
 } GdkRiscosIconbarEvent;
 
 typedef void (*GdkRiscosIconbarFunc) (GdkRiscosIconbarEvent *event, gpointer data);
@@ -156,17 +165,11 @@ gboolean gdk_riscos_iconbar_enabled      (void);
 /* The Info box, a Wimp window for the menu's Info item (0 if none) */
 GDK_AVAILABLE_IN_ALL
 gint     gdk_riscos_iconbar_info_window  (void);
-/* Where an icon bar menu opens (root pixels; Style Guide: 64 OS units
-   left of the click, its top 96 + its height above the bottom of the
-   screen; height = 44 per item + 24 per dotted line, OS units) */
+/* Where an icon bar menu of n items opens (root pixels): 64 OS units left
+   of the click, its top 96 + 44 n above the bottom of the screen */
 GDK_AVAILABLE_IN_ALL
-void     gdk_riscos_iconbar_menu_position (gint click_x, gint menu_height,
+void     gdk_riscos_iconbar_menu_position (gint click_x, gint n_items,
                                            gint *root_x, gint *root_y);
-/* After objecting to a desktop shutdown: carry it on when the program
-   exits (Wimp_ProcessKey Ctrl-Shift-F12), or not (FALSE: the user
-   cancelled) */
-GDK_AVAILABLE_IN_ALL
-void     gdk_riscos_iconbar_resume_shutdown_at_exit (gboolean resume);
 
 G_END_DECLS
 

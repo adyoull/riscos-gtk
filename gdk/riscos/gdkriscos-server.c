@@ -1169,6 +1169,8 @@ _gdk_riscos_server_new (const char *display, GError **error)
       return NULL;
     }
 
+  /* one copy of a program: a second hands its file to the first, and goes */
+  _gdk_riscos_iconbar_startup (r.r[1], name);
   server = g_object_new (GDK_TYPE_RISCOS_SERVER, NULL);
   server->task = r.r[1];
   read_screen (server);

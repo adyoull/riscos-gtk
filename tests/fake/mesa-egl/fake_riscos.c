@@ -68,6 +68,8 @@ int fake_target_window;
 int fake_target_icon = -1;            /* Mouse_Click's icon (-1: none) */
 int fake_iconbar_icons, fake_iconbar_flags, fake_processed_key = -1;
 char fake_iconbar_sprite[16];
+int fake_reports, fake_report_flags, fake_report_answer = 1;
+char fake_report_text[256], fake_report_buttons[64];
 #define TARGET_WINDOW (fake_target_window ? fake_target_window : wimp_last_window)
 static int wimp_created[64], wimp_num_created;     /* windows in creation order */
 
@@ -867,6 +869,15 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         e = error("OS_Plot code not faked");
         break;
     }
+    case 0x400DF:   /* Wimp_ReportError: recorded; answered with fake_report_answer */
+        fake_reports++;
+        strncpy(fake_report_text, (const char *) (long) r.r[0] + 4, sizeof fake_report_text - 1);
+        fake_report_flags = r.r[1];
+        fake_report_buttons[0] = 0;
+        if ((r.r[1] & (1 << 8)) && r.r[5])
+            strncpy(fake_report_buttons, (const char *) (long) r.r[5], sizeof fake_report_buttons - 1);
+        r.r[1] = fake_report_answer;
+        break;
     case 0x400C2:   /* Wimp_CreateIcon: the icon bar (window -1 / -2) only */
         block = (int *) (long) r.r[1];
         if (block[0] != -1 && block[0] != -2) { e = error("CreateIcon: icon bar only"); break; }

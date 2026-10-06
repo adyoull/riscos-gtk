@@ -122,5 +122,7 @@ extern cairo_user_data_key_t _gdk_riscos_sprite_key;
 gboolean           _gdk_riscos_iconbar_click                   (int                *block);
 gboolean           _gdk_riscos_iconbar_message                 (int                 reason,
                                                                  int                *block);
+void               _gdk_riscos_iconbar_startup                 (int                 task,
+                                                                 const char         *task_name);
 
 #endif /* __GDK_RISCOS_SERVER__ */

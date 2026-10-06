@@ -2,27 +2,26 @@
  * gtkiconbar-riscos.c - riscos-gtk: what a GTK program's icon bar icon does.
  *
  * The icon itself and the Wimp messages are GDK's (gdk/riscos/
- * gdkiconbar-riscos.c); this is GTK's side:
+ * gdkiconbar-riscos.c); this is GTK's side, done as riscos-gtk's other
+ * RISC OS programs (Reel, !FFmpeg, YTDL, NetStats) do it:
  *
- *   - Select (or Adjust) on the icon: show the program's window, or make
- *     one (GtkApplication: activate);
- *   - Menu on the icon: the icon bar menu, at the Style Guide's place,
- *       Info  >   the Info box (a Wimp window)
- *       Open...   choose a file to open (the program's Open)
- *       Close     close the program's current window
- *       Choices...the program's settings
- *       ─────
+ *   - Select (or Adjust) on the icon: the program's window, brought to the
+ *     front (or made: GtkApplication activate, or the windows it hid);
+ *   - Menu on the icon: the icon bar menu, titled with the program's name,
+ *     64 OS units left of the click with its top 96 + 44 a line up:
+ *       Info  >     About this program (a Wimp window, GDK's)
+ *       Choices...  only if the program has settings
  *       Quit
- *     (items the program can't do are shaded);
+ *     Adjust on an item keeps the menu open;
+ *   - Quit with unsaved work asks first (a RISC OS question box: Cancel /
+ *     Discard);
  *   - a file double-clicked in the Filer (of a type the program claims),
- *     dropped on the icon, or saved to it by another program: opened;
- *   - Message_PreQuit: object if the program has unsaved work, and ask
- *     (its Quit).
+ *     dropped on the icon, or saved to it by another program: opened.
  *
- * What each does comes from, in order: the program's handlers
- * (gdk_riscos_iconbar_set_handlers), its GtkApplication (activate, open,
- * the "preferences" and "quit" actions), or its own menu items, found by
- * their labels (Open, Preferences/Settings/Choices, Close, Quit).
+ * What each does comes from the program's handlers
+ * (gdk_riscos_iconbar_set_handlers), else its GtkApplication (activate,
+ * open, the "preferences" and "quit" actions), else its own menu items,
+ * found by their labels (Preferences/Settings/Choices, Quit).
  *
  * A GtkApplication is held, so that closing its last window leaves the
  * program on the icon bar, as RISC OS programs stay.
@@ -44,16 +43,19 @@
 
 #include "riscos/gdkriscos.h"
 #include <glib/gstdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-enum { ITEM_INFO, ITEM_OPEN, ITEM_CLOSE, ITEM_CHOICES, ITEM_QUIT, N_ITEMS };
-static const char *item_labels[N_ITEMS] = { "Info", "Open...", "Close", "Choices...", "Quit" };
+enum { ITEM_INFO, ITEM_CHOICES, ITEM_QUIT, N_ITEMS };
+static const char *item_labels[N_ITEMS] = { "Info", "Choices...", "Quit" };
 
 static struct {
   GdkDisplay *display;
   int *menu;                       /* the Wimp menu block */
   char title[64];
-  gboolean shaded[N_ITEMS];
+  int items[N_ITEMS];              /* the menu's lines: which item each is */
+  int n;
+  int click_x;
   gboolean app_held;
 } ib;
 
@@ -106,24 +108,6 @@ is_main_window (GtkWidget *w)
          gtk_window_get_window_type (GTK_WINDOW (w)) == GTK_WINDOW_TOPLEVEL &&
          gtk_window_get_type_hint (GTK_WINDOW (w)) == GDK_WINDOW_TYPE_HINT_NORMAL &&
          gtk_window_get_transient_for (GTK_WINDOW (w)) == NULL;
-}
-
-/* The window Close closes: the one with the input focus, else the first
-   on screen */
-static GtkWidget *
-current_window (void)
-{
-  GList *l, *tops = gtk_window_list_toplevels ();
-  GtkWidget *found = NULL;
-
-  for (l = tops; l; l = l->next)
-    if (gtk_widget_get_visible (l->data) && GTK_IS_WINDOW (l->data) &&
-        gtk_window_get_window_type (GTK_WINDOW (l->data)) == GTK_WINDOW_TOPLEVEL &&
-        gtk_window_get_type_hint (GTK_WINDOW (l->data)) != GDK_WINDOW_TYPE_HINT_DND &&
-        (found == NULL || gtk_window_is_active (l->data)))
-      found = l->data;
-  g_list_free (tops);
-  return found;
 }
 
 static char *
@@ -188,7 +172,6 @@ find_item (const char *const *names)
   return found;
 }
 
-static const char *const open_names[] = { "open", NULL };
 static const char *const choices_names[] = { "preferences", "settings", "choices", "options", NULL };
 static const char *const quit_names[] = { "quit", "exit", NULL };
 
@@ -219,7 +202,7 @@ do_show (void)
       h->show (data);
       return;
     }
-  /* the program's windows: shown and brought to the front */
+  /* the program's windows: brought to the front */
   tops = gtk_window_list_toplevels ();
   for (l = tops; l; l = l->next)
     if (is_main_window (l->data) && gtk_widget_get_visible (l->data))
@@ -246,28 +229,51 @@ do_show (void)
 }
 
 static gboolean
-can (int item)
+has_choices (void)
 {
   gpointer data;
   const GdkRiscosIconbarHandlers *h = handlers (&data);
-  GApplication *app = application ();
 
-  switch (item)
+  if (h)
+    return h->choices != NULL;
+  return app_action ("preferences", FALSE) || app_action ("prefs", FALSE) ||
+         activate_item (choices_names, FALSE);
+}
+
+static void
+do_quit (void)
+{
+  gpointer data;
+  const GdkRiscosIconbarHandlers *h = handlers (&data);
+
+  if (h && h->unsaved && h->unsaved (data))
     {
-    case ITEM_INFO:
-      return gdk_riscos_iconbar_info_window () != 0;
-    case ITEM_OPEN:
-      return (h && h->open) || app_action ("open", FALSE) || activate_item (open_names, FALSE);
-    case ITEM_CLOSE:
-      return current_window () != NULL;
-    case ITEM_CHOICES:
-      return (h && h->choices) || app_action ("preferences", FALSE) || app_action ("prefs", FALSE) ||
-             activate_item (choices_names, FALSE);
-    case ITEM_QUIT:
-      (void) app;
-      return TRUE;
+      char *msg = g_strdup_printf ("%s has unsaved changes. Discard them and quit?",
+                                   g_get_application_name () ? g_get_application_name () : "This program");
+      gboolean go = gdk_riscos_ask (msg, "Discard");
+      g_free (msg);
+      if (!go)
+        return;
     }
-  return FALSE;
+  if (h && h->quit)
+    h->quit (data);
+  else if (app_action ("quit", TRUE))
+    ;
+  else if (!activate_item (quit_names, TRUE))
+    {
+      /* no Quit of its own: close its windows, and end */
+      GList *l, *tops = gtk_window_list_toplevels ();
+      for (l = tops; l; l = l->next)
+        if (is_main_window (l->data))
+          gtk_widget_destroy (l->data);
+      g_list_free (tops);
+      if (application ())
+        g_application_quit (application ());
+      else if (gtk_main_level () > 0)
+        gtk_main_quit ();
+      else
+        exit (0);
+    }
 }
 
 static void
@@ -275,26 +281,9 @@ do_item (int item)
 {
   gpointer data;
   const GdkRiscosIconbarHandlers *h = handlers (&data);
-  GtkWidget *w;
 
   switch (item)
     {
-    case ITEM_OPEN:
-      if (h && h->open)
-        h->open (data);
-      else if (!app_action ("open", TRUE))
-        {
-          /* the program's own Open, from its window (shown first) */
-          do_show ();
-          activate_item (open_names, TRUE);
-        }
-      break;
-    case ITEM_CLOSE:
-      if (h && h->close)
-        h->close (data);
-      else if ((w = current_window ()))
-        gtk_window_close (GTK_WINDOW (w));
-      break;
     case ITEM_CHOICES:
       if (h && h->choices)
         h->choices (data);
@@ -302,30 +291,10 @@ do_item (int item)
         activate_item (choices_names, TRUE);
       break;
     case ITEM_QUIT:
-      if (h && h->quit)
-        h->quit (data);
-      else if (app_action ("quit", TRUE))
-        ;
-      else if (!activate_item (quit_names, TRUE))
-        {
-          /* no Quit of its own: close its windows; a program whose main
-             loop doesn't end with them ends here */
-          GList *l, *tops = gtk_window_list_toplevels ();
-          for (l = tops; l; l = l->next)
-            if (is_main_window (l->data) && gtk_widget_get_visible (l->data))
-              gtk_window_close (l->data);
-          g_list_free (tops);
-          if (current_window () == NULL)
-            {
-              if (application ())
-                g_application_quit (application ());
-              else if (gtk_main_level () > 0)
-                gtk_main_quit ();
-            }
-        }
+      do_quit ();
       break;
     default:
-      break;
+      break;                        /* Info: its window is the submenu */
     }
 }
 
@@ -335,84 +304,91 @@ do_open_file (const char *path, int type, gboolean scrap)
   gpointer data;
   const GdkRiscosIconbarHandlers *h = handlers (&data);
   GApplication *app = application ();
-  gboolean ok = FALSE;
 
   if (h && h->open_file)
-    ok = h->open_file (path, type, scrap, data);
+    h->open_file (path, type, scrap, data);
   else if (app && (g_application_get_flags (app) & G_APPLICATION_HANDLES_OPEN))
     {
       GFile *f = g_file_new_for_path (path);
       g_application_open (app, &f, 1, "");
       g_object_unref (f);
-      ok = TRUE;
     }
   else
     {
-      char *msg = g_strdup_printf ("%s can't load files from its icon",
+      char *msg = g_strdup_printf ("%s can't load files dropped on its icon.",
                                    g_get_application_name () ? g_get_application_name () : "This program");
       gdk_riscos_report_error (msg);
       g_free (msg);
-      ok = TRUE;                   /* said so */
     }
   if (scrap)
     g_unlink (path);
-  (void) ok;
 }
 
-/* ---- the icon bar menu --------------------------------------------- */
+/* ---- the icon bar menu (as Reel's and !FFmpeg's) ------------------------ */
 
 static void menu_chosen (const int *selection, gboolean adjust, gpointer data);
 
-static int
+static void
 build_menu (void)
 {
-  int n = N_ITEMS, i, width = 0, info = gdk_riscos_iconbar_info_window ();
+  int i, width, info = gdk_riscos_iconbar_info_window ();
   const char *name = g_get_application_name ();
+  size_t longest;
+
+  ib.n = 0;
+  ib.items[ib.n++] = ITEM_INFO;
+  if (has_choices ())
+    ib.items[ib.n++] = ITEM_CHOICES;
+  ib.items[ib.n++] = ITEM_QUIT;
 
   g_free (ib.menu);
-  ib.menu = g_malloc0 (28 + 24 * n);
+  ib.menu = g_malloc0 (28 + 24 * ib.n);
   gdk_riscos_utf8_to_latin1 (name ? name : "GTK", ib.title, sizeof ib.title);
-  ib.menu[0] = (int) ib.title;      /* indirected title */
-  ib.menu[1] = -1;
-  ib.menu[2] = sizeof ib.title;
-  ((unsigned char *) ib.menu)[12] = 7;
+  longest = strlen (ib.title);
+  if (strlen (ib.title) <= 12)
+    memcpy (ib.menu, ib.title, strlen (ib.title) < 12 ? strlen (ib.title) + 1 : 12);
+  else
+    {
+      ib.menu[0] = (int) ib.title;   /* a long name: indirected (flag in the first item) */
+      ib.menu[1] = -1;
+      ib.menu[2] = sizeof ib.title;
+    }
+  ((unsigned char *) ib.menu)[12] = 7;   /* title black on grey, items black on white */
   ((unsigned char *) ib.menu)[13] = 2;
   ((unsigned char *) ib.menu)[14] = 7;
   ((unsigned char *) ib.menu)[15] = 0;
-  for (i = 0; i < n; i++)
-    width = MAX (width, gdk_riscos_text_width (item_labels[i]));
-  ib.menu[4] = MAX (width + 24, gdk_riscos_text_width (ib.title) + 32);
+  for (i = 0; i < ib.n; i++)
+    longest = MAX (longest, strlen (item_labels[ib.items[i]]));
+  width = (int) longest * 16 + 16;
+  ib.menu[4] = width;
   ib.menu[5] = 44;
   ib.menu[6] = 0;
-  for (i = 0; i < n; i++)
+  for (i = 0; i < ib.n; i++)
     {
       int *it = ib.menu + 7 + 6 * i;
-      ib.shaded[i] = !can (i);
-      it[0] = (i == ITEM_CHOICES ? 2 : 0) |          /* a dotted line before Quit */
-              (i == n - 1 ? 0x80 : 0) | (i == 0 ? 0x100 : 0);
-      it[1] = i == ITEM_INFO && info ? info : -1;
-      it[2] = 0x07000121 | (ib.shaded[i] ? (1 << 22) : 0);
-      it[3] = (int) item_labels[i];
-      it[4] = -1;
-      it[5] = strlen (item_labels[i]) + 1;
+      const char *label = item_labels[ib.items[i]];
+      it[0] = (i == ib.n - 1 ? 0x80 : 0) | (i == 0 && strlen (ib.title) > 12 ? 0x100 : 0);
+      it[1] = ib.items[i] == ITEM_INFO && info ? info : -1;   /* Info: About this program */
+      it[2] = 0x07000021;            /* text, filled, black on white */
+      memcpy (&it[3], label, strlen (label) < 12 ? strlen (label) + 1 : 12);
     }
-  return n;
 }
 
 static void
 open_menu (int click_x)
 {
-  int n = build_menu (), x, y;
+  int x, y;
 
-  /* n items and one dotted line (before Quit) */
-  gdk_riscos_iconbar_menu_position (click_x, 44 * n + 24, &x, &y);
+  ib.click_x = click_x;
+  build_menu ();
+  gdk_riscos_iconbar_menu_position (click_x, ib.n, &x, &y);
   if (trace_on ())
-    g_printerr ("riscos-gtk: icon bar menu at %d,%d\n", x, y);
+    g_printerr ("riscos-gtk: icon bar menu at %d,%d (%d lines)\n", x, y, ib.n);
   gdk_riscos_display_open_menu (ib.display, ib.menu, x, y, menu_chosen, NULL);
 }
 
 typedef struct {
-  int selection[4];
+  int selection;
   gboolean closed, adjust;
 } Chosen;
 
@@ -420,15 +396,17 @@ static gboolean
 menu_idle (gpointer data)
 {
   Chosen *c = data;
+  int item = !c->closed && c->selection >= 0 && c->selection < ib.n ? ib.items[c->selection] : -1;
 
-  if (!c->closed && c->selection[0] >= 0 && c->selection[0] < N_ITEMS &&
-      !ib.shaded[c->selection[0]] && c->selection[0] != ITEM_INFO)
+  if (item >= 0)
     {
-      gdk_riscos_display_close_menu (ib.display);
-      do_item (c->selection[0]);
+      if (!(c->adjust && item != ITEM_QUIT))
+        gdk_riscos_display_close_menu (ib.display);
+      do_item (item);
+      /* Adjust keeps the menu open (not after Quit) */
+      if (c->adjust && item != ITEM_QUIT)
+        open_menu (ib.click_x);
     }
-  else if (!c->closed)
-    gdk_riscos_display_close_menu (ib.display);
   gdk_riscos_display_menu_done (ib.display);
   g_free (c);
   return G_SOURCE_REMOVE;
@@ -438,12 +416,10 @@ static void
 menu_chosen (const int *selection, gboolean adjust, gpointer data)
 {
   Chosen *c = g_new0 (Chosen, 1);
-  int i;
 
   c->closed = selection == NULL;
   c->adjust = adjust;
-  for (i = 0; i < 4; i++)
-    c->selection[i] = selection && (i == 0 || c->selection[i - 1] >= 0) ? selection[i] : -1;
+  c->selection = selection ? selection[0] : -1;
   g_idle_add_full (G_PRIORITY_HIGH_IDLE, menu_idle, c, NULL);
 }
 
@@ -455,14 +431,6 @@ typedef struct {
   char *path;
   gboolean scrap;
 } Event;
-
-static gboolean
-shutdown_still_running (gpointer data)
-{
-  /* still here after the program's Quit: the user cancelled */
-  gdk_riscos_iconbar_resume_shutdown_at_exit (FALSE);
-  return G_SOURCE_REMOVE;
-}
 
 static gboolean
 event_idle (gpointer data)
@@ -481,14 +449,6 @@ event_idle (gpointer data)
     case GDK_RISCOS_ICONBAR_OPEN_FILE:
       do_open_file (e->path, e->filetype, e->scrap);
       break;
-    case GDK_RISCOS_ICONBAR_PREQUIT:
-      /* objected (unsaved work): the program's Quit asks the user. If
-         the program is still running afterwards, they cancelled. */
-      if (e->scrap)
-        gdk_riscos_iconbar_resume_shutdown_at_exit (TRUE);
-      do_item (ITEM_QUIT);
-      g_idle_add_full (G_PRIORITY_LOW, shutdown_still_running, NULL, NULL);
-      break;
     }
   g_free (e->path);
   g_free (e);
@@ -498,24 +458,14 @@ event_idle (gpointer data)
 static void
 event_func (GdkRiscosIconbarEvent *ev, gpointer data)
 {
-  Event *e;
+  Event *e = g_new0 (Event, 1);
 
-  if (ev->type == GDK_RISCOS_ICONBAR_PREQUIT)
-    {
-      gpointer hd;
-      const GdkRiscosIconbarHandlers *h = handlers (&hd);
-      if (!(h && h->unsaved && h->unsaved (hd)))
-        return;                    /* nothing to lose: Message_Quit follows */
-      ev->object = TRUE;
-    }
-  e = g_new0 (Event, 1);
   e->type = ev->type;
   e->x = ev->x;
   e->y = ev->y;
   e->filetype = ev->filetype;
   e->path = g_strdup (ev->path);
-  /* (for PREQUIT, scrap carries "a desktop shutdown") */
-  e->scrap = ev->type == GDK_RISCOS_ICONBAR_PREQUIT ? ev->shutdown : ev->scrap;
+  e->scrap = ev->scrap;
   g_idle_add_full (G_PRIORITY_HIGH_IDLE, event_idle, e, NULL);
 }
 

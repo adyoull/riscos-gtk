@@ -1,6 +1,38 @@
 # Changelog
 
-## Unreleased (!L3afpad 0.3, GTKThemeTest 0.27, 2026-10-06)
+## Unreleased (!L3afpad 0.4, GTKThemeTest 0.28, 2026-10-06)
+- **The icon bar done as our other RISC OS programs do it** (owner: 0.3's
+  was "nothing like RISC OS"; looked at Reel, !FFmpeg's front end, YTDL,
+  NetStats, RDPClient):
+  - the icon: non-indirected sprite icon, flags &301A, 0,0,68,68 (as
+    Reel/!FFmpeg);
+  - the menu: the program's name as title, **Info, Choices... (only if the
+    program has settings), Quit**: no Open.../Close (files go by dragging
+    to the icon or double-clicking; the close icon closes); plain 12-byte
+    items &07000021, width 16 a letter + 16; at x-64, top 96 + 44 a line
+    (exactly: the OS-units-to-pixels round trip no longer adds 2); Adjust
+    keeps it open (reopened), as !FFmpeg's;
+  - Info: the same About this program window as proginfo.h (Name:,
+    Purpose:, Author:, Version: right-aligned on grey; grey R2 display
+    fields, centred, &1700013D; 152 + value width + 12, rows 52);
+  - Quit with unsaved work, and Message_PreQuit: a RISC OS question box
+    (Wimp_ReportError, question, Cancel / Discard), as !FFmpeg's Convert
+    asks; Cancel on PreQuit objects (acknowledged), Discard lets
+    Message_Quit come. No GTK dialogue, no Ctrl-Shift-F12 dance;
+  - one copy: a second copy (TaskManager_EnumerateTasks, same task name)
+    hands its start-up file to the first (Message_DataLoad, window -2,
+    icon -1) and closes down, as Reel does; DataLoad to icon -1 accepted;
+    a directory dropped on the icon gets "That's a directory" (as Reel).
+  - API: handlers are now show, open_file, choices, quit, unsaved; new
+    gdk_riscos_iconbar_set_start_file, gdk_riscos_ask; the resume and
+    PreQuit-event API is gone.
+- !L3afpad 0.4: Quit from the icon bar asks via the question box then
+  quits; passes its start-up file to a running copy.
+- Tests: l3afpad-fake 25 (menu lines and position, icon flags, PreQuit and
+  Quit question boxes). Fake Wimp: Wimp_ReportError recorded and answered
+  (fake_report_answer).
+
+## !L3afpad 0.3, GTKThemeTest 0.27 (2026-10-06)
 - **The icon bar** (owner: "GTK apps are missing an icon bar entry").
   Owner's choices: every program gets one automatically, with hooks; a
   program stays on the icon bar when its last window closes; L3afpad

@@ -65,6 +65,10 @@ extern int fake_target_window;           /* scripted events go here (0 = newest 
    how many, its flags and sprite name; Wimp_ProcessKey's last key (-1) */
 extern int fake_target_icon, fake_iconbar_icons, fake_iconbar_flags, fake_processed_key;
 extern char fake_iconbar_sprite[16];
+/* Wimp_ReportError: how many, the last text, flags and extra buttons;
+   the answer it gives (1 OK, 2 Cancel, 3 the first extra button) */
+extern int fake_reports, fake_report_flags, fake_report_answer;
+extern char fake_report_text[256], fake_report_buttons[64];
 int fake_wimp_script_pos(void);          /* script entry last returned, -1 before */
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;

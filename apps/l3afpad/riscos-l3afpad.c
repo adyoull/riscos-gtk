@@ -9,13 +9,15 @@
  *   - a file given by !Run (a RISC OS name, e.g. a text file dropped on
  *     the application) becomes a UnixLib name, as L3afpad expects;
  *   - files saved without an extension are text (&FFF), not data;
- *   - the icon bar (riscos-gtk's gdk_riscos_iconbar_*): L3afpad starts on
- *     the icon bar; Select opens its window; closing the window empties it
- *     (asking to save first) and leaves L3afpad on the icon bar; text files
- *     double-clicked in the Filer, dropped on the icon or saved to it from
- *     another program are opened; Choices... opens a Choices window, kept
- *     in <Choices$Write>.L3afpad.Choices; PreQuit objects if the text is
- *     unsaved.
+ *   - the icon bar (riscos-gtk's gdk_riscos_iconbar_*), as riscos-gtk's
+ *     other RISC OS programs: L3afpad starts on the icon bar; Select opens
+ *     its window; Menu gives Info, Choices..., Quit; closing the window
+ *     empties it (asking to save first) and leaves L3afpad on the icon bar;
+ *     text files double-clicked in the Filer, dropped on the icon or saved
+ *     to it from another program are opened; a second copy hands its file
+ *     to the first; Quit and PreQuit with unsaved text ask (Cancel /
+ *     Discard); Choices... opens a Choices window, kept in
+ *     <Choices$Write>.L3afpad.Choices.
  *
  * GPL version 2 or later, as L3afpad. Copyright (C) 2026 Andrew Youll.
  */
@@ -90,24 +92,12 @@ open_file (const char *path, int filetype, gboolean scrap, gpointer d)
   return TRUE;
 }
 
-static void
-open_dialogue (gpointer d)
-{
-  show_window (NULL);
-  on_file_open ();
-}
-
-static void
-close_window (gpointer d)
-{
-  if (gtk_widget_get_visible (pub->mw->window))
-    riscos_l3afpad_close (pub->mw->window, NULL, NULL);
-}
-
+/* Quit (the icon bar menu): riscos-gtk has asked about unsaved text */
 static void
 quit (gpointer d)
 {
-  on_file_quit ();
+  save_config_file ();
+  gtk_main_quit ();
 }
 
 static gboolean
@@ -212,7 +202,7 @@ choices (gpointer d)
 }
 
 static const GdkRiscosIconbarHandlers handlers = {
-  show_window, open_file, open_dialogue, close_window, choices, quit, unsaved
+  show_window, open_file, choices, quit, unsaved
 };
 
 static gboolean
@@ -254,5 +244,9 @@ riscos_l3afpad_init (gint *argc, gchar ***argv)
 
   for (i = 1; i < *argc; i++)
     if ((*argv)[i][0] != '-' && is_riscos_name ((*argv)[i]))
-      (*argv)[i] = gdk_riscos_path_to_unix ((*argv)[i]);
+      {
+        /* if L3afpad is already running, it gets this file instead */
+        gdk_riscos_iconbar_set_start_file ((*argv)[i]);
+        (*argv)[i] = gdk_riscos_path_to_unix ((*argv)[i]);
+      }
 }

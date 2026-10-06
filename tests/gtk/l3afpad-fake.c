@@ -45,6 +45,8 @@ static int hidden_after_close, empty_after_close;
 static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, prequit_dialog;
 static char text_after_dataopen[128], text_after_iconload[128];
 static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
+static int reports_before, ib_menu_x, ib_menu_y, ib_click_x;
+static char prequit_text[256];
 static char letter[512], letter_ro[512], note3[512], note3_ro[512];
 static int presses, bar_bottom = -1, win_h, grip_h_px;
 
@@ -399,7 +401,7 @@ step_ready (void)
       g_free (t);
       return ok;
     case 19:
-      return prequit_ack > 0 && dialog_titled (NULL, GTK_TYPE_MESSAGE_DIALOG) != NULL;
+      return prequit_ack > 0;
     default:
       return waits > 10;
     }
@@ -617,6 +619,9 @@ next_step (void)
     case 14:     /* its menu; Choices... */
       fake_target_window = main_handle;
       fake_target_icon = -1;
+      ib_menu_x = fake_menu_x;
+      ib_menu_y = fake_menu_y;
+      ib_click_x = fake_pointer[0];
       {
         int i;
         n_ib_items = menu_entries (fake_menu, ib_items, 8, NULL);
@@ -692,31 +697,29 @@ next_step (void)
         nulls (20);
       }
       break;
-    case 19:     /* unsaved text, then the desktop shuts down: PreQuit */
+    case 19:     /* unsaved text, then the desktop shuts down: PreQuit; Cancel */
       {
         char *t = buffer_text ();
         int q[64];
         g_strlcpy (text_after_iconload, t, sizeof text_after_iconload);
         g_free (t);
         gtk_text_buffer_insert_at_cursor (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), "!", 1);
+        reports_before = fake_reports;
+        fake_report_answer = 2;        /* Cancel */
         memset (q, 0, sizeof q);
         queue (18, q, 8, 0, 24);
         nulls (20);
       }
       break;
-    case 20:     /* it asks: Cancel */
-      shot ("prequit");
-      {
-        GtkWidget *d = dialog_titled (NULL, GTK_TYPE_MESSAGE_DIALOG);
-        prequit_dialog = d != NULL;
-        if (d)
-          gtk_dialog_response (GTK_DIALOG (d), GTK_RESPONSE_CANCEL);
-        nulls (10);
-      }
+    case 20:
+      prequit_dialog = fake_reports == reports_before + 1 &&
+                       strstr (fake_report_buttons, "Discard") != NULL &&
+                       (fake_report_flags & (4 << 9)) != 0;
+      g_strlcpy (prequit_text, fake_report_text, sizeof prequit_text);
+      nulls (10);
       break;
-    case 21:     /* still here; Menu on the icon again */
+    case 21:     /* still here; Menu on the icon again (the text still unsaved) */
       still_running_after_cancel = 1;
-      gtk_text_buffer_set_modified (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), FALSE);
       iconbar_click (2);
       break;
     case 22:     /* Quit */
@@ -726,6 +729,8 @@ next_step (void)
         int i;
         char items[8][48];
         int n = menu_entries (fake_menu, items, 8, NULL);
+        reports_before = fake_reports;
+        fake_report_answer = 3;        /* Discard */
         for (i = 0; i < n; i++)
           if (strcmp (items[i], "Quit") == 0)
             {
@@ -1005,10 +1010,13 @@ main (int argc, char **argv)
       printf (" [%s]%s", ib_items[i], ib_shaded & (1 << i) ? "(shaded)" : "");
     printf (", Info -> &%X\n", (unsigned) ib_info_sub);
   }
-  check (n_ib_items == 5 && strcmp (ib_items[0], "Info") == 0 && strcmp (ib_items[1], "Open...") == 0 &&
-         strcmp (ib_items[2], "Close") == 0 && strcmp (ib_items[3], "Choices...") == 0 &&
-         strcmp (ib_items[4], "Quit") == 0 && ib_shaded == 0,
-         "Menu on the icon: Info, Open..., Close, Choices..., Quit");
+  check (n_ib_items == 3 && strcmp (ib_items[0], "Info") == 0 && strcmp (ib_items[1], "Choices...") == 0 &&
+         strcmp (ib_items[2], "Quit") == 0 && ib_shaded == 0,
+         "Menu on the icon: Info, Choices..., Quit (as Reel's and !FFmpeg's)");
+  check (ib_menu_x == ib_click_x - 64 && ib_menu_y == 96 + 3 * 44,
+         "the menu opens 64 OS units left of the click, its top at 96 + 44 a line");
+  printf ("# menu at %d,%d (click x %d)\n", ib_menu_x, ib_menu_y, ib_click_x);
+  check (fake_iconbar_flags == 0x301A, "the icon: sprite, centred, click (&301A)");
   check (ib_info_is_window, "Info leads to the Info box (a Wimp window with a title)");
   check (choices_seen && choices_wrap_applied && strstr (choices_text, "\n1\n") != NULL,
          "Choices... opens the Choices window; Set applies word wrap and saves the Choices file");
@@ -1020,8 +1028,10 @@ main (int argc, char **argv)
   check (iconload_ack == 1 && strstr (text_after_iconload, "Dropped on the icon"),
          "a text file dropped on the icon is opened");
   check (prequit_ack == 1 && prequit_dialog && still_running_after_cancel,
-         "PreQuit with unsaved text: L3afpad objects and asks; Cancel keeps it running");
-  check (quit_chosen && !forced_quit, "Quit from the icon bar menu quits");
+         "PreQuit with unsaved text: a question box (Cancel / Discard); Cancel objects, it keeps running");
+  printf ("# PreQuit asked: \"%s\"\n", prequit_text);
+  check (quit_chosen && !forced_quit && fake_reports == reports_before + 1,
+         "Quit from the icon bar menu with unsaved text asks; Discard quits");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL,
          "no GTK warnings or criticals in the log");
 

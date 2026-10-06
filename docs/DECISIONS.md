@@ -203,3 +203,14 @@ Owner's choices (asked):
 L3afpad also starts on the icon bar without a window (as Edit does)
 unless it's given a file. It claims Text (&FFF) for Message_DataOpen
 only while loaded; its !Boot doesn't take over double-clicked text files.
+
+## The icon bar as our other programs do it (2026-10-06)
+Owner: 0.3's icon bar was "nothing like RISC OS"; mimic the other ports
+exactly. Reel, !FFmpeg's front end, YTDL and NetStats all: a &301A sprite
+icon; Menu = Info (proginfo window) + the program's own items + Quit, at
+x-64 / 96+44n; Select opens the main window; Adjust keeps a menu open;
+questions as Wimp_ReportError boxes with a custom button; one copy, the
+second handing its file over. So the GTK icon bar menu is Info,
+Choices... (only when there are settings), Quit; Open... and Close are
+gone (RISC OS opens by dragging to the icon or double-clicking, and closes
+with the close icon).

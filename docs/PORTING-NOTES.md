@@ -234,15 +234,19 @@ gtk_builder_add_callback_symbol()).
 ## The icon bar for a ported program (2026-10-06)
 Every program gets an icon (sprite `!`+program name in the Wimp pool, so
 the application's !Boot should IconSprites its !Sprites; else
-"application"). Without handlers, Select presents the program's windows
-(or activates its GtkApplication), Open.../Choices.../Quit use the
-GtkApplication's "open"/"preferences"/"quit" actions or menu items
-labelled Open, Preferences/Settings/Choices/Options, Quit; Close closes
-the active window; files from the Filer go to g_application_open() if the
-application HANDLES_OPEN, else an error box says it can't. For a proper
-RISC OS program, before gtk_init():
-- gdk_riscos_iconbar_set_handlers() with show / open_file / open / close
-  / choices / quit / unsaved (see apps/l3afpad/riscos-l3afpad.c);
+"application") with a menu of Info, Choices... (only when it has
+settings) and Quit, as Reel and !FFmpeg have. Without handlers, Select
+presents the program's windows (or activates its GtkApplication),
+Choices.../Quit use the GtkApplication's "preferences"/"quit" actions or
+menu items labelled Preferences/Settings/Choices/Options, Quit; files from
+the Filer go to g_application_open() if the application HANDLES_OPEN,
+else an error box says it can't. For a proper RISC OS program, before
+gtk_init():
+- gdk_riscos_iconbar_set_handlers() with show / open_file / choices /
+  quit / unsaved (see apps/l3afpad/riscos-l3afpad.c; Quit and PreQuit ask
+  about unsaved work with a Cancel / Discard box before calling quit);
+- gdk_riscos_iconbar_set_start_file() with the file from the command line
+  (a second copy hands it to the running one);
 - gdk_riscos_iconbar_set_info() for the Info box;
 - gdk_riscos_iconbar_add_filetype() for each type it opens on a
   double-click;

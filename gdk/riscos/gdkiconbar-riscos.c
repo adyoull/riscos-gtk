@@ -1,24 +1,34 @@
 /*
  * gdkiconbar-riscos.c - riscos-gtk: a GTK program's icon on the icon bar.
  *
- * The Wimp side; GTK's side (the menu, and what Select, Open..., Close,
- * Choices... and Quit do) is gtk/gtkiconbar-riscos.c.
+ * Done as riscos-gtk's other RISC OS programs do it (Reel, !FFmpeg's front
+ * end, YTDL, NetStats): plain Wimp SWIs, no Toolbox.
  *
- *   - the icon: Wimp_CreateIcon on the icon bar (window -1, the right
- *     side, where applications go), the program's sprite from the Wimp
- *     pool, 68 x 68 OS units (PRMs, The Icon Bar);
- *   - clicks on it: Mouse_Click with window -2 and our icon handle;
- *   - files: Message_DataOpen (a file double-clicked in the Filer) for the
- *     types the program claims, acknowledged with Message_DataLoadAck;
- *     Message_DataLoad from the Filer to the icon (acknowledged the same
- *     way); Message_DataSave from another program to the icon, answered
- *     with Message_DataSaveAck to <Wimp$Scrap> (then its DataLoad);
- *   - Message_PreQuit: if the program has unsaved work it objects (the
- *     message is acknowledged) and asks the user; after a desktop shutdown
- *     (flag bit 0 clear) it carries the shutdown on when it exits, with a
- *     Ctrl-Shift-F12 (Wimp_ProcessKey &1FC), as the PRMs say;
- *   - the Info box: a Wimp window (Name, Purpose, Author, Version) given
- *     as the Info item's submenu, so the Wimp opens it.
+ *   - the icon: Wimp_CreateIcon on the icon bar's right side (window -1),
+ *     0,0,68,68, flags &301A (sprite, centred, click), the program's
+ *     sprite named in the icon ("!" + the program's name; "application"
+ *     if the Wimp pool hasn't got it);
+ *   - Mouse_Click on it (window -2): Select and Adjust show the program's
+ *     window, Menu opens the icon bar menu (GTK's side,
+ *     gtk/gtkiconbar-riscos.c): Info >, Choices... (if the program has
+ *     any), Quit, 64 OS units left of the click, its top 96 + 44 a line;
+ *   - Info: the standard "About this program" window, laid out as the
+ *     ProgInfo template (and Reel's proginfo.h): labels "Name:" ...
+ *     right-aligned on grey, each value in a grey display field with a
+ *     slabbed-in border (R2); the Info item's submenu, so the Wimp opens
+ *     and closes it with the menu;
+ *   - files: Message_DataOpen (a double-click in the Filer) for the types
+ *     the program claims, and Message_DataLoad to the icon (also icon -1,
+ *     from a second copy of the program), acknowledged with DataLoadAck;
+ *     Message_DataSave to the icon (another program's Save box) answered
+ *     with DataSaveAck to <Wimp$Scrap>;
+ *   - Message_PreQuit (the Task Manager's Quit, or a desktop shutdown):
+ *     with unsaved work, a question box (Wimp_ReportError, Cancel and
+ *     Discard); Cancel objects (the message is acknowledged), Discard lets
+ *     the program go (Message_Quit follows), as !FFmpeg's Convert does;
+ *   - one copy: a second copy started (a file double-clicked, or the
+ *     application run again) hands its file to the first with
+ *     Message_DataLoad (window -2, icon -1) and closes down, as Reel does.
  *
  * Copyright (C) 2026 Andrew Youll. LGPL-2.1-or-later, as the GTK code it
  * plugs into.
@@ -49,9 +59,13 @@
 #ifndef Wimp_SpriteOp
 #define Wimp_SpriteOp     0x400E9
 #endif
-#ifndef Wimp_ProcessKey
-#define Wimp_ProcessKey   0x400DC
+#ifndef Wimp_ReportError
+#define Wimp_ReportError  0x400DF
 #endif
+#ifndef Wimp_CloseDown
+#define Wimp_CloseDown    0x400DD
+#endif
+#define TaskManager_EnumerateTasks 0x42681
 
 #define USER_MESSAGE             17
 #define USER_MESSAGE_ACKNOWLEDGE 19
@@ -68,7 +82,7 @@
 static struct {
   gboolean disabled;
   int icon;                       /* our icon's handle (-1: none) */
-  char sprite[16];
+  char sprite[13];
   char *sprite_wanted;
   GdkRiscosIconbarFunc func;
   gpointer func_data;
@@ -79,8 +93,7 @@ static struct {
   char *info[4];                  /* Name, Purpose, Author, Version (UTF-8) */
   int info_window;
   int scrap_ref;                  /* our DataSaveAck's my_ref */
-  int scrap_type;
-  gboolean resume_shutdown;
+  char *start_file;               /* a second copy hands this to the first */
 } bar = { FALSE, -1 };
 
 static gboolean
@@ -97,17 +110,24 @@ server (void)
 }
 
 static int
-send_message (int reason, int *block, int dest)
+send_message (int reason, int *block, int dest, int icon)
 {
   _kernel_swi_regs r;
 
   r.r[0] = reason;
   r.r[1] = (int) block;
   r.r[2] = dest;
-  r.r[3] = 0;
+  r.r[3] = icon;
   if (_kernel_swi (Wimp_SendMessage, &r, &r) != NULL)
     return 0;
   return block[2];
+}
+
+static const char *
+app_name (void)
+{
+  const char *name = bar.info[0] ? bar.info[0] : g_get_application_name ();
+  return name ? name : "GTK";
 }
 
 /* ---- for programs ---------------------------------------------------- */
@@ -162,6 +182,13 @@ gdk_riscos_iconbar_add_filetype (int filetype)
 }
 
 void
+gdk_riscos_iconbar_set_start_file (const char *riscos_path)
+{
+  g_free (bar.start_file);
+  bar.start_file = g_strdup (riscos_path);
+}
+
+void
 gdk_riscos_iconbar_disable (void)
 {
   bar.disabled = TRUE;
@@ -171,6 +198,100 @@ gboolean
 gdk_riscos_iconbar_enabled (void)
 {
   return bar.icon >= 0;
+}
+
+static gboolean
+wanted (void)
+{
+  const char *env = g_getenv ("RISCOS_GTK_ICONBAR");
+  return !bar.disabled && !(env && strcmp (env, "0") == 0);
+}
+
+/* A question box, as riscos-gtk's other programs ask (Wimp_ReportError:
+   Cancel, our button, new style, a question, the program's sprite). TRUE
+   if the button was chosen. */
+gboolean
+gdk_riscos_ask (const char *message, const char *button)
+{
+  _kernel_swi_regs r;
+  struct { int errnum; char text[252]; } err;
+  char title[64], butt[32];
+
+  err.errnum = 0;
+  gdk_riscos_utf8_to_latin1 (message, err.text, sizeof err.text);
+  gdk_riscos_utf8_to_latin1 (app_name (), title, sizeof title);
+  gdk_riscos_utf8_to_latin1 (button, butt, sizeof butt);
+  r.r[0] = (int) &err;
+  r.r[1] = 2 | (1 << 8) | (4 << 9);      /* Cancel; new style; a question */
+  r.r[2] = (int) title;
+  r.r[3] = (int) (bar.sprite[0] ? bar.sprite : "application");
+  r.r[4] = 1;                            /* the Wimp's sprite pool */
+  r.r[5] = (int) butt;
+  if (_kernel_swi (Wimp_ReportError, &r, &r) != NULL)
+    return FALSE;
+  return r.r[1] == 3;
+}
+
+/* ---- one copy ------------------------------------------------------------ */
+
+/* Another task with our name: its handle, or 0 (TaskManager_EnumerateTasks;
+   task names end with a control character) */
+static int
+already_running (int task, const char *name)
+{
+  int buf[16 * 4];
+  _kernel_swi_regs r;
+  size_t n = strlen (name);
+
+  r.r[0] = 0;
+  do
+    {
+      int *p;
+      r.r[1] = (int) buf;
+      r.r[2] = sizeof buf;
+      if (_kernel_swi (TaskManager_EnumerateTasks, &r, &r) != NULL)
+        return 0;
+      for (p = buf; (char *) p < (char *) r.r[1]; p += 4)
+        if (p[0] != task)
+          {
+            const char *other = (const char *) p[1];
+            if (strncmp (other, name, n) == 0 && (unsigned char) other[n] < 32)
+              return p[0];
+          }
+    }
+  while (r.r[0] >= 0);
+  return 0;
+}
+
+/* Just after Wimp_Initialise (gdkriscos-server.c): a second copy gives its
+   file to the first and goes */
+void
+_gdk_riscos_iconbar_startup (int task, const char *task_name)
+{
+  int other, block[64];
+  _kernel_swi_regs r;
+
+  if (!wanted () || (other = already_running (task, task_name)) == 0)
+    return;
+  if (bar.start_file)
+    {
+      memset (block, 0, sizeof block);
+      block[0] = (44 + strlen (bar.start_file) + 1 + 3) & ~3;
+      block[4] = MESSAGE_DATALOAD;
+      block[5] = ICONBAR_WINDOW;
+      block[6] = -1;
+      block[9] = 0;
+      block[10] = bar.types && bar.types->len ? g_array_index (bar.types, int, 0) : 0xFFF;
+      g_strlcpy ((char *) &block[11], bar.start_file, 200);
+      send_message (USER_MESSAGE, block, other, 0);
+    }
+  if (debug ())
+    g_printerr ("riscos-gtk: %s is already running: %s\n", task_name,
+                bar.start_file ? "file handed to it" : "nothing to do");
+  r.r[0] = task;
+  r.r[1] = 0x4B534154;
+  _kernel_swi (Wimp_CloseDown, &r, &r);
+  exit (0);
 }
 
 /* ---- the icon ---------------------------------------------------------- */
@@ -189,7 +310,7 @@ static void
 choose_sprite (void)
 {
   const char *prg = g_get_prgname ();
-  char want[16];
+  char want[13];
   int i;
 
   if (bar.sprite_wanted)
@@ -201,45 +322,28 @@ choose_sprite (void)
         want[i + 1] = tolower ((unsigned char) prg[i]);
       want[i + 1] = 0;
     }
-  want[12] = 0;
   g_strlcpy (bar.sprite, sprite_exists (want) ? want : "application", sizeof bar.sprite);
-}
-
-static void
-resume_at_exit (void)
-{
-  _kernel_swi_regs r;
-
-  if (!bar.resume_shutdown)
-    return;
-  bar.resume_shutdown = FALSE;
-  r.r[0] = 0x1FC;                 /* Ctrl-Shift-F12: shut down again */
-  _kernel_swi (Wimp_ProcessKey, &r, &r);
 }
 
 gboolean
 gdk_riscos_iconbar_create (GdkDisplay *display, GdkRiscosIconbarFunc func, gpointer data)
 {
-  int block[9];
+  struct { int w, x0, y0, x1, y1, flags; char name[12]; } b;
   _kernel_swi_regs r;
-  const char *env = g_getenv ("RISCOS_GTK_ICONBAR");
 
   if (bar.icon >= 0)
     return TRUE;
-  if (bar.disabled || (env && strcmp (env, "0") == 0) || server () == NULL)
+  if (!wanted () || server () == NULL)
     return FALSE;
   choose_sprite ();
-  block[0] = -1;                  /* the icon bar's right side */
-  block[1] = 0;
-  block[2] = 0;
-  block[3] = 68;
-  block[4] = 68;
-  block[5] = 0x310A;              /* sprite, centred, indirected; click button type */
-  block[6] = (int) bar.sprite;
-  block[7] = 1;                   /* the Wimp's sprite pool */
-  block[8] = strlen (bar.sprite) + 1;
+  memset (&b, 0, sizeof b);
+  b.w = -1;                       /* the icon bar's right side */
+  b.x1 = 68;
+  b.y1 = 68;
+  b.flags = 0x301A;               /* sprite, centred, click */
+  memcpy (b.name, bar.sprite, strlen (bar.sprite) < 12 ? strlen (bar.sprite) + 1 : 12);
   r.r[0] = 0;
-  r.r[1] = (int) block;
+  r.r[1] = (int) &b;
   if (_kernel_swi (Wimp_CreateIcon, &r, &r) != NULL)
     {
       g_printerr ("riscos-gtk: couldn't put an icon on the icon bar\n");
@@ -248,110 +352,108 @@ gdk_riscos_iconbar_create (GdkDisplay *display, GdkRiscosIconbarFunc func, gpoin
   bar.icon = r.r[0];
   bar.func = func;
   bar.func_data = data;
-  atexit (resume_at_exit);
   if (debug ())
     g_printerr ("riscos-gtk: icon bar icon %d, sprite %s\n", bar.icon, bar.sprite);
   return TRUE;
 }
 
 void
-gdk_riscos_iconbar_menu_position (gint click_x, gint menu_height, gint *root_x, gint *root_y)
+gdk_riscos_iconbar_menu_position (gint click_x, gint n_items, gint *root_x, gint *root_y)
 {
-  int x = click_x - 64, y = 96 + menu_height;
+  int x = click_x - 64, y = 96 + 44 * n_items, w, h, ow, oh;
   GdkRiscosServer *s = server ();
 
-  if (s)
-    _gdk_riscos_server_os_to_px (s, &x, &y);
   *root_x = x;
   *root_y = y;
+  if (s == NULL)
+    return;
+  /* (the inverse of gdk_riscos_display_open_menu's, so the Wimp gets
+     exactly these OS units) */
+  _gdk_riscos_server_get_screen_size (s, &w, &h);
+  _gdk_riscos_server_screen_os_size (s, &ow, &oh);
+  *root_x = x / (ow / w);
+  *root_y = h - y / (oh / h);
 }
 
-void
-gdk_riscos_iconbar_resume_shutdown_at_exit (gboolean resume)
-{
-  bar.resume_shutdown = resume;
-}
+/* ---- Info: About this program ---------------------------------------- */
 
-/* ---- the Info box ------------------------------------------------------ */
-
-#define INFO_MIN_W 680
-#define INFO_ROW  52
-#define INFO_TOP  16
-#define INFO_LABEL_W 168
+#define PROGINFO_ROWS 4
 
 gint
 gdk_riscos_iconbar_info_window (void)
 {
-  static const char *labels[4] = { "Name", "Purpose", "Author", "Version" };
-  static char text[8][128];
+  static const char *labels[PROGINFO_ROWS] = { "Name:", "Purpose:", "Author:", "Version:" };
+  static char text[PROGINFO_ROWS][64];
   static char title[] = "About this program";
-  static char valid[] = "R2";
-  int *block, i, h = INFO_TOP * 2 + 4 * INFO_ROW - 8, info_w = INFO_MIN_W;
+  static char valid[] = "R2";              /* a display field's slabbed-in border */
+  struct {
+    int vis[4];
+    int sx, sy, behind, flags;
+    unsigned char tfg, tbg, wfg, wbg, sofg, sibg, tfocus, xflags;
+    int ext[4];
+    int tflags, wbutton, sprites;
+    short minw, minh;
+    int title[3];
+    int nicons;
+    struct { int box[4]; unsigned flags; int data[3]; } icon[PROGINFO_ROWS * 2];
+  } w;
   _kernel_swi_regs r;
+  int value_w = 450, width, height, i;
 
   if (bar.info_window)
     return bar.info_window;
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < PROGINFO_ROWS; i++)
     {
-      const char *v = bar.info[i];
-      if (i == 0 && v == NULL)
-        v = g_get_application_name ();
-      g_strlcpy (text[2 * i], labels[i], sizeof text[0]);
-      gdk_riscos_utf8_to_latin1 (v ? v : "", text[2 * i + 1], sizeof text[0]);
-      /* wide enough for the longest */
-      info_w = MAX (info_w, INFO_LABEL_W + 16 + gdk_riscos_text_width (text[2 * i + 1]) + 40);
+      const char *v = i == 0 ? app_name () : bar.info[i];
+      int tw;
+      gdk_riscos_utf8_to_latin1 (v ? v : "", text[i], sizeof text[i]);
+      tw = (int) strlen (text[i]) * 16 + 32;   /* the desktop font: about 16 a letter */
+      if (tw > value_w)
+        value_w = tw;
     }
-  block = g_malloc0 (88 + 8 * 32);
-  block[0] = 0;
-  block[1] = 0;
-  block[2] = info_w;
-  block[3] = h;
-  block[6] = -1;
-  block[7] = (int) 0x84000012u;   /* new format, title bar, moveable, auto-redraw */
-  ((unsigned char *) block)[32] = 7;    /* title foreground */
-  ((unsigned char *) block)[33] = 2;    /* title background */
-  ((unsigned char *) block)[34] = 7;    /* work area foreground */
-  ((unsigned char *) block)[35] = 1;    /* work area background: grey */
-  ((unsigned char *) block)[36] = 3;
-  ((unsigned char *) block)[37] = 1;
-  ((unsigned char *) block)[38] = 12;
-  block[10] = 0;
-  block[11] = -h;
-  block[12] = info_w;
-  block[13] = 0;
-  block[14] = 0x13D;              /* title: text, border, centred, filled, indirected */
-  block[15] = 0;                  /* clicks ignored */
-  block[16] = 1;
-  block[17] = 0;
-  block[18] = (int) title;
-  block[19] = -1;
-  block[20] = sizeof title;
-  block[21] = 8;
-  for (i = 0; i < 4; i++)
+  width = 152 + value_w + 12;
+  height = 8 + PROGINFO_ROWS * 52;
+
+  memset (&w, 0, sizeof w);
+  w.vis[0] = 400;
+  w.vis[1] = 400;
+  w.vis[2] = 400 + width;
+  w.vis[3] = 400 + height;
+  w.behind = -1;
+  w.flags = (int) 0x84000012u;      /* new format, title bar, moveable, auto-redraw */
+  w.tfg = 7; w.tbg = 2; w.wfg = 7; w.wbg = 1; w.sofg = 3; w.sibg = 1; w.tfocus = 12;
+  w.ext[1] = -height;
+  w.ext[2] = width;
+  w.tflags = 0x13D;                 /* text, border, centred, filled, indirected */
+  w.wbutton = 0;                    /* clicks ignored */
+  w.sprites = 1;
+  w.title[0] = (int) title;
+  w.title[1] = -1;
+  w.title[2] = sizeof title;
+  w.nicons = PROGINFO_ROWS * 2;
+  for (i = 0; i < PROGINFO_ROWS; i++)
     {
-      int *lab = block + 22 + 8 * (2 * i), *val = lab + 8;
-      int y1 = -INFO_TOP - INFO_ROW * i, y0 = y1 - 44;
-      lab[0] = 8;
-      lab[1] = y0;
-      lab[2] = INFO_LABEL_W;
-      lab[3] = y1;
-      lab[4] = 0x17000311;        /* text, vertically centred, right aligned, indirected */
-      lab[5] = (int) text[2 * i];
-      lab[6] = -1;
-      lab[7] = strlen (text[2 * i]) + 1;
-      val[0] = INFO_LABEL_W + 16;
-      val[1] = y0;
-      val[2] = info_w - 12;
-      val[3] = y1;
-      val[4] = 0x07000135;        /* text, border, centred vertically, filled white, indirected */
-      val[5] = (int) text[2 * i + 1];
-      val[6] = (int) valid;       /* R2: a slab in */
-      val[7] = strlen (text[2 * i + 1]) + 1;
+      int top = -8 - i * 52;
+      /* the label: right-aligned text on the grey */
+      w.icon[2 * i].box[0] = 8;
+      w.icon[2 * i].box[1] = top - 48;
+      w.icon[2 * i].box[2] = 148;
+      w.icon[2 * i].box[3] = top;
+      w.icon[2 * i].flags = 0x17000211u;
+      strncpy ((char *) w.icon[2 * i].data, labels[i], 12);
+      /* the value: a display field (grey, slabbed in) */
+      w.icon[2 * i + 1].box[0] = 152;
+      w.icon[2 * i + 1].box[1] = top - 48;
+      w.icon[2 * i + 1].box[2] = 152 + value_w;
+      w.icon[2 * i + 1].box[3] = top;
+      w.icon[2 * i + 1].flags = 0x1700013Du;
+      w.icon[2 * i + 1].data[0] = (int) text[i];
+      w.icon[2 * i + 1].data[1] = (int) valid;
+      w.icon[2 * i + 1].data[2] = sizeof text[i];
     }
-  r.r[1] = (int) block;
+  r.r[1] = (int) &w;
   if (_kernel_swi (Wimp_CreateWindow, &r, &r) == NULL)
     bar.info_window = r.r[0];
-  g_free (block);
   return bar.info_window;
 }
 
@@ -415,7 +517,8 @@ open_file (const char *riscos_path, int type, gboolean scrap)
   g_free (unix_path);
 }
 
-/* Acknowledge their DataLoad or DataOpen (Message_DataLoadAck) */
+/* Acknowledge their DataLoad or DataOpen (Message_DataLoadAck) first, so
+   the sender doesn't delete a scrap file */
 static void
 load_ack (int *block)
 {
@@ -423,13 +526,37 @@ load_ack (int *block)
 
   block[3] = block[2];
   block[4] = MESSAGE_DATALOADACK;
-  send_message (USER_MESSAGE, block, peer);
+  send_message (USER_MESSAGE, block, peer, 0);
+}
+
+static gboolean
+to_icon (int *block)
+{
+  return block[5] == ICONBAR_WINDOW && (block[6] == bar.icon || block[6] == -1);
+}
+
+static void
+report (const char *text)
+{
+  struct { int errnum; char text[252]; } err;
+  _kernel_swi_regs r;
+  char title[64];
+
+  err.errnum = 0;
+  gdk_riscos_utf8_to_latin1 (text, err.text, sizeof err.text);
+  gdk_riscos_utf8_to_latin1 (app_name (), title, sizeof title);
+  r.r[0] = (int) &err;
+  r.r[1] = 1 | 16;                       /* OK, no "Error from" */
+  r.r[2] = (int) title;
+  _kernel_swi (Wimp_ReportError, &r, &r);
 }
 
 gboolean
 _gdk_riscos_iconbar_message (int reason, int *block)
 {
   int task;
+  char path[256];
+  int type;
 
   if (bar.icon < 0 || reason == USER_MESSAGE_ACKNOWLEDGE)
     return FALSE;
@@ -439,8 +566,7 @@ _gdk_riscos_iconbar_message (int reason, int *block)
     case MESSAGE_DATAOPEN:
       if (block[1] != task && claimed (block[10]))
         {
-          char path[256];
-          int type = block[10];
+          type = block[10];
           g_strlcpy (path, (const char *) &block[11], sizeof path);
           load_ack (block);
           open_file (path, type, FALSE);
@@ -451,59 +577,64 @@ _gdk_riscos_iconbar_message (int reason, int *block)
     case MESSAGE_DATALOAD:
       if (block[3] != 0 && block[3] == bar.scrap_ref)
         {
-          char path[256];
-          int type = block[10];
+          type = block[10];
           g_strlcpy (path, (const char *) &block[11], sizeof path);
           bar.scrap_ref = 0;
           load_ack (block);
           open_file (path, type, TRUE);
           return TRUE;
         }
-      if (block[3] == 0 && block[5] == ICONBAR_WINDOW && block[6] == bar.icon)
+      if (block[3] == 0 && to_icon (block))
         {
-          char path[256];
-          int type = block[10];
+          type = block[10];
           g_strlcpy (path, (const char *) &block[11], sizeof path);
           load_ack (block);
-          open_file (path, type, FALSE);
+          if (type == 0x1000 || type == 0x2000)
+            {
+              char *msg = g_strdup_printf ("That's a directory: drop a file on the %s icon.", app_name ());
+              report (msg);
+              g_free (msg);
+            }
+          else
+            open_file (path, type, FALSE);
           return TRUE;
         }
       return FALSE;
 
     case MESSAGE_DATASAVE:
-      if (block[3] == 0 && block[5] == ICONBAR_WINDOW && block[6] == bar.icon && block[1] != task)
+      if (block[3] == 0 && to_icon (block) && block[1] != task)
         {
           int peer = block[1];
           block[3] = block[2];
           block[4] = MESSAGE_DATASAVEACK;
-          block[9] = -1;              /* not safe: it's going to a program */
+          block[9] = -1;              /* not safe: it's a scrap file */
           strcpy ((char *) &block[11], SCRAP);
           block[0] = (44 + sizeof SCRAP + 3) & ~3;
-          bar.scrap_type = block[10];
-          bar.scrap_ref = send_message (USER_MESSAGE, block, peer);
+          bar.scrap_ref = send_message (USER_MESSAGE, block, peer, 0);
           return TRUE;
         }
       return FALSE;
 
     case MESSAGE_PREQUIT:
       {
-        GdkRiscosIconbarEvent ev;
-        int flags = block[0] >= 24 ? block[5] : 0;
+        gpointer data = bar.handlers_data;
+        char *msg;
+        gboolean go;
 
-        memset (&ev, 0, sizeof ev);
-        ev.type = GDK_RISCOS_ICONBAR_PREQUIT;
-        ev.shutdown = (flags & 1) == 0;
-        deliver (&ev);
-        if (ev.object)
+        if (!(bar.have_handlers && bar.handlers.unsaved && bar.handlers.unsaved (data)))
+          return TRUE;                /* nothing to lose: Message_Quit follows */
+        msg = g_strdup_printf ("%s has unsaved changes. Discard them and quit?", app_name ());
+        go = gdk_riscos_ask (msg, "Discard");
+        g_free (msg);
+        if (!go)
           {
-            /* don't quit yet: acknowledge it */
+            /* Cancel: object (acknowledge the message) */
             int peer = block[1];
             block[3] = block[2];
-            send_message (USER_MESSAGE_ACKNOWLEDGE, block, peer);
-            if (debug ())
-              g_printerr ("riscos-gtk: PreQuit: unsaved work, objected%s\n",
-                          ev.shutdown ? " (desktop shutdown)" : "");
+            send_message (USER_MESSAGE_ACKNOWLEDGE, block, peer, 0);
           }
+        if (debug ())
+          g_printerr ("riscos-gtk: PreQuit with unsaved changes: %s\n", go ? "discard" : "cancelled");
         return TRUE;
       }
 

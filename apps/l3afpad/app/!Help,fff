@@ -7,9 +7,12 @@ in the riscos-gtk project.
 Using it
 - Run it: L3afpad puts its icon on the icon bar. Click Select on the icon
   to open its window. Or drop a text file on !L3afpad in a Filer window.
-- The icon bar icon: Select opens the window; Menu gives Info, Open...,
-  Close, Choices... and Quit. Drop a text file on the icon to open it.
-  While L3afpad is loaded, double-clicking a text file opens it here.
+- The icon bar icon: Select opens the window; Menu gives Info (About
+  this program), Choices... and Quit. Drop a text file on the icon to
+  open it. While L3afpad is loaded, double-clicking a text file opens it
+  here, and running !L3afpad again gives it the file.
+- Quit (or a desktop shutdown) with unsaved text asks: Cancel or
+  Discard.
 - Closing the window empties it (asking to save first); L3afpad stays on
   the icon bar until you choose Quit.
 - Choices...: font, tab width, word wrap, line numbers, auto indent. Set
