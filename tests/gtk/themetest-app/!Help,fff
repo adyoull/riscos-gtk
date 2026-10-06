@@ -1,4 +1,4 @@
-GTKThemeTest 0.18 - riscos-gtk theme test
+GTKThemeTest 0.19 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -24,6 +24,13 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.19: the Save box looks and behaves like a RISC OS Save as box
+(the Toolbox's): the file icon, the name under it, Cancel and Save. It
+opens at the pointer and, opened by a click, closes when you click
+elsewhere, like a menu. Save with only a name (no directory) gives the
+usual "To save, drag the icon to a directory display" error. Dialogue
+boxes no longer have close, back or size icons.
 
 New in 0.18: Save boxes and files. On the Dialogues and menus page:
 - Save as... opens a RISC OS Save box. Drag its file icon to a Filer

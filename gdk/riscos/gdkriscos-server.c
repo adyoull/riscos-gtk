@@ -101,6 +101,10 @@ typedef struct {
   cairo_surface_t *surface;   /* the backing store (a TRGB sprite) */
   char title[TITLE_MAX];      /* indirected title (Latin-1) */
   int pointer_shape;          /* RISCOS_POINTER_* while the pointer is over it */
+  unsigned furniture;         /* RISCOS_FURNITURE_* the Wimp window was made with */
+  unsigned furniture_wanted;  /* ... and what GDK asks for (applied when hidden) */
+  gboolean as_menu;           /* opened as a transient dialogue (Wimp_CreateMenu) */
+  gboolean menu_open;
 } RiscosWindow;
 
 struct _GdkRiscosServer {
@@ -116,6 +120,7 @@ struct _GdkRiscosServer {
   GdkRiscosMenuFunc menu_func;
   gpointer menu_data;
   int menu_hold;                /* polls to wait for GTK to handle a selection */
+  int dbox_menu;                /* a window open as a transient dialogue (0 = none) */
   int screen_w, screen_h;     /* pixels */
   guint32 next_id;
   GHashTable *windows;        /* id -> RiscosWindow */
@@ -274,12 +279,31 @@ visible_area (GdkRiscosServer *s, int x, int y, int w, int h, int box[4])
   box[1] = box[3] - (h << s->yeig);
 }
 
+static gboolean create_wimp_window (GdkRiscosServer *server, RiscosWindow *w);
+
 static void
 open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
 {
   int block[8];
   _kernel_swi_regs r;
 
+  if (w->as_menu && !w->visible)
+    {
+      /* a transient dialogue box (as a Save box opened from a menu):
+         opened as a menu, so a click elsewhere closes it (the Wimp sends
+         Message_MenusDeleted with its handle). It opens at its last
+         size; Wimp_OpenWindow below gives it GTK's. */
+      int area[4];
+      visible_area (s, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), area);
+      r.r[1] = w->handle;
+      r.r[2] = area[0];
+      r.r[3] = area[3];
+      if (swi (Wimp_CreateMenu, &r) == NULL)
+        {
+          w->menu_open = TRUE;
+          s->dbox_menu = w->handle;
+        }
+    }
   block[0] = w->handle;
   visible_area (s, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), &block[1]);
   block[5] = 0;
@@ -731,6 +755,23 @@ handle_message (GdkRiscosServer *server, int reason, int *block)
       send_screen_size (server);
       break;
     case MESSAGE_MENUSDELETED:
+      /* a transient dialogue box closed by a click elsewhere: the
+         Wimp has closed it; GTK gets a delete event (its Cancel) */
+      if (server->dbox_menu && block[5] == server->dbox_menu)
+        {
+          RiscosWindow *w = window_by_handle (server, server->dbox_menu);
+          server->dbox_menu = 0;
+          if (w)
+            {
+              RiscosInputMsg msg;
+              w->visible = FALSE;
+              w->menu_open = FALSE;
+              memset (&msg, 0, sizeof msg);
+              msg.delete_notify.id = w->id;
+              send (server, &msg, RISCOS_EVENT_DELETE_NOTIFY);
+            }
+          break;
+        }
       /* closed without a choice (a click elsewhere, Escape) */
       if (server->menu_block && block[5] == (int) server->menu_block && server->menu_func)
         {
@@ -1087,11 +1128,7 @@ guint32
 _gdk_riscos_server_new_window (GdkRiscosServer *server, int x, int y,
                                int width, int height, gboolean is_temp)
 {
-  int block[22];
   RiscosWindow *w;
-  _kernel_swi_regs r;
-  unsigned char *colours = (unsigned char *) &block[8];
-  int sw = server->screen_w << server->xeig, sh = server->screen_h << server->yeig;
 
   w = g_new0 (RiscosWindow, 1);
   w->id = server->next_id++;
@@ -1102,12 +1139,41 @@ _gdk_riscos_server_new_window (GdkRiscosServer *server, int x, int y,
   w->height = height;
   strcpy (w->title, "");
 
+  w->furniture = w->furniture_wanted = is_temp ? 0 : RISCOS_FURNITURE_ALL;
+  if (!create_wimp_window (server, w))
+    {
+      g_free (w);
+      return 0;
+    }
+  g_hash_table_insert (server->windows, GUINT_TO_POINTER (w->id), w);
+  g_hash_table_insert (server->handles, GINT_TO_POINTER (w->handle), w);
+  return w->id;
+}
+
+/* The Wimp window for w (Wimp_CreateWindow), with w->furniture */
+static gboolean
+create_wimp_window (GdkRiscosServer *server, RiscosWindow *w)
+{
+  int block[22];
+  _kernel_swi_regs r;
+  unsigned char *colours = (unsigned char *) &block[8];
+  int sw = server->screen_w << server->xeig, sh = server->screen_h << server->yeig;
+  unsigned f = w->furniture;
+
   memset (block, 0, sizeof block);
-  visible_area (server, x, y, MAX (width, 1), MAX (height, 1), &block[0]);
+  visible_area (server, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), &block[0]);
   block[6] = -1;                                  /* behind: top */
-  block[7] = is_temp ? (WF_NEW_FORMAT | WF_NO_BOUNDS)
-                     : (WF_NEW_FORMAT | WF_MOVEABLE | WF_BACK | WF_CLOSE |
-                        WF_TITLE | WF_TOGGLE | WF_ADJUST);
+  block[7] = WF_NEW_FORMAT;
+  if (w->is_temp || f == 0)
+    block[7] |= WF_NO_BOUNDS;
+  if (f & RISCOS_FURNITURE_TITLE)
+    block[7] |= WF_TITLE | WF_MOVEABLE;
+  if (f & RISCOS_FURNITURE_BACK)
+    block[7] |= WF_BACK;
+  if (f & RISCOS_FURNITURE_CLOSE)
+    block[7] |= WF_CLOSE;
+  if (f & RISCOS_FURNITURE_RESIZE)
+    block[7] |= WF_TOGGLE | WF_ADJUST;
   colours[0] = 7;      /* title foreground */
   colours[1] = 2;      /* title background */
   colours[2] = 7;      /* work area foreground */
@@ -1132,14 +1198,54 @@ _gdk_riscos_server_new_window (GdkRiscosServer *server, int x, int y,
   block[21] = 0;                                  /* no icons */
   r.r[1] = (int) block;
   if (swi (Wimp_CreateWindow, &r) != NULL)
-    {
-      g_free (w);
-      return 0;
-    }
+    return FALSE;
   w->handle = r.r[0];
-  g_hash_table_insert (server->windows, GUINT_TO_POINTER (w->id), w);
+  return TRUE;
+}
+
+/* Title bar, close, back, toggle/adjust size: a Wimp window's furniture
+   is fixed when it's made, so a window that's to change is made again
+   (only while it isn't on the screen: else at its next showing). */
+static void
+apply_furniture (GdkRiscosServer *server, RiscosWindow *w)
+{
+  int block[1];
+  _kernel_swi_regs r;
+  int old = w->handle;
+
+  if (w->visible || w->is_temp || w->furniture == w->furniture_wanted)
+    return;
+  w->furniture = w->furniture_wanted;
+  if (!create_wimp_window (server, w))
+    {
+      w->handle = old;
+      return;
+    }
+  block[0] = old;
+  r.r[1] = (int) block;
+  swi (Wimp_DeleteWindow, &r);
+  g_hash_table_remove (server->handles, GINT_TO_POINTER (old));
   g_hash_table_insert (server->handles, GINT_TO_POINTER (w->handle), w);
-  return w->id;
+}
+
+void
+_gdk_riscos_server_window_set_furniture (GdkRiscosServer *server, gint id, unsigned furniture)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL || w->is_temp)
+    return;
+  w->furniture_wanted = furniture;
+  apply_furniture (server, w);
+}
+
+void
+_gdk_riscos_server_window_set_as_menu (GdkRiscosServer *server, gint id, gboolean as_menu)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w)
+    w->as_menu = as_menu;
 }
 
 void
@@ -1162,6 +1268,13 @@ _gdk_riscos_server_destroy_window (GdkRiscosServer *server, gint id)
     server->grab_window = 0;
   if (server->focus_window == (guint32) id)
     server->focus_window = 0;
+  if (w->menu_open && server->dbox_menu == w->handle)
+    {
+      _kernel_swi_regs m;
+      m.r[1] = -1;
+      swi (Wimp_CreateMenu, &m);
+      server->dbox_menu = 0;
+    }
   g_hash_table_remove (server->handles, GINT_TO_POINTER (w->handle));
   g_hash_table_remove (server->windows, GINT_TO_POINTER (id));
 }
@@ -1173,6 +1286,7 @@ _gdk_riscos_server_window_show (GdkRiscosServer *server, gint id)
 
   if (w == NULL)
     return FALSE;
+  apply_furniture (server, w);
   open_window (server, w, -1);
   if (!w->is_temp)
     take_caret (w);
@@ -1188,6 +1302,13 @@ _gdk_riscos_server_window_hide (GdkRiscosServer *server, gint id)
 
   if (w == NULL || !w->visible)
     return FALSE;
+  if (w->menu_open && server->dbox_menu == w->handle)
+    {
+      r.r[1] = -1;                 /* close the menu tree it's in */
+      swi (Wimp_CreateMenu, &r);
+      server->dbox_menu = 0;
+    }
+  w->menu_open = FALSE;
   block[0] = w->handle;
   r.r[1] = (int) block;
   swi (Wimp_CloseWindow, &r);

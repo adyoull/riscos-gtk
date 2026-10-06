@@ -119,6 +119,8 @@ extern unsigned int fake_wimp_palette[20];
    #a01020 with i added to its red (uicon #a01020, vbarmid i = 10: #aa1020) */
 extern int fake_tool_sprites;
 extern const char *fake_tool_names[];
+extern int fake_window_flags[256];       /* each window's flags (Wimp_CreateWindow +28), by handle & 255 */
+extern int fake_menu_window, fake_menu_windows_opened;   /* a window opened as a menu (Wimp_CreateMenu) */
 extern int *fake_tool_area_override;     /* a test's own tool sprite area instead */
 extern int *fake_pool_area_override;     /* a test's own sprite pool (Wimp_BaseOfSprites R1) */
 extern const int *(*fake_pool_lookup)(const char *name);   /* a test's Wimp pool sprites first */

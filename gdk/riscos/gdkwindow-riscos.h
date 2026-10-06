@@ -76,6 +76,10 @@ struct _GdkWindowImplRiscos
 
   GdkGeometry geometry_hints;
   GdkWindowHints geometry_hints_mask;
+  /* riscos-gtk: what GTK asked for, for the Wimp window's furniture */
+  GdkWMFunction functions;
+  GdkWMDecoration decorations;
+  gboolean functions_set, decorations_set;
   gboolean modal_hint;
 };
 

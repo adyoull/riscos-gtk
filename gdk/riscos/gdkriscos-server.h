@@ -86,6 +86,18 @@ void               _gdk_riscos_server_get_screen_size          (GdkRiscosServer 
 void               _gdk_riscos_server_window_set_pointer       (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 int                 shape);
+/* riscos-gtk: window furniture (Wimp window flags) */
+#define RISCOS_FURNITURE_TITLE  1u
+#define RISCOS_FURNITURE_CLOSE  2u
+#define RISCOS_FURNITURE_BACK   4u
+#define RISCOS_FURNITURE_RESIZE 8u     /* toggle size and adjust size */
+#define RISCOS_FURNITURE_ALL    15u
+void               _gdk_riscos_server_window_set_furniture     (GdkRiscosServer    *server,
+                                                                gint                id,
+                                                                unsigned            furniture);
+void               _gdk_riscos_server_window_set_as_menu       (GdkRiscosServer    *server,
+                                                                gint                id,
+                                                                gboolean            as_menu);
 /* riscos-gtk: for gdktransfer-riscos.c */
 int                _gdk_riscos_server_get_task                 (GdkRiscosServer    *server);
 guint32            _gdk_riscos_server_id_for_handle            (GdkRiscosServer    *server,

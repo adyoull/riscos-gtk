@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.19, 2026-10-06)
+- Owner: 0.18 works, but the Save box looked nothing like RISC OS's.
+  Redone after the Toolbox SaveAs dialogue (riscos.com Toolbox manual,
+  ch. 14, and its picture): file icon, the name centred under it with the
+  caret at its end, Cancel and Save (default) the same width across the
+  bottom; a small dialogue box with a title bar only.
+- Transient like the Toolbox's: a Save box opened by a click or from a
+  menu is opened as a menu (Wimp_CreateMenu with its window handle), so a
+  click elsewhere closes it (Message_MenusDeleted -> cancelled). Opened
+  from the keyboard it's static. The Open box is always static.
+- Save with only a leaf name: the Save As module's error box ("To save,
+  drag the icon to a directory display", Wimp_ReportError).
+- Window furniture follows GTK: title bar unless undecorated; close icon
+  unless gtk_window_set_deletable (FALSE); toggle/adjust size only if
+  resizable; back icon on ordinary windows, not dialogue boxes. A Wimp
+  window is made again before it's shown when that changes.
+- New GDK API: gdk_riscos_window_set_transient_dbox, gdk_riscos_report_error.
+- edittest-fake 40 (window flags, transient box, MenusDeleted cancel).
+
 ## Unreleased (GTKThemeTest 0.18, 2026-10-05)
 - M4 starts: RISC OS Save boxes and Open boxes for GtkFileChooserNative
   (GTK patch: MODE_RISCOS in gtkfilechoosernative.c; gtk/riscos/

@@ -62,6 +62,17 @@ GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_load_func (GdkWindow *window,
                                             GdkRiscosLoadFunc func, gpointer data);
 
+/* Open window (a toplevel) as a transient dialogue box, as RISC OS opens
+ * one from a menu (Wimp_CreateMenu): a click elsewhere closes it and GTK
+ * gets a delete event. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient);
+
+/* A Wimp error box (Wimp_ReportError, OK button) saying message,
+ * "Message from" the program. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_report_error (const char *message);
+
 G_END_DECLS
 
 #endif

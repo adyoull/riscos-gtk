@@ -31,7 +31,7 @@
  * DataSaveAck (2), DataLoad (3), DataLoadAck (4), RAMFetch (6),
  * RAMTransmit (7), ClaimEntity (&F), DataRequest (&10); Wimp_SendMessage
  * (17 User_Message, 18 Recorded; 19 = returned unanswered),
- * Wimp_TransferBlock, Wimp_GetPointerInfo, Wimp_DragBox, OS_File 5/6/10/18/255; DragASprite_Start/Stop; OS_Byte 161.
+ * Wimp_TransferBlock, Wimp_GetPointerInfo, Wimp_DragBox, OS_File 5/6/10/18/255; DragASprite_Start/Stop; OS_Byte 161; Wimp_ReportError.
  *
  * Copyright (C) 2026 Andrew Youll. LGPL-2.1-or-later, as the GTK code it
  * plugs into.
@@ -74,6 +74,9 @@
 #endif
 #ifndef Wimp_GetPointerInfo
 #define Wimp_GetPointerInfo 0x400CF
+#endif
+#ifndef Wimp_ReportError
+#define Wimp_ReportError 0x400DF
 #endif
 #ifndef OS_Byte
 #define OS_Byte 0x06
@@ -980,6 +983,37 @@ gdk_riscos_window_set_load_func (GdkWindow *window, GdkRiscosLoadFunc func, gpoi
 {
   g_object_set_data (G_OBJECT (window), "riscos-gtk-load-func", func);
   g_object_set_data (G_OBJECT (window), "riscos-gtk-load-data", data);
+}
+
+/**
+ * gdk_riscos_report_error:
+ * @message: what to say (UTF-8)
+ *
+ * A Wimp error box with an OK button (Wimp_ReportError), titled "Message
+ * from" the program, as the Save As module reports "To save, drag the
+ * icon to a directory display".
+ */
+void
+gdk_riscos_report_error (const char *message)
+{
+  _kernel_swi_regs r;
+  struct { int errnum; char text[252]; } err;
+  int n;
+  char *latin1 = utf8_to_latin1 (message, strlen (message), &n);   /* no iconv */
+  const char *app = g_get_application_name ();
+  char *app1 = app ? utf8_to_latin1 (app, strlen (app), &n) : NULL;
+
+  err.errnum = 0;
+  g_strlcpy (err.text, latin1 ? latin1 : message, sizeof err.text);
+  r.r[0] = (int) &err;
+  r.r[1] = 1;                      /* an OK button */
+  r.r[2] = (int) (app1 ? app1 : "GTK");
+  if (_kernel_swi (Wimp_ReportError, &r, &r) != NULL)
+    g_printerr ("riscos-gtk: %s\n", message);
+  else
+    TRACE ("error box: %s\n", message);
+  g_free (latin1);
+  g_free (app1);
 }
 
 /* Wimp messages (17, 18) and returned ones (19), from the server */

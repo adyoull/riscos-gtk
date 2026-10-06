@@ -52,7 +52,7 @@ static char text_after_paste[128], empty_after_drag[128], writable_after_drag[12
 static char text_after_dragout[128];
 
 /* M4: Save box, Open box, files dropped */
-#define LAST_STEP 26
+#define LAST_STEP 28
 static char save_target[512], save_target_ro[512];    /* outdir/Accounts.csv, both forms */
 static char picture_ro[512], picture_unix[512];
 static int save_box_handle, save_box_ox, save_box_oy;
@@ -65,6 +65,8 @@ static int dragasprite_starts, dragasprite_stops, filetype_set = -1;
 static int open_dl_ref, open_ack, drop_dl_ref, drop_ack;
 static char saved_file[256], opened_file[256], dropped_file[256];
 static int save_box_seen, open_box_seen;
+static int save_box_flags, open_box_flags, main_flags, save_box_as_menu, open_box_as_menu;
+static int cancel_box_handle, cancel_box_closed;
 
 static void
 check (int ok, const char *name)
@@ -751,6 +753,10 @@ step_ready (void)
       return open_ack > 0 && tt_last_file[0] && box_window ("Open") == NULL;
     case 24:
       return drop_ack > 0 && g_str_has_suffix (tt_last_file, "Picture.png");
+    case 26:
+      return box_window ("Save as") != NULL;
+    case 27:
+      return box_window ("Save as") == NULL;
     default:
       return waits > 10;
     }
@@ -912,6 +918,9 @@ next_step (void)
             nulls (4);
             break;
           }
+        save_box_flags = fake_window_flags[save_box_handle & 255];
+        main_flags = fake_window_flags[main_handle & 255];
+        save_box_as_menu = fake_menu_window == save_box_handle;
         gtk_widget_get_allocation (icon, &a);
         gtk_widget_translate_coordinates (icon, box, 0, 0, &x, &y);
         sx = x + a.width / 2;
@@ -949,7 +958,11 @@ next_step (void)
         int ox, oy, h;
         open_box_seen = box != NULL;
         if (box && (h = target_box (box, &ox, &oy)))
-          open_dl_ref = filer_dataload (h, 20, 20, save_target_ro, 0xDFE);
+          {
+            open_box_flags = fake_window_flags[h & 255];
+            open_box_as_menu = fake_menu_window == h;
+            open_dl_ref = filer_dataload (h, 20, 20, save_target_ro, 0xDFE);
+          }
         fake_target_window = main_handle;
         nulls (20);
       }
@@ -966,7 +979,27 @@ next_step (void)
       g_strlcpy (dropped_file, tt_last_file, sizeof dropped_file);
       nulls (6);
       break;
-    case 26:
+    case 26:     /* Save as... again, then a click elsewhere closes it */
+      fake_target_window = main_handle;
+      tt_last_file[0] = 0;
+      click (tt_save_button, tt_window);
+      nulls (10);
+      break;
+    case 27:     /* the Wimp's Message_MenusDeleted for the box (opened as a menu) */
+      {
+        GtkWidget *box = box_window ("Save as");
+        int ox, oy;
+        if (box && (cancel_box_handle = target_box (box, &ox, &oy)))
+          {
+            q[5] = cancel_box_handle;
+            queue (17, q, 0x400C9, 0, 24);
+          }
+        fake_target_window = main_handle;
+        nulls (20);
+      }
+      break;
+    case 28:
+      cancel_box_closed = box_window ("Save as") == NULL && tt_last_file[0] == 0;
       nulls (6);
       break;
     default:
@@ -1227,6 +1260,16 @@ main (int argc, char **argv)
     check (open_box_seen && open_ack == 1, "Open... opens an Open box; a file dropped on it is acknowledged (DataLoadAck)");
     check (strcmp (opened_file, save_target) == 0, "and is the file chosen");
     printf ("# opened \"%s\"\n", opened_file);
+    check ((save_box_flags & (1 << 26)) && !(save_box_flags & ((1 << 24) | (1 << 25) | (1 << 27) | (1 << 29))),
+           "the Save box has a title bar but no back, close or size icons (a dialogue box with Cancel)");
+    check ((main_flags & (1 << 24)) && (main_flags & (1 << 25)) && (main_flags & (1 << 27)),
+           "the main window keeps back, close and toggle size");
+    printf ("# window flags: Save box &%08X, Open box &%08X, main &%08X\n", save_box_flags, open_box_flags, main_flags);
+    check (save_box_as_menu, "the Save box opened from a click is transient: opened as a menu (Wimp_CreateMenu)");
+    check (!open_box_as_menu && (open_box_flags & (1 << 26)) && !(open_box_flags & (1 << 25)),
+           "the Open box is a static dialogue box (a Filer drag starts with a click elsewhere)");
+    check (cancel_box_handle && cancel_box_closed,
+           "a click elsewhere (Message_MenusDeleted) closes a transient Save box, cancelled");
     check (drop_ack == 1 && strcmp (dropped_file, picture_unix) == 0,
            "a file dropped from the Filer on a widget arrives as a file URI (text/uri-list)");
     printf ("# dropped \"%s\"\n", dropped_file);

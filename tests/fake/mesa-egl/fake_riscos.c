@@ -321,6 +321,8 @@ static const int *build_tool_area(void)
 
 int *fake_tool_area_override;
 int *fake_pool_area_override;
+int fake_window_flags[256];          /* Wimp_CreateWindow +28, by handle & 255 */
+int fake_menu_window, fake_menu_windows_opened;
 const int *(*fake_pool_lookup)(const char *name);
 
 static const int *pool_find(const char *name)
@@ -614,6 +616,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         }
         r.r[0] = wimp_last_window = wimp_next_handle++;
         if (wimp_num_created < 64) wimp_created[wimp_num_created++] = wimp_last_window;
+        fake_window_flags[r.r[0] & 255] = block[7];
         break;
     case 0x400C5:   /* Wimp_OpenWindow */
         block = (int *) (long) r.r[1];
@@ -779,6 +782,21 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         block[3] = window_at_pointer(); block[4] = -1;
         break;
     case 0x400D4:   /* Wimp_CreateMenu */
+        if (r.r[1] == -1 && fake_menu_window) {    /* a dialogue box opened as a menu */
+            fake_window_t *mw = find_window(fake_menu_window);
+            if (mw) mw->handle = 0;
+            fake_menu_window = 0;
+        }
+        {
+            int i, is_window = 0;
+            for (i = 0; i < wimp_num_created; i++)
+                if (wimp_created[i] == r.r[1]) is_window = 1;
+            if (is_window) {               /* a window as a menu: opened where asked */
+                fake_menu_window = r.r[1];
+                fake_menu_windows_opened++;
+                break;
+            }
+        }
         if (r.r[1] != -1) {
             fake_menu = (const int *) (long) r.r[1];
             fake_menu_x = r.r[2]; fake_menu_y = r.r[3];

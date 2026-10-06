@@ -583,6 +583,73 @@ gdk_riscos_window_focus (GdkWindow *window,
 				     impl->id);
 }
 
+/* riscos-gtk: the Wimp window's furniture from what GTK asked for, as
+   RISC OS windows have it (Style Guide): a title bar unless undecorated;
+   a close icon unless the window can't be closed (a dialogue box with a
+   Cancel button: gtk_window_set_deletable); toggle and adjust size if it
+   can be resized; a back icon on ordinary windows only, not dialogue
+   boxes. */
+static gboolean
+func_on (GdkWindowImplRiscos *impl, GdkWMFunction f)
+{
+  if (!impl->functions_set)
+    return TRUE;
+  if (impl->functions & GDK_FUNC_ALL)
+    return !(impl->functions & f);          /* ALL but those listed */
+  return (impl->functions & f) != 0;
+}
+
+static void
+update_furniture (GdkWindow *window)
+{
+  GdkWindowImplRiscos *impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  unsigned f = 0;
+  gboolean fixed = (impl->geometry_hints_mask & GDK_HINT_MIN_SIZE) &&
+                   (impl->geometry_hints_mask & GDK_HINT_MAX_SIZE) &&
+                   impl->geometry_hints.min_width == impl->geometry_hints.max_width &&
+                   impl->geometry_hints.min_height == impl->geometry_hints.max_height;
+  gboolean dialog = impl->type_hint == GDK_WINDOW_TYPE_HINT_DIALOG ||
+                    impl->type_hint == GDK_WINDOW_TYPE_HINT_UTILITY ||
+                    impl->type_hint == GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
+
+  if (GDK_WINDOW_DESTROYED (window) || !WINDOW_IS_TOPLEVEL (window))
+    return;
+  if (!impl->decorations_set || impl->decorations != 0)
+    {
+      f |= RISCOS_FURNITURE_TITLE;
+      if (func_on (impl, GDK_FUNC_CLOSE))
+        f |= RISCOS_FURNITURE_CLOSE;
+      if (func_on (impl, GDK_FUNC_RESIZE) && !fixed)
+        f |= RISCOS_FURNITURE_RESIZE;
+      if (!dialog)
+        f |= RISCOS_FURNITURE_BACK;
+    }
+  _gdk_riscos_server_window_set_furniture (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                           impl->id, f);
+}
+
+/**
+ * gdk_riscos_window_set_transient_dbox:
+ * @window: a toplevel
+ * @transient: %TRUE to open it as a transient dialogue box
+ *
+ * A transient dialogue box is opened as RISC OS opens a dialogue box from
+ * a menu (Wimp_CreateMenu with its window handle): a click anywhere else
+ * closes it, and GTK gets a delete event.
+ */
+void
+gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient)
+{
+  GdkWindowImplRiscos *impl;
+
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return;
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  _gdk_riscos_server_window_set_as_menu (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                         impl->id, transient);
+}
+
 static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)
@@ -590,6 +657,7 @@ gdk_riscos_window_set_type_hint (GdkWindow        *window,
   GdkWindowImplRiscos *impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
 
   impl->type_hint = hint;
+  update_furniture (window);
   /* a drag icon is never on the screen (see gdk_window_riscos_show) */
   if (hint == GDK_WINDOW_TYPE_HINT_DND)
     _gdk_riscos_server_window_hide (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
@@ -646,6 +714,7 @@ gdk_riscos_window_set_geometry_hints (GdkWindow         *window,
 
   impl->geometry_hints = *geometry;
   impl->geometry_hints_mask = geom_mask;
+  update_furniture (window);
 }
 
 static void
@@ -1046,10 +1115,15 @@ static void
 gdk_riscos_window_set_decorations (GdkWindow      *window,
 				     GdkWMDecoration decorations)
 {
+  GdkWindowImplRiscos *impl;
+
   if (GDK_WINDOW_DESTROYED (window) ||
       !WINDOW_IS_TOPLEVEL_OR_FOREIGN (window))
     return;
-
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  impl->decorations = decorations;
+  impl->decorations_set = TRUE;
+  update_furniture (window);
 }
 
 static gboolean
@@ -1061,7 +1135,11 @@ gdk_riscos_window_get_decorations (GdkWindow       *window,
   if (GDK_WINDOW_DESTROYED (window) ||
       !WINDOW_IS_TOPLEVEL_OR_FOREIGN (window))
     return FALSE;
-
+  if (GDK_WINDOW_IMPL_RISCOS (window->impl)->decorations_set)
+    {
+      *decorations = GDK_WINDOW_IMPL_RISCOS (window->impl)->decorations;
+      result = TRUE;
+    }
   return result;
 }
 
@@ -1074,6 +1152,9 @@ gdk_riscos_window_set_functions (GdkWindow    *window,
   if (GDK_WINDOW_DESTROYED (window) ||
       !WINDOW_IS_TOPLEVEL_OR_FOREIGN (window))
     return;
+  GDK_WINDOW_IMPL_RISCOS (window->impl)->functions = functions;
+  GDK_WINDOW_IMPL_RISCOS (window->impl)->functions_set = TRUE;
+  update_furniture (window);
 }
 
 static cairo_region_t *

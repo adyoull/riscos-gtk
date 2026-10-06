@@ -130,3 +130,15 @@ type from the name's extension), as the data transfer protocol asks. The
 field holds RISC OS names (Report/txt), so leaf names look as on RISC OS.
 Not done yet: saving straight into another program by RAM transfer (it
 goes through <Wimp$Scrap>), several files at once, DataOpen.
+
+## The Save box follows the Toolbox SaveAs dialogue (2026-10-06)
+Owner: 0.18's box "looks nothing like a RISC OS saving DnD dialogue";
+source given: the Toolbox manual (riscos.com, ResEd and chapter 14,
+SaveAs). So the box copies the SaveAs object's default window: draggable
+file_xxx sprite, writable filename (centred, caret at the end), Cancel and
+Save (default) action buttons; no Selection option (GTK has no such
+notion); title bar only. Transient (Wimp_CreateMenu) when opened by a
+click or from a menu, static from the keyboard, as the Toolbox does; Save
+with a leaf name reports the module's own error. GDK window furniture now
+follows GTK's decorations/functions/resizable/type hint, so other GTK
+dialogue boxes lose close/back/size icons the same way.

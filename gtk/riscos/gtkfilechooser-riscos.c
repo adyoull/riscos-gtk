@@ -30,6 +30,7 @@
 #include "gtkfilechooser.h"
 #include "gtkwindow.h"
 #include "gtkdialog.h"
+#include "gtkmain.h"
 #include "gtkbox.h"
 #include "gtkbutton.h"
 #include "gtkentry.h"
@@ -50,7 +51,7 @@ typedef struct
 {
   GtkFileChooserNative *self;
   GtkFileChooserAction action;
-  GtkWidget *window, *entry, *hint, *icon;
+  GtkWidget *window, *entry, *icon;
   char *sprite;                 /* the icon's sprite (file_xxx) */
   gboolean pressed, dragging;
   double press_x, press_y;
@@ -140,7 +141,6 @@ file_icon (int type, char **sprite)
     }
   else
     image = gtk_image_new_from_icon_name ("text-x-generic", GTK_ICON_SIZE_DIALOG);
-  gtk_widget_set_size_request (image, 68, 68);
   return image;
 }
 
@@ -344,9 +344,8 @@ on_icon_release (GtkWidget *w, GdkEventButton *ev, RiscosBox *box)
       g_free (leaf);
       leaf = g_strdup ("Untitled");
     }
-  if (!gdk_riscos_save_drop (gtk_widget_get_display (w), leaf, leaf_type (leaf), 0,
-                             on_save_to, box))
-    gtk_widget_show (box->hint);   /* dropped on us, or the background */
+  /* dropped on us or the desktop background: nothing, as RISC OS */
+  gdk_riscos_save_drop (gtk_widget_get_display (w), leaf, leaf_type (leaf), 0, on_save_to, box);
   g_free (leaf);
   g_free (name);
   return TRUE;
@@ -398,7 +397,8 @@ on_save_ok (GtkWidget *w, RiscosBox *box)
       g_free (full);
       return;
     }
-  gtk_widget_show (box->hint);
+  /* the Save As module's message */
+  gdk_riscos_report_error (_("To save, drag the icon to a directory display"));
 }
 
 /* ---- Open box ---- */
@@ -421,10 +421,7 @@ on_load (const char *riscos_path, int filetype, gpointer data)
   gboolean dir = filetype == FILETYPE_DIR || filetype == FILETYPE_APP;
 
   if (box->action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER ? !dir : dir)
-    {
-      gtk_widget_show (box->hint);
-      return FALSE;
-    }
+    return FALSE;
   if (debug ())
     g_printerr ("riscos-gtk: Open box: %s (&%03X)\n", riscos_path, filetype);
   if (g_object_get_data (G_OBJECT (box->self), "riscos-gtk-dropped"))
@@ -444,7 +441,9 @@ on_open_ok (GtkWidget *w, RiscosBox *box)
   if (is_full_name (name))
     finish (box, GTK_RESPONSE_ACCEPT, file_for (name));
   else
-    gtk_widget_show (box->hint);
+    gdk_riscos_report_error (box->action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER
+                             ? _("To choose a directory, drag it to this box from a directory display")
+                             : _("To open a file, drag it to this box from a directory display"));
 }
 
 static void
@@ -455,22 +454,50 @@ on_open_realize (GtkWidget *w, RiscosBox *box)
 
 /* ---- show, hide ---- */
 
+/* label without GTK's mnemonic underscore (RISC OS buttons have none) */
+static GtkWidget *
+action_button (const char *label)
+{
+  GString *t = g_string_new (NULL);
+  const char *p;
+  char *text;
+  GtkWidget *b;
+
+  for (p = label; *p; p++)
+    if (*p != '_')
+      g_string_append_c (t, *p);
+  text = g_string_free (t, FALSE);
+  b = gtk_button_new_with_label (text);
+  g_free (text);
+  return b;
+}
+
+/* Cancel and the default action button, side by side, the same size,
+   filling the box's width (the Save As dialogue's layout) */
 static GtkWidget *
 buttons (RiscosBox *box, GCallback ok, const char *ok_label)
 {
   GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
-  GtkWidget *cancel = gtk_button_new_with_mnemonic (box->self->cancel_label ? box->self->cancel_label
-                                                    : _("_Cancel"));
-  GtkWidget *okb = gtk_button_new_with_mnemonic (box->self->accept_label ? box->self->accept_label
-                                                 : ok_label);
+  GtkWidget *cancel = action_button (box->self->cancel_label ? box->self->cancel_label : _("Cancel"));
+  GtkWidget *okb = action_button (box->self->accept_label ? box->self->accept_label : ok_label);
 
+  gtk_box_set_homogeneous (GTK_BOX (row), TRUE);
   g_signal_connect (cancel, "clicked", G_CALLBACK (on_cancel), box);
   g_signal_connect (okb, "clicked", ok, box);
   gtk_widget_set_can_default (okb, TRUE);
-  gtk_box_pack_end (GTK_BOX (row), okb, FALSE, FALSE, 0);
-  gtk_box_pack_end (GTK_BOX (row), cancel, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (row), cancel, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (row), okb, TRUE, TRUE, 0);
   gtk_window_set_default (GTK_WINDOW (box->window), okb);
   return row;
+}
+
+/* A transient box (opened by a click, or from a menu) closes when the
+   user clicks elsewhere, as the Save As module's does; one opened from
+   the keyboard (F3, Ctrl-S) stays until Cancel or Escape */
+static void
+on_realize_transient (GtkWidget *w, gpointer data)
+{
+  gdk_riscos_window_set_transient_dbox (gtk_widget_get_window (w), TRUE);
 }
 
 gboolean
@@ -497,27 +524,42 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
   box->action = action;
   box->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (box->window), title ? title : save ? _("Save as") : _("Open"));
+  /* a dialogue box: title bar only (no close icon, it has Cancel; no
+     back or size icons); opened at the pointer */
   gtk_window_set_resizable (GTK_WINDOW (box->window), FALSE);
+  gtk_window_set_deletable (GTK_WINDOW (box->window), FALSE);
   gtk_window_set_type_hint (GTK_WINDOW (box->window), GDK_WINDOW_TYPE_HINT_DIALOG);
   if (parent)
+    gtk_window_set_transient_for (GTK_WINDOW (box->window), parent);
+  gtk_window_set_position (GTK_WINDOW (box->window), GTK_WIN_POS_MOUSE);
+  if (save)
     {
-      gtk_window_set_transient_for (GTK_WINDOW (box->window), parent);
-      gtk_window_set_position (GTK_WINDOW (box->window), GTK_WIN_POS_CENTER_ON_PARENT);
+      /* transient unless opened from the keyboard (as the Toolbox's
+         Save As box: from a menu it's transient, F3 opens it static).
+         An Open box is never transient: the drag that fills it starts
+         with a click in a Filer window, which would close it. */
+      GdkEvent *ev = gtk_get_current_event ();
+      gboolean from_key = ev && (ev->type == GDK_KEY_PRESS || ev->type == GDK_KEY_RELEASE);
+      if (ev)
+        gdk_event_free (ev);
+      if (!from_key)
+        g_signal_connect (box->window, "realize", G_CALLBACK (on_realize_transient), NULL);
     }
-  else
-    gtk_window_set_position (GTK_WINDOW (box->window), GTK_WIN_POS_MOUSE);
   gtk_window_set_modal (GTK_WINDOW (box->window),
                         gtk_native_dialog_get_modal (GTK_NATIVE_DIALOG (self)));
   g_signal_connect (box->window, "destroy", G_CALLBACK (on_box_destroy), box);
   g_signal_connect (box->window, "delete-event", G_CALLBACK (on_delete), box);
   g_signal_connect (box->window, "key-press-event", G_CALLBACK (on_key), box);
 
+  /* the Save As dialogue's layout: the file icon, the name under it
+     (centred), Cancel and Save across the bottom */
   vb = gtk_box_new (GTK_ORIENTATION_VERTICAL, 8);
-  gtk_container_set_border_width (GTK_CONTAINER (vb), 12);
+  gtk_container_set_border_width (GTK_CONTAINER (vb), 8);
   gtk_container_add (GTK_CONTAINER (box->window), vb);
   box->entry = gtk_entry_new ();
   gtk_entry_set_activates_default (GTK_ENTRY (box->entry), TRUE);
-  gtk_entry_set_width_chars (GTK_ENTRY (box->entry), 28);
+  gtk_entry_set_width_chars (GTK_ENTRY (box->entry), save ? 16 : 24);
+  gtk_entry_set_alignment (GTK_ENTRY (box->entry), 0.5);
 
   if (save)
     {
@@ -543,9 +585,7 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
       gtk_entry_set_text (GTK_ENTRY (box->entry), name);
       g_signal_connect (box->entry, "changed", G_CALLBACK (on_name_changed), box);
       gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
-      box->hint = gtk_label_new (_("To save, drag the icon to a directory display."));
-      gtk_box_pack_start (GTK_BOX (vb), box->hint, FALSE, FALSE, 0);
-      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_save_ok), _("_Save")),
+      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_save_ok), _("Save")),
                           FALSE, FALSE, 0);
       g_free (leaf);
       g_free (name);
@@ -560,7 +600,6 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
                                 : _("Drag a file here from a Filer window,\n"
                                     "or type its full name."));
       gtk_label_set_justify (GTK_LABEL (w), GTK_JUSTIFY_CENTER);
-      gtk_widget_set_size_request (w, -1, 60);
       gtk_box_pack_start (GTK_BOX (vb), w, FALSE, FALSE, 0);
       if (name)
         {
@@ -569,9 +608,7 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
           g_free (text);
         }
       gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
-      box->hint = gtk_label_new (folder ? _("That isn't a directory.") : _("Give the file's full name."));
-      gtk_box_pack_start (GTK_BOX (vb), box->hint, FALSE, FALSE, 0);
-      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_open_ok), _("_Open")),
+      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_open_ok), _("Open")),
                           FALSE, FALSE, 0);
       g_signal_connect (box->window, "realize", G_CALLBACK (on_open_realize), box);
       g_free (name);
@@ -579,15 +616,9 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
 
   self->mode_data = box;
   gtk_widget_show_all (box->window);
-  gtk_widget_hide (box->hint);
+  /* the caret at the end of the name, as in a Save As box */
   gtk_widget_grab_focus (box->entry);
-  if (save)
-    {
-      /* the leaf selected, ready to type over (as RISC OS does) */
-      const char *text = gtk_entry_get_text (GTK_ENTRY (box->entry));
-      int start = g_utf8_pointer_to_offset (text, leaf_of (text));
-      gtk_editable_select_region (GTK_EDITABLE (box->entry), start, -1);
-    }
+  gtk_editable_set_position (GTK_EDITABLE (box->entry), -1);
   if (debug ())
     g_printerr ("riscos-gtk: %s box shown\n", save ? "Save" : "Open");
   return TRUE;
