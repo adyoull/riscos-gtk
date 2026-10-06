@@ -35,6 +35,17 @@ static int save_box_seen, drop_ack, quit_asked;
 static int font_index = -1, options_index = -1, font_dialog_seen, font_families;
 static unsigned int grip_pixel, grip_drag_type = -1, grip_presses_before, grip_presses_after;
 static int font_dialog_grip = -1;
+/* the icon bar */
+static int icon_clicked, window_at_start = -1, window_after_select;
+static char ib_items[8][48];
+static int n_ib_items, ib_info_sub, ib_info_is_window, ib_shaded;
+static int choices_seen, choices_wrap_applied;
+static char choices_text[512];
+static int hidden_after_close, empty_after_close;
+static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, prequit_dialog;
+static char text_after_dataopen[128], text_after_iconload[128];
+static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
+static char letter[512], letter_ro[512], note3[512], note3_ro[512];
 static int presses, bar_bottom = -1, win_h, grip_h_px;
 
 static void
@@ -183,8 +194,17 @@ message_hook (int reason, int *b, int dest, int icon)
           queue (17, q, 4, b[2], b[0]);
         }
       break;
-    case 4:                           /* DataLoadAck: our drop taken */
-      drop_ack++;
+    case 4:                           /* DataLoadAck */
+      if (dataopen_ref && b[3] == dataopen_ref)
+        dataopen_ack++;               /* the DataOpen: L3afpad loads it */
+      else if (iconload_ref && b[3] == iconload_ref)
+        iconload_ack++;
+      else
+        drop_ack++;                   /* our drop taken */
+      break;
+    case 8:                           /* PreQuit acknowledged: it objects */
+      if (reason == 19)
+        prequit_ack++;
       break;
     }
 }
@@ -281,6 +301,42 @@ shot (const char *name)
 /* ---- the steps ---- */
 
 static GtkWidget *
+dialog_titled (const char *title, GType type)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  GtkWidget *d = NULL;
+
+  for (l = tops; l; l = l->next)
+    if (G_TYPE_CHECK_INSTANCE_TYPE (l->data, type) && gtk_widget_get_mapped (l->data) &&
+        (title == NULL || g_strcmp0 (gtk_window_get_title (l->data), title) == 0))
+      d = l->data;
+  g_list_free (tops);
+  return d;
+}
+
+static void
+iconbar_click (int buttons)
+{
+  fake_target_window = -2;
+  fake_target_icon = fake_iconbar_icons;
+  add (6, 0, 0, buttons);
+  nulls (10);
+}
+
+static void
+broadcast_file (int action, int window, int icon, const char *ro, int *ref)
+{
+  int q[64];
+  memset (q, 0, sizeof q);
+  q[5] = window;
+  q[6] = icon;
+  q[10] = 0xFFF;
+  g_strlcpy ((char *) &q[11], ro, 200);
+  queue (action == 5 ? 18 : 17, q, action, 0, 44 + (int) strlen (ro) + 1);
+  *ref = q[2];
+}
+
+static GtkWidget *
 font_dialog (void)
 {
   GList *l, *tops = gtk_window_list_toplevels ();
@@ -325,6 +381,25 @@ step_ready (void)
       return menu_seen && fake_menu != NULL;
     case 9:
       return font_dialog () != NULL;
+    case 13:
+    case 21:
+      return menu_seen && fake_menu != NULL;
+    case 14:
+      return dialog_titled ("L3afpad choices", GTK_TYPE_DIALOG) != NULL;
+    case 16:
+      return !gtk_widget_get_visible (main_win);
+    case 17:
+      t = buffer_text ();
+      ok = strstr (t, "Opened by DataOpen") != NULL;
+      g_free (t);
+      return ok;
+    case 18:
+      t = buffer_text ();
+      ok = strstr (t, "Dropped on the icon") != NULL;
+      g_free (t);
+      return ok;
+    case 19:
+      return prequit_ack > 0 && dialog_titled (NULL, GTK_TYPE_MESSAGE_DIALOG) != NULL;
     default:
       return waits > 10;
     }
@@ -536,6 +611,130 @@ next_step (void)
       grip_presses_after = presses;
       nulls (4);
       break;
+    case 13:     /* Menu on the icon bar icon */
+      iconbar_click (2);
+      break;
+    case 14:     /* its menu; Choices... */
+      fake_target_window = main_handle;
+      fake_target_icon = -1;
+      {
+        int i;
+        n_ib_items = menu_entries (fake_menu, ib_items, 8, NULL);
+        ib_info_sub = fake_menu[7 + 1];
+        for (i = 0; i < n_ib_items; i++)
+          if (fake_menu[7 + 6 * i + 2] & (1 << 22))
+            ib_shaded |= 1 << i;
+        ib_info_is_window = ib_info_sub > 0 && ib_info_sub < 0x10000 &&
+                            (fake_window_flags[ib_info_sub & 255] & (1 << 26));
+        for (i = 0; i < n_ib_items; i++)
+          if (strncmp (ib_items[i], "Choices", 7) == 0)
+            add (9, i, -1, -1);
+        nulls (20);
+      }
+      break;
+    case 15:     /* the Choices window: word wrap on, tab width 4, Set */
+      shot ("choices");
+      {
+        GtkWidget *d = dialog_titled ("L3afpad choices", GTK_TYPE_DIALOG);
+        GList *checks = NULL;
+        GtkWidget *grid;
+        choices_seen = d != NULL;
+        if (d)
+          {
+            grid = find_type (gtk_dialog_get_content_area (GTK_DIALOG (d)), GTK_TYPE_GRID);
+            if (grid)
+              {
+                GList *kids = gtk_container_get_children (GTK_CONTAINER (grid)), *l;
+                for (l = kids; l; l = l->next)
+                  if (GTK_IS_CHECK_BUTTON (l->data) &&
+                      strcmp (gtk_button_get_label (l->data), "Word wrap") == 0)
+                    gtk_toggle_button_set_active (l->data, TRUE);
+                  else if (GTK_IS_SPIN_BUTTON (l->data))
+                    gtk_spin_button_set_value (l->data, 4);
+                g_list_free (kids);
+              }
+            gtk_dialog_response (GTK_DIALOG (d), GTK_RESPONSE_OK);
+          }
+        g_list_free (checks);
+        nulls (10);
+      }
+      break;
+    case 16:     /* the close icon: emptied and hidden, still running */
+      {
+        char *path = g_build_filename (outdir, "Choices", "Choices", NULL), *c = NULL;
+        if (g_file_get_contents (path, &c, NULL, NULL))
+          g_strlcpy (choices_text, c, sizeof choices_text);
+        g_free (c);
+        g_free (path);
+        choices_wrap_applied = gtk_text_view_get_wrap_mode (GTK_TEXT_VIEW (view)) == GTK_WRAP_WORD;
+      }
+      gtk_text_buffer_set_modified (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), FALSE);
+      add (3, 0, 0, 0);                /* Close_Window_Request */
+      nulls (10);
+      break;
+    case 17:     /* a text file double-clicked in the Filer: DataOpen */
+      {
+        char *t = buffer_text ();
+        hidden_after_close = !gtk_widget_get_visible (main_win);
+        empty_after_close = t[0] == 0;
+        g_free (t);
+        broadcast_file (5, 0, 0, letter_ro, &dataopen_ref);
+        nulls (20);
+      }
+      break;
+    case 18:     /* a text file dropped on the icon: DataLoad to window -2 */
+      {
+        char *t = buffer_text ();
+        g_strlcpy (text_after_dataopen, t, sizeof text_after_dataopen);
+        g_free (t);
+        visible_after_dataopen = gtk_widget_get_visible (main_win);
+        broadcast_file (3, -2, fake_iconbar_icons, note3_ro, &iconload_ref);
+        nulls (20);
+      }
+      break;
+    case 19:     /* unsaved text, then the desktop shuts down: PreQuit */
+      {
+        char *t = buffer_text ();
+        int q[64];
+        g_strlcpy (text_after_iconload, t, sizeof text_after_iconload);
+        g_free (t);
+        gtk_text_buffer_insert_at_cursor (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), "!", 1);
+        memset (q, 0, sizeof q);
+        queue (18, q, 8, 0, 24);
+        nulls (20);
+      }
+      break;
+    case 20:     /* it asks: Cancel */
+      shot ("prequit");
+      {
+        GtkWidget *d = dialog_titled (NULL, GTK_TYPE_MESSAGE_DIALOG);
+        prequit_dialog = d != NULL;
+        if (d)
+          gtk_dialog_response (GTK_DIALOG (d), GTK_RESPONSE_CANCEL);
+        nulls (10);
+      }
+      break;
+    case 21:     /* still here; Menu on the icon again */
+      still_running_after_cancel = 1;
+      gtk_text_buffer_set_modified (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), FALSE);
+      iconbar_click (2);
+      break;
+    case 22:     /* Quit */
+      fake_target_window = main_handle;
+      fake_target_icon = -1;
+      {
+        int i;
+        char items[8][48];
+        int n = menu_entries (fake_menu, items, 8, NULL);
+        for (i = 0; i < n; i++)
+          if (strcmp (items[i], "Quit") == 0)
+            {
+              add (9, i, -1, -1);
+              quit_chosen = 1;
+            }
+        nulls (20);
+      }
+      break;
     default:
       return;
     }
@@ -588,6 +787,22 @@ hook (int reason)
       opened_seen = fake_menus_opened;
       menu_seen = 1;
     }
+  if (stage == 0 && !icon_clicked)
+    {
+      GList *l, *tops;
+      if (!fake_iconbar_icons)
+        return;
+      /* it starts on the icon bar, without a window */
+      tops = gtk_window_list_toplevels ();
+      window_at_start = 0;
+      for (l = tops; l; l = l->next)
+        if (gtk_widget_get_mapped (l->data) && find_type (l->data, GTK_TYPE_TEXT_VIEW))
+          window_at_start = 1;
+      g_list_free (tops);
+      icon_clicked = 1;
+      iconbar_click (4);              /* Select on the icon */
+      return;
+    }
   if (stage == 0)
     {
       GList *l, *tops = gtk_window_list_toplevels ();
@@ -605,6 +820,8 @@ hook (int reason)
             if (fake_windows[i].handle)
               main_handle = fake_windows[i].handle;
           fake_target_window = main_handle;
+          fake_target_icon = -1;
+          window_after_select = 1;
           g_signal_connect (main_win, "key-press-event", G_CALLBACK (dbg_key), "window");
           g_signal_connect (main_win, "button-press-event", G_CALLBACK (count_press), NULL);
           if (getenv ("L3_NOMNEMONIC"))
@@ -621,17 +838,17 @@ hook (int reason)
     }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 12)
+      if (step >= 22)
         {
-          if (!quit_asked)
+          /* Quit was chosen: L3afpad should end; if not, stop it */
+          if (++quit_asked > 200)
             {
-              quit_asked = 1;
-              /* the document has changed since the save: the close icon
-                 asks first (a GTK dialogue), so mark it unmodified */
-              gtk_text_buffer_set_modified (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), FALSE);
-              nulls (4);
+              forced_quit = 1;
+              gtk_main_quit ();
+              return;
             }
-          return;                     /* the script ends: Close_Window_Request */
+          nulls (3);
+          return;
         }
       if (step_ready () || waits > 150)
         {
@@ -646,6 +863,17 @@ hook (int reason)
     }
 }
 
+/* the Wimp pool has L3afpad's sprite (its !Boot loads !Sprites) */
+static const int *
+pool_lookup (const char *name)
+{
+  static int spr[12] = { 48, 0, 0, 0, 0, 0, 0, 31, 44, 44, 0x301680B5, 0 };
+  if (strcmp (name, "!l3afpad") != 0)
+    return NULL;
+  memcpy (&spr[1], "!l3afpad\0\0\0\0", 12);
+  return spr;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -654,7 +882,6 @@ main (int argc, char **argv)
   char *targv[2];
   int saved_out = dup (1), saved_err = dup (2);
   FILE *lf;
-  struct stat st;
 
   if (argc < 3)
     return 2;
@@ -670,6 +897,22 @@ main (int argc, char **argv)
   if (getenv ("L3_DEBUG"))
     g_setenv ("RISCOS_GTK_DEBUG", "1", TRUE);
   g_setenv ("RISCOS_GTK_DEFAULT_FILETYPE", "fff", TRUE);
+  {
+    char *c = g_build_filename (outdir, "Choices", NULL);
+    g_setenv ("L3AFPAD_CHOICES", c, TRUE);
+    g_free (c);
+  }
+  fake_pool_lookup = pool_lookup;
+  g_snprintf (letter, sizeof letter, "%s/Letter", outdir);
+  ro = gdk_riscos_path_from_unix (letter);
+  g_strlcpy (letter_ro, ro, sizeof letter_ro);
+  g_free (ro);
+  g_file_set_contents (letter, "Opened by DataOpen\n", -1, NULL);
+  g_snprintf (note3, sizeof note3, "%s/Note3", outdir);
+  ro = gdk_riscos_path_from_unix (note3);
+  g_strlcpy (note3_ro, ro, sizeof note3_ro);
+  g_free (ro);
+  g_file_set_contents (note3, "Dropped on the icon\n", -1, NULL);
   g_snprintf (save_target, sizeof save_target, "%s/Notes", outdir);
   ro = gdk_riscos_path_from_unix (save_target);
   g_strlcpy (save_target_ro, ro, sizeof save_target_ro);
@@ -703,7 +946,11 @@ main (int argc, char **argv)
       fclose (lf);
     }
 
-  check (stage == 1, "L3afpad's window opens and is drawn");
+  check (fake_iconbar_icons == 1 && strcmp (fake_iconbar_sprite, "!l3afpad") == 0 && window_at_start == 0,
+         "it starts on the icon bar (sprite !l3afpad), without a window");
+  printf ("# icon bar: %d icon(s), sprite \"%s\", flags &%X\n", fake_iconbar_icons,
+          fake_iconbar_sprite, fake_iconbar_flags);
+  check (stage == 1 && window_after_select, "Select on the icon opens L3afpad's window, drawn");
   check (strcmp (typed, "Hello RISC OS") == 0, "typing goes into the text");
   printf ("# typed \"%s\"\n", typed);
   check (n_titles >= 4 && strstr (menu_titles[0], "File") && strstr (menu_titles[1], "Edit"),
@@ -751,9 +998,32 @@ main (int argc, char **argv)
   check (grip_h_px > 0 && bar_bottom > 0 && bar_bottom <= win_h - grip_h_px,
          "the text's scroll bar stops above the size icon, as a Wimp scroll bar does");
   printf ("# scroll bar ends at %d, window %d high, grip %d\n", bar_bottom, win_h, grip_h_px);
+  {
+    int i;
+    printf ("# icon bar menu:");
+    for (i = 0; i < n_ib_items; i++)
+      printf (" [%s]%s", ib_items[i], ib_shaded & (1 << i) ? "(shaded)" : "");
+    printf (", Info -> &%X\n", (unsigned) ib_info_sub);
+  }
+  check (n_ib_items == 5 && strcmp (ib_items[0], "Info") == 0 && strcmp (ib_items[1], "Open...") == 0 &&
+         strcmp (ib_items[2], "Close") == 0 && strcmp (ib_items[3], "Choices...") == 0 &&
+         strcmp (ib_items[4], "Quit") == 0 && ib_shaded == 0,
+         "Menu on the icon: Info, Open..., Close, Choices..., Quit");
+  check (ib_info_is_window, "Info leads to the Info box (a Wimp window with a title)");
+  check (choices_seen && choices_wrap_applied && strstr (choices_text, "\n1\n") != NULL,
+         "Choices... opens the Choices window; Set applies word wrap and saves the Choices file");
+  printf ("# Choices file: %s\n", g_strescape (choices_text, NULL));
+  check (hidden_after_close && empty_after_close,
+         "the close icon empties and hides the window; L3afpad stays on the icon bar");
+  check (dataopen_ack == 1 && strstr (text_after_dataopen, "Opened by DataOpen") && visible_after_dataopen,
+         "a text file double-clicked in the Filer (DataOpen) is taken (DataLoadAck) and opened in the window");
+  check (iconload_ack == 1 && strstr (text_after_iconload, "Dropped on the icon"),
+         "a text file dropped on the icon is opened");
+  check (prequit_ack == 1 && prequit_dialog && still_running_after_cancel,
+         "PreQuit with unsaved text: L3afpad objects and asks; Cancel keeps it running");
+  check (quit_chosen && !forced_quit, "Quit from the icon bar menu quits");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL,
          "no GTK warnings or criticals in the log");
-  check (stat (save_target, &st) == 0, "and it quits when its window is closed");
 
   printf ("# log:\n");
   for (line = strtok (logbuf, "\n"); line; line = strtok (NULL, "\n"))

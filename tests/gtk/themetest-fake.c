@@ -829,6 +829,9 @@ main (int argc, char **argv)
          "scroll bars are drawn with the Wimp's window border sprites (uicon, vbarmid)");
   printf ("# offscreen scrolled window: %d uicon pixels, %d vbarmid pixels\n", uicon_pixels[2], vbar_pixels[2]);
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
+  check (fake_iconbar_icons == 1 && strcmp (fake_iconbar_sprite, "application") == 0,
+         "a program with no sprite of its own gets an icon bar icon (\"application\")");
+  printf ("# icon bar sprite \"%s\"\n", fake_iconbar_sprite);
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL &&
          strstr (logbuf, "Gtk-") == NULL, "no GTK warnings or criticals in the log");
 

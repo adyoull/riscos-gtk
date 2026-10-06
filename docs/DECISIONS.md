@@ -189,3 +189,17 @@ get the desktop's `sicon` sprite drawn in the corner of the work area, and
 a press there starts the Wimp's own size drag. GTK scroll bars that run
 into the corner stop short of it. Dialogue boxes get none (as on RISC OS);
 they keep the toggle size icon.
+
+## The icon bar (2026-10-06)
+Owner's choices (asked):
+- every GTK program gets an icon bar icon automatically, with Info,
+  Open..., Close, Choices... and Quit, done by the program's handlers or
+  else its GtkApplication or its own menu items (rather than opt-in);
+- a program stays on the icon bar when its last window is closed, as RISC
+  OS programs do (a per-program change for programs that quit on their
+  window's destroy; GtkApplications are held);
+- L3afpad's Choices... is a new Choices window (Cancel / Set), kept in
+  <Choices$Write>.L3afpad.Choices, rather than a submenu.
+L3afpad also starts on the icon bar without a window (as Edit does)
+unless it's given a file. It claims Text (&FFF) for Message_DataOpen
+only while loaded; its !Boot doesn't take over double-clicked text files.

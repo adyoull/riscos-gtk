@@ -65,6 +65,9 @@ static int wimp_next_handle = 0x7000, wimp_last_window, wimp_stage, wimp_step;
 /* The window scripted events go to: fake_target_window if set, else the
    newest one (a program's tooltips and pop-ups are newer windows) */
 int fake_target_window;
+int fake_target_icon = -1;            /* Mouse_Click's icon (-1: none) */
+int fake_iconbar_icons, fake_iconbar_flags, fake_processed_key = -1;
+char fake_iconbar_sprite[16];
 #define TARGET_WINDOW (fake_target_window ? fake_target_window : wimp_last_window)
 static int wimp_created[64], wimp_num_created;     /* windows in creation order */
 
@@ -648,6 +651,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         break;
     case 0x400DC:   /* Wimp_ProcessKey: a key the task didn't use */
         fake_wimp_keys_passed++;
+        fake_processed_key = r.r[0];
         break;
     case 0x400C7:   /* Wimp_Poll */
     case 0x400E1: { /* Wimp_PollIdle */
@@ -693,7 +697,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
                     pointer_to(e[1], e[2]);
                     fake_pointer[2] = e[3] ? e[3] : 4;
                     block[0] = fake_pointer[0]; block[1] = fake_pointer[1];
-                    block[2] = fake_pointer[2]; block[3] = TARGET_WINDOW; block[4] = -1;
+                    block[2] = fake_pointer[2]; block[3] = TARGET_WINDOW; block[4] = fake_target_icon;
                     break;
                 case 10: {                   /* Scroll_Request (extended): a, b = x, y OS units */
                     fake_window_t *sw = find_window(TARGET_WINDOW);
@@ -863,6 +867,16 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         e = error("OS_Plot code not faked");
         break;
     }
+    case 0x400C2:   /* Wimp_CreateIcon: the icon bar (window -1 / -2) only */
+        block = (int *) (long) r.r[1];
+        if (block[0] != -1 && block[0] != -2) { e = error("CreateIcon: icon bar only"); break; }
+        fake_iconbar_flags = block[5];
+        if (block[5] & 0x100)
+            strncpy(fake_iconbar_sprite, (const char *) (long) block[6], 15);
+        else
+            strncpy(fake_iconbar_sprite, (const char *) &block[6], 12);
+        r.r[0] = ++fake_iconbar_icons;
+        break;
     case 0x400E7:   /* Wimp_SendMessage: sender and my_ref filled in */
         block = (int *) (long) r.r[1];
         if (r.r[0] >= 17 && r.r[0] <= 19) {

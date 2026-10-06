@@ -117,4 +117,10 @@ void               _gdk_riscos_server_screen_os_size           (GdkRiscosServer 
 /* The sprite area behind a surface from _gdk_riscos_server_create_surface */
 extern cairo_user_data_key_t _gdk_riscos_sprite_key;
 
+/* gdkiconbar-riscos.c: Mouse_Click on the icon bar, and messages; TRUE if
+   they were the icon bar's */
+gboolean           _gdk_riscos_iconbar_click                   (int                *block);
+gboolean           _gdk_riscos_iconbar_message                 (int                 reason,
+                                                                 int                *block);
+
 #endif /* __GDK_RISCOS_SERVER__ */

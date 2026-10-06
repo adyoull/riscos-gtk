@@ -1,6 +1,48 @@
 # Changelog
 
-## Unreleased (!L3afpad 0.2, GTKThemeTest 0.26, 2026-10-06)
+## Unreleased (!L3afpad 0.3, GTKThemeTest 0.27, 2026-10-06)
+- **The icon bar** (owner: "GTK apps are missing an icon bar entry").
+  Owner's choices: every program gets one automatically, with hooks; a
+  program stays on the icon bar when its last window closes; L3afpad
+  gets a new Choices window.
+  - GDK (`gdk/riscos/gdkiconbar-riscos.c`): Wimp_CreateIcon on the icon
+    bar's right side, the program's sprite (`!` + program name, else
+    `application`); Mouse_Click with window -2; Message_DataOpen for the
+    claimed types and Message_DataLoad to the icon, both acknowledged with
+    DataLoadAck; Message_DataSave to the icon answered with a DataSaveAck
+    to <Wimp$Scrap>; Message_PreQuit objected to (acknowledged) when the
+    program has unsaved work, and after a desktop shutdown it carries on
+    with Ctrl-Shift-F12 (Wimp_ProcessKey &1FC) when the program exits;
+    the Info box is a Wimp window (Name, Purpose, Author, Version), the
+    Info item's submenu. DataOpen (5) added to Wimp_Initialise's list.
+  - GTK (`gtk/gtkiconbar-riscos.c`, from gtk_init): Select/Adjust show
+    the program's window; Menu opens Info >, Open..., Close, Choices...,
+    Quit at the Style Guide's place (64 OS units left of the click, top at
+    96 + its height); items it can't do are shaded. Each comes from the
+    program's handlers, else its GtkApplication (activate, open, the
+    "preferences" and "quit" actions; the application is held so it stays
+    on the icon bar), else its own menu items found by label.
+  - API (gdkriscoswimp.h): gdk_riscos_iconbar_set_handlers (show,
+    open_file, open, close, choices, quit, unsaved), _set_info,
+    _set_sprite, _add_filetype, _disable; RISCOS_GTK_ICONBAR=0 for none.
+  - Opening another menu now closes the one that was open (its owner is
+    told), so the icon bar menu and GTK's Wimp menus don't trip over each
+    other.
+- **!L3afpad 0.3**: starts on the icon bar (a window only when given a
+  file); Select opens the window; the close icon empties the window
+  (asking to save) and hides it; text files double-clicked in the Filer
+  (while it's loaded), dropped on the icon or saved to it from another
+  program are opened (the last as untitled); Choices... opens "L3afpad
+  choices" (font, tab width, word wrap, line numbers, auto indent; Cancel
+  / Set), kept in <Choices$Write>.L3afpad.Choices; Info gives the
+  version; PreQuit with unsaved text asks first.
+- Tests: l3afpad-fake 23 (icon, Select, the icon bar menu and Info box,
+  Choices, close-to-icon-bar, DataOpen, a drop on the icon, PreQuit +
+  Cancel, Quit from the icon bar); themetest-fake 38 (a program with no
+  sprite gets "application"). Fake Wimp: Wimp_CreateIcon (icon bar),
+  Wimp_ProcessKey's key, Mouse_Click icon handles.
+
+## !L3afpad 0.2, GTKThemeTest 0.26 (2026-10-06)
 - **Options > Font crashed !L3afpad** (owner's Log: "Unknown type
   PangoFontFamily specified in treemodel model", then an EMT trap).
   GtkBuilder finds types it hasn't seen by looking up `*_get_type` in the

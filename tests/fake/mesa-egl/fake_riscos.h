@@ -61,6 +61,10 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
    fake_wimp_hook, if set, is called before each Poll returns (a frame). */
 extern int fake_sprite_plot_converts, fake_fills;
 extern int fake_target_window;           /* scripted events go here (0 = newest window) */
+/* Mouse_Click's icon handle (-1); the icon bar icon made (Wimp_CreateIcon):
+   how many, its flags and sprite name; Wimp_ProcessKey's last key (-1) */
+extern int fake_target_icon, fake_iconbar_icons, fake_iconbar_flags, fake_processed_key;
+extern char fake_iconbar_sprite[16];
 int fake_wimp_script_pos(void);          /* script entry last returned, -1 before */
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;

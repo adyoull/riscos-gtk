@@ -725,7 +725,10 @@ handle_click (GdkRiscosServer *server, int *block)
   int b, v = block[2], pressed;
 
   if (w == NULL)
-    return;
+    {
+      _gdk_riscos_iconbar_click (block);
+      return;
+    }
   /* Button type 10: click = b << 8, drag = b << 4, double click = b.
      A drag is the same press still held: nothing new to send. */
   pressed = (v >> 8) & 7;
@@ -871,6 +874,9 @@ handle_open_request (GdkRiscosServer *server, int *block)
 static void
 handle_message (GdkRiscosServer *server, int reason, int *block)
 {
+  /* the icon bar icon: files opened from the Filer, PreQuit */
+  if (_gdk_riscos_iconbar_message (reason, block))
+    return;
   switch (block[4])
     {
     case MESSAGE_QUIT:
@@ -1137,10 +1143,10 @@ GdkRiscosServer *
 _gdk_riscos_server_new (const char *display, GError **error)
 {
   /* PreQuit, ModeChange, MenusDeleted; the data transfer protocol:
-     DataSave, DataSaveAck, DataLoad, DataLoadAck, RAMFetch, RAMTransmit,
-     ClaimEntity, DataRequest */
+     DataSave, DataSaveAck, DataLoad, DataLoadAck, DataOpen (the icon bar),
+     RAMFetch, RAMTransmit, ClaimEntity, DataRequest */
   static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED,
-                                  1, 2, 3, 4, 6, 7, 0xF, 0x10, 0 };
+                                  1, 2, 3, 4, 5, 6, 7, 0xF, 0x10, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;
@@ -1739,6 +1745,16 @@ gdk_riscos_display_open_menu (GdkDisplay *display, gpointer menu_block,
 
   if (server == NULL)
     return;
+  /* another menu was open (a program's, the icon bar's): it closes */
+  if (server->menu_block && server->menu_func &&
+      (server->menu_func != func || server->menu_data != data))
+    {
+      GdkRiscosMenuFunc old = server->menu_func;
+      gpointer old_data = server->menu_data;
+      server->menu_block = NULL;
+      server->menu_func = NULL;
+      old (NULL, FALSE, old_data);
+    }
   server->menu_block = menu_block;
   server->menu_func = func;
   server->menu_data = data;

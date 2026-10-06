@@ -5,7 +5,15 @@ on GTK 3 through riscos-gtk's RISC OS backend: the first real GTK program
 in the riscos-gtk project.
 
 Using it
-- Run it, or drop a text file on !L3afpad in a Filer window.
+- Run it: L3afpad puts its icon on the icon bar. Click Select on the icon
+  to open its window. Or drop a text file on !L3afpad in a Filer window.
+- The icon bar icon: Select opens the window; Menu gives Info, Open...,
+  Close, Choices... and Quit. Drop a text file on the icon to open it.
+  While L3afpad is loaded, double-clicking a text file opens it here.
+- Closing the window empties it (asking to save first); L3afpad stays on
+  the icon bar until you choose Quit.
+- Choices...: font, tab width, word wrap, line numbers, auto indent. Set
+  uses them and keeps them in <Choices$Write>.L3afpad.Choices.
 - Click Menu over the window for its menu (File, Edit, Search, Options,
   Help). Keyboard short-cuts are shown in the menus (^S save, ^O open...).
 - Drag a text file from a Filer window onto the window to open it.
@@ -20,7 +28,9 @@ Using it
 
 Not yet
 - Printing (GTK has no printing on RISC OS yet).
-- Double-clicking a text file doesn't open it here (no icon bar icon yet).
+- Double-clicking a text file when L3afpad isn't loaded starts your usual
+  editor, not L3afpad (it doesn't claim Text files in its !Boot).
+- One window (one text) at a time.
 
 Messages go to <Wimp$ScrapDir>.L3afpad.Log. Please send it, with a note of
 anything that behaves differently from a RISC OS editor.

@@ -35,6 +35,7 @@
 #include "config.h"
 
 #include "gtkriscostheme.h"
+#include "gtkiconbar-riscos.h"
 #include "gtkcssprovider.h"
 #include "gtkstylecontext.h"
 #include "gtkstyleprovider.h"
@@ -567,6 +568,7 @@ _gtk_riscos_theme_init (GdkDisplay *display)
     return;
   done = TRUE;
   grip_init ();
+  _gtk_riscos_iconbar_init (display);
   if (env && strcmp (env, "0") == 0)
     return;
 

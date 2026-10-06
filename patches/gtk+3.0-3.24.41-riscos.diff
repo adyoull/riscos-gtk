@@ -648,14 +648,15 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      {
        strong.x     -= arrow_width;
 --- a/gtk/meson.build	2024-01-24 01:14:34.000000000 +0000
-+++ b/gtk/meson.build	2026-10-05 21:46:50.121635659 +0100
-@@ -862,6 +862,11 @@
++++ b/gtk/meson.build	2026-10-06 21:06:09.761196753 +0100
+@@ -862,6 +862,12 @@
    gtk_sources += gtk_use_wayland_sources
  endif
  
 +if riscos_enabled
 +  # riscos-gtk: GtkMenus as Wimp menus (copied in from riscos-gtk's gtk/riscos)
-+  gtk_sources += files('gtkmenu-riscos.c', 'gtkriscostheme.c', 'gtkfilechooser-riscos.c')
++  gtk_sources += files('gtkmenu-riscos.c', 'gtkriscostheme.c', 'gtkfilechooser-riscos.c',
++                       'gtkiconbar-riscos.c')
 +endif
 +
  if win32_enabled

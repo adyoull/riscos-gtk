@@ -1,6 +1,6 @@
 diff -ru a/src/callback.c b/src/callback.c
 --- a/src/callback.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/callback.c	2026-10-06 17:01:05.226836093 +0100
++++ b/src/callback.c	2026-10-06 21:09:59.250615810 +0100
 @@ -36,6 +36,13 @@
  }
  
@@ -25,7 +25,7 @@ diff -ru a/src/callback.c b/src/callback.c
  #ifdef ENABLE_CSDI
 diff -ru a/src/dnd.c b/src/dnd.c
 --- a/src/dnd.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/dnd.c	2026-10-06 17:01:05.227237707 +0100
++++ b/src/dnd.c	2026-10-06 21:09:59.250835184 +0100
 @@ -139,6 +139,10 @@
  			filename = g_strstrip(parse_file_uri(files[i]));
  			if (i + j == 0)
@@ -47,8 +47,43 @@ diff -ru a/src/dnd.c b/src/dnd.c
  		}
 diff -ru a/src/main.c b/src/main.c
 --- a/src/main.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/main.c	2026-10-06 17:01:05.226206952 +0100
-@@ -191,11 +191,20 @@
++++ b/src/main.c	2026-10-06 21:10:10.974740906 +0100
+@@ -43,8 +43,13 @@
+ 	gchar buf[BUFSIZ];
+ 	gchar **num;
+ 
++#ifdef __riscos
++	/* <Choices$Write>.L3afpad.Choices (riscos-l3afpad.c) */
++	path = g_build_filename(g_getenv("L3AFPAD_CHOICES"), "Choices", NULL);
++#else
+ 	path = g_build_filename(g_get_user_config_dir(),
+ 	    PACKAGE, PACKAGE "rc", NULL);
++#endif
+ 	fp = fopen(path, "r");
+ 	g_free(path);
+ 	if (!fp)
+@@ -95,12 +100,20 @@
+ 			"/M/Options/AutoIndent")));
+ 	tabwidth = get_current_tab_width();
+ 
++#ifdef __riscos
++	path = g_strdup(g_getenv("L3AFPAD_CHOICES"));
++#else
+ 	path = g_build_filename(g_get_user_config_dir(), PACKAGE, NULL);
++#endif
+ 	if (!g_file_test(path, G_FILE_TEST_IS_DIR))
+ 		g_mkdir_with_parents(path, 0700);
+ 	g_free(path);
++#ifdef __riscos
++	path = g_build_filename(g_getenv("L3AFPAD_CHOICES"), "Choices", NULL);
++#else
+ 	path = g_build_filename(g_get_user_config_dir(),
+ 	    PACKAGE, PACKAGE "rc", NULL);
++#endif
+ 	fp = fopen(path, "w");
+ 	if (!fp) {
+ 		g_print("%s: can't save config file - %s\n", PACKAGE, path);
+@@ -191,11 +204,20 @@
  		fi->filename = parse_file_uri(argv[1]);
  }
  
@@ -69,7 +104,24 @@ diff -ru a/src/main.c b/src/main.c
  	bindtextdomain(PACKAGE, LOCALEDIR);
  	bind_textdomain_codeset(PACKAGE, "UTF-8");
  	textdomain(PACKAGE);
-@@ -264,7 +273,8 @@
+@@ -247,7 +269,16 @@
+ 		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/AutoIndent")),
+ 		conf->autoindent);
+ 
++#ifdef __riscos
++	/* RISC OS: L3afpad starts on the icon bar; its window opens with a
++	   file, or from the icon (riscos-l3afpad.c) */
++	gtk_container_foreach(GTK_CONTAINER(pub->mw->window),
++		(GtkCallback) gtk_widget_show_all, NULL);
++	if (pub->fi->filename)
++		gtk_widget_show(pub->mw->window);
++#else
+ 	gtk_widget_show_all(pub->mw->window);
++#endif
+ 	g_free(conf->fontname);
+ 	g_free(conf);
+ 
+@@ -264,7 +295,8 @@
  
  	if (pub->fi->filename)
  		file_open_real(pub->mw->view, pub->fi);
@@ -79,3 +131,27 @@ diff -ru a/src/main.c b/src/main.c
  	else
  		stdin_data = gedit_utils_get_stdin();
  #endif
+diff -ru a/src/window.c b/src/window.c
+--- a/src/window.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/window.c	2026-10-06 21:10:10.971859773 +0100
+@@ -37,10 +37,20 @@
+ 	gtk_window_set_icon_from_file(GTK_WINDOW(mw->window), ICONDIR"/l3afpad.png", NULL);
+ 	gtk_window_set_default_icon_name(PACKAGE);
+ 
++#ifdef __riscos
++	/* RISC OS: closing the window empties it (asking to save first) and
++	   leaves L3afpad on the icon bar (riscos-l3afpad.c) */
++	{
++		gboolean riscos_l3afpad_close(GtkWidget *w, GdkEvent *e, gpointer d);
++		g_signal_connect(G_OBJECT(mw->window), "delete-event",
++			G_CALLBACK(riscos_l3afpad_close), NULL);
++	}
++#else
+ 	g_signal_connect(G_OBJECT(mw->window), "delete-event",
+ 		G_CALLBACK(on_file_quit), NULL);
+ 	g_signal_connect_after(G_OBJECT(mw->window), "delete-event",
+ 		G_CALLBACK(gtk_widget_hide_on_delete), NULL);
++#endif
+ 
+ 	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+ 	gtk_container_add(GTK_CONTAINER(mw->window), vbox);

@@ -230,3 +230,22 @@ the gtkbuilder.c patch. A program with its own .ui files naming its own
 types must call g_type_ensure() on them first, and
 gtk_builder_connect_signals() can't find handlers by name either (use
 gtk_builder_add_callback_symbol()).
+
+## The icon bar for a ported program (2026-10-06)
+Every program gets an icon (sprite `!`+program name in the Wimp pool, so
+the application's !Boot should IconSprites its !Sprites; else
+"application"). Without handlers, Select presents the program's windows
+(or activates its GtkApplication), Open.../Choices.../Quit use the
+GtkApplication's "open"/"preferences"/"quit" actions or menu items
+labelled Open, Preferences/Settings/Choices/Options, Quit; Close closes
+the active window; files from the Filer go to g_application_open() if the
+application HANDLES_OPEN, else an error box says it can't. For a proper
+RISC OS program, before gtk_init():
+- gdk_riscos_iconbar_set_handlers() with show / open_file / open / close
+  / choices / quit / unsaved (see apps/l3afpad/riscos-l3afpad.c);
+- gdk_riscos_iconbar_set_info() for the Info box;
+- gdk_riscos_iconbar_add_filetype() for each type it opens on a
+  double-click;
+- make the window's delete-event hide it (after asking to save), so the
+  program stays on the icon bar; start without a window unless given a
+  file.
