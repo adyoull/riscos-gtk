@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.21, 2026-10-06)
+- Theme layout checked against the Toolbox manual (riscos.com, chapter 16
+  Window class gadget pictures, chapter 5 Discard/Cancel/Save), measured
+  pixel by pixel. Owner: keep the theme's colours (only layout and sizes
+  to follow the manual); widgets still read from the desktop's sprites.
+  - number range: the field has its own border; the adjuster arrows sit
+    outside it on the grey, bare (no slab), 4px to its right.
+  - slider: a well with a 4px margin inside its border, the bar from the
+    start to the value, no knob (bar colour unchanged, dark blue).
+  - a window with a title bar but no title (GTK message dialogues) shows
+    the program's name, as the Discard/Cancel/Save box does.
+- Already matched: action buttons and their sizes, display fields,
+  writables (52 OS units), labelled boxes, option/radio icons and scroll
+  bars (the desktop's sprites), Wimp menus, the Save box (0.20).
+- Noted, not changed (colours, owner's choice): the manual's default
+  button channel is cream, labelled boxes are light grey/white, slider
+  bars grey. GTK 3 paints box-shadows in list order (last on top), so the
+  default button shows only its outer grey ring; left as it is.
+
 ## Unreleased (GTKThemeTest 0.20, 2026-10-06)
 - Owner: 0.19's Save box shape and size were wrong (wide and short). Now
   laid out from measurements of the Toolbox manual's picture of the

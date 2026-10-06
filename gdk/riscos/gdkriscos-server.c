@@ -280,6 +280,7 @@ visible_area (GdkRiscosServer *s, int x, int y, int w, int h, int box[4])
 }
 
 static gboolean create_wimp_window (GdkRiscosServer *server, RiscosWindow *w);
+static void utf8_to_latin1 (const char *utf8, char *out, int size);
 
 static void
 open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
@@ -1286,6 +1287,16 @@ _gdk_riscos_server_window_show (GdkRiscosServer *server, gint id)
 
   if (w == NULL)
     return FALSE;
+  /* a window with a title bar but no title (GTK's message dialogues):
+     the program's name, as the Toolbox's Discard/Cancel/Save box has */
+  if (!w->is_temp && w->title[0] == 0)
+    {
+      const char *name = g_get_application_name ();
+      if (name == NULL)
+        name = g_get_prgname ();
+      if (name)
+        utf8_to_latin1 (name, w->title, TITLE_MAX);
+    }
   apply_furniture (server, w);
   open_window (server, w, -1);
   if (!w->is_temp)

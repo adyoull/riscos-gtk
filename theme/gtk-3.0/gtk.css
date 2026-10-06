@@ -108,7 +108,8 @@ button:disabled label { color: @wimp3; }
    4px around a default button in layouts (spacing, border width). */
 button.default {
   border-width: 2px;
-  /* grey well, then the channel's dark top-left and white bottom-right */
+  /* grey well, then the channel's dark top-left and white bottom-right
+     (the colours as before 0.21, owner's choice) */
   box-shadow: 0 0 0 2px @wimp1, -2px -2px 0 2px @wimp4, 2px 2px 0 2px @wimp0, 0 0 0 4px @wimp2;
 }
 
@@ -146,8 +147,23 @@ entry, spinbutton:not(.vertical) {
   border-color: @wimp4 @wimp0 @wimp0 @wimp4;
 }
 
-spinbutton:not(.vertical) { padding: 0; }
-spinbutton:not(.vertical) entry { border: none; min-height: 18px; }
+/* Toolbox number range: the writable (or display) field has its own
+   border, and the adjuster arrows sit outside it on the window's grey,
+   4px to its right, as bare arrow sprites with no slab (Toolbox manual,
+   Window class: number range and adjuster arrow pictures). */
+spinbutton:not(.vertical) {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+spinbutton:not(.vertical) entry {
+  min-height: 22px;
+  padding: 0 6px;
+  border: 2px solid;
+  border-color: @wimp4 @wimp0 @wimp0 @wimp4;
+  background-color: @wimp0;
+}
+spinbutton:not(.vertical):disabled entry { background-color: @wimp1; }
 
 /* Toolbox display field. GTK 3 doesn't mark non-editable entries in CSS,
    so apps (or port patches) opt in with the "display-field" class. It also
@@ -183,9 +199,12 @@ spinbutton:not(.vertical) button {
   min-width: 18px;
   min-height: 18px;
   padding: 0;
-  border-width: 2px;
+  border: none;
+  background-color: transparent;
   -gtk-icon-source: none;
 }
+spinbutton:not(.vertical) button.down { margin-left: 4px; }
+spinbutton:not(.vertical) button:active { background-color: transparent; }
 
 /* the built-in +/- icons are symbolic, so a transparent colour hides them */
 spinbutton:not(.vertical) button { color: transparent; }
@@ -484,31 +503,33 @@ scrolledwindow.frame, scrolledwindow > frame > border {
 
 /* ---------- sliders ---------- */
 
-scale { padding: 6px 2px; }
-
+/* Toolbox slider: a well (slabbed in, a 4px grey margin, white inside)
+   with a bar from the start to the value (dark blue, the theme's own
+   colour); no knob
+   (Toolbox manual, Window class, slider picture). GTK still needs its
+   slider for dragging: it's there, but not drawn. */
+scale { padding: 4px 2px; }
 scale trough {
   min-height: 8px;
   min-width: 8px;
+  padding: 4px;
   border: 2px solid;
   border-color: @wimp4 @wimp0 @wimp0 @wimp4;
   background-color: @wimp0;
+  box-shadow: inset 0 0 0 4px @wimp1;
 }
-
 scale highlight {
-  background-color: @wimp8;
+  background-color: @wimp8;   /* the theme's colour (owner's choice) */
 }
-
 scale slider {
-  min-width: 12px;
-  min-height: 18px;
-  margin: -7px -2px;
+  min-width: 2px;
+  min-height: 8px;
+  margin: 0;
+  border: none;
   border-radius: 0;
-  border: 2px solid;
-  border-color: @wimp0 @wimp4 @wimp4 @wimp0;
-  background-color: @wimp1;
+  background: none;
 }
-
-scale.vertical slider { min-width: 18px; min-height: 12px; margin: -2px -7px; }
+scale.vertical slider { min-width: 8px; min-height: 2px; margin: 0; }
 
 /* ---------- progress ---------- */
 

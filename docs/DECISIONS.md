@@ -142,3 +142,15 @@ click or from a menu, static from the keyboard, as the Toolbox does; Save
 with a leaf name reports the module's own error. GDK window furniture now
 follows GTK's decorations/functions/resizable/type hint, so other GTK
 dialogue boxes lose close/back/size icons the same way.
+
+## Theme checked against the Toolbox manual (2026-10-06)
+Owner asked to confirm the theme against riscos.com's Toolbox manual; its
+gadget pictures (chapter 16) were measured pixel by pixel. Owner then:
+keep the theme's original colours; what matters is how dialogue boxes
+are laid out and sized; widgets keep reading the desktop's sprites at
+start-up. So layout changed (number range arrows outside the field,
+knobless Toolbox slider, untitled windows named after the program) and
+colours didn't (the manual's cream default channel, light labelled box
+and grey slider bar were tried and reverted).
+GTK 3 note: multiple box-shadows are painted in list order, each over the
+last, the reverse of the CSS spec.
