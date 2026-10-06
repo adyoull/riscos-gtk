@@ -37,6 +37,7 @@
 #include "gtklabel.h"
 #include "gtkimage.h"
 #include "gtkeventbox.h"
+#include "gtkcheckbutton.h"
 #include "gtkintl.h"
 
 #include "riscos/gdkriscos.h"
@@ -570,23 +571,72 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
         name = self->current_name ? gdk_riscos_path_from_unix (self->current_name)
                                   : g_strdup (_("Untitled"));
       leaf = g_strdup (leaf_of (name));
+      /* The Toolbox SaveAs window, measured from the Toolbox manual's
+         picture (pixels at 1 pixel = 2 OS units): work area 155 x 148;
+         the file icon (34 x 34) centred 6 from the top; the writable
+         (26 high) 6 below it, 18 in from the left, 17 from the right;
+         the Selection option 7 below that, 6 in; Cancel (64 x 28) 9
+         below, 6 in; Save (the default, 56 x 28, with its 4-pixel
+         channel round it) 11 in from the right; 10 below the buttons.
+         Widths grow with the text if the desktop font needs it. */
+      GtkWidget *col = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+      GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+      GtkWidget *sel, *cancel, *okb;
+
+      gtk_container_remove (GTK_CONTAINER (box->window), vb);
+      gtk_widget_set_size_request (col, 155, 148);
+      gtk_container_add (GTK_CONTAINER (box->window), col);
+
       /* the icon, to drag */
       box->icon = gtk_event_box_new ();
       gtk_event_box_set_visible_window (GTK_EVENT_BOX (box->icon), FALSE);
       gtk_widget_add_events (box->icon, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK
                              | GDK_BUTTON_MOTION_MASK);
       gtk_container_add (GTK_CONTAINER (box->icon), file_icon (leaf_type (leaf), &box->sprite));
+      gtk_widget_set_size_request (box->icon, 34, 34);
       gtk_widget_set_halign (box->icon, GTK_ALIGN_CENTER);
+      gtk_widget_set_margin_top (box->icon, 6);
       gtk_widget_set_tooltip_text (box->icon, _("Drag this icon to a directory display to save"));
       g_signal_connect (box->icon, "button-press-event", G_CALLBACK (on_icon_press), box);
       g_signal_connect (box->icon, "motion-notify-event", G_CALLBACK (on_icon_motion), box);
       g_signal_connect (box->icon, "button-release-event", G_CALLBACK (on_icon_release), box);
-      gtk_box_pack_start (GTK_BOX (vb), box->icon, FALSE, FALSE, 0);
+      gtk_box_pack_start (GTK_BOX (col), box->icon, FALSE, FALSE, 0);
+
       gtk_entry_set_text (GTK_ENTRY (box->entry), name);
+      gtk_entry_set_width_chars (GTK_ENTRY (box->entry), 1);
+      gtk_widget_set_size_request (box->entry, 120, 26);
+      gtk_widget_set_margin_top (box->entry, 6);
+      gtk_widget_set_margin_start (box->entry, 18);
+      gtk_widget_set_margin_end (box->entry, 17);
       g_signal_connect (box->entry, "changed", G_CALLBACK (on_name_changed), box);
-      gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
-      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_save_ok), _("Save")),
-                          FALSE, FALSE, 0);
+      gtk_box_pack_start (GTK_BOX (col), box->entry, FALSE, FALSE, 0);
+
+      /* Selection: shaded, as the Toolbox shows it when the program
+         has no selection to save (GTK has no such thing) */
+      sel = gtk_check_button_new_with_label (_("Selection"));
+      gtk_widget_set_sensitive (sel, FALSE);
+      gtk_widget_set_can_focus (sel, FALSE);
+      gtk_widget_set_halign (sel, GTK_ALIGN_START);
+      gtk_widget_set_margin_top (sel, 7);
+      gtk_widget_set_margin_start (sel, 6);
+      gtk_box_pack_start (GTK_BOX (col), sel, FALSE, FALSE, 0);
+
+      cancel = action_button (self->cancel_label ? self->cancel_label : _("Cancel"));
+      okb = action_button (self->accept_label ? self->accept_label : _("Save"));
+      gtk_widget_set_size_request (cancel, 64, 28);
+      gtk_widget_set_size_request (okb, 56, 28);
+      g_signal_connect (cancel, "clicked", G_CALLBACK (on_cancel), box);
+      g_signal_connect (okb, "clicked", G_CALLBACK (on_save_ok), box);
+      gtk_widget_set_can_default (okb, TRUE);
+      gtk_widget_set_margin_top (row, 9);
+      gtk_widget_set_margin_start (row, 6);
+      gtk_widget_set_margin_end (row, 11);
+      gtk_widget_set_margin_bottom (row, 10);
+      gtk_box_pack_start (GTK_BOX (row), cancel, FALSE, FALSE, 0);
+      gtk_box_pack_end (GTK_BOX (row), okb, FALSE, FALSE, 0);
+      gtk_widget_set_margin_start (okb, 18);     /* at least the picture's gap */
+      gtk_box_pack_end (GTK_BOX (col), row, FALSE, FALSE, 0);
+      gtk_window_set_default (GTK_WINDOW (box->window), okb);
       g_free (leaf);
       g_free (name);
     }

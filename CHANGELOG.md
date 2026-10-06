@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.20, 2026-10-06)
+- Owner: 0.19's Save box shape and size were wrong (wide and short). Now
+  laid out from measurements of the Toolbox manual's picture of the
+  SaveAs box (1 pixel = 2 OS units): work area 155 x 148, icon 34 x 34
+  centred 6 from the top, writable 26 high inset 18/17, the Selection
+  option (shaded: GTK has no selection to save) 6 in, Cancel 64 x 28 and
+  Save 56 x 28 (default channel round it) along the bottom, 10 below.
+  Widths grow only if the desktop font needs it.
+
 ## Unreleased (GTKThemeTest 0.19, 2026-10-06)
 - Owner: 0.18 works, but the Save box looked nothing like RISC OS's.
   Redone after the Toolbox SaveAs dialogue (riscos.com Toolbox manual,
