@@ -204,7 +204,17 @@ compiled schemas GLib stops the program ("No GSettings schemas are
 installed"). Apps ship share/glib-2.0/schemas/gschemas.compiled (compiled
 from GTK's schema XML by build-app.sh) next to share/themes, found through
 XDG_DATA_DIRS. Settings live in GLib's memory backend (nothing is kept).
-The fallback dialog's places list also asks for an icon theme once
-("Could not find the icon 'user-home-symbolic-ltr'"): harmless. Shipping
-an empty hicolor theme to quiet it makes GTK abort on the missing
-image-missing icon instead, so don't.
+The fallback dialog's places list also asked for an icon theme once
+("Could not find the icon 'user-home-symbolic-ltr'"). Fixed in 0.23 by
+shipping icon themes (share/icons/RISCOS and an empty hicolor). Note: a
+theme set without image-missing makes GTK abort (gtkiconhelper.c asserts)
+the first time an icon is missing, so RISCOS must keep image-missing
+(mkicons.py refuses to build without it).
+
+## Icons (2026-10-06)
+gdk-pixbuf on RISC OS has no SVG loader, so icon themes must be PNG:
+Adwaita 3.36 still ships full-colour PNGs (later versions are SVG and
+symbolic only), and its symbolic SVGs are made into GTK's .symbolic.png
+at build time with the host's gtk-encode-symbolic-svg (libgtk-3-bin).
+At run time gtkriscostheme.c adds RISCOS-Wimp (the desktop's sprites) in
+the theme's temporary directory and sets gtk-icon-theme-name to it.

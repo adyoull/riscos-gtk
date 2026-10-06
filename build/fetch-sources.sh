@@ -38,6 +38,8 @@ get atk1.0_2.36.0.orig.tar.xz       $U/a/atk1.0/atk1.0_2.36.0.orig.tar.xz
 get libepoxy_1.5.10.orig.tar.gz     $U/libe/libepoxy/libepoxy_1.5.10.orig.tar.gz
 # GTK itself (M2)
 get gtk+3.0_3.24.41.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz
+# the RISCOS icon theme is taken from Adwaita's PNGs (build/mkicons.py)
+get adwaita-icon-theme_3.36.1.orig.tar.xz $U/a/adwaita-icon-theme/adwaita-icon-theme_3.36.1.orig.tar.xz
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
 # Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"

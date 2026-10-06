@@ -14,6 +14,7 @@ or adapted from other projects keep their original licence, listed below.
 | `tests/fake/mesa-egl/*`, `tests/fake/sdl-wimp/*` | [riscos-mesa](https://github.com/adyoull/riscos-mesa) `tests/host-harness/` (20.3.5-10 tree) | MIT (riscos-mesa's own files) |
 | `gdk/riscos/*` except `gdkriscos-server.c`, `gdktransfer-riscos.c`, `gdkpointer-riscos.c`, `gdkwimptheme-riscos.c`, `gdkriscoswimp.h`, `gdkriscosmenu.h` and `meson.build` | GTK 3.24.41 `gdk/broadway/` (client side), renamed broadway → riscos, with riscos-gtk's changes | LGPL version 2.1 or later, as GTK |
 | `gdk/riscos/gdkriscos-server.c`, `gdk/riscos/gdktransfer-riscos.c`, `gdk/riscos/gdkpointer-riscos.c`, `gdk/riscos/gdkwimptheme-riscos.c`, `gdk/riscos/gdkriscoswimp.h`, `gdk/riscos/gdkriscosmenu.h`, `gdk/riscos/meson.build`, `gtk/riscos/*` (Wimp menus, the Wimp theme, Save and Open boxes) | Written for riscos-gtk; part of GTK and its backend, so under GTK's licence | LGPL version 2.1 or later |
+| `theme/icons-list.txt`, the apps' `share/icons/RISCOS` (made by `build/mkicons.py`, MIT) | [Adwaita icon theme](https://gitlab.gnome.org/GNOME/adwaita-icon-theme) 3.36.1, GNOME Project (the licence files go with the icons) | LGPL version 3 or CC-BY-SA 3.0 |
 | `patches/gtk+3.0-3.24.41-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
 | `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |

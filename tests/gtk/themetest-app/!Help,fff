@@ -1,4 +1,4 @@
-GTKThemeTest 0.22 - riscos-gtk theme test
+GTKThemeTest 0.23 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -24,6 +24,12 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.23: icons. GTK programs ask for icons by name (for toolbars,
+dialogue boxes, file lists). Where RISC OS has a picture, the desktop's
+own sprite is used (directories, applications, file types); the rest come
+from a small icon set in the application (share.icons, from GNOME's
+Adwaita). The first line of the Log says how many came from the desktop.
 
 New in 0.22: "Save (dialogue)..." and "Open (dialogue)..." on the
 Dialogues and menus page open GTK's own file dialogue the way most GTK

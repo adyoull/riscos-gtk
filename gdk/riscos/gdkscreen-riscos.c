@@ -245,7 +245,7 @@ gdk_riscos_screen_get_setting (GdkScreen   *screen,
   static const struct { const char *name; const char *s; int i; } defaults[] = {
     { "gtk-theme-name", "RISCOS", 0 },
     { "gtk-font-name", "DejaVu Sans 12", 0 },
-    { "gtk-icon-theme-name", "hicolor", 0 },
+    { "gtk-icon-theme-name", "RISCOS", 0 },     /* share/icons/RISCOS (build/mkicons.py) */
     { "gtk-xft-dpi", NULL, 90 * 1024 },
     { "gtk-xft-antialias", NULL, 1 },
     { "gtk-xft-hinting", NULL, 1 },

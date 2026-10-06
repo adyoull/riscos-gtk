@@ -39,6 +39,12 @@ mv "$A/fonts/LICENSE" "$A/fonts/Licence,fff"
   > "$A/fonts/fonts.conf"
 python3 -c 'import sys, xml.dom.minidom as m; m.parse(sys.argv[1])' "$A/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$A/share/themes/RISCOS/"
+# icons: the RISCOS theme (Adwaita's, for the names GTK and programs use;
+# needs the host's gtk-encode-symbolic-svg, libgtk-3-bin) and an empty
+# hicolor; the desktop's sprites are added at run time
+ADW=$SRC/adwaita-icon-theme-3.36.1
+[ -d "$ADW" ] || tar -xf "$DL/adwaita-icon-theme_3.36.1.orig.tar.xz" -C "$SRC"
+python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$A/share/icons"
 # GTK's GSettings schemas (the file choosers, colour chooser, emoji
 # chooser need them: GLib stops the program without), found through
 # XDG_DATA_DIRS = the app's share directory

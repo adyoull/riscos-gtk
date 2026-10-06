@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.23, 2026-10-06)
+- Icons (owner's choice: the desktop's sprites first, a shipped set for
+  the rest):
+  - At start-up the theme makes an icon theme "RISCOS-Wimp" of the
+    desktop's own sprites for the names RISC OS has pictures for:
+    directories (directory, small_dir), applications, file types
+    (file_xxx / small_xxx for text, HTML, CSV, images, PDF, archives,
+    fonts, data...), discs, and the error box symbols where the Wimp has
+    them. The Log line says how many ("icons from sprites n of 25").
+  - It inherits "RISCOS", shipped in each app's share/icons: Adwaita 3.36's
+    icons (GNOME Project, LGPL-3 / CC-BY-SA 3.0) for the 199 names GTK and
+    programs use (stock items, toolbar actions, dialogue symbols, the file
+    chooser's), PNGs at 16-48 pixels, symbolic icons as GTK's
+    .symbolic.png (no SVG loader on RISC OS). 3.2 MB, made at build time
+    by build/mkicons.py from theme/icons-list.txt.
+  - An empty hicolor theme is shipped too, so GTK no longer warns about a
+    missing icon theme (the file chooser's "user-home-symbolic-ltr").
+  - The backend's default gtk-icon-theme-name is now RISCOS.
+- themetest-fake 36 (folder from the desktop's sprite, toolbar icons and
+  image-missing from RISCOS, symbolic icons load). The fake Wimp pool has
+  a "directory" sprite.
+
 ## Unreleased (GTKThemeTest 0.22, 2026-10-06)
 - GtkFileChooserDialog (a program's own file dialogue, what most GTK
   programs use) is shown as the RISC OS Save box or Open box too. The

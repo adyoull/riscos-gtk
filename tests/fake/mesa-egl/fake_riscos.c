@@ -267,6 +267,11 @@ static void build_pool(void)
     for (y = 0; y < 10; y++) for (x = 0; x < 10; x++) {
         put(s, x, y, 8, 0xC0); put_mask(s, 1, 8, 10, x, y, x <= y);
     }
+    /* directory: 16x16 8bpp, a filled square (the icon theme's "folder") */
+    s = pool_sprite("directory", 16, 16, 8, mode8, 0, 2);
+    for (y = 0; y < 16; y++) for (x = 0; x < 16; x++) {
+        put(s, x, y, 8, 0x5C); put_mask(s, 2, 8, 16, x, y, 1);
+    }
     /* left, right: 8x4 1bpp at 90 x 45 dpi (each row doubled on screen),
        no palette: Wimp colours 0 and 7 */
     s = pool_sprite("left", 8, 4, 1, mode1h, 0, 0);

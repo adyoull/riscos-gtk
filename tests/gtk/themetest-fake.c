@@ -392,7 +392,33 @@ count_theme_pixels (int page)
 }
 
 /* The sprites as gdk_riscos_wimp_sprite decodes them */
-static int spr_ok[6];
+static int spr_ok[6], icon_ok[4];
+static char icon_note[512];
+
+/* The icon themes: RISCOS-Wimp (the desktop's sprites) over RISCOS
+   (shipped, from Adwaita) */
+static void
+check_icons (void)
+{
+  GtkIconTheme *t = gtk_icon_theme_get_default ();
+  const char *names[] = { "folder", "document-save", "edit-copy-symbolic", "image-missing" };
+  const char *want[] = { "RISCOS-Wimp", "/RISCOS/", ".symbolic.png", "/RISCOS/" };
+  int i, n = 0;
+
+  for (i = 0; i < 4; i++)
+    {
+      GtkIconInfo *info = gtk_icon_theme_lookup_icon (t, names[i], i == 2 ? 16 : 32, 0);
+      const char *f = info ? gtk_icon_info_get_filename (info) : NULL;
+      GdkPixbuf *pb = info ? gtk_icon_info_load_icon (info, NULL) : NULL;
+      icon_ok[i] = f && strstr (f, want[i]) && pb;
+      n += g_snprintf (icon_note + n, sizeof icon_note - n, "%s%s=%s", i ? ", " : "", names[i],
+                       f ? strstr (f, "icons/") ? strstr (f, "icons/") + 6 : f : "(none)");
+      if (pb)
+        g_object_unref (pb);
+      if (info)
+        g_object_unref (info);
+    }
+}
 static char spr_note[256];
 
 static guint32
@@ -522,6 +548,7 @@ hook (int reason)
 
       stage = 1;
       check_sprites ();
+      check_icons ();
       menubar_h = gtk_widget_get_allocated_height (tt_menubar);
       nb_h0 = gtk_widget_get_allocated_height (tt_notebook);
       def0 = gtk_style_context_has_class (gtk_widget_get_style_context (tt_apply), "default");
@@ -785,6 +812,10 @@ main (int argc, char **argv)
   check (spr_ok[3], "Wimp sprites: 32bpp with a RISC OS 5 alpha mask");
   check (spr_ok[4], "Wimp sprites: numbered mode with an old-style mask");
   check (spr_ok[5], "Wimp sprites: 1bpp in Wimp colours, a 45 dpi sprite doubled");
+  check (icon_ok[0], "icons: \"folder\" is the desktop's directory sprite (RISCOS-Wimp theme)");
+  check (icon_ok[1] && icon_ok[3], "icons: toolbar names (document-save) and image-missing come from the shipped RISCOS theme");
+  check (icon_ok[2], "icons: symbolic icons (edit-copy-symbolic) load from GTK's .symbolic.png");
+  printf ("# icons: %s\n", icon_note);
   printf ("# sprites %d%d%d%d%d%d (%s)\n", spr_ok[0], spr_ok[1], spr_ok[2], spr_ok[3], spr_ok[4], spr_ok[5], spr_note);
   check (bg_pixels[0] > 100000 && bg_pixels[1] > 100000,
          "the theme uses the desktop's Wimp colours (window background)");

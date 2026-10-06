@@ -163,3 +163,10 @@ unchanged; the chosen file is stored on the dialogue and returned by
 gtk_file_chooser_get_files() (which every getter goes through). Extra
 widgets, filters and previews programs add to the dialogue are not shown
 (RISC OS boxes have no place for them).
+
+## Icons: the desktop's sprites, then a shipped set (2026-10-06)
+Owner's choice (of: desktop sprites + fallback / Adwaita only / a new
+RISC OS-style set). Names RISC OS has a picture for come from the Wimp
+sprite pool at start-up, like the rest of the theme; everything else
+from a trimmed Adwaita 3.36 (PNG). The list of names is
+theme/icons-list.txt.

@@ -18,7 +18,11 @@
  *     range adjuster arrows (left, right);
  *   - draws scroll bars with the Wimp's window border (tool) sprites, as
  *     the Wimp draws its windows' scroll bars, so they follow the desktop's
- *     theme (*ToolSprites).
+ *     theme (*ToolSprites);
+ *   - makes an icon theme, "RISCOS-Wimp", of the desktop's own sprites for
+ *     the icon names RISC OS has a picture for (directories, applications,
+ *     file types, error box symbols), inheriting the shipped RISCOS theme
+ *     (share/icons/RISCOS: Adwaita's icons for the rest, build/mkicons.py).
  * The sprites are written as PNGs to a directory in /tmp
  * (<Wimp$ScrapDir>) and removed at exit. A sprite the Wimp hasn't got
  * keeps the theme's own picture.
@@ -34,6 +38,8 @@
 #include "gtkcssprovider.h"
 #include "gtkstylecontext.h"
 #include "gtkstyleprovider.h"
+#include "gtkicontheme.h"
+#include "gtksettings.h"
 
 #include "riscos/gdkriscos.h"
 #include <glib/gstdio.h>
@@ -43,7 +49,8 @@
 static char *dir;               /* the PNGs */
 /* for the Log: sprites asked for, found, written */
 static int pool_asked, pool_found, tool_asked, tool_found, write_failed;
-static GPtrArray *files;
+static GPtrArray *files, *subdirs;
+static int icons_asked, icons_found;
 
 static void
 remove_files (void)
@@ -53,6 +60,9 @@ remove_files (void)
   if (files)
     for (i = 0; i < files->len; i++)
       g_unlink (g_ptr_array_index (files, i));
+  if (subdirs)
+    for (i = subdirs->len; i > 0; i--)
+      g_rmdir (g_ptr_array_index (subdirs, i - 1));
   if (dir)
     g_rmdir (dir);
 }
@@ -287,6 +297,167 @@ make_css (void)
   return g_string_free (css, FALSE);
 }
 
+/* ---- the icon theme of the desktop's sprites ---- */
+
+/* GTK icon name -> Wimp sprites to try, large (34 x 34 at EIG 1) and small
+   (the Filer's small icons) */
+static const struct {
+  const char *icon, *context;
+  const char *large[3], *small[3];
+} wimp_icons[] = {
+  { "folder",                   "places",    { "directory" },               { "small_dir" } },
+  { "folder-open",              "places",    { "directoryo", "directory" },  { "small_diro", "small_dir" } },
+  { "inode-directory",          "mimetypes", { "directory" },               { "small_dir" } },
+  { "application-x-executable", "mimetypes", { "file_ff8", "application" },  { "small_ff8", "small_app" } },
+  { "text-x-generic",           "mimetypes", { "file_fff" },                { "small_fff" } },
+  { "text-html",                "mimetypes", { "file_faf" },                { "small_faf" } },
+  { "text-csv",                 "mimetypes", { "file_dfe" },                { "small_dfe" } },
+  { "image-x-generic",          "mimetypes", { "file_ff9" },                { "small_ff9" } },
+  { "image-png",                "mimetypes", { "file_b60" },                { "small_b60" } },
+  { "image-jpeg",               "mimetypes", { "file_c85" },                { "small_c85" } },
+  { "image-gif",                "mimetypes", { "file_695" },                { "small_695" } },
+  { "application-pdf",          "mimetypes", { "file_adf" },                { "small_adf" } },
+  { "package-x-generic",        "mimetypes", { "file_a91", "file_ddc" },     { "small_a91", "small_ddc" } },
+  { "audio-x-generic",          "mimetypes", { "file_fb1" },                { "small_fb1" } },
+  { "font-x-generic",           "mimetypes", { "file_ff6" },                { "small_ff6" } },
+  { "application-octet-stream", "mimetypes", { "file_ffd" },                { "small_ffd" } },
+  { "unknown",                  "mimetypes", { "file_xxx" },                { "small_xxx" } },
+  { "drive-harddisk",           "devices",   { "harddisc" },                { NULL } },
+  { "drive-removable-media",    "devices",   { "floppydisc", "floppy" },     { NULL } },
+  { "media-floppy",             "devices",   { "floppydisc", "floppy" },     { NULL } },
+  { "drive-optical",            "devices",   { "cddisc" },                  { NULL } },
+  { "dialog-error",             "status",    { "error" },                   { NULL } },
+  { "dialog-warning",           "status",    { "warning" },                 { NULL } },
+  { "dialog-information",       "status",    { "information", "info" },     { NULL } },
+  { "dialog-question",          "status",    { "question" },                { NULL } },
+};
+
+static gboolean
+make_dir (const char *path)
+{
+  if (g_mkdir (path, 0755) != 0)
+    return FALSE;
+  g_ptr_array_add (subdirs, g_strdup (path));
+  return TRUE;
+}
+
+/* The first of names the Wimp has, written as path/icon.png */
+static gboolean
+wimp_icon (const char *const names[3], const char *path, const char *icon)
+{
+  int i;
+
+  for (i = 0; i < 3 && names[i]; i++)
+    {
+      GdkPixbuf *pb = gdk_riscos_wimp_sprite (names[i]);
+      char *file;
+
+      if (pb == NULL)
+        continue;
+      file = g_strdup_printf ("%s/%s.png", path, icon);
+      if (gdk_pixbuf_save (pb, file, "png", NULL, NULL))
+        {
+          g_ptr_array_add (files, file);
+          g_object_unref (pb);
+          return TRUE;
+        }
+      write_failed++;
+      g_free (file);
+      g_object_unref (pb);
+    }
+  return FALSE;
+}
+
+/* Make dir/icons/RISCOS-Wimp; TRUE if it has any icons */
+static gboolean
+make_icon_theme (void)
+{
+  char *top, *theme, *index, *large, *small;
+  GString *idx;
+  guint i;
+  gboolean any = FALSE;
+  const char *ctxs[] = { "places", "mimetypes", "devices", "status" };
+
+  if (dir == NULL)
+    {
+      dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
+      if (dir == NULL)
+        return FALSE;
+      files = g_ptr_array_new_with_free_func (g_free);
+      atexit (remove_files);
+    }
+  if (subdirs == NULL)
+    subdirs = g_ptr_array_new_with_free_func (g_free);
+  top = g_build_filename (dir, "icons", NULL);
+  theme = g_build_filename (top, "RISCOS-Wimp", NULL);
+  make_dir (top);
+  make_dir (theme);
+  idx = g_string_new ("[Icon Theme]\nName=RISCOS-Wimp\n"
+                      "Comment=riscos-gtk: the desktop's own sprites\n"
+                      "Inherits=RISCOS,hicolor\nDirectories=");
+  for (i = 0; i < G_N_ELEMENTS (ctxs); i++)
+    g_string_append_printf (idx, "%slarge/%s,small/%s", i ? "," : "", ctxs[i], ctxs[i]);
+  g_string_append (idx, "\n\n");
+  for (i = 0; i < G_N_ELEMENTS (ctxs); i++)
+    {
+      char *d;
+      /* the Wimp's sprites are 34 pixels (large) and about 18 (small);
+         GTK scales them to the size asked for */
+      g_string_append_printf (idx, "[large/%s]\nSize=34\nContext=%s\nType=Threshold\nThreshold=14\n\n"
+                              "[small/%s]\nSize=18\nContext=%s\nType=Threshold\nThreshold=4\n\n",
+                              ctxs[i], ctxs[i], ctxs[i], ctxs[i]);
+      d = g_build_filename (theme, "large", NULL);
+      if (i == 0) make_dir (d);
+      g_free (d);
+      d = g_build_filename (theme, "small", NULL);
+      if (i == 0) make_dir (d);
+      g_free (d);
+      d = g_build_filename (theme, "large", ctxs[i], NULL);
+      make_dir (d);
+      g_free (d);
+      d = g_build_filename (theme, "small", ctxs[i], NULL);
+      make_dir (d);
+      g_free (d);
+    }
+  for (i = 0; i < G_N_ELEMENTS (wimp_icons); i++)
+    {
+      large = g_build_filename (theme, "large", wimp_icons[i].context, NULL);
+      small = g_build_filename (theme, "small", wimp_icons[i].context, NULL);
+      icons_asked++;
+      if (wimp_icon (wimp_icons[i].large, large, wimp_icons[i].icon) |
+          (wimp_icons[i].small[0] && wimp_icon (wimp_icons[i].small, small, wimp_icons[i].icon)))
+        {
+          icons_found++;
+          any = TRUE;
+        }
+      g_free (large);
+      g_free (small);
+    }
+  index = g_build_filename (theme, "index.theme", NULL);
+  if (g_file_set_contents (index, idx->str, -1, NULL))
+    g_ptr_array_add (files, index);
+  else
+    g_free (index);
+  g_string_free (idx, TRUE);
+  g_free (theme);
+  g_free (top);
+  return any;
+}
+
+static void
+icons_init (GdkDisplay *display)
+{
+  GdkScreen *screen = gdk_display_get_default_screen (display);
+
+  if (make_icon_theme ())
+    {
+      char *top = g_build_filename (dir, "icons", NULL);
+      gtk_icon_theme_prepend_search_path (gtk_icon_theme_get_for_screen (screen), top);
+      g_object_set (gtk_settings_get_for_screen (screen), "gtk-icon-theme-name", "RISCOS-Wimp", NULL);
+      g_free (top);
+    }
+}
+
 void
 _gtk_riscos_theme_init (GdkDisplay *display)
 {
@@ -303,10 +474,11 @@ _gtk_riscos_theme_init (GdkDisplay *display)
     return;
 
   css = make_css ();
+  icons_init (display);
   /* one line in every program's log, so a report shows what was used */
   g_printerr ("riscos-gtk: theme: Wimp colours %s; Wimp sprites %d of %d; window border sprites"
-              " %d of %d; %s%s\n", strstr (css, "@define-color") ? "yes" : "no",
-              pool_found, pool_asked, tool_found, tool_asked,
+              " %d of %d; icons from sprites %d of %d; %s%s\n", strstr (css, "@define-color") ? "yes" : "no",
+              pool_found, pool_asked, tool_found, tool_asked, icons_found, icons_asked,
               write_failed ? "COULDN'T WRITE the PNGs in " : "PNGs in ", dir ? dir : g_get_tmp_dir ());
   if (g_getenv ("RISCOS_GTK_DEBUG"))
     g_printerr ("riscos-gtk theme:\n%s", css);
