@@ -1,6 +1,6 @@
 /*
- * gtkfilechooser-riscos.c - riscos-gtk: GtkFileChooserNative as RISC OS
- * Save boxes and Open boxes.
+ * gtkfilechooser-riscos.c - riscos-gtk: GtkFileChooserNative and
+ * GtkFileChooserDialog as RISC OS Save boxes and Open boxes.
  *
  * Save (GTK_FILE_CHOOSER_ACTION_SAVE): a Save box, as RISC OS programs
  * have. Its file icon (the Wimp's sprite for the file's type, file_xxx)
@@ -16,16 +16,25 @@
  * Open, Select folder: an Open box. A file (or a directory) dragged here
  * from a Filer window is chosen; a full name can also be typed.
  *
+ * GtkFileChooserDialog (a program's own file dialogue) is shown the same
+ * way: the dialogue itself stays hidden while the box is open, and gets
+ * its response (the program's own Save/Open button's id, or Cancel) when
+ * the box closes; gtk_file_chooser_get_file() and friends then give the
+ * chosen file (gtkfilechooser.c, "riscos-gtk-files").
+ *
  * Names in the field are RISC OS names ("Report/txt"); GTK gets UnixLib
  * names ("/ADFS::HD4/$/Docs/Report.txt").
  *
- * *Set RISCOS_GTK_NATIVE_CHOOSER 0 uses GTK's own file chooser instead.
+ * *Set RISCOS_GTK_NATIVE_CHOOSER 0 uses GTK's own file chooser instead
+ * (for both).
  *
  * Part of GTK: LGPL version 2.1 or later. Copyright (C) 2026 Andrew Youll.
  */
 #include "config.h"
 
 #include "gtkfilechoosernativeprivate.h"
+#include "gtkfilechooserdialog.h"
+#include "gtkfilechooser-riscos.h"
 #include "gtknativedialogprivate.h"
 #include "gtkfilechooser.h"
 #include "gtkwindow.h"
@@ -48,15 +57,24 @@
 #define FILETYPE_DIR   0x1000
 #define FILETYPE_APP   0x2000
 
-typedef struct
+typedef struct _RiscosBox RiscosBox;
+/* Answer the owner: response GTK_RESPONSE_ACCEPT (file set), _CANCEL or
+   _DELETE_EVENT */
+typedef void (*RiscosBoxDone) (GObject *owner, int response, GFile *file);
+
+struct _RiscosBox
 {
-  GtkFileChooserNative *self;
+  GObject *owner;               /* the GtkFileChooserNative or GtkFileChooserDialog */
+  RiscosBoxDone done;
+  GFile *folder;                /* the program's current folder, or NULL */
+  GFile *dropped;               /* a file dropped on an Open box */
   GtkFileChooserAction action;
   GtkWidget *window, *entry, *icon;
   char *sprite;                 /* the icon's sprite (file_xxx) */
+  const char *accept_label, *cancel_label;   /* the program's, or NULL (only while opening) */
   gboolean pressed, dragging;
   double press_x, press_y;
-} RiscosBox;
+};
 
 /* After a drag save: waiting for the program to write the file, then
    Message_DataLoad to the receiver */
@@ -73,6 +91,12 @@ static gboolean
 debug (void)
 {
   return g_getenv ("RISCOS_GTK_DEBUG") != NULL;
+}
+
+static void
+riscos_files_free (GSList *files)
+{
+  g_slist_free_full (files, g_object_unref);
 }
 
 /* ---- file types ---- */
@@ -155,30 +179,27 @@ on_box_destroy (GtkWidget *w, RiscosBox *box)
   box->window = NULL;
 }
 
-/* Close the box and answer the program (files set first, for ACCEPT) */
+/* Close the box and answer the program (file set, for ACCEPT) */
 static void
 finish (RiscosBox *box, int response, GFile *file)
 {
-  GtkFileChooserNative *self = box->self;
+  GObject *owner = g_object_ref (box->owner);
+  RiscosBoxDone done = box->done;
 
-  if (self->mode_data == box)
-    self->mode_data = NULL;
-  if (file)
-    {
-      g_slist_free_full (self->custom_files, g_object_unref);
-      self->custom_files = g_slist_prepend (NULL, file);
-    }
+  if (g_object_get_data (owner, "riscos-gtk-box") == box)
+    g_object_set_data (owner, "riscos-gtk-box", NULL);
   box_free (box);
-  g_object_ref (self);
-  _gtk_native_dialog_emit_response (GTK_NATIVE_DIALOG (self), response);
-  g_object_unref (self);
+  done (owner, response, file);
+  g_clear_object (&file);
+  g_object_unref (owner);
 }
 
 static void
 box_free (RiscosBox *box)
 {
   g_idle_remove_by_data (box);
-  g_object_set_data (G_OBJECT (box->self), "riscos-gtk-dropped", NULL);
+  g_clear_object (&box->dropped);
+  g_clear_object (&box->folder);
   if (box->window)
     {
       g_signal_handlers_disconnect_by_func (box->window, on_box_destroy, box);
@@ -389,7 +410,7 @@ on_save_ok (GtkWidget *w, RiscosBox *box)
       finish (box, GTK_RESPONSE_ACCEPT, file_for (name));
       return;
     }
-  folder = riscos_name_of (box->self->current_folder);
+  folder = riscos_name_of (box->folder);
   if (folder)
     {
       char *full = g_strconcat (folder, ".", name, NULL);
@@ -408,8 +429,9 @@ static gboolean
 open_idle (gpointer data)
 {
   RiscosBox *box = data;
-  GFile *file = g_object_steal_data (G_OBJECT (box->self), "riscos-gtk-dropped");
+  GFile *file = box->dropped;
 
+  box->dropped = NULL;
   finish (box, GTK_RESPONSE_ACCEPT, file);
   return G_SOURCE_REMOVE;
 }
@@ -425,10 +447,9 @@ on_load (const char *riscos_path, int filetype, gpointer data)
     return FALSE;
   if (debug ())
     g_printerr ("riscos-gtk: Open box: %s (&%03X)\n", riscos_path, filetype);
-  if (g_object_get_data (G_OBJECT (box->self), "riscos-gtk-dropped"))
+  if (box->dropped)
     return TRUE;                /* already chosen */
-  g_object_set_data_full (G_OBJECT (box->self), "riscos-gtk-dropped",
-                          file_for (riscos_path), g_object_unref);
+  box->dropped = file_for (riscos_path);
   /* not from inside the Wimp message */
   g_idle_add (open_idle, box);
   return TRUE;
@@ -479,8 +500,8 @@ static GtkWidget *
 buttons (RiscosBox *box, GCallback ok, const char *ok_label)
 {
   GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
-  GtkWidget *cancel = action_button (box->self->cancel_label ? box->self->cancel_label : _("Cancel"));
-  GtkWidget *okb = action_button (box->self->accept_label ? box->self->accept_label : ok_label);
+  GtkWidget *cancel = action_button (box->cancel_label ? box->cancel_label : _("Cancel"));
+  GtkWidget *okb = action_button (box->accept_label ? box->accept_label : ok_label);
 
   gtk_box_set_homogeneous (GTK_BOX (row), TRUE);
   g_signal_connect (cancel, "clicked", G_CALLBACK (on_cancel), box);
@@ -501,27 +522,38 @@ on_realize_transient (GtkWidget *w, gpointer data)
   gdk_riscos_window_set_transient_dbox (gtk_widget_get_window (w), TRUE);
 }
 
-gboolean
-gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
+/* Can this be a RISC OS box? */
+static gboolean
+usable (GtkFileChooserAction action)
 {
-  GtkFileChooserAction action = gtk_file_chooser_get_action (GTK_FILE_CHOOSER (self));
   const char *env = g_getenv ("RISCOS_GTK_NATIVE_CHOOSER");
-  GtkWindow *parent = gtk_native_dialog_get_transient_for (GTK_NATIVE_DIALOG (self));
-  const char *title = gtk_native_dialog_get_title (GTK_NATIVE_DIALOG (self));
+
+  if (env && strcmp (env, "0") == 0)
+    return FALSE;
+  if (action != GTK_FILE_CHOOSER_ACTION_SAVE && action != GTK_FILE_CHOOSER_ACTION_OPEN
+      && action != GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER)
+    return FALSE;               /* create folder: GTK's own */
+  return GDK_IS_RISCOS_DISPLAY (gdk_display_get_default ());
+}
+
+/* Open a Save box or an Open box for owner. name: the RISC OS name to
+   start with (Save; NULL: "Untitled"); folder: the program's folder. */
+static RiscosBox *
+box_open (GObject *owner, RiscosBoxDone done, GtkFileChooserAction action,
+          const char *title, GtkWindow *parent, gboolean modal,
+          GFile *folder, const char *initial_name,
+          const char *accept_label, const char *cancel_label)
+{
   RiscosBox *box;
   GtkWidget *vb, *w;
   gboolean save = action == GTK_FILE_CHOOSER_ACTION_SAVE;
 
-  if (env && strcmp (env, "0") == 0)
-    return FALSE;
-  if (!save && action != GTK_FILE_CHOOSER_ACTION_OPEN
-      && action != GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER)
-    return FALSE;               /* create folder: GTK's own */
-  if (!GDK_IS_RISCOS_DISPLAY (gdk_display_get_default ()))
-    return FALSE;
-
   box = g_new0 (RiscosBox, 1);
-  box->self = self;
+  box->owner = owner;
+  box->done = done;
+  box->folder = folder ? g_object_ref (folder) : NULL;
+  box->accept_label = accept_label;
+  box->cancel_label = cancel_label;
   box->action = action;
   box->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (box->window), title ? title : save ? _("Save as") : _("Open"));
@@ -546,8 +578,7 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
       if (!from_key)
         g_signal_connect (box->window, "realize", G_CALLBACK (on_realize_transient), NULL);
     }
-  gtk_window_set_modal (GTK_WINDOW (box->window),
-                        gtk_native_dialog_get_modal (GTK_NATIVE_DIALOG (self)));
+  gtk_window_set_modal (GTK_WINDOW (box->window), modal);
   g_signal_connect (box->window, "destroy", G_CALLBACK (on_box_destroy), box);
   g_signal_connect (box->window, "delete-event", G_CALLBACK (on_delete), box);
   g_signal_connect (box->window, "key-press-event", G_CALLBACK (on_key), box);
@@ -564,12 +595,9 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
 
   if (save)
     {
-      char *name = riscos_name_of (self->current_file);
+      char *name = g_strdup (initial_name ? initial_name : _("Untitled"));
       char *leaf;
 
-      if (name == NULL)
-        name = self->current_name ? gdk_riscos_path_from_unix (self->current_name)
-                                  : g_strdup (_("Untitled"));
       leaf = g_strdup (leaf_of (name));
       /* The Toolbox SaveAs window, measured from the Toolbox manual's
          picture (pixels at 1 pixel = 2 OS units): work area 155 x 148;
@@ -621,8 +649,8 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
       gtk_widget_set_margin_start (sel, 6);
       gtk_box_pack_start (GTK_BOX (col), sel, FALSE, FALSE, 0);
 
-      cancel = action_button (self->cancel_label ? self->cancel_label : _("Cancel"));
-      okb = action_button (self->accept_label ? self->accept_label : _("Save"));
+      cancel = action_button (cancel_label ? cancel_label : _("Cancel"));
+      okb = action_button (accept_label ? accept_label : _("Save"));
       gtk_widget_set_size_request (cancel, 64, 28);
       gtk_widget_set_size_request (okb, 56, 28);
       g_signal_connect (cancel, "clicked", G_CALLBACK (on_cancel), box);
@@ -642,10 +670,10 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
     }
   else
     {
-      gboolean folder = action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
-      char *name = riscos_name_of (self->current_folder);
+      gboolean dirs = action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
+      char *name = riscos_name_of (folder);
 
-      w = gtk_label_new (folder ? _("Drag a directory here from a Filer window,\n"
+      w = gtk_label_new (dirs ? _("Drag a directory here from a Filer window,\n"
                                     "or type its full name.")
                                 : _("Drag a file here from a Filer window,\n"
                                     "or type its full name."));
@@ -664,15 +692,58 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
       g_free (name);
     }
 
-  self->mode_data = box;
+  g_object_set_data (owner, "riscos-gtk-box", box);
   gtk_widget_show_all (box->window);
   /* the caret at the end of the name, as in a Save As box */
   gtk_widget_grab_focus (box->entry);
   gtk_editable_set_position (GTK_EDITABLE (box->entry), -1);
   if (debug ())
     g_printerr ("riscos-gtk: %s box shown\n", save ? "Save" : "Open");
+  box->accept_label = box->cancel_label = NULL;
+  return box;
+}
+
+/* ---- GtkFileChooserNative ---- */
+
+static void
+native_done (GObject *owner, int response, GFile *file)
+{
+  GtkFileChooserNative *self = GTK_FILE_CHOOSER_NATIVE (owner);
+
+  self->mode_data = NULL;
+  if (file)
+    {
+      g_slist_free_full (self->custom_files, g_object_unref);
+      self->custom_files = g_slist_prepend (NULL, g_object_ref (file));
+    }
+  _gtk_native_dialog_emit_response (GTK_NATIVE_DIALOG (self), response);
+}
+
+gboolean
+gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
+{
+  GtkFileChooserAction action = gtk_file_chooser_get_action (GTK_FILE_CHOOSER (self));
+  char *name = NULL;
+
+  if (!usable (action))
+    return FALSE;
+  if (action == GTK_FILE_CHOOSER_ACTION_SAVE)
+    {
+      name = riscos_name_of (self->current_file);
+      if (name == NULL && self->current_name)
+        name = gdk_riscos_path_from_unix (self->current_name);
+    }
+  self->mode_data = box_open (G_OBJECT (self), native_done, action,
+                              gtk_native_dialog_get_title (GTK_NATIVE_DIALOG (self)),
+                              gtk_native_dialog_get_transient_for (GTK_NATIVE_DIALOG (self)),
+                              gtk_native_dialog_get_modal (GTK_NATIVE_DIALOG (self)),
+                              self->current_folder, name,
+                              self->accept_label, self->cancel_label);
+  g_free (name);
   return TRUE;
 }
+
+
 
 void
 gtk_file_chooser_native_riscos_hide (GtkFileChooserNative *self)
@@ -682,5 +753,86 @@ gtk_file_chooser_native_riscos_hide (GtkFileChooserNative *self)
   if (box == NULL)
     return;
   self->mode_data = NULL;
+  g_object_set_data (G_OBJECT (self), "riscos-gtk-box", NULL);
   box_free (box);
+}
+
+/* ---- GtkFileChooserDialog (a program's own file dialogue) ---- */
+
+/* The label of the dialogue's button for response id, or NULL */
+static const char *
+button_label (GtkDialog *dialog, int id)
+{
+  GtkWidget *b = gtk_dialog_get_widget_for_response (dialog, id);
+
+  return b && GTK_IS_BUTTON (b) ? gtk_button_get_label (GTK_BUTTON (b)) : NULL;
+}
+
+static void
+dialog_done (GObject *owner, int response, GFile *file)
+{
+  GtkFileChooserDialog *dialog = GTK_FILE_CHOOSER_DIALOG (owner);
+
+  g_object_set_data_full (owner, "riscos-gtk-files",
+                          file ? g_slist_prepend (NULL, g_object_ref (file)) : NULL,
+                          file ? (GDestroyNotify) riscos_files_free : NULL);
+  _gtk_file_chooser_dialog_riscos_respond (dialog, response == GTK_RESPONSE_ACCEPT,
+                                           response == GTK_RESPONSE_DELETE_EVENT);
+}
+
+static void
+on_dialog_destroy (GtkWidget *dialog, gpointer data)
+{
+  RiscosBox *box = g_object_get_data (G_OBJECT (dialog), "riscos-gtk-box");
+
+  if (box)
+    {
+      g_object_set_data (G_OBJECT (dialog), "riscos-gtk-box", NULL);
+      box_free (box);
+    }
+}
+
+gboolean
+_gtk_file_chooser_riscos_dialog_show (GtkFileChooserDialog *dialog)
+{
+  GtkFileChooser *chooser = GTK_FILE_CHOOSER (dialog);
+  GtkFileChooserAction action = gtk_file_chooser_get_action (chooser);
+  GFile *folder;
+  char *name = NULL;
+  int accept = _gtk_file_chooser_dialog_riscos_accept_id (dialog);
+
+  if (!usable (action))
+    return FALSE;
+  if (g_object_get_data (G_OBJECT (dialog), "riscos-gtk-box"))
+    return TRUE;                /* already open */
+  g_object_set_data (G_OBJECT (dialog), "riscos-gtk-files", NULL);
+  folder = gtk_file_chooser_get_current_folder_file (chooser);
+  if (action == GTK_FILE_CHOOSER_ACTION_SAVE)
+    {
+      char *leaf = gtk_file_chooser_get_current_name (chooser);
+      if (leaf && *leaf)
+        {
+          char *ro_leaf = gdk_riscos_path_from_unix (leaf);
+          GFile *existing = folder ? g_file_get_child (folder, leaf) : NULL;
+          /* a file saved before: its full name, so Save saves it again */
+          if (existing && g_file_query_exists (existing, NULL))
+            name = riscos_name_of (existing);
+          if (name == NULL)
+            name = g_strdup (ro_leaf);
+          g_free (ro_leaf);
+          g_clear_object (&existing);
+        }
+      g_free (leaf);
+    }
+  box_open (G_OBJECT (dialog), dialog_done, action,
+            gtk_window_get_title (GTK_WINDOW (dialog)),
+            gtk_window_get_transient_for (GTK_WINDOW (dialog)),
+            gtk_window_get_modal (GTK_WINDOW (dialog)),
+            folder, name, button_label (GTK_DIALOG (dialog), accept),
+            button_label (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL));
+  if (!g_signal_handler_find (dialog, G_SIGNAL_MATCH_FUNC, 0, 0, NULL, on_dialog_destroy, NULL))
+    g_signal_connect (dialog, "destroy", G_CALLBACK (on_dialog_destroy), NULL);
+  g_clear_object (&folder);
+  g_free (name);
+  return TRUE;
 }

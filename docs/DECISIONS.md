@@ -154,3 +154,12 @@ colours didn't (the manual's cream default channel, light labelled box
 and grey slider bar were tried and reverted).
 GTK 3 note: multiple box-shadows are painted in list order, each over the
 last, the reverse of the CSS spec.
+
+## GtkFileChooserDialog shown as the RISC OS boxes too (2026-10-06)
+Most GTK programs create GtkFileChooserDialog themselves rather than use
+GtkFileChooserNative. Its show() is patched to open the Save/Open box and
+keep the dialogue hidden, so gtk_dialog_run() and response handlers work
+unchanged; the chosen file is stored on the dialogue and returned by
+gtk_file_chooser_get_files() (which every getter goes through). Extra
+widgets, filters and previews programs add to the dialogue are not shown
+(RISC OS boxes have no place for them).

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.22, 2026-10-06)
+- GtkFileChooserDialog (a program's own file dialogue, what most GTK
+  programs use) is shown as the RISC OS Save box or Open box too. The
+  dialogue stays hidden (GTK patch: its show() opens the box instead); when
+  the box closes the dialogue gets its response (its own Save/Open
+  button's id, or Cancel / delete), and gtk_file_chooser_get_file() and
+  friends return the chosen file (GTK patch to gtk_file_chooser_get_files,
+  "riscos-gtk-files"). The box takes the dialogue's title, button labels,
+  current name and folder; a name that already exists there starts as its
+  full name, so Save saves it again. gtk_dialog_run() and the response
+  signal both work. RISCOS_GTK_NATIVE_CHOOSER=0 still gives GTK's own.
+- GTKThemeTest: "Save (dialogue)..." and "Open (dialogue)..." buttons.
+  edittest-fake 44 (dialogue Save box, save, Open box, cancel).
+
 ## Unreleased (GTKThemeTest 0.21, 2026-10-06)
 - Theme layout checked against the Toolbox manual (riscos.com, chapter 16
   Window class gadget pictures, chapter 5 Discard/Cancel/Save), measured

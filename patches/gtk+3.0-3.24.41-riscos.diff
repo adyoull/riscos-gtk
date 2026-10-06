@@ -144,6 +144,99 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
    GtkDragSourceInfo *info;
    GList *targets = NULL;
    GList *tmp_list;
+--- a/gtk/gtkfilechooser.c	2026-10-06 16:20:39.101510857 +0100
++++ b/gtk/gtkfilechooser.c	2026-10-06 16:20:52.321315128 +0100
+@@ -1407,6 +1407,15 @@
+ {
+   g_return_val_if_fail (GTK_IS_FILE_CHOOSER (chooser), NULL);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  {
++    /* riscos-gtk: the file chosen in a RISC OS Save or Open box shown for
++       a GtkFileChooserDialog (gtkfilechooser-riscos.c) */
++    GSList *chosen = g_object_get_data (G_OBJECT (chooser), "riscos-gtk-files");
++    if (chosen)
++      return g_slist_copy_deep (chosen, (GCopyFunc) g_object_ref, NULL);
++  }
++#endif
+   return GTK_FILE_CHOOSER_GET_IFACE (chooser)->get_files (chooser);
+ }
+ 
+--- a/gtk/gtkfilechooserdialog.c	2026-10-06 16:20:39.099312236 +0100
++++ b/gtk/gtkfilechooserdialog.c	2026-10-06 16:20:52.320646257 +0100
+@@ -21,6 +21,10 @@
+ 
+ #include "gtkfilechooserdialog.h"
+ 
++#ifdef GDK_WINDOWING_RISCOS
++#include "gtkfilechooser-riscos.h"
++#endif
++
+ #include "gtkfilechooserprivate.h"
+ #include "gtkfilechooserwidget.h"
+ #include "gtkfilechooserwidgetprivate.h"
+@@ -251,6 +255,51 @@
+                          G_IMPLEMENT_INTERFACE (GTK_TYPE_FILE_CHOOSER,
+                                                 _gtk_file_chooser_delegate_iface_init))
+ 
++#ifdef GDK_WINDOWING_RISCOS
++/* riscos-gtk: a program's file dialogue is shown as a RISC OS Save or
++   Open box (gtkfilechooser-riscos.c); the dialogue itself stays hidden
++   and gets its response when the box closes. */
++static void
++gtk_file_chooser_dialog_show (GtkWidget *widget)
++{
++  if (_gtk_file_chooser_riscos_dialog_show (GTK_FILE_CHOOSER_DIALOG (widget)))
++    return;
++  GTK_WIDGET_CLASS (gtk_file_chooser_dialog_parent_class)->show (widget);
++}
++
++int
++_gtk_file_chooser_dialog_riscos_accept_id (GtkFileChooserDialog *dialog)
++{
++  static const int ids[] = { GTK_RESPONSE_ACCEPT, GTK_RESPONSE_OK, GTK_RESPONSE_YES,
++                             GTK_RESPONSE_APPLY };
++  guint i;
++
++  for (i = 0; i < G_N_ELEMENTS (ids); i++)
++    if (gtk_dialog_get_widget_for_response (GTK_DIALOG (dialog), ids[i]))
++      return ids[i];
++  return GTK_RESPONSE_ACCEPT;
++}
++
++void
++_gtk_file_chooser_dialog_riscos_respond (GtkFileChooserDialog *dialog,
++                                         gboolean accept, gboolean deleted)
++{
++  int id;
++
++  if (accept)
++    {
++      id = _gtk_file_chooser_dialog_riscos_accept_id (dialog);
++      /* the file comes from the box, not the (unseen) file list */
++      dialog->priv->response_requested = TRUE;
++    }
++  else if (!deleted && gtk_dialog_get_widget_for_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL))
++    id = GTK_RESPONSE_CANCEL;
++  else
++    id = GTK_RESPONSE_DELETE_EVENT;
++  gtk_dialog_response (GTK_DIALOG (dialog), id);
++}
++#endif
++
+ static void
+ gtk_file_chooser_dialog_class_init (GtkFileChooserDialogClass *class)
+ {
+@@ -262,6 +311,9 @@
+   gobject_class->notify = gtk_file_chooser_dialog_notify;
+ 
+   widget_class->map = gtk_file_chooser_dialog_map;
++#ifdef GDK_WINDOWING_RISCOS
++  widget_class->show = gtk_file_chooser_dialog_show;
++#endif
+   widget_class->unmap = gtk_file_chooser_dialog_unmap;
+   widget_class->size_allocate = gtk_file_chooser_dialog_size_allocate;
+ 
 --- a/gtk/gtkfilechoosernative.c	2026-10-05 21:46:50.101986767 +0100
 +++ b/gtk/gtkfilechoosernative.c	2026-10-05 21:46:50.120181767 +0100
 @@ -213,6 +213,7 @@

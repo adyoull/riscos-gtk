@@ -1,4 +1,4 @@
-GTKThemeTest 0.21 - riscos-gtk theme test
+GTKThemeTest 0.22 - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status
@@ -24,6 +24,10 @@ action button) are on every page. Hover for interactive help (tooltips).
 Please try everything, then send back the Log, a photo or screenshot of
 each page and of an open menu, and a note of anything that looks or
 behaves differently from RISC OS.
+
+New in 0.22: "Save (dialogue)..." and "Open (dialogue)..." on the
+Dialogues and menus page open GTK's own file dialogue the way most GTK
+programs do; on RISC OS that is now the same Save box and Open box.
 
 New in 0.21: layout checked against the Toolbox manual: number range
 arrows sit beside the field; sliders are a bar in a well with no knob;

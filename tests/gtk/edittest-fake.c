@@ -52,7 +52,7 @@ static char text_after_paste[128], empty_after_drag[128], writable_after_drag[12
 static char text_after_dragout[128];
 
 /* M4: Save box, Open box, files dropped */
-#define LAST_STEP 28
+#define LAST_STEP 36
 static char save_target[512], save_target_ro[512];    /* outdir/Accounts.csv, both forms */
 static char picture_ro[512], picture_unix[512];
 static int save_box_handle, save_box_ox, save_box_oy;
@@ -67,6 +67,10 @@ static char saved_file[256], opened_file[256], dropped_file[256];
 static int save_box_seen, open_box_seen;
 static int save_box_flags, open_box_flags, main_flags, save_box_as_menu, open_box_as_menu;
 static int cancel_box_handle, cancel_box_closed;
+/* GtkFileChooserDialog shown as the boxes */
+static int dlg_save_box, dlg_save_handle, dlg_saved, dlg_open_box, dlg_cancel_handle, dlg_cancel_closed;
+static int ds_first, dl_first, oa_first;
+static char dlg_saved_file[256], dlg_opened_file[256];
 
 static void
 check (int ok, const char *name)
@@ -723,6 +727,41 @@ shot (const char *name)
   fclose (f);
 }
 
+/* Drag the file icon of the Save box titled title onto FOREIGN; the
+   box's Wimp handle, or 0 */
+static int
+drag_save_icon (const char *title)
+{
+  GtkWidget *box = box_window (title);
+  GtkWidget *icon = box ? find_type (gtk_bin_get_child (GTK_BIN (box)), GTK_TYPE_EVENT_BOX) : NULL;
+  int x, y, i, sx, sy, tx, ty, ox, oy, h;
+  GtkAllocation a;
+
+  if (!icon || !(h = target_box (box, &ox, &oy)))
+    return 0;
+  gtk_widget_get_allocation (icon, &a);
+  gtk_widget_translate_coordinates (icon, box, 0, 0, &x, &y);
+  sx = x + a.width / 2;
+  sy = y + a.height / 2;
+  tx = 50 - ox;
+  ty = 450 - oy;
+  add (FAKE_MOVE, sx, sy, 0);
+  add (6, sx, sy, 4);
+  nulls (3);
+  for (i = 1; i <= 8; i++)
+    {
+      add (FAKE_MOVE, sx + (tx - sx) * i / 8, sy + (ty - sy) * i / 8, 0);
+      nulls (2);
+    }
+  add (FAKE_SLEEP, 30, 0, 0);
+  add (FAKE_RELEASE, 0, 0, 0);
+  nulls (6);
+  for (i = 0; i < 12; i++)
+    add (FAKE_SLEEP, 100, 0, 0);
+  nulls (6);
+  return h;
+}
+
 /* ---- the steps ---- */
 
 /* Step n has been scripted; is it done (so step n + 1 can start)? */
@@ -757,6 +796,16 @@ step_ready (void)
       return box_window ("Save as") != NULL;
     case 27:
       return box_window ("Save as") == NULL;
+    case 29: case 34:
+      return box_window ("Save File") != NULL;
+    case 30:
+      return save_dl_seen >= 2;
+    case 31:
+      return box_window ("Open File") != NULL;
+    case 32:
+      return open_ack >= 2 && box_window ("Open File") == NULL && tt_last_file[0];
+    case 35:
+      return box_window ("Save File") == NULL;
     default:
       return waits > 10;
     }
@@ -1000,6 +1049,71 @@ next_step (void)
       break;
     case 28:
       cancel_box_closed = box_window ("Save as") == NULL && tt_last_file[0] == 0;
+      nulls (6);
+      break;
+    case 29:     /* GtkFileChooserDialog (a program's own Save dialogue) */
+      ds_first = save_ds_seen;
+      dl_first = save_dl_seen;
+      oa_first = open_ack;
+      unlink (save_target);
+      tt_last_file[0] = 0;
+      fake_target_window = main_handle;
+      click (tt_save_dialog_button, tt_window);
+      nulls (10);
+      break;
+    case 30:
+      dlg_save_box = box_window ("Save File") != NULL;
+      dlg_save_handle = drag_save_icon ("Save File");
+      if (!dlg_save_handle)
+        nulls (4);
+      break;
+    case 31:     /* GtkFileChooserDialog for opening */
+      {
+        struct stat st;
+        g_strlcpy (dlg_saved_file, tt_last_file, sizeof dlg_saved_file);
+        dlg_saved = stat (save_target, &st) == 0 && st.st_size > 0;
+      }
+      fake_target_window = main_handle;
+      tt_last_file[0] = 0;
+      click (tt_open_dialog_button, tt_window);
+      nulls (10);
+      break;
+    case 32:
+      {
+        GtkWidget *box = box_window ("Open File");
+        int ox, oy, h;
+        dlg_open_box = box != NULL;
+        if (box && (h = target_box (box, &ox, &oy)))
+          open_dl_ref = filer_dataload (h, 20, 20, save_target_ro, 0xDFE);
+        fake_target_window = main_handle;
+        nulls (20);
+      }
+      break;
+    case 33:
+      g_strlcpy (dlg_opened_file, tt_last_file, sizeof dlg_opened_file);
+      nulls (4);
+      break;
+    case 34:     /* the Save dialogue again, closed by a click elsewhere */
+      tt_last_file[0] = 0;
+      fake_target_window = main_handle;
+      click (tt_save_dialog_button, tt_window);
+      nulls (10);
+      break;
+    case 35:
+      {
+        GtkWidget *box = box_window ("Save File");
+        int ox, oy;
+        if (box && (dlg_cancel_handle = target_box (box, &ox, &oy)))
+          {
+            q[5] = dlg_cancel_handle;
+            queue (17, q, 0x400C9, 0, 24);
+          }
+        fake_target_window = main_handle;
+        nulls (20);
+      }
+      break;
+    case 36:
+      dlg_cancel_closed = box_window ("Save File") == NULL && tt_last_file[0] == 0;
       nulls (6);
       break;
     default:
@@ -1248,16 +1362,16 @@ main (int argc, char **argv)
     check (dragasprite_starts >= 1 && strncmp (dragasprite, "file_", 5) == 0 && dragasprite_stops >= 1,
            "dragging its icon drags the file sprite (DragASprite_Start/Stop)");
     printf ("# DragASprite: \"%s\", %d starts, %d stops\n", dragasprite, dragasprite_starts, dragasprite_stops);
-    check (save_ds_seen == 1 && save_ds_type == 0xDFE && strcmp (save_ds_leaf, "Accounts/csv") == 0,
+    check (ds_first == 1 && save_ds_type == 0xDFE && strcmp (save_ds_leaf, "Accounts/csv") == 0,
            "dropped on another window: Message_DataSave of \"Accounts/csv\", type CSV (&DFE)");
     printf ("# DataSave: \"%s\" &%03X\n", save_ds_leaf, save_ds_type);
     check (strcmp (saved_file, save_target) == 0 && saved,
            "the program saves to the name in the DataSaveAck (as a UnixLib name)");
     printf ("# saved to \"%s\" (asked \"%s\")\n", saved_file, save_target_ro);
-    check (save_dl_seen == 1 && strcmp (save_dl_path, save_target_ro) == 0 && save_dl_type == 0xDFE,
+    check (dl_first == 1 && strcmp (save_dl_path, save_target_ro) == 0 && save_dl_type == 0xDFE,
            "then the receiver gets Message_DataLoad of the saved file");
     check (filetype_set == 0xDFE, "and the file gets its type (OS_File 18, &DFE)");
-    check (open_box_seen && open_ack == 1, "Open... opens an Open box; a file dropped on it is acknowledged (DataLoadAck)");
+    check (open_box_seen && oa_first == 1, "Open... opens an Open box; a file dropped on it is acknowledged (DataLoadAck)");
     check (strcmp (opened_file, save_target) == 0, "and is the file chosen");
     printf ("# opened \"%s\"\n", opened_file);
     check ((save_box_flags & (1 << 26)) && !(save_box_flags & ((1 << 24) | (1 << 25) | (1 << 27) | (1 << 29))),
@@ -1270,6 +1384,15 @@ main (int argc, char **argv)
            "the Open box is a static dialogue box (a Filer drag starts with a click elsewhere)");
     check (cancel_box_handle && cancel_box_closed,
            "a click elsewhere (Message_MenusDeleted) closes a transient Save box, cancelled");
+    check (dlg_save_box && dlg_save_handle,
+           "a program's own GtkFileChooserDialog for saving is a Save box");
+    check (save_ds_seen == 2 && save_dl_seen == 2 && dlg_saved && strcmp (dlg_saved_file, save_target) == 0,
+           "dragging its icon saves where the receiver says; the program gets it from gtk_file_chooser_get_filename");
+    printf ("# dialogue saved to \"%s\"\n", dlg_saved_file);
+    check (dlg_open_box && open_ack == 2 && strcmp (dlg_opened_file, save_target) == 0,
+           "GtkFileChooserDialog for opening is an Open box; a file dropped on it is the program's choice");
+    check (dlg_cancel_handle && dlg_cancel_closed,
+           "a click elsewhere closes the dialogue's Save box, and the program gets no file");
     check (drop_ack == 1 && strcmp (dropped_file, picture_unix) == 0,
            "a file dropped from the Filer on a widget arrives as a file URI (text/uri-list)");
     printf ("# dropped \"%s\"\n", dropped_file);
