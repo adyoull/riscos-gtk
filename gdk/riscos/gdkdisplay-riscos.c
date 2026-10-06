@@ -82,6 +82,13 @@ _gdk_riscos_display_open (const gchar *display_name)
   GdkRiscosDisplay *riscos_display;
   GError *error = NULL;
 
+  /* riscos-gtk: GSettings (the file choosers' settings) in memory. GLib
+     would pick its keyfile backend, which writes under UnixHome and wants
+     a file monitor RISC OS hasn't got ("Unable to find default local file
+     monitor type", seen on the Pi). A program can still choose another
+     with GSETTINGS_BACKEND. */
+  g_setenv ("GSETTINGS_BACKEND", "memory", FALSE);
+
   display = g_object_new (GDK_TYPE_RISCOS_DISPLAY, NULL);
   riscos_display = GDK_RISCOS_DISPLAY (display);
 

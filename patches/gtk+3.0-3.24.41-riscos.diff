@@ -99,6 +99,46 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
      error('\'file\' print backed needs to be enabled')
    endif
  else
+--- a/gtk/gtkcalendar.c	2026-10-06 16:51:03.112128143 +0100
++++ b/gtk/gtkcalendar.c	2026-10-06 16:51:36.495658243 +0100
+@@ -72,6 +72,10 @@
+ #endif
+ 
+ #include "gtkcalendar.h"
++
++#ifdef GDK_WINDOWING_RISCOS
++#include <kernel.h>
++#endif
+ #include "gtkdnd.h"
+ #include "gtkdragdest.h"
+ #include "gtkintl.h"
+@@ -832,7 +836,26 @@
+       g_free(week_start);
+     }
+ #else
++#if defined (GDK_WINDOWING_RISCOS)
++  /* riscos-gtk: UnixLib's _NL_TIME_WEEK_1STDAY isn't glibc's; the week
++     starts on the territory's first working day (1 = Sunday ... 7 =
++     Saturday; Monday in the UK), Territory_ReadCalendarInformation */
++  {
++    _kernel_swi_regs r;
++    unsigned char utc[5] = { 0, 0, 0, 0, 0 };
++    int info[12];
++
++    priv->week_start = 1;
++    r.r[0] = -1;
++    r.r[1] = (int) utc;
++    r.r[2] = (int) info;
++    if (_kernel_swi (0x4305F, &r, &r) == NULL && info[0] >= 1 && info[0] <= 7)
++      priv->week_start = info[0] - 1;
+ #ifdef HAVE__NL_TIME_FIRST_WEEKDAY
++    (void) langinfo; (void) week_1stday; (void) first_weekday; (void) week_origin;
++#endif
++  }
++#elif defined (HAVE__NL_TIME_FIRST_WEEKDAY)
+   langinfo.string = nl_langinfo (_NL_TIME_FIRST_WEEKDAY);
+   first_weekday = langinfo.string[0];
+   langinfo.string = nl_langinfo (_NL_TIME_WEEK_1STDAY);
 --- a/gtk/gtkdnd.c	2026-10-05 18:41:03.693007447 +0100
 +++ b/gtk/gtkdnd.c	2026-10-05 18:41:03.706545490 +0100
 @@ -1704,6 +1704,15 @@

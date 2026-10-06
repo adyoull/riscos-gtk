@@ -816,6 +816,8 @@ main (int argc, char **argv)
   check (icon_ok[1] && icon_ok[3], "icons: toolbar names (document-save) and image-missing come from the shipped RISCOS theme");
   check (icon_ok[2], "icons: symbolic icons (edit-copy-symbolic) load from GTK's .symbolic.png");
   printf ("# icons: %s\n", icon_note);
+  check (g_strcmp0 (g_getenv ("GSETTINGS_BACKEND"), "memory") == 0,
+         "GSettings in memory (no keyfile backend wanting a file monitor)");
   printf ("# sprites %d%d%d%d%d%d (%s)\n", spr_ok[0], spr_ok[1], spr_ok[2], spr_ok[3], spr_ok[4], spr_ok[5], spr_note);
   check (bg_pixels[0] > 100000 && bg_pixels[1] > 100000,
          "the theme uses the desktop's Wimp colours (window background)");

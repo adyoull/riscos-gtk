@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased (GTKThemeTest 0.24, 2026-10-06)
+- Owner's 0.23 Log: icons from sprites 25 of 25 (every Wimp sprite looked
+  for was there). Two warnings remained, both fixed:
+  - "GLib-GIO-WARNING: Failed to create file monitor for .../!UnixHome/
+    home/.config/glib-2.0/settings/keyfile": GLib chose its keyfile
+    GSettings backend (writes under UnixHome, needs a file monitor RISC
+    OS hasn't got). The backend now sets GSETTINGS_BACKEND=memory when
+    the program hasn't chosen one (gdkdisplay-riscos.c).
+  - "Gtk-WARNING: Unknown value of _NL_TIME_WEEK_1STDAY" (GtkCalendar):
+    UnixLib's nl_langinfo isn't glibc's. GTK patch (gtkcalendar.c): on
+    RISC OS the week starts on the territory's first working day
+    (Territory_ReadCalendarInformation; Monday in the UK, else Monday).
+- themetest-fake 37 (GSettings in memory).
+
 ## Unreleased (GTKThemeTest 0.23, 2026-10-06)
 - Icons (owner's choice: the desktop's sprites first, a shipped set for
   the rest):
