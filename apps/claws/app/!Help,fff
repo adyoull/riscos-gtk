@@ -1,0 +1,58 @@
+Claws Mail @VERSION@ - an email client (GTK 3) for RISC OS
+
+Claws Mail 4.4.0 by the Claws Mail team (GPL version 3), on GTK 3 through
+riscos-gtk's RISC OS backend. Secure connections (TLS) go through RISC
+OS's own AcornSSL module.
+
+This is a first version: POP3 to fetch mail, SMTP to send it, and mail
+kept in local (MH) folders. IMAP, plug-ins and spell checking are not
+included yet.
+
+Needs
+- RISC OS 5.28 or later (for AcornSSL), in a 16 or 32 bpp screen mode.
+- SharedUnixLibrary, ARMEABISupport and Iconv (PackMan).
+- An internet connection set up in !Configure (Network, with a name
+  server for the Resolver).
+
+Starting
+- Run it: Claws Mail puts its icon on the icon bar and opens its main
+  window. The first time, it asks for your name, email address and your
+  mail servers (POP3 and SMTP), and where to keep your mail.
+- Use "SSL/TLS" (pop3s, port 995; smtps, port 465) or "STARTTLS" for your
+  servers where your provider supports them: almost all do now.
+- The icon bar icon: Select shows the main window; Menu gives Info (About
+  this program), Choices... (Claws Mail's Preferences) and Quit.
+- Drop a file on the icon (or on !ClawsMail in a Filer window) to start a
+  new message with the file attached. Its RISC OS file type gives its
+  type (a PDF is sent as application/pdf) and, if its name has no
+  extension, one is added (Report becomes Report.pdf) for other systems.
+- Quit (or a desktop shutdown) keeps any messages you were writing in
+  Drafts, and asks if unsent mail is still in the Queue.
+
+Where things are
+- Settings: <Choices$Write>.ClawsMail (the /claws-mail directory there).
+- Your mail: <Choices$Write>.ClawsMail.Mail, unless you chose another
+  place when Claws Mail first started. Each message is a file.
+- Messages go to <Wimp$ScrapDir>.ClawsMail.Log. Please send it, with a
+  note of anything that goes wrong.
+
+Using it
+- Click Menu over a window for its menu (File, Edit, View, Message...).
+  Keyboard short-cuts are shown in the menus.
+- Get Mail fetches mail for your accounts; Write starts a new message;
+  Send in the message window sends it.
+- The server's certificate is checked by AcornSSL; Claws Mail's own
+  certificate manager isn't available.
+
+Not yet
+- IMAP (coming next), news, plug-ins, spell checking, address books other
+  than Claws Mail's own.
+- Saving attachments to a Filer window by dragging; opening attachments
+  with RISC OS programs.
+- Web links in messages open nothing yet.
+
+Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
+
+Licences: Claws Mail GPL v3 (Licence); GTK, GLib and friends LGPL
+(LicenceLGPL); Nettle LGPL v3 / GPL v2; icons from GNOME's Adwaita (LGPL v3
+/ CC-BY-SA 3.0); DejaVu fonts (free licence, in fonts).

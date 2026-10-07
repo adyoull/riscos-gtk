@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased (Claws Mail: !ClawsMail 0.1, 2026-10-07)
+- **!ClawsMail 0.1: Claws Mail 4.4.0, the second GTK program** (owner:
+  "an email client that can use AcornSSL"; "Try claws mail"). Stage 1:
+  POP3 and SMTP, local MH folders, no plug-ins, no IMAP (libetpan: stage
+  2). `build/build-claws.sh` (Nettle 3.10.2 built into the stage for its
+  stored-password DES), `patches/claws-mail-4.4.0-riscos.diff`,
+  `apps/claws/`.
+  - **TLS through AcornSSL**: Claws Mail's GnuTLS code is kept (pop3s,
+    smtps, STARTTLS, its settings) against a small GnuTLS-subset shim
+    (`src/common/gnutls-acornssl/gnutls/*.h`, `src/common/ssl_acornssl.c`,
+    included by ssl.c): a session is AcornSSL_CreateSession on the
+    socket's RISC OS handle, with the server name (SNI and AcornSSL's
+    certificate check); the handshake steps run inside Recv (1-byte
+    MSG_PEEK) with the desktop kept going (claws_do_idle) for up to 180 s
+    - AcornSSL may be asking about a certificate; record_recv/send are
+    AcornSSL_Recv/Send, EWOULDBLOCK as GNUTLS_E_AGAIN; check_pending a
+    peek. Client certificates, certificate files, PKCS#12 and GnuTLS's
+    ciphers aren't available (stored passwords: `--with-password-
+    encryption=old`).
+  - RISC OS: no fork() for name lookups (UnixLib's is a vfork): the lookup
+    is done in place and handed over from an idle (socket.c); no Unix
+    domain socket for a single copy (main.c: the icon bar does it);
+    AI_ADDRCONFIG 0; a SOCKS5 port stored byte by byte (unaligned);
+    gtk_unit_get_type renamed (clashed with GTK's when linked statically);
+    UnixLib has no fputs_unlocked, so the plain stdio calls.
+  - `apps/claws/riscos-claws.c`: fonts and GTK's data from the
+    application; HOME = <Choices$Write>.ClawsMail (settings, and the
+    mailbox unless another place is chosen at first start); the Log in
+    <Wimp$ScrapDir>.ClawsMail; the icon bar (Select: the main window;
+    Menu: Info, Choices... = Preferences, Quit through Claws Mail's own
+    quit, which keeps open messages in Drafts); a file dropped on the
+    icon or the application starts a message with it attached, its MIME
+    type (and an extension, if the name has none) from its file type.
+  - !Run needs AcornSSL (System:Modules.Network.URL.AcornSSL, RISC OS
+    5.28+).
+- Tests: **claws-fake** (11 checks) runs Claws Mail on the fake Wimp
+  against `tests/claws/mailserver.py` (POP3; SMTP that refuses MAIL
+  before STARTTLS) through a fake AcornSSL in the fake RISC OS (SWIs
+  &50F80-&50F90, from riscos-ffmpeg's tests): it starts with its main
+  window, asks for the POP3 password, fetches over pop3s into the MH
+  inbox, opens the compose window from a mailto: URL, sends with
+  STARTTLS, files the message in Sent; a session and handshake for each,
+  SNI "localhost", sessions closed before their sockets. The linuxarm
+  build defines __riscos, so it runs the RISC OS code paths.
+  `check-unaligned.sh` over Claws Mail's sources: 20 casts checked by
+  hand (`apps/claws/unaligned-safe.txt`), one fixed (SOCKS5).
+
 ## Unreleased (multiple windows: !L3afpad 0.14, GTKThemeTest 0.38, 2026-10-07)
 - **!L3afpad: a window per document in one task** (owner's choice: "each
   file its own window", as Edit). Select on the icon bar and File > New

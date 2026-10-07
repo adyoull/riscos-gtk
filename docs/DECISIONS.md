@@ -252,3 +252,15 @@ per-window variables and riscos-l3afpad.c swaps them when another window
 is used (input events: GDK's new event watch). The cost is that any new
 per-window variable L3afpad gains must be listed; the test's Undo check
 fails if the swap is missing.
+
+## Claws Mail, the second program (2026-10-07)
+Owner's choice: an email client that uses AcornSSL, Claws Mail. Staged:
+(1) POP3/SMTP with local MH folders, no plug-ins; (2) IMAP through
+libetpan with AcornSSL; (3) polish (attachments to and from the Filer by
+file type, threads, Choices). TLS: rather than port GnuTLS or OpenSSL,
+Claws Mail's GnuTLS code is compiled against a GnuTLS-subset shim over
+AcornSSL (`ssl_acornssl.c`), so the system's TLS and its certificate
+store and prompts are used, and Claws Mail's own certificate manager
+isn't (AcornSSL doesn't hand certificates out). Settings and, by default,
+the mailbox live in <Choices$Write>.ClawsMail (HOME). Quit goes through
+Claws Mail's own quit (drafts kept), so the icon bar never asks.

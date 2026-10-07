@@ -149,4 +149,9 @@ extern int *fake_pool_area_override;     /* a test's own sprite pool (Wimp_BaseO
 extern const int *(*fake_pool_lookup)(const char *name);   /* a test's Wimp pool sprites first */
 extern int fake_wimp_sprites;   /* Wimp_DragBox: type now (-1 none), calls */
 
+/* AcornSSL (fake_riscos.c): sessions created, closed (and of those, with
+   the socket still open), handshake steps, the last host name (SNI) */
+extern int fake_acornssl_sessions, fake_acornssl_closes, fake_acornssl_closed_open, fake_acornssl_handshake_steps;
+extern char fake_acornssl_host[256];
+
 #endif

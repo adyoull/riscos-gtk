@@ -262,3 +262,23 @@ activates the program's menu item labelled "Print"). A program built with
 printing switched off for want of print back ends (L3afpad's ENABLE_PRINT)
 can switch it on. GtkPageSetupUnixDialog (Page Setup) isn't replaced: the
 paper comes from the printer driver.
+
+## Network programs (Claws Mail, 2026-10-07)
+- **fork()**: UnixLib's is a vfork, for exec. Code that forks a child to
+  do work (Claws Mail's name lookups: the child writes the answer to a
+  pipe) must do the work in place instead and hand the answer over from
+  an idle.
+- **Sockets in the main loop**: riscos-gtk's poll function looks at
+  GLib's fds every 2 cs while it waits in Wimp_PollIdle, so
+  g_io_add_watch on a socket works. A blocking select() on a socket
+  doesn't let the desktop go: keep sockets non-blocking.
+- **TLS**: AcornSSL (RISC OS 5.28+) on the socket's RISC OS handle
+  (`__get_ro_socket`). Decrypted data waits inside AcornSSL, not in the
+  socket, so "is there input" must also ask AcornSSL (a 1-byte
+  MSG_PEEK), as Claws Mail's GSource does through
+  gnutls_record_check_pending.
+- **No Unix domain sockets**: a program that keeps one copy through one
+  should leave that to the icon bar (gdk_riscos_iconbar_set_start_file).
+- UnixLib 5.0.3.3 has fgets_unlocked but not fputs_unlocked; it has no
+  AI_ADDRCONFIG. Hard links (link()) aren't a RISC OS idea: expect them
+  to fail (Claws Mail copies instead).

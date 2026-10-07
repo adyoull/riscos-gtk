@@ -42,6 +42,10 @@ get gtk+3.0_3.24.41.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz
 get adwaita-icon-theme_3.36.1.orig.tar.xz $U/a/adwaita-icon-theme/adwaita-icon-theme_3.36.1.orig.tar.xz
 # L3afpad, the first GTK program ported (build/build-l3afpad.sh; universe)
 get l3afpad_0.8.18.1.11.orig.tar.gz https://archive.ubuntu.com/ubuntu/pool/universe/l/l3afpad/l3afpad_0.8.18.1.11.orig.tar.gz
+# Claws Mail, the second (build/build-claws.sh; universe), and Nettle for
+# its stored-password DES
+get claws-mail_4.4.0.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/c/claws-mail/claws-mail_4.4.0.orig.tar.xz
+get nettle_3.10.2.orig.tar.gz       $U/n/nettle/nettle_3.10.2.orig.tar.gz
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
 # Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"

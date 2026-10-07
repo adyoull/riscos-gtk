@@ -9,6 +9,9 @@
  */
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -669,9 +672,134 @@ static pthread_mutex_t swi_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 void fake_lock(void)   { pthread_mutex_lock(&swi_lock); }
 void fake_unlock(void) { pthread_mutex_unlock(&swi_lock); }
 
+/* ---- AcornSSL (RISC OS's TLS module), for Claws Mail ----------------
+   A pass-through stand-in, as riscos-ffmpeg's tests/host/fake_acornssl.c
+   (whose behaviour this copies): no encryption, so a "TLS" connection
+   talks plain text to a plain server. What it models is what a program
+   must get right, from the module's documentation and source: the
+   handshake inside Recv/Send, a step a call, failing with ENOTCONN until it's
+   over (FAKE_ACORNSSL_STEPS, default 3); FIONBIO (EWOULDBLOCK instead of
+   waiting); MSG_PEEK; SO_ACORNSSL_HOSTNAME (recorded: fake_acornssl_host);
+   Close leaving a handed-over socket open; errors as RISC OS error blocks,
+   0x20E00 + a BSD errno. FAKE_ACORNSSL_ABSENT=1: the module isn't loaded;
+   FAKE_ACORNSSL_FAIL=1: the handshake fails.
+   Adapted from riscos-ffmpeg's file, which is GPL version 2 or later:
+   this part is under that licence (LICENCES.md). */
+#include <poll.h>
+#define ACORNSSL_MAX 16
+static struct { int used, fd, steps, nbio; } assl[ACORNSSL_MAX];
+int fake_acornssl_sessions, fake_acornssl_closes, fake_acornssl_closed_open, fake_acornssl_handshake_steps;
+char fake_acornssl_host[256];
+
+int __get_ro_socket(int fd) { return fd; }
+
+static _kernel_oserror *dci(int e, const char *msg)
+{
+    err.errnum = 0x20E00 + e;
+    snprintf(err.errmess, sizeof err.errmess, "%s", msg);
+    return &err;
+}
+
+static _kernel_oserror *acornssl(int swi, _kernel_swi_regs *in, _kernel_swi_regs *out)
+{
+    int i;
+    if (getenv("FAKE_ACORNSSL_ABSENT")) {
+        err.errnum = 0x1E6;
+        snprintf(err.errmess, sizeof err.errmess, "SWI &%X not known", swi);
+        return &err;
+    }
+    switch (swi) {
+    case 0x50F8D:                                           /* Version */
+        out->r[0] = 150;
+        return NULL;
+    case 0x50F88:                                           /* CreateSession */
+        for (i = 0; i < ACORNSSL_MAX && assl[i].used; i++)
+            ;
+        if (i == ACORNSSL_MAX || in->r[1] != 0)
+            return dci(22, "Invalid argument");
+        memset(&assl[i], 0, sizeof assl[i]);
+        assl[i].used = 1;
+        assl[i].fd = in->r[0];
+        assl[i].steps = getenv("FAKE_ACORNSSL_STEPS") ? atoi(getenv("FAKE_ACORNSSL_STEPS")) : 3;
+        out->r[0] = 0x5000 + i;
+        fake_acornssl_sessions++;
+        return NULL;
+    }
+    i = in->r[0] - 0x5000;
+    if (i < 0 || i >= ACORNSSL_MAX || !assl[i].used) {
+        err.errnum = 0x813F21;
+        snprintf(err.errmess, sizeof err.errmess, "Bad SSL handle");
+        return &err;
+    }
+    switch (swi) {
+    case 0x50F8B:                                           /* Setsockopt */
+        if (in->r[1] == 0xFFFF && in->r[2] == 0x11E0 && in->r[4] == 4) {
+            snprintf(fake_acornssl_host, sizeof fake_acornssl_host, "%s", (const char *) (long) in->r[3]);
+            out->r[0] = 0;
+            return NULL;
+        }
+        return dci(42, "Protocol not available");
+    case 0x50F81:                                           /* Ioctl: FIONBIO */
+        if ((unsigned) in->r[1] == 0x8004667EU) {
+            assl[i].nbio = *(int *) (long) in->r[2] != 0;
+            out->r[0] = 0;
+            return NULL;
+        }
+        return dci(22, "Invalid argument");
+    case 0x50F84:                                           /* Close: the socket stays open */
+        fake_acornssl_closes++;
+        if (fcntl(assl[i].fd, F_GETFD) != -1)
+            fake_acornssl_closed_open++;
+        assl[i].used = 0;
+        out->r[0] = 0;
+        return NULL;
+    case 0x50F87: case 0x50F8F: {                           /* Recv, Send */
+        ssize_t n;
+        if (assl[i].steps > 0) {                            /* the handshake, a step a call */
+            assl[i].steps--;
+            fake_acornssl_handshake_steps++;
+            if (getenv("FAKE_ACORNSSL_FAIL") && assl[i].steps == 0) {
+                err.errnum = 0x813F27;
+                snprintf(err.errmess, sizeof err.errmess, "Handshake error (state -9984)");
+                return &err;
+            }
+            return dci(57, "Socket is not connected");    /* BSD ENOTCONN */
+        }
+        if (swi == 0x50F87) {
+            struct pollfd p = { assl[i].fd, POLLIN, 0 };
+            if (!assl[i].nbio && in->r[2] > 0)
+                poll(&p, 1, -1);
+            n = recv(assl[i].fd, (void *) (long) in->r[1], in->r[2],
+                     (in->r[3] & 2) ? MSG_PEEK | MSG_DONTWAIT : MSG_DONTWAIT);
+        } else {
+            struct pollfd p = { assl[i].fd, POLLOUT, 0 };
+            if (!assl[i].nbio)
+                poll(&p, 1, -1);
+            n = send(assl[i].fd, (const void *) (long) in->r[1], in->r[2], MSG_DONTWAIT | MSG_NOSIGNAL);
+        }
+        if (n < 0) {
+            if (errno == EAGAIN)
+                return dci(35, "Operation would block");  /* BSD numbers, as RISC OS gives */
+            if (errno == ECONNRESET)
+                return dci(54, "Connection reset by peer");
+            return dci(errno == EPIPE ? 32 : 5, strerror(errno));
+        }
+        out->r[0] = (int) n;
+        return NULL;
+    }
+    }
+    return dci(22, "Invalid argument");
+}
+
 _kernel_oserror *_kernel_swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
 {
     _kernel_oserror *e;
+    if ((no & ~0x20000) >= 0x50F80 && (no & ~0x20000) <= 0x50F90) {
+        _kernel_swi_regs r = *in;
+        e = acornssl(no & ~0x20000, &r, &r);
+        if (out) *out = r;
+        return e;
+    }
     pthread_mutex_lock(&swi_lock);
     e = swi(no, in, out);
     pthread_mutex_unlock(&swi_lock);

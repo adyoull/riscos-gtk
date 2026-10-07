@@ -1,0 +1,27 @@
+| !Run for !ClawsMail - Claws Mail, an email client, on RISC OS
+| A UnixLib program converted to Absolute (AIF), statically linked with GTK
+| 3.24.41 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,
+| ARMEABISupport and Iconv (PackMan). It runs as a normal Wimp task.
+Set ClawsMail$Dir <Obey$Dir>
+IconSprites <ClawsMail$Dir>.!Sprites
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error Claws Mail needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error Claws Mail needs the ARMEABISupport module. Install it with PackMan.
+RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System:Modules.PThrTicker
+RMEnsure PThreadTicker 0.01 RMLoad <ClawsMail$Dir>.PThrTicker
+| Secure connections (TLS: pop3s, smtps, STARTTLS): RISC OS's AcornSSL
+| module (RISC OS 5.28 or later)
+RMEnsure AcornSSL 0 IfThere System:Modules.Network.URL.AcornSSL Then RMLoad System:Modules.Network.URL.AcornSSL
+RMEnsure AcornSSL 0 Error Claws Mail needs the AcornSSL module (RISC OS 5.28 or later) for secure connections.
+| Settings (and the mailbox, unless you choose another place when Claws
+| Mail first starts) go in Choices.
+IfThere <Choices$Write> Then Set ClawsMail$Choices <Choices$Write>.ClawsMail Else Set ClawsMail$Choices <ClawsMail$Dir>.Choices
+CDir <ClawsMail$Choices>
+| The font cache and the Log go in the scrap directory.
+CDir <Wimp$ScrapDir>.ClawsMail
+| The C heap goes in a dynamic area; the WimpSlot holds the program.
+WimpSlot -min @SLOT@K -max @SLOT@K
+| A file dropped on the application (or given here) is attached to a new
+| message.
+Run <ClawsMail$Dir>.claws-mail %*0
