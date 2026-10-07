@@ -130,6 +130,11 @@ eig_for_dpi (int dpi)
   return dpi >= 180 ? 0 : dpi >= 90 ? 1 : dpi >= 45 ? 2 : 3;
 }
 
+/* A tool translation table (RISC OS 5 Wimp, Doc/ToolTables) for the
+   sprite being decoded: 256 colours (&RRGGBB) for an 8bpp sprite without a
+   palette, or NULL */
+static const guint32 *tool_table;
+
 /* Decode the sprite at spr into a new pixbuf (RGBA, sprite pixels) */
 static GdkPixbuf *
 decode (const int *spr, int *xeig, int *yeig)
@@ -190,6 +195,11 @@ decode (const int *spr, int *xeig, int *yeig)
       if (n_pal >= colours)
         for (i = 0; i < colours; i++)
           pal[i] = rgb_of ((unsigned int) spr[11 + 2 * i]);
+      else if (bpp == 8 && n_pal == 0 && tool_table)
+        /* a theme's 8bpp tool sprite without a palette (the Raspberry
+           theme's): its pixels index the Wimp's translation table */
+        for (i = 0; i < 256; i++)
+          pal[i] = tool_table[i];
       else if (bpp == 8 && n_pal >= 16)
         /* an old-style 256-colour palette: 16 entries for the low 4 bits
            of a colour, the high 4 bits adding red (bit 4), green (bits
@@ -591,6 +601,93 @@ tool_area (void)
   return tool_block != NULL;
 }
 
+/* A sprite by name in the memory the tool sprites occupy: when the Wimp
+   gives a table of pointers (to the sprites it knows by name), other
+   sprites from the same Tools file (the translation tables) aren't in the
+   table but lie among them, the file having been loaded as one area. */
+static const int *
+span_find (const char *name)
+{
+  const char *lo = NULL, *hi = NULL, *p;
+  static const char *const known[] = { "uicon", "dicon", "vwellt", "vbarmid", "sicon", "bicon",
+                                       "uicon22", "dicon22", "vwellt22", "vbarmid22", "sicon22" };
+  size_t i, len = strlen (name);
+
+  if (tool_how == 1 || tool_how == 2)
+    return NULL;                  /* searched already: the whole area or block */
+  for (i = 0; i < G_N_ELEMENTS (known); i++)
+    {
+      const int *spr = block_find (tool_block, tool_how, known[i]);
+      if (spr == NULL)
+        continue;
+      if (lo == NULL || (const char *) spr < lo)
+        lo = (const char *) spr;
+      if (hi == NULL || (const char *) spr + spr[0] > hi)
+        hi = (const char *) spr + spr[0];
+    }
+  if (lo == NULL)
+    return NULL;
+  /* the tables may come before or after the window sprites in the file */
+  lo = lo - 64 * 1024 > (const char *) 0x8000 ? lo - 64 * 1024 : lo;
+  hi = hi + 64 * 1024;
+  while (!readable (lo, 4096) && lo < hi)
+    lo += 4096;
+  for (p = (const char *) ((gsize) lo & ~(gsize) 3); p + 48 <= hi; p += 4)
+    {
+      const int *spr;
+      if (((gsize) p & 4095) == 0 && !readable (p, 4096))
+        break;
+      spr = (const int *) p;
+      if (g_ascii_strncasecmp (p + 4, name, 12) == 0 && (len == 12 || p[4 + len] == 0) &&
+          looks_like_sprite (spr) && readable (spr, spr[0]))
+        return spr;
+    }
+  return NULL;
+}
+
+/* RISC OS 5's tool translation tables (the Wimp's Doc/ToolTables): a
+   theme's 8bpp tool sprites may have no palette; their pixels are then
+   looked up in a table for the Wimp colour the part is drawn in, kept in
+   the Tools file as a sprite "table_<colour>" whose image is 256 words
+   (a 16 x 16 32bpp sprite: &00BBGGRR each). Without a table for that
+   colour, table_2 is used. The parts' colours are a document window's
+   (gdkriscos-server.c: title background 2, scroll bar outer 3, inner 1);
+   the slider is the scroll bar's inner part, the well and arrows its outer. */
+static gboolean
+tool_translation (const char *name, guint32 table[256])
+{
+  int colour = 2, i;
+  const int *t = NULL;
+  char tn[16];
+
+  if (strstr (name, "bar") != NULL)                  /* vbart, vbarmid, phbarl... */
+    colour = 1;
+  else if (strstr (name, "well") != NULL || g_str_has_suffix (name, "icon")) /* well, arrows */
+    colour = 3;
+  if (!strcmp (name, "sicon") || !strcmp (name, "bicon") || !strcmp (name, "cicon") ||
+      !strcmp (name, "ticon") || !strcmp (name, "iicon"))
+    colour = 2;                                      /* window gadgets: the title bar's */
+  g_snprintf (tn, sizeof tn, "table_%d", colour);
+  t = block_find (tool_block, tool_how, tn);
+  if (t == NULL)
+    t = span_find (tn);
+  if (t == NULL && colour != 2)
+    {
+      t = block_find (tool_block, tool_how, "table_2");
+      if (t == NULL)
+        t = span_find ("table_2");
+    }
+  if (t == NULL || t[8] < 44 || (t[0] - t[8]) < 256 * 4)
+    return FALSE;
+  t = (const int *) ((const char *) t + t[8]);
+  for (i = 0; i < 256; i++)
+    {
+      unsigned int w = (unsigned int) t[i];        /* &00BBGGRR */
+      table[i] = (w & 0xFF) << 16 | (w & 0xFF00) | ((w >> 16) & 0xFF);
+    }
+  return TRUE;
+}
+
 /**
  * gdk_riscos_wimp_tool_sprite:
  * @name: a window border (tool) sprite, e.g. "uicon" or "vbarmid"
@@ -621,10 +718,19 @@ gdk_riscos_wimp_tool_sprite (const char *name)
     spr = block_find (tool_block, tool_how, name);
   if (spr == NULL)
     return NULL;
-  if (g_getenv ("RISCOS_GTK_DEBUG"))
-    g_printerr ("riscos-gtk: tool sprite %.12s: %d words x %d rows, bits %d-%d, mode &%X,"
-                " palette %d, %s\n", (const char *) &spr[1], spr[4] + 1, spr[5] + 1, spr[6], spr[7],
-                (unsigned int) spr[10], (MIN (spr[8], spr[9]) - 44) / 8,
-                spr[8] == spr[9] ? "no mask" : "mask");
-  return to_screen (spr);
+  {
+    guint32 table[256];
+    GdkPixbuf *pb;
+    gboolean tabled = tool_translation (name, table);
+
+    if (g_getenv ("RISCOS_GTK_DEBUG"))
+      g_printerr ("riscos-gtk: tool sprite %.12s: %d words x %d rows, bits %d-%d, mode &%X,"
+                  " palette %d, %s%s\n", (const char *) &spr[1], spr[4] + 1, spr[5] + 1, spr[6], spr[7],
+                  (unsigned int) spr[10], (MIN (spr[8], spr[9]) - 44) / 8,
+                  spr[8] == spr[9] ? "no mask" : "mask", tabled ? ", translation table" : "");
+    tool_table = tabled ? table : NULL;
+    pb = to_screen (spr);
+    tool_table = NULL;
+    return pb;
+  }
 }

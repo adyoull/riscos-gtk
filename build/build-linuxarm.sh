@@ -89,6 +89,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
 ET=$REPO_DIR/out/edittest-linuxarm
 rm -rf "$ET"; mkdir -p "$ET"
 
+# A theme's tool sprites stored as the Raspberry theme's (8bpp, no
+# palette, coloured by the Wimp's translation tables).
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+  "$REPO_DIR/tests/gtk/toolsprites-fake.c" -o "$REPO_DIR/out/toolsprites-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+
 # L3afpad (the first real GTK program) on the fake Wimp: its sources with
 # its RISC OS patch, main renamed, driven by tests/gtk/l3afpad-fake.c
 L3V=0.8.18.1.11
@@ -115,6 +122,7 @@ run rendertest "$scratch" "$FONTS/fonts.conf"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 run themetest-fake "$HA" "$TT"
 run edittest-fake "$HA" "$ET"
+run toolsprites-fake
 run l3afpad-fake "$HA" "$L3T"
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"

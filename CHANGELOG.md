@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (Raspberry theme: !L3afpad 0.10, GTKThemeTest 0.34, 2026-10-07)
+- **The Raspberry theme's scroll bars came out in garbled colours**
+  (owner's photo). That theme's tool sprites are 8bpp without a palette;
+  the RISC OS 5 Wimp colours them through translation tables kept in the
+  same Tools file as sprites "table_<Wimp colour>" (the Wimp's
+  Doc/ToolTables: a 256-word image, &00BBGGRR each; table_2 when there's
+  none for the colour). We read them with the standard 256-colour palette.
+  Now such a sprite uses the table for the colour its part is drawn in (a
+  document window's: slider = scroll bar inner 1, well and arrows = outer
+  3, gadgets = title background 2), else table_2. The Pi's Wimp gives
+  pointers only to the sprites it knows by name, so the tables are found
+  by name in the memory around them.
+- New test `toolsprites-fake` (3 checks): a Pi-style tool block with 8bpp
+  unpaletted sprites and table_1 / table_2 beside them.
+
 ## Unreleased (print layout and resolution, size icon: !L3afpad 0.9, GTKThemeTest 0.33, 2026-10-07)
 - **Printed pages were laid out in pixels, not points** (owner's photo:
   L3afpad's header printed over the first line). GTK's default unit is the
