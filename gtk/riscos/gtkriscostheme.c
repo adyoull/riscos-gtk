@@ -577,12 +577,12 @@ fit_scrollbar (GtkWidget *bar, gpointer data)
   set_bar_margin (bar, want);
 }
 
-/* The vertical bars at the right edge: the lowest has the grip at its
-   foot, so the window needs no scroll bar of its own (the strip). One
-   running down into the corner stops above the grip, which is at the
-   window's foot, as the Wimp's is; one with something under it (a
-   status bar) stops a grip's height short and the grip sits under it,
-   so it covers nothing. The others go back to their own length. */
+/* The vertical bars at the right edge: one that runs down into the
+   bottom right corner takes the grip (the lowest, if there are several):
+   it stops above the grip, which is at the window's foot, as the Wimp's
+   Adjust Size icon is under its vertical scroll bar. A bar that ends
+   above the corner (a status bar under it) doesn't: the window gets the
+   strip. The others go back to their own length. */
 static void
 fit_vbars (GtkWidget *top)
 {
@@ -607,29 +607,31 @@ fit_vbars (GtkWidget *top)
   for (i = 0; i < bars->len; i++)
     if (bars->pdata[i] != best)
       set_bar_margin (bars->pdata[i], 0);
-  if (best)
+  if (best && best_end > wh - gh)
     {
       int x = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (best), "riscos-gtk-bar-x"));
       int w = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (best), "riscos-gtk-bar-w"));
-      gboolean corner = best_end > wh - gh;
-      set_bar_margin (best, corner ? best_end - (wh - gh) : gh);
-      set_column (top, x, w, corner ? -1 : best_end - gh);
+      set_bar_margin (best, best_end - (wh - gh));
+      set_column (top, x, w, -1);
       g_object_set_data (G_OBJECT (top), CLAIMED_KEY, GINT_TO_POINTER (1));
       if (g_getenv ("RISCOS_GTK_DEBUG_GRIP"))
-        g_printerr ("grip:   grip under the bar at x %d, at %s\n", x, corner ? "the window's foot" : "the bar's foot");
+        g_printerr ("grip:   grip under the bar at x %d\n", x);
     }
+  else if (best)
+    set_bar_margin (best, 0);
 }
 
-/* A scrolled area at the window's right edge whose vertical scroll bar
-   comes and goes (GTK_POLICY_AUTOMATIC) shows it always, as a RISC OS
-   window's scroll bars are always there: the grip then has a bar to sit
-   under (and the window doesn't need the strip, nor change width as the
-   bar comes and goes). */
+/* A scrolled area in the window's bottom right corner whose vertical
+   scroll bar comes and goes (GTK_POLICY_AUTOMATIC) shows it always, as a
+   RISC OS window's scroll bars are always there: the grip then always
+   has the bar to sit under, and the window doesn't change width (the
+   strip) as the bar comes and goes. */
 static void
 fit_scrolled (GtkWidget *sw, GtkWidget *top)
 {
   int gw = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-w"));
-  int ww = gtk_widget_get_allocated_width (top);
+  int gh = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-h"));
+  int ww = gtk_widget_get_allocated_width (top), wh = gtk_widget_get_allocated_height (top);
   GtkPolicyType hp, vp;
   int x, y;
 
@@ -638,7 +640,8 @@ fit_scrolled (GtkWidget *sw, GtkWidget *top)
     return;
   gtk_scrolled_window_get_policy (GTK_SCROLLED_WINDOW (sw), &hp, &vp);
   if (vp == GTK_POLICY_AUTOMATIC && x + gtk_widget_get_allocated_width (sw) > ww - gw &&
-      gtk_widget_get_allocated_width (sw) > 4 * gw)
+      y + gtk_widget_get_allocated_height (sw) > wh - gh &&
+      gtk_widget_get_allocated_width (sw) > 4 * gw && gtk_widget_get_allocated_height (sw) > 4 * gh)
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw), hp, GTK_POLICY_ALWAYS);
 }
 

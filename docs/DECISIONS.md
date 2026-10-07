@@ -286,3 +286,6 @@ right hand edge the wimp scroll bar isn't needed"): any GTK vertical bar
 at the right edge takes the grip (at its foot if something is under it),
 and such bars are shown always; the extra bar is only for windows with
 no scroll bar at their right edge.
+Changed again (owner: "the scroll bar must run to the bottom right edge
+for it to claim the grip"): only a vertical bar running into the bottom
+right corner takes the grip; otherwise the window has the outside bar.

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased (only a bar in the corner takes the grip: !ClawsMail 0.4, !L3afpad 0.17, GTKThemeTest 0.41, 2026-10-07)
+- Owner: "the scroll bar must run to the bottom right edge for it to
+  claim the grip." So 0.3's grip at the foot of a bar that ends above the
+  corner is gone: only a vertical bar running down into the bottom right
+  corner takes the grip (at the window's foot, under the bar); a window
+  without one has the empty scroll bar outside it, as in 0.2. Claws Mail's
+  main window (message list's bar ends above the message view) has the
+  outside bar again; L3afpad's text and the compose window keep the grip
+  under their bar. A scrolled area in the corner whose bar comes and goes
+  shows it always (so the window doesn't change width); one elsewhere is
+  left alone.
+- claws-fake check 11 now: the main window has the scroll bar of its own
+  (its Wimp window a bar wider than GTK's).
+
 ## Unreleased (the app's own scroll bar takes the grip: !ClawsMail 0.3, !L3afpad 0.16, GTKThemeTest 0.40, 2026-10-07)
 - Owner: "if the app has its own scroll bar on the right hand edge the
   wimp scroll bar isn't needed." Now:
