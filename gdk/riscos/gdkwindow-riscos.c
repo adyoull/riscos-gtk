@@ -720,7 +720,31 @@ gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width)
     return;
   impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
   _gdk_riscos_server_window_set_grip_column (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
-                                             impl->id, x, width);
+                                             impl->id, x, width, -1);
+}
+
+/**
+ * gdk_riscos_window_set_size_grip_place:
+ * @window: a toplevel
+ * @x: the left of the window's vertical scroll bar, pixels in the window
+ * @y: the grip's top (the scroll bar's foot), or -1 for the window's foot
+ * @width: the bar's width (0: the grip goes back to the window's corner)
+ *
+ * As gdk_riscos_window_set_size_grip_column(), with the grip at the foot
+ * of a scroll bar that ends above the window's foot (a status bar under
+ * it), so that it doesn't cover what's under the bar.
+ */
+void
+gdk_riscos_window_set_size_grip_place (GdkWindow *window, gint x, gint y, gint width)
+{
+  GdkWindowImplRiscos *impl;
+
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return;
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  _gdk_riscos_server_window_set_grip_column (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                             impl->id, x, width, y);
 }
 
 /**

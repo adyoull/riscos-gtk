@@ -276,6 +276,23 @@ finish (void)
          "the server has the message sent (To and Subject from the mailto: URL)");
   check (sent_files == 1 && queue_files == 0,
          "the message moves from Queue to Sent once it's sent");
+  {
+    /* the main window: no scroll bar strip outside it (its message list's
+       scroll bar, shown always at the right edge, has the grip at its
+       foot); its Wimp window is as wide as GTK's */
+    GtkWidget *mw = window_titled ("Claws Mail");
+    int i, w = mw ? gtk_widget_get_allocated_width (mw) : 0, exact = 0, wider = 0;
+    for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+      if (fake_windows[i].handle)
+        {
+          int vw = (fake_windows[i].x1 - fake_windows[i].x0) >> 1;
+          exact += vw == w;
+          wider += vw > w && vw <= w + 40;
+        }
+    check (w > 0 && exact >= 1 && wider == 0,
+           "the main window's own scroll bar at its right edge takes the size grip: no extra scroll bar");
+    printf ("# main window %d px wide: %d Wimp windows that wide, %d a scroll bar wider\n", w, exact, wider);
+  }
   check (imap_found == 1 && imap_scanned == 0,
          "IMAP: the second account's INBOX is found and scanned (imaps through AcornSSL)");
   check (strstr (server_log, "IMAP") && strstr (server_log, "LOGIN ****") &&

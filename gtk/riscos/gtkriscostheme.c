@@ -42,6 +42,7 @@
 #include "gtkicontheme.h"
 #include "gtksettings.h"
 #include "gtkscrollbar.h"
+#include "gtkscrolledwindow.h"
 #include "gtkorientable.h"
 #include "gtkwindow.h"
 #include "gtkdialog.h"
@@ -476,10 +477,11 @@ icons_init (GdkDisplay *display)
 #define CLAIMED_KEY "riscos-gtk-grip-claimed"
 #define STRIP_KEY "riscos-gtk-grip-strip"
 #define UNSURE_KEY "riscos-gtk-grip-unsure"
+#define VBARS_KEY "riscos-gtk-grip-vbars"
 
 /* the grip's column (gdkriscos-server.c draws it there) */
 static void
-set_column (GtkWidget *top, int x, int width)
+set_column (GtkWidget *top, int x, int width, int y)
 {
   int ww = gtk_widget_get_allocated_width (top), wh = gtk_widget_get_allocated_height (top);
   int gh = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-h"));
@@ -487,18 +489,41 @@ set_column (GtkWidget *top, int x, int width)
 
   if (col == NULL)
     {
-      col = g_new0 (int, 2);
+      col = g_new0 (int, 3);
       g_object_set_data_full (G_OBJECT (top), "riscos-gtk-grip-column", col, g_free);
     }
-  if (col[0] != x || col[1] != width)
+  if (col[0] != x || col[1] != width || col[2] != y)
     {
-      GdkRectangle corner = { MIN (x, col[0] > 0 ? col[0] : x), wh - gh, 0, gh };
-      corner.width = ww - corner.x;
+      /* where it was and where it goes: drawn again */
+      GdkRectangle old = { col[0], col[2] >= 0 ? col[2] : wh - gh, MAX (col[1], gh), gh };
+      GdkRectangle now = { x, y >= 0 ? y : wh - gh, MAX (width, gh), gh };
+      if (col[1] > 0)
+        gdk_window_invalidate_rect (gtk_widget_get_window (top), &old, FALSE);
       col[0] = x;
       col[1] = width;
-      gdk_riscos_window_set_size_grip_column (gtk_widget_get_window (top), x, width);
-      gdk_window_invalidate_rect (gtk_widget_get_window (top), &corner, FALSE);
+      col[2] = y;
+      gdk_riscos_window_set_size_grip_place (gtk_widget_get_window (top), x, y, width);
+      gdk_window_invalidate_rect (gtk_widget_get_window (top), &now, FALSE);
+      (void) ww;
     }
+}
+
+/* our margin on a bar (stopping it short of the grip) */
+static void
+set_bar_margin (GtkWidget *bar, int want)
+{
+  gboolean vertical = gtk_orientable_get_orientation (GTK_ORIENTABLE (bar)) == GTK_ORIENTATION_VERTICAL;
+  int ours = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (bar), GRIP_MARGIN_KEY));
+  int margin = vertical ? gtk_widget_get_margin_bottom (bar) : gtk_widget_get_margin_end (bar);
+
+  if (want == ours)
+    return;
+  margin = MAX (0, margin - ours + want);
+  g_object_set_data (G_OBJECT (bar), GRIP_MARGIN_KEY, GINT_TO_POINTER (want));
+  if (vertical)
+    gtk_widget_set_margin_bottom (bar, margin);
+  else
+    gtk_widget_set_margin_end (bar, margin);
 }
 
 static void
@@ -511,7 +536,7 @@ fit_scrollbar (GtkWidget *bar, gpointer data)
   int ww = gtk_widget_get_allocated_width (top), wh = gtk_widget_get_allocated_height (top);
   gboolean vertical = gtk_orientable_get_orientation (GTK_ORIENTABLE (bar)) == GTK_ORIENTATION_VERTICAL;
   GtkAllocation a;
-  int x, y, want, margin;
+  int x, y, want;
 
   if (!gtk_widget_get_mapped (bar) || !gtk_widget_translate_coordinates (bar, top, 0, 0, &x, &y))
     return;
@@ -522,40 +547,106 @@ fit_scrollbar (GtkWidget *bar, gpointer data)
       g_object_set_data (G_OBJECT (top), UNSURE_KEY, GINT_TO_POINTER (1));
       return;
     }
-  margin = vertical ? gtk_widget_get_margin_bottom (bar) : gtk_widget_get_margin_end (bar);
-  /* where the bar would end without our margin */
   if (vertical)
-    want = gw > 0 && x + a.width > ww - gw ? y + a.height + ours - (wh - gh) : 0;
-  else
-    want = gw > 0 && y + a.height > wh - gh ? x + a.width + ours - (ww - gw) : 0;
-  if (g_getenv ("RISCOS_GTK_DEBUG_GRIP"))
-    g_printerr ("grip:   bar %s at %d,%d %dx%d (window %dx%d) ours %d want %d\n", vertical ? "v" : "h",
-                x, y, a.width, a.height, ww, wh, ours, want);
-  /* only a bar that runs into the corner, not one that ends well above */
-  if (want <= 0 || want > (vertical ? gh : gw))
-    want = 0;
-  /* the grip goes in the vertical bar's column, as wide as it, when the
-     bar runs down into the corner (not one with something under it, a
-     status bar say, which the grip would cover) */
-  if (want > 0)
     {
-      g_object_set_data (G_OBJECT (top), CLAIMED_KEY, GINT_TO_POINTER (1));
-      if (vertical && x < ww)
-        set_column (top, x, a.width);
+      /* a vertical bar at the window's right edge: the grip goes in its
+         column, at its foot; the lowest such bar is chosen once all
+         have been seen (fit_vbars) */
+      if (gw > 0 && x + a.width > ww - gw && x < ww && a.height + ours >= 3 * gh)
+        {
+          GPtrArray *bars = g_object_get_data (G_OBJECT (top), VBARS_KEY);
+          g_object_set_data (G_OBJECT (bar), "riscos-gtk-bar-x", GINT_TO_POINTER (x));
+          g_object_set_data (G_OBJECT (bar), "riscos-gtk-bar-w", GINT_TO_POINTER (a.width));
+          /* where it would end without our margin */
+          g_object_set_data (G_OBJECT (bar), "riscos-gtk-bar-end", GINT_TO_POINTER (y + a.height + ours));
+          if (bars)
+            g_ptr_array_add (bars, bar);
+        }
+      else
+        set_bar_margin (bar, 0);
+      if (g_getenv ("RISCOS_GTK_DEBUG_GRIP"))
+        g_printerr ("grip:   bar v at %d,%d %dx%d (window %dx%d) ours %d\n", x, y, a.width, a.height, ww, wh, ours);
+      return;
     }
-  if (want == ours)
+  /* a horizontal bar that runs into the corner stops at the grip */
+  want = gw > 0 && y + a.height > wh - gh ? x + a.width + ours - (ww - gw) : 0;
+  if (want <= 0 || want > gw)
+    want = 0;
+  if (want > 0)
+    g_object_set_data (G_OBJECT (top), CLAIMED_KEY, GINT_TO_POINTER (1));
+  set_bar_margin (bar, want);
+}
+
+/* The vertical bars at the right edge: the lowest has the grip at its
+   foot, so the window needs no scroll bar of its own (the strip). One
+   running down into the corner stops above the grip, which is at the
+   window's foot, as the Wimp's is; one with something under it (a
+   status bar) stops a grip's height short and the grip sits under it,
+   so it covers nothing. The others go back to their own length. */
+static void
+fit_vbars (GtkWidget *top)
+{
+  GPtrArray *bars = g_object_get_data (G_OBJECT (top), VBARS_KEY);
+  int gh = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-h"));
+  int wh = gtk_widget_get_allocated_height (top);
+  GtkWidget *best = NULL;
+  int best_end = -1;
+  guint i;
+
+  if (bars == NULL)
     return;
-  margin = MAX (0, margin - ours + want);
-  g_object_set_data (G_OBJECT (bar), GRIP_MARGIN_KEY, GINT_TO_POINTER (want));
-  if (vertical)
-    gtk_widget_set_margin_bottom (bar, margin);
-  else
-    gtk_widget_set_margin_end (bar, margin);
+  for (i = 0; i < bars->len; i++)
+    {
+      int end = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (bars->pdata[i]), "riscos-gtk-bar-end"));
+      if (end > best_end)
+        {
+          best_end = end;
+          best = bars->pdata[i];
+        }
+    }
+  for (i = 0; i < bars->len; i++)
+    if (bars->pdata[i] != best)
+      set_bar_margin (bars->pdata[i], 0);
+  if (best)
+    {
+      int x = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (best), "riscos-gtk-bar-x"));
+      int w = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (best), "riscos-gtk-bar-w"));
+      gboolean corner = best_end > wh - gh;
+      set_bar_margin (best, corner ? best_end - (wh - gh) : gh);
+      set_column (top, x, w, corner ? -1 : best_end - gh);
+      g_object_set_data (G_OBJECT (top), CLAIMED_KEY, GINT_TO_POINTER (1));
+      if (g_getenv ("RISCOS_GTK_DEBUG_GRIP"))
+        g_printerr ("grip:   grip under the bar at x %d, at %s\n", x, corner ? "the window's foot" : "the bar's foot");
+    }
+}
+
+/* A scrolled area at the window's right edge whose vertical scroll bar
+   comes and goes (GTK_POLICY_AUTOMATIC) shows it always, as a RISC OS
+   window's scroll bars are always there: the grip then has a bar to sit
+   under (and the window doesn't need the strip, nor change width as the
+   bar comes and goes). */
+static void
+fit_scrolled (GtkWidget *sw, GtkWidget *top)
+{
+  int gw = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-w"));
+  int ww = gtk_widget_get_allocated_width (top);
+  GtkPolicyType hp, vp;
+  int x, y;
+
+  if (gw <= 0 || !gtk_widget_get_mapped (sw) ||
+      !gtk_widget_translate_coordinates (sw, top, 0, 0, &x, &y))
+    return;
+  gtk_scrolled_window_get_policy (GTK_SCROLLED_WINDOW (sw), &hp, &vp);
+  if (vp == GTK_POLICY_AUTOMATIC && x + gtk_widget_get_allocated_width (sw) > ww - gw &&
+      gtk_widget_get_allocated_width (sw) > 4 * gw)
+    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw), hp, GTK_POLICY_ALWAYS);
 }
 
 static void
 find_scrollbars (GtkWidget *w, gpointer top)
 {
+  if (GTK_IS_SCROLLED_WINDOW (w))
+    fit_scrolled (w, top);
   if (GTK_IS_SCROLLBAR (w))
     fit_scrollbar (w, top);
   else if (GTK_IS_CONTAINER (w))
@@ -687,9 +778,15 @@ grip_pass (GtkWidget *top)
   g_object_set_data (G_OBJECT (top), "riscos-gtk-grip-h", GINT_TO_POINTER (gh));
   g_object_set_data (G_OBJECT (top), CLAIMED_KEY, NULL);
   g_object_set_data (G_OBJECT (top), UNSURE_KEY, NULL);
+  g_object_set_data_full (G_OBJECT (top), VBARS_KEY, g_ptr_array_new (), (GDestroyNotify) g_ptr_array_unref);
   gtk_container_forall (GTK_CONTAINER (top), find_scrollbars, top);
   if (g_object_get_data (G_OBJECT (top), UNSURE_KEY))
-    return FALSE;
+    {
+      g_object_set_data (G_OBJECT (top), VBARS_KEY, NULL);
+      return FALSE;
+    }
+  fit_vbars (top);
+  g_object_set_data (G_OBJECT (top), VBARS_KEY, NULL);
   before = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (top), STRIP_KEY));
   fit_strip (top, gw);
   if (g_getenv ("RISCOS_GTK_DEBUG_GRIP"))

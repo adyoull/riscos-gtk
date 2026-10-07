@@ -102,7 +102,8 @@ gboolean           _gdk_riscos_server_window_get_grip          (GdkRiscosServer 
 void               _gdk_riscos_server_window_set_grip_column   (GdkRiscosServer    *server,
                                                                  gint                id,
                                                                  int                 x,
-                                                                 int                 width);
+                                                                 int                 width,
+                                                                 int                 y);
 void               _gdk_riscos_server_window_set_strip         (GdkRiscosServer    *server,
                                                                  gint                id,
                                                                  cairo_surface_t    *image);

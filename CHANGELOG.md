@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (the app's own scroll bar takes the grip: !ClawsMail 0.3, !L3afpad 0.16, GTKThemeTest 0.40, 2026-10-07)
+- Owner: "if the app has its own scroll bar on the right hand edge the
+  wimp scroll bar isn't needed." Now:
+  - any vertical GTK scroll bar at the window's right edge takes the
+    grip, not only one running into the corner. The lowest such bar is
+    used. One with something under it (Claws Mail's message list, above
+    the message view and status bar) stops a grip's height short and the
+    grip sits at its foot, covering nothing;
+  - a scrolled area at the right edge whose vertical bar comes and goes
+    (GTK_POLICY_AUTOMATIC) shows it always, as RISC OS windows' scroll
+    bars are always there, so the window doesn't change width as the bar
+    comes and goes;
+  - only a window with no scroll bar at its right edge at all gets the
+    empty scroll bar outside it.
+  - GDK: `gdk_riscos_window_set_size_grip_place (window, x, y, width)`
+    (y: the grip's top; -1 for the window's foot).
+- Tests: claws-fake 15 checks: the main window has no extra scroll bar
+  (its Wimp window is as wide as GTK's).
+
 ## Unreleased (IMAP; the size grip's scroll bar: !ClawsMail 0.2, !L3afpad 0.15, GTKThemeTest 0.39, 2026-10-07)
 - **!ClawsMail 0.2: IMAP** (stage 2), through libetpan 1.9.4, its TLS
   through AcornSSL like the rest (owner: "we're using AcornSSL for SSL and

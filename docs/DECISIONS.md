@@ -281,3 +281,8 @@ the grip at its foot, rather than the grip drawn over its contents. It
 is outside GTK's window so that GTK's layout and position are untouched
 (an earlier try, a margin inside the window, grew windows after they
 were shown and moved some).
+Changed the same day (owner: "if the app has its own scroll bar on the
+right hand edge the wimp scroll bar isn't needed"): any GTK vertical bar
+at the right edge takes the grip (at its foot if something is under it),
+and such bars are shown always; the extra bar is only for windows with
+no scroll bar at their right edge.

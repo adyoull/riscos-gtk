@@ -73,6 +73,9 @@ gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint
    in the window, pixels); width 0: at the window's right edge */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width);
+/* ... with the grip's top at y (the scroll bar's foot; -1: the window's foot) */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_size_grip_place (GdkWindow *window, gint x, gint y, gint width);
 /* No scroll bar in the window's corner: show image (an empty vertical
    scroll bar) down its right edge, outside it, with the grip at its foot
    (NULL: none) */

@@ -111,6 +111,7 @@ typedef struct {
   gboolean as_menu;           /* opened as a transient dialogue (Wimp_CreateMenu) */
   gboolean menu_open;
   int grip_x, grip_w;         /* the grip's column (GTK's vertical scroll bar), if set: w > 0 */
+  int grip_top;               /* ... and its top + 1 (0: at the window's foot) */
   /* no scroll bar in the corner: an empty scroll bar down the right edge,
      outside GTK's window (as the Wimp's furniture is outside the work
      area), with the grip at its foot; GTK draws it (strip_image) */
@@ -678,8 +679,18 @@ grip_left (GdkRiscosServer *server, RiscosWindow *w)
   return w->strip > 0 ? w->width : w->grip_w > 0 ? w->grip_x : w->width - server->grip_w;
 }
 
+/* the grip's top in the window (pixels): at the foot of GTK's scroll bar
+   when GTK has said where that is, else at the window's foot */
+static int
+grip_top (GdkRiscosServer *server, RiscosWindow *w)
+{
+  if (w->strip == 0 && w->grip_w > 0 && w->grip_top > 0)
+    return w->grip_top - 1;
+  return w->height - server->grip_h;
+}
+
 void
-_gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int x, int width)
+_gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int x, int width, int y)
 {
   RiscosWindow *w = window_by_id (server, id);
 
@@ -687,6 +698,7 @@ _gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int
     return;
   w->grip_x = x;
   w->grip_w = width > 0 && width <= 2 * server->grip_w ? width : 0;
+  w->grip_top = y >= 0 && y < w->height ? y + 1 : 0;
 }
 
 static void
@@ -703,7 +715,7 @@ paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surfac
 {
   int sw = cairo_image_surface_get_width (surface), sh = cairo_image_surface_get_height (surface);
   int gw = grip_width (server, w), gh = server->grip_h;
-  int y = MIN (w->height, sh) - gh;
+  int y = MIN (grip_top (server, w), sh - gh);
   cairo_t *cr;
 
   if (x < 0 || y < 0 || x + gw > sw)
@@ -785,7 +797,8 @@ handle_click (GdkRiscosServer *server, int *block)
   if (w->id != server->focus_window && !w->is_temp)
     take_caret (w);
   if ((pressed & (BUT_SELECT | BUT_ADJUST)) && server->buttons == 0 && has_grip (server, w) &&
-      x >= w->x + grip_left (server, w) && y >= w->y + w->height - server->grip_h)
+      x >= w->x + grip_left (server, w) && x < w->x + grip_left (server, w) + grip_width (server, w) &&
+      y >= w->y + grip_top (server, w) && y < w->y + grip_top (server, w) + server->grip_h)
     {
       start_size_drag (server, w, (pressed & BUT_SELECT) != 0);
       return;
