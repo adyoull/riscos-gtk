@@ -136,12 +136,12 @@ mv "$CS/main.o" "$CO/main.o"
 (cd "$CO" && $CC $RO_CFLAGS -c -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -D__riscos=1 \
   -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/apps/claws/riscos-claws.c")
 $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/claws-fake.c" \
-  "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/gtk/.libs/libclawsgtk.a" -o "$REPO_DIR/out/claws-fake-linuxarm" \
-  -Wl,-Bstatic -lnettle $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/etpan/.libs/libclawsetpan.a" "$CS/gtk/.libs/libclawsgtk.a" \
+  -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lresolv -ldl -lm -pthread
 CT=$REPO_DIR/out/claws-linuxarm
 rm -rf "$CT"; mkdir -p "$CT"
-CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1))
+CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2))
 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
@@ -152,9 +152,9 @@ run edittest-fake "$HA" "$ET"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
-python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 & mailserver=$!
+python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 & mailserver=$!
 for i in $(seq 50); do [ -f "$CT/server.ready" ] && break; sleep 0.1; done
-run claws-fake "$HA" "$CT" $CP1 $CP2
+run claws-fake "$HA" "$CT" $CP1 $CP2 $CP3
 kill $mailserver 2>/dev/null || true
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"

@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """A small POP3 and SMTP server for the Claws Mail test (tests/gtk/claws-fake.c).
 
-  mailserver.py DIR POP3PORT SMTPPORT
+  mailserver.py DIR POP3PORT SMTPPORT [IMAPPORT]
 
 Plain text: the fake AcornSSL in the test's fake RISC OS passes bytes
 through unencrypted, so "TLS" (pop3s, SMTP STARTTLS) arrives here as plain
 text after the client has started it. POP3 serves DIR/pop/* (one message a
 file) to any user and password; SMTP offers STARTTLS (and expects it before
 MAIL), and writes each message it's given to DIR/smtp/N.eml. Every command
-goes to DIR/server.log as "POP3 <cmd>" / "SMTP <cmd>". MIT licence.
+goes to DIR/server.log as "POP3 <cmd>" / "SMTP <cmd>" / "IMAP <cmd>".
+IMAP (if IMAPPORT is given): one mailbox, INBOX, holding DIR/imap/*
+(UIDs 1, 2 ...), enough of IMAP4rev1 for Claws Mail through libetpan:
+LOGIN, LIST/LSUB, SELECT/EXAMINE, STATUS, (UID) SEARCH, (UID) FETCH of
+UID, FLAGS, RFC822.SIZE, INTERNALDATE, BODY[...] / BODY.PEEK[...] (whole,
+HEADER, TEXT, HEADER.FIELDS) and RFC822*, (UID) STORE, NOOP, IDLE.
+MIT licence.
 """
 import os
 import socketserver
@@ -16,6 +22,7 @@ import sys
 import threading
 
 DIR, POP3PORT, SMTPPORT = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+IMAPPORT = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 lock = threading.Lock()
 
 
@@ -110,6 +117,224 @@ class SMTP(socketserver.StreamRequestHandler):
                 self.send("502 unknown")
 
 
+def imap_tokens(s):
+    """IMAP arguments: atoms, "quoted" strings and (lists), flattened as text"""
+    out, i = [], 0
+    while i < len(s):
+        c = s[i]
+        if c == " ":
+            i += 1
+        elif c == '"':
+            j, v = i + 1, ""
+            while j < len(s) and s[j] != '"':
+                if s[j] == "\\":
+                    j += 1
+                v += s[j]
+                j += 1
+            out.append(v)
+            i = j + 1
+        elif c == "(":
+            depth, j = 0, i
+            while j < len(s):
+                depth += {"(": 1, ")": -1}.get(s[j], 0)
+                if depth == 0:
+                    break
+                j += 1
+            out.append(s[i:j + 1])
+            i = j + 1
+        else:
+            j = i
+            depth = 0
+            while j < len(s) and (s[j] != " " or depth):
+                depth += {"[": 1, "]": -1}.get(s[j], 0)
+                j += 1
+            out.append(s[i:j])
+            i = j
+    return out
+
+
+def in_set(n, last, spec):
+    for part in spec.split(","):
+        a, _, b = part.partition(":")
+        a = last if a == "*" else int(a)
+        b = a if not b else (last if b == "*" else int(b))
+        if min(a, b) <= n <= max(a, b):
+            return True
+    return False
+
+
+class IMAP(socketserver.StreamRequestHandler):
+    def send(self, s):
+        self.wfile.write((s + "\r\n").encode("latin-1"))
+
+    def literal(self, data):
+        return b"{%d}\r\n" % len(data) + data
+
+    def section(self, m, sec):
+        """BODY[sec] of message m (CRLF lines)"""
+        head, _, body = m.partition(b"\r\n\r\n")
+        head += b"\r\n\r\n"
+        s = sec.upper()
+        if s == "":
+            return m
+        if s == "HEADER":
+            return head
+        if s == "TEXT":
+            return body
+        if s.startswith("HEADER.FIELDS"):
+            names = [n.lower() for n in sec[sec.index("(") + 1:sec.rindex(")")].split()]
+            keep, lines, cur = [], head.split(b"\r\n"), None
+            for l in lines:
+                if l[:1] in (b" ", b"\t") and cur:
+                    keep.append(l)
+                    continue
+                cur = l.split(b":")[0].decode("latin-1").lower() in names and l
+                if cur:
+                    keep.append(l)
+            return b"\r\n".join(keep) + b"\r\n\r\n"
+        if s == "1":
+            return body
+        return b""
+
+    def fetch(self, tag, uid, args):
+        spec, items = args[0], args[1] if len(args) > 1 else "ALL"
+        items = items.strip("()")
+        last = len(self.msgs)
+        for i, m in enumerate(self.msgs):
+            n = i + 1
+            if not in_set(n, last, spec):
+                continue
+            parts = []
+            if uid and "UID" not in items.upper().split():
+                parts.append(b"UID %d" % n)
+            for it in imap_tokens(items):
+                u = it.upper()
+                if u == "UID":
+                    parts.append(b"UID %d" % n)
+                elif u == "FLAGS":
+                    parts.append(b"FLAGS (%s)" % b" ".join(self.flags[i]))
+                elif u == "RFC822.SIZE":
+                    parts.append(b"RFC822.SIZE %d" % len(m))
+                elif u == "INTERNALDATE":
+                    parts.append(b'INTERNALDATE "07-Oct-2026 10:00:00 +0100"')
+                elif u in ("RFC822", "RFC822.PEEK"):
+                    parts.append(b"RFC822 " + self.literal(m))
+                elif u == "RFC822.HEADER":
+                    parts.append(b"RFC822.HEADER " + self.literal(self.section(m, "HEADER")))
+                elif u == "RFC822.TEXT":
+                    parts.append(b"RFC822.TEXT " + self.literal(self.section(m, "TEXT")))
+                elif u.startswith("BODY[") or u.startswith("BODY.PEEK["):
+                    sec = it[it.index("[") + 1:it.rindex("]")]
+                    data = self.section(m, sec)
+                    rest = it[it.rindex("]") + 1:]
+                    if rest.startswith("<"):
+                        a, b = (int(x) for x in rest.strip("<>").split("."))
+                        data = data[a:a + b]
+                        label = "BODY[%s]<%d>" % (sec, a)
+                    else:
+                        label = "BODY[%s]" % sec
+                    parts.append(label.encode("latin-1") + b" " + self.literal(data))
+                    if u.startswith("BODY[") and b"\\Seen" not in self.flags[i]:
+                        self.flags[i].append(b"\\Seen")
+            self.wfile.write(b"* %d FETCH (" % n + b" ".join(parts) + b")\r\n")
+        self.send(tag + " OK FETCH done")
+
+    def readline_with_literals(self):
+        raw = self.rfile.readline()
+        if not raw:
+            return None
+        line = raw.decode("latin-1").rstrip("\r\n")
+        while line.endswith("}") and "{" in line:
+            n = int(line[line.rindex("{") + 1:-1].rstrip("+"))
+            if not line[line.rindex("{") + 1:-1].endswith("+"):
+                self.send("+ go ahead")
+            data = self.rfile.read(n).decode("latin-1")
+            line = line[:line.rindex("{")] + '"' + data + '"' + self.rfile.readline().decode("latin-1").rstrip("\r\n")
+        return line
+
+    def handle(self):
+        d = os.path.join(DIR, "imap")
+        self.msgs = [open(os.path.join(d, n), "rb").read().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+                     for n in sorted(os.listdir(d))] if os.path.isdir(d) else []
+        self.flags = [[] for _ in self.msgs]
+        self.send("* OK [CAPABILITY IMAP4rev1 IDLE LITERAL+] test IMAP ready")
+        while True:
+            line = self.readline_with_literals()
+            if line is None:
+                return
+            tag, _, rest = line.partition(" ")
+            cmd, _, arg = rest.partition(" ")
+            cmd = cmd.upper()
+            uid = False
+            if cmd == "UID":
+                uid = True
+                cmd, _, arg = arg.partition(" ")
+                cmd = cmd.upper()
+            log("IMAP " + ("%s LOGIN ****" % tag if cmd == "LOGIN" else line))
+            args = imap_tokens(arg)
+            n = len(self.msgs)
+            if cmd == "CAPABILITY":
+                self.send("* CAPABILITY IMAP4rev1 IDLE LITERAL+")
+                self.send(tag + " OK done")
+            elif cmd == "LOGIN":
+                self.send(tag + " OK [CAPABILITY IMAP4rev1 IDLE LITERAL+] logged in")
+            elif cmd == "NAMESPACE":
+                self.send('* NAMESPACE (("" "/")) NIL NIL')
+                self.send(tag + " OK done")
+            elif cmd in ("LIST", "LSUB", "XLIST"):
+                pat = args[1] if len(args) > 1 else ""
+                if pat == "":
+                    self.send('* %s (\\Noselect) "/" ""' % cmd)
+                else:
+                    self.send('* %s (\\HasNoChildren) "/" INBOX' % cmd)
+                self.send(tag + " OK done")
+            elif cmd in ("SELECT", "EXAMINE"):
+                self.send("* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)")
+                self.send("* OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*)]")
+                self.send("* %d EXISTS" % n)
+                self.send("* 0 RECENT")
+                self.send("* OK [UIDVALIDITY 1]")
+                self.send("* OK [UIDNEXT %d]" % (n + 1))
+                self.send(tag + " OK [%s] done" % ("READ-WRITE" if cmd == "SELECT" else "READ-ONLY"))
+            elif cmd == "STATUS":
+                unseen = sum(1 for f in self.flags if b"\\Seen" not in f)
+                self.send("* STATUS INBOX (MESSAGES %d RECENT 0 UIDNEXT %d UIDVALIDITY 1 UNSEEN %d)" % (n, n + 1, unseen))
+                self.send(tag + " OK done")
+            elif cmd == "SEARCH":
+                self.send("* SEARCH " + " ".join(str(i + 1) for i in range(n)))
+                self.send(tag + " OK done")
+            elif cmd == "FETCH":
+                self.fetch(tag, uid, args)
+            elif cmd == "STORE":
+                spec, how, fl = args[0], args[1].upper(), args[2].strip("()").encode("latin-1").split()
+                for i in range(n):
+                    if in_set(i + 1, n, spec):
+                        if how.startswith("+"):
+                            self.flags[i] = list(dict.fromkeys(self.flags[i] + fl))
+                        elif how.startswith("-"):
+                            self.flags[i] = [f for f in self.flags[i] if f not in fl]
+                        else:
+                            self.flags[i] = fl
+                        if ".SILENT" not in how:
+                            self.wfile.write(b"* %d FETCH (UID %d FLAGS (%s))\r\n" % (i + 1, i + 1, b" ".join(self.flags[i])))
+                self.send(tag + " OK done")
+            elif cmd == "IDLE":
+                self.send("+ idling")
+                while True:
+                    l = self.rfile.readline()
+                    if not l or l.strip().upper() == b"DONE":
+                        break
+                self.send(tag + " OK done")
+            elif cmd == "LOGOUT":
+                self.send("* BYE")
+                self.send(tag + " OK done")
+                return
+            elif cmd in ("NOOP", "CHECK", "CLOSE", "EXPUNGE", "SUBSCRIBE", "UNSUBSCRIBE", "ENABLE", "ID", "UNSELECT"):
+                self.send(tag + " OK done")
+            else:
+                self.send(tag + " BAD unknown")
+
+
 class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -119,6 +344,9 @@ if __name__ == "__main__":
     pop3 = Server(("127.0.0.1", POP3PORT), POP3)
     smtp = Server(("127.0.0.1", SMTPPORT), SMTP)
     threading.Thread(target=pop3.serve_forever, daemon=True).start()
+    if IMAPPORT:
+        imap = Server(("127.0.0.1", IMAPPORT), IMAP)
+        threading.Thread(target=imap.serve_forever, daemon=True).start()
     with open(os.path.join(DIR, "server.ready"), "w") as f:
         f.write("ok\n")
     smtp.serve_forever()

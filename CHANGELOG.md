@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased (IMAP; the size grip's scroll bar: !ClawsMail 0.2, !L3afpad 0.15, GTKThemeTest 0.39, 2026-10-07)
+- **!ClawsMail 0.2: IMAP** (stage 2), through libetpan 1.9.4, its TLS
+  through AcornSSL like the rest (owner: "we're using AcornSSL for SSL and
+  TLS"). libetpan is built for GnuTLS against Claws Mail's GnuTLS-subset
+  headers, so its sessions are AcornSSL sessions in `ssl_acornssl.c`;
+  the shim gained what libetpan uses (GnuTLS 2 type names,
+  gnutls_retr2_st, set_retrieve_function, set_default_priority,
+  dh_set_prime_bits, handshake_set_timeout, perror, bye,
+  GNUTLS_VERSION_NUMBER). IMAP runs in Claws Mail's own thread (UnixLib
+  pthreads): the handshake only runs Claws Mail's idle from the main
+  thread. `etpan_certificate_check` trusts AcornSSL's own check (it
+  doesn't hand certificates out). libetpan is linked as C (automake
+  picked the C++ linker for a Windows-only file, and libtool then read
+  the toolchain's .la files, which name another machine's paths). No
+  OpenSSL, SASL, Berkeley DB, curl, expat or zlib. libetpan's and
+  Claws Mail's etpan code: no cast-align warnings.
+- Tests: claws-fake 14 checks (4 new): a second account (IMAP over imaps,
+  `tests/claws/mailserver.py` now serves IMAP4rev1 too) has its INBOX
+  found and scanned, logs in, selects, fetches the message whole into
+  the cache, through a third AcornSSL session.
+- **The size grip no longer covers a window's contents** (owner: "the
+  resizing widget is overhanging part of the screen so it does need a
+  scroll bar showing"). A document window whose bottom right corner has
+  no GTK scroll bar running into it (Claws Mail's main window, with its
+  status bar; GTKThemeTest) gets an empty vertical scroll bar down its
+  right edge, outside GTK's window, as the Wimp's furniture is outside
+  the work area, with the grip at its foot: GTK draws the bar (with the
+  theme's scroll bar style) into an image (`gtkriscostheme.c`); GDK's new
+  `gdk_riscos_window_set_size_strip` widens the Wimp window by it and
+  plots it, and clicks on it (other than the grip) do nothing. GTK's
+  window keeps its size and place, so nothing is laid out again or
+  moves. A vertical bar that ends above the corner (something under it)
+  no longer gets the grip in its column. `RISCOS_GTK_DEBUG_GRIP=1` logs
+  the decisions. hellotest's toggle-size check allows for the strip.
+
 ## Unreleased (Claws Mail: !ClawsMail 0.1, 2026-10-07)
 - **!ClawsMail 0.1: Claws Mail 4.4.0, the second GTK program** (owner:
   "an email client that can use AcornSSL"; "Try claws mail"). Stage 1:

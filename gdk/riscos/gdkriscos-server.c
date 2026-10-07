@@ -111,6 +111,11 @@ typedef struct {
   gboolean as_menu;           /* opened as a transient dialogue (Wimp_CreateMenu) */
   gboolean menu_open;
   int grip_x, grip_w;         /* the grip's column (GTK's vertical scroll bar), if set: w > 0 */
+  /* no scroll bar in the corner: an empty scroll bar down the right edge,
+     outside GTK's window (as the Wimp's furniture is outside the work
+     area), with the grip at its foot; GTK draws it (strip_image) */
+  int strip;                  /* its width (0: none) */
+  cairo_surface_t *strip_surface;  /* a sprite: GTK's image, the grip */
 } RiscosWindow;
 
 struct _GdkRiscosServer {
@@ -306,7 +311,7 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
          Message_MenusDeleted with its handle). It opens at its last
          size; Wimp_OpenWindow below gives it GTK's. */
       int area[4];
-      visible_area (s, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), area);
+      visible_area (s, w->x, w->y, MAX (w->width, 1) + w->strip, MAX (w->height, 1), area);
       r.r[1] = w->handle;
       r.r[2] = area[0];
       r.r[3] = area[3];
@@ -317,7 +322,7 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
         }
     }
   block[0] = w->handle;
-  visible_area (s, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), &block[1]);
+  visible_area (s, w->x, w->y, MAX (w->width, 1) + w->strip, MAX (w->height, 1), &block[1]);
   block[5] = 0;
   block[6] = 0;
   block[7] = behind;
@@ -664,13 +669,13 @@ _gdk_riscos_server_window_get_grip (GdkRiscosServer *server, gint id, int *width
 static int
 grip_width (GdkRiscosServer *server, RiscosWindow *w)
 {
-  return w->grip_w > 0 ? w->grip_w : server->grip_w;
+  return w->strip > 0 ? w->strip : w->grip_w > 0 ? w->grip_w : server->grip_w;
 }
 
 static int
 grip_left (GdkRiscosServer *server, RiscosWindow *w)
 {
-  return w->grip_w > 0 ? w->grip_x : w->width - server->grip_w;
+  return w->strip > 0 ? w->width : w->grip_w > 0 ? w->grip_x : w->width - server->grip_w;
 }
 
 void
@@ -685,11 +690,20 @@ _gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int
 }
 
 static void
+paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x);
+
+static void
 paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface)
+{
+  paint_grip_at (server, w, surface, grip_left (server, w));
+}
+
+static void
+paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x)
 {
   int sw = cairo_image_surface_get_width (surface), sh = cairo_image_surface_get_height (surface);
   int gw = grip_width (server, w), gh = server->grip_h;
-  int x = grip_left (server, w), y = MIN (w->height, sh) - gh;
+  int y = MIN (w->height, sh) - gh;
   cairo_t *cr;
 
   if (x < 0 || y < 0 || x + gw > sw)
@@ -776,6 +790,9 @@ handle_click (GdkRiscosServer *server, int *block)
       start_size_drag (server, w, (pressed & BUT_SELECT) != 0);
       return;
     }
+  /* the rest of the strip's scroll bar has nothing to scroll */
+  if (w->strip > 0 && x >= w->x + w->width)
+    return;
   if (server->pointer_window != w->id)
     track_pointer (server);
   if (server->buttons == 0)
@@ -848,6 +865,20 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
       /* block[7..10]: this rectangle, screen OS units, x1/y1 exclusive */
       fill_grey (MAX (block[7], ox + sw), block[8], block[9] - pxw, block[10] - pxh);
       fill_grey (block[7], block[8], MIN (block[9], ox + sw) - pxw, MIN (block[10], oy - sh) - pxh);
+      if (w->strip_surface)
+        {
+          int *a = cairo_surface_get_user_data (w->strip_surface, &_gdk_riscos_sprite_key);
+          if (a)
+            {
+              r.r[0] = 512 + 34;
+              r.r[1] = (int) a;
+              r.r[2] = (int) ((char *) a + a[2]);
+              r.r[3] = ox + (w->width << server->xeig);
+              r.r[4] = oy - (cairo_image_surface_get_height (w->strip_surface) << server->yeig);
+              r.r[5] = 0;
+              swi (OS_SpriteOp, &r);
+            }
+        }
       r.r[1] = (int) block;
       if (swi (Wimp_GetRectangle, &r) != NULL)
         break;
@@ -892,8 +923,10 @@ handle_open_request (GdkRiscosServer *server, int *block)
   /* Wimp_OpenWindow updates the block to where the window really went. */
   x = os_to_px_x (server, block[1]);
   y = server->screen_h - (block[4] >> server->yeig);
-  width = (block[3] - block[1]) >> server->xeig;
+  width = ((block[3] - block[1]) >> server->xeig) - w->strip;
   height = (block[4] - block[2]) >> server->yeig;
+  if (width < 1)
+    width = 1;
   if (x != w->x || y != w->y || width != w->width || height != w->height)
     {
       w->x = x;
@@ -1341,7 +1374,7 @@ create_wimp_window (GdkRiscosServer *server, RiscosWindow *w)
   unsigned f = w->furniture;
 
   memset (block, 0, sizeof block);
-  visible_area (server, w->x, w->y, MAX (w->width, 1), MAX (w->height, 1), &block[0]);
+  visible_area (server, w->x, w->y, MAX (w->width, 1) + w->strip, MAX (w->height, 1), &block[0]);
   block[6] = -1;                                  /* behind: top */
   block[7] = WF_NEW_FORMAT;
   if (w->is_temp || f == 0)
@@ -1442,6 +1475,8 @@ _gdk_riscos_server_destroy_window (GdkRiscosServer *server, gint id)
   swi (Wimp_DeleteWindow, &r);
   if (w->surface)
     cairo_surface_destroy (w->surface);
+  if (w->strip_surface)
+    cairo_surface_destroy (w->strip_surface);
   if (server->pointer_window == (guint32) id)
     server->pointer_window = 0;
   if (server->grab_window == (guint32) id)
@@ -1677,7 +1712,7 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
   if (!w->visible)
     return;
   cairo_surface_flush (surface);
-  if (has_grip (server, w))
+  if (has_grip (server, w) && w->strip == 0)
     paint_grip (server, w, surface);
   width = cairo_image_surface_get_width (surface);
   height = cairo_image_surface_get_height (surface);
@@ -1724,6 +1759,76 @@ _gdk_riscos_server_window_move_resize (GdkRiscosServer *server, gint id,
      again (found with the theme test). */
   send_configure (server, w);
   return TRUE;
+}
+
+/* The strip (see RiscosWindow): GTK's image of an empty scroll bar, or
+   NULL for none. The window's visible area grows or shrinks by its width;
+   GTK's window keeps its size. */
+void
+_gdk_riscos_server_window_set_strip (GdkRiscosServer *server, gint id, cairo_surface_t *image)
+{
+  RiscosWindow *w = window_by_id (server, id);
+  int width = image ? cairo_image_surface_get_width (image) : 0, old;
+  _kernel_swi_regs r;
+
+  if (w == NULL || w->is_temp)
+    return;
+  if (w->strip_surface)
+    {
+      cairo_surface_destroy (w->strip_surface);
+      w->strip_surface = NULL;
+    }
+  old = w->strip;
+  w->strip = width;
+  if (width > 0)
+    {
+      cairo_surface_t *surface = _gdk_riscos_server_create_surface (width, MAX (w->height, 1));
+      cairo_t *cr;
+
+      if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
+        {
+          cairo_surface_destroy (surface);
+          w->strip = 0;
+          width = 0;
+        }
+      else
+        {
+          cr = cairo_create (surface);
+          cairo_set_source_rgb (cr, 0.8, 0.8, 0.8);
+          cairo_paint (cr);
+          cairo_set_source_surface (cr, image, 0, 0);
+          cairo_paint (cr);
+          cairo_destroy (cr);
+          cairo_surface_flush (surface);
+          if (has_grip (server, w))
+            paint_grip_at (server, w, surface, 0);
+          sync_sprite (surface);
+          w->strip_surface = surface;
+        }
+    }
+  if (!w->visible)
+    return;
+  if (old != width)
+    {
+      /* the visible area changes: open it again where it is in the stack */
+      int state[9];
+      state[0] = w->handle;
+      r.r[1] = (int) state;
+      open_window (server, w, swi (Wimp_GetWindowState, &r) == NULL ? state[7] : -1);
+    }
+  if (width > 0)
+    {
+      /* plot it now (Wimp_UpdateWindow over the strip) */
+      int block[11];
+      block[0] = w->handle;
+      block[1] = w->width << server->xeig;
+      block[2] = -(w->height << server->yeig);
+      block[3] = (w->width + width) << server->xeig;
+      block[4] = 0;
+      r.r[1] = (int) block;
+      if (swi (Wimp_UpdateWindow, &r) == NULL)
+        plot_rectangles (server, w, block, r.r[0]);
+    }
 }
 
 void

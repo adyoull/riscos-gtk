@@ -723,6 +723,30 @@ gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width)
                                              impl->id, x, width);
 }
 
+/**
+ * gdk_riscos_window_set_size_strip:
+ * @window: a toplevel
+ * @image: (nullable): an image of an empty vertical scroll bar, or %NULL
+ *
+ * For a window with no scroll bar in its bottom right corner: @image is
+ * shown down its right edge, outside the window (the Wimp window grows
+ * by its width, as the Wimp's own scroll bar is outside a window's work
+ * area), with the size grip at its foot, so the grip doesn't cover the
+ * window's contents. %NULL takes it away.
+ */
+void
+gdk_riscos_window_set_size_strip (GdkWindow *window, cairo_surface_t *image)
+{
+  GdkWindowImplRiscos *impl;
+
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return;
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  _gdk_riscos_server_window_set_strip (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                       impl->id, image);
+}
+
 static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)

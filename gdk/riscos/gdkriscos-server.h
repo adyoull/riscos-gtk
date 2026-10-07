@@ -103,6 +103,9 @@ void               _gdk_riscos_server_window_set_grip_column   (GdkRiscosServer 
                                                                  gint                id,
                                                                  int                 x,
                                                                  int                 width);
+void               _gdk_riscos_server_window_set_strip         (GdkRiscosServer    *server,
+                                                                 gint                id,
+                                                                 cairo_surface_t    *image);
 void               _gdk_riscos_server_window_set_as_menu       (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 gboolean            as_menu);

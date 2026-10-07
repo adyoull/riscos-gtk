@@ -3,7 +3,7 @@
  * its TLS through the fake AcornSSL (tests/fake/mesa-egl/fake_riscos.c) and
  * tests/claws/mailserver.py as the mail servers.
  *
- *   claws-fake APPDIR OUTDIR POP3PORT SMTPPORT
+ *   claws-fake APPDIR OUTDIR POP3PORT SMTPPORT IMAPPORT
  *
  * APPDIR has the fonts and GTK's data (as !GTKHello's); OUTDIR gets the home
  * directory (an account: POP3 over TLS from the start, SMTP with STARTTLS;
@@ -29,6 +29,12 @@
 #include <sys/stat.h>
 
 int claws_main (int argc, char **argv);
+
+/* Claws Mail's own calls (folder.h), for the IMAP stage */
+typedef struct _FolderItem FolderItem;
+FolderItem *folder_find_item_from_identifier (const char *identifier);
+int folder_item_scan (FolderItem *item);
+char *folder_item_fetch_msg (FolderItem *item, int num);
 
 static int n_tests, n_failed;
 static const char *outdir;
@@ -183,6 +189,35 @@ dump_shot (const char *name)
 
 static int sent_files, queue_files = -1;
 
+/* IMAP (libetpan, its TLS through the same AcornSSL code): the INBOX of
+   the second account, scanned and its message fetched, from the main
+   loop as a click on the folder would */
+static int imap_found = -1, imap_scanned = -1, imap_done;
+static char imap_text[4096];
+
+static gboolean
+imap_go (gpointer data)
+{
+  FolderItem *item = folder_find_item_from_identifier ("#imap/IMAPTest/INBOX");
+  char *path;
+
+  imap_found = item != NULL;
+  if (item)
+    {
+      imap_scanned = folder_item_scan (item);
+      if ((path = folder_item_fetch_msg (item, 1)))
+        {
+          char *t = NULL;
+          if (g_file_get_contents (path, &t, NULL, NULL))
+            g_strlcpy (imap_text, t, sizeof imap_text);
+          g_free (t);
+          g_free (path);
+        }
+    }
+  imap_done = 1;
+  return G_SOURCE_REMOVE;
+}
+
 static void
 dump_labels (GtkWidget *w)
 {
@@ -241,8 +276,16 @@ finish (void)
          "the server has the message sent (To and Subject from the mailto: URL)");
   check (sent_files == 1 && queue_files == 0,
          "the message moves from Queue to Sent once it's sent");
-  check (fake_acornssl_closes >= 2 && fake_acornssl_closed_open == fake_acornssl_closes,
-         "AcornSSL sessions are closed before their sockets");
+  check (imap_found == 1 && imap_scanned == 0,
+         "IMAP: the second account's INBOX is found and scanned (imaps through AcornSSL)");
+  check (strstr (server_log, "IMAP") && strstr (server_log, "LOGIN ****") &&
+         strstr (server_log, "SELECT") != NULL,
+         "IMAP: Claws Mail logs in and selects the INBOX");
+  check (strstr (imap_text, "Subject: Hello over IMAP") != NULL &&
+         strstr (imap_text, "An IMAP message for RISC OS.") != NULL,
+         "IMAP: the message is fetched whole and cached");
+  check (fake_acornssl_sessions >= 3 && fake_acornssl_closed_open == fake_acornssl_closes,
+         "IMAP has its own AcornSSL session; sessions are closed before their sockets");
   printf ("# AcornSSL: %d sessions, %d handshake steps, %d closes (%d with the socket open), host \"%s\"\n",
           fake_acornssl_sessions, fake_acornssl_handshake_steps, fake_acornssl_closes,
           fake_acornssl_closed_open, fake_acornssl_host);
@@ -346,9 +389,17 @@ hook (int reason)
         if (sent_files >= 1 && queue_files == 0)
           {
             dump_shot ("sent");
-            finish ();
+            stage = 4;
+            g_idle_add (imap_go, NULL);
           }
       }
+      break;
+    case 4:     /* IMAP */
+      if (imap_done)
+        {
+          dump_shot ("imap");
+          finish ();
+        }
       break;
     }
   if (polls > 60000)
@@ -368,7 +419,7 @@ main (int argc, char **argv)
   static const char *boxes[] = { "inbox", "sent", "queue", "trash", "draft" };
   int i;
 
-  if (argc < 5)
+  if (argc < 6)
     return 2;
   outdir = argv[2];
   {
@@ -388,6 +439,11 @@ main (int argc, char **argv)
       g_snprintf (mail, sizeof mail, "%s/Mail/%s", home, boxes[i]);
       g_mkdir_with_parents (mail, 0755);
     }
+  g_snprintf (pop, sizeof pop, "%s/imap", outdir);
+  g_mkdir_with_parents (pop, 0755);
+  write_file (pop, "1", "From: Carol <carol@example.com>\r\nTo: imap@example.com\r\n"
+              "Subject: Hello over IMAP\r\nDate: Wed, 07 Oct 2026 11:00:00 +0100\r\n"
+              "Message-ID: <imap1@example.com>\r\n\r\nAn IMAP message for RISC OS.\r\n");
   g_snprintf (pop, sizeof pop, "%s/pop", outdir);
   g_mkdir_with_parents (pop, 0755);
   write_file (pop, "1", "From: Alice <alice@example.com>\r\nTo: test@example.com\r\n"
@@ -400,7 +456,11 @@ main (int argc, char **argv)
       "protocol=0\nreceive_server=localhost\nsmtp_server=localhost\nuser_id=test\n"
       "set_popport=1\npop_port=%s\nset_smtpport=1\nsmtp_port=%s\nssl_pop=1\nssl_smtp=2\n"
       "use_tls_sni=1\nuse_smtp_auth=0\nremove_mail=1\ninbox=#mh/Mailbox/inbox\n"
-      "receive_at_get_all=1\nconfig_version=4\n", argv[3], argv[4]);
+      "receive_at_get_all=1\nconfig_version=4\n"
+      "[Account: 2]\naccount_name=IMAPTest\nis_default=0\nname=Test User\naddress=imap@example.com\n"
+      "protocol=1\nreceive_server=localhost\nsmtp_server=localhost\nuser_id=test\n"
+      "set_imapport=1\nimap_port=%s\nssl_imap=1\nimap_auth_method=1\nuse_tls_sni=1\n"
+      "receive_at_get_all=0\nconfig_version=4\n", argv[3], argv[4], argv[5]);
     write_file (cfg, "accountrc", acc);
     g_free (acc);
   }
@@ -414,6 +474,9 @@ main (int argc, char **argv)
     "<folderitem type=\"queue\" name=\"queue\" path=\"queue\" />\n"
     "<folderitem type=\"trash\" name=\"trash\" path=\"trash\" />\n"
     "<folderitem type=\"draft\" name=\"draft\" path=\"draft\" />\n"
+    "</folder>\n"
+    "<folder type=\"imap\" name=\"IMAPTest\" account_id=\"2\" collapsed=\"0\" sort=\"0\">\n"
+    "<folderitem type=\"inbox\" name=\"INBOX\" path=\"INBOX\" />\n"
     "</folder>\n</folderlist>\n");
 
   fake_set_screen (1280, 1024, 0, 5);

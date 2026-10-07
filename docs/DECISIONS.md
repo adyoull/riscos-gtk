@@ -264,3 +264,20 @@ store and prompts are used, and Claws Mail's own certificate manager
 isn't (AcornSSL doesn't hand certificates out). Settings and, by default,
 the mailbox live in <Choices$Write>.ClawsMail (HOME). Quit goes through
 Claws Mail's own quit (drafts kept), so the icon bar never asks.
+
+## IMAP through libetpan's GnuTLS code (2026-10-07)
+Claws Mail's IMAP is libetpan's; libetpan's TLS is OpenSSL or GnuTLS. It
+is built for GnuTLS against the same GnuTLS-subset shim as Claws Mail's
+own TLS, so one piece of code (`ssl_acornssl.c`) puts every connection
+through AcornSSL; no TLS library is ported. Certificates are AcornSSL's
+business (it checks, and asks the user): Claws Mail's checks of the
+certificate chain are skipped for IMAP as for POP3/SMTP.
+
+## The size grip's scroll bar (2026-10-07)
+A RISC OS Adjust Size icon sits at the foot of the vertical scroll bar,
+outside the work area. A GTK window without a scroll bar in that corner
+now gets an empty one (the slider filling it) outside GTK's window, with
+the grip at its foot, rather than the grip drawn over its contents. It
+is outside GTK's window so that GTK's layout and position are untouched
+(an earlier try, a margin inside the window, grew windows after they
+were shown and moved some).

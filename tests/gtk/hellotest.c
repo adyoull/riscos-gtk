@@ -185,8 +185,11 @@ main (int argc, char **argv)
   check (red_x >= 0 && blue_x >= 0 && red_x < blue_x,
          "\"Red\" is red and \"Blue\" is blue on a TBGR screen");
   printf ("# leftmost red pixel x=%d, blue x=%d\n", red_x, blue_x);
-  check (big_width >= 890 && big_height >= 490,
-         "toggle size: GTK lays the window out at the Wimp's new size");
+  /* the window has no scroll bar in its corner, so an empty one (the
+     strip, with the size grip at its foot) is outside GTK's window: the
+     Wimp's 900 wide less the strip */
+  check (big_width >= 850 && big_width < 900 && big_height >= 490,
+         "toggle size: GTK lays the window out at the Wimp's new size (less the scroll bar strip)");
   printf ("# after the open request: %dx%d\n", big_width, big_height);
   check (big_corner == 0xDDDDDD, "toggle size: the new area is painted (window grey)");
   printf ("# pixel near the new bottom-right corner: %06X\n", big_corner);

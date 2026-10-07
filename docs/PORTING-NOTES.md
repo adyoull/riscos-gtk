@@ -282,3 +282,11 @@ paper comes from the printer driver.
 - UnixLib 5.0.3.3 has fgets_unlocked but not fputs_unlocked; it has no
   AI_ADDRCONFIG. Hard links (link()) aren't a RISC OS idea: expect them
   to fail (Claws Mail copies instead).
+- **Threads and sockets**: UnixLib's select() yields to other threads
+  while it waits, so a worker thread doing network I/O (Claws Mail's
+  IMAP) keeps the desktop going. A blocking recv() on a socket is a plain
+  SWI and doesn't: keep sockets non-blocking and wait in select().
+- **libtool and the toolchain's .la files**: crossdev 1.3's .la files
+  (libm, libstdc++, libunixlib...) name the machine they were built on;
+  libtool reads them when it links with the C++ driver. Link C libraries
+  as C.

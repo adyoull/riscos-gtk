@@ -46,6 +46,8 @@ get l3afpad_0.8.18.1.11.orig.tar.gz https://archive.ubuntu.com/ubuntu/pool/unive
 # its stored-password DES
 get claws-mail_4.4.0.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/c/claws-mail/claws-mail_4.4.0.orig.tar.xz
 get nettle_3.10.2.orig.tar.gz       $U/n/nettle/nettle_3.10.2.orig.tar.gz
+# libetpan, for Claws Mail's IMAP
+get libetpan_1.9.4.orig.tar.xz      https://archive.ubuntu.com/ubuntu/pool/universe/libe/libetpan/libetpan_1.9.4.orig.tar.xz
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
 # Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"

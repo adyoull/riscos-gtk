@@ -12,8 +12,8 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/crypto.h b/src/common/gnutls-acorn
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acornssl/gnutls/gnutls.h
 --- a/src/common/gnutls-acornssl/gnutls/gnutls.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-07 15:11:43.450097350 +0100
-@@ -0,0 +1,192 @@
++++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-07 17:33:25.377131310 +0100
+@@ -0,0 +1,225 @@
 +/*
 + * gnutls.h - riscos-gtk: the part of GnuTLS's API Claws Mail uses, for
 + * Claws Mail on RISC OS, where TLS is RISC OS's AcornSSL module instead
@@ -36,6 +36,8 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +#endif
 +
 +#define GNUTLS_VERSION "AcornSSL"
++/* (libetpan picks the API by version: today's) */
++#define GNUTLS_VERSION_NUMBER 0x030800
 +
 +typedef struct claws_tls_session *gnutls_session_t;
 +typedef struct claws_tls_opaque *gnutls_x509_crt_t;
@@ -69,6 +71,28 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +typedef enum { GNUTLS_BAG_EMPTY = 0, GNUTLS_BAG_PKCS8_ENCRYPTED_KEY = 1, GNUTLS_BAG_PKCS8_KEY = 2,
 +	       GNUTLS_BAG_CERTIFICATE = 3, GNUTLS_BAG_ENCRYPTED = 10 } gnutls_pkcs12_bag_type_t;
 +typedef enum { GNUTLS_PKCS_PLAIN = 1 } gnutls_pkcs_encrypt_flags_t;
++typedef enum { GNUTLS_PRIVKEY_X509 = 0 } gnutls_privkey_type_t;
++
++/* GnuTLS 2's names, which libetpan still uses */
++typedef gnutls_session_t gnutls_session;
++typedef gnutls_datum_t gnutls_datum;
++typedef gnutls_pk_algorithm_t gnutls_pk_algorithm;
++typedef gnutls_certificate_type_t gnutls_certificate_type;
++typedef gnutls_transport_ptr_t gnutls_transport_ptr;
++typedef gnutls_x509_crt_t gnutls_x509_crt;
++typedef gnutls_x509_privkey_t gnutls_x509_privkey;
++
++/* a client certificate (libetpan's callback; never asked for here) */
++typedef struct {
++	gnutls_certificate_type_t cert_type;
++	gnutls_privkey_type_t key_type;
++	union { gnutls_x509_crt_t *x509; } cert;
++	unsigned int ncerts;
++	union { gnutls_x509_privkey_t x509; } key;
++	unsigned int deinit_all;
++} gnutls_retr2_st;
++typedef int gnutls_certificate_retrieve_function (gnutls_session_t, const gnutls_datum_t *, int,
++						  const gnutls_pk_algorithm_t *, int, gnutls_retr2_st *);
 +
 +#define GNUTLS_CLIENT 2
 +
@@ -124,6 +148,13 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +long gnutls_record_recv (gnutls_session_t session, void *data, size_t size);
 +size_t gnutls_record_check_pending (gnutls_session_t session);
 +void gnutls_record_disable_padding (gnutls_session_t session);
++int gnutls_set_default_priority (gnutls_session_t session);
++void gnutls_dh_set_prime_bits (gnutls_session_t session, unsigned int bits);
++void gnutls_handshake_set_timeout (gnutls_session_t session, unsigned int ms);
++void gnutls_perror (int error);
++int gnutls_bye (gnutls_session_t session, int how);
++#define GNUTLS_SHUT_RDWR 0
++#define GNUTLS_SHUT_WR 1
 +gnutls_certificate_type_t gnutls_certificate_type_get (gnutls_session_t session);
 +const gnutls_datum_t *gnutls_certificate_get_peers (gnutls_session_t session, unsigned int *list_size);
 +
@@ -133,6 +164,8 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +int gnutls_certificate_set_x509_trust_file (gnutls_certificate_credentials_t res,
 +					    const char *cafile, gnutls_x509_crt_fmt_t type);
 +void gnutls_certificate_set_verify_flags (gnutls_certificate_credentials_t res, unsigned int flags);
++void gnutls_certificate_set_retrieve_function (gnutls_certificate_credentials_t cred,
++					       gnutls_certificate_retrieve_function *func);
 +void gnutls_certificate_set_retrieve_function2 (gnutls_certificate_credentials_t cred,
 +						gnutls_certificate_retrieve_function2 *func);
 +
@@ -381,8 +414,8 @@ diff -ruN a/src/common/ssl.c b/src/common/ssl.c
  #include <stdlib.h>
 diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 --- a/src/common/ssl_acornssl.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/ssl_acornssl.c	2026-10-07 15:13:22.090125434 +0100
-@@ -0,0 +1,485 @@
++++ b/src/common/ssl_acornssl.c	2026-10-07 17:33:48.584505558 +0100
+@@ -0,0 +1,498 @@
 +/*
 + * ssl_acornssl.c - riscos-gtk: Claws Mail's TLS through RISC OS's AcornSSL
 + * module (included by ssl.c when CLAWS_ACORNSSL is defined).
@@ -504,6 +537,8 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +	return e;
 +}
 +
++static GThread *main_thread;		/* ssl_init's: Claws Mail's main thread */
++
 +static gboolean fd_blocking (int fd)
 +{
 +	int fl = fcntl (fd, F_GETFL, 0);
@@ -574,11 +609,16 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +int gnutls_priority_set_direct (gnutls_session_t s, const char *p, const char **err_pos) { return 0; }
 +int gnutls_credentials_set (gnutls_session_t s, gnutls_credentials_type_t t, void *c) { return 0; }
 +void gnutls_record_disable_padding (gnutls_session_t s) { }
++int gnutls_set_default_priority (gnutls_session_t s) { return 0; }
++void gnutls_dh_set_prime_bits (gnutls_session_t s, unsigned int bits) { }
++void gnutls_handshake_set_timeout (gnutls_session_t s, unsigned int ms) { }
++void gnutls_perror (int error) { g_warning ("TLS: %s", gnutls_strerror (error)); }
++int gnutls_bye (gnutls_session_t s, int how) { return 0; }
 +
 +int gnutls_server_name_set (gnutls_session_t s, gnutls_server_name_type_t t, const void *name, size_t len)
 +{
 +	g_free (s->hostname);
-+	s->hostname = g_strndup (name, len);
++	s->hostname = len > 0 ? g_strndup (name, len) : NULL;
 +	return 0;
 +}
 +
@@ -658,8 +698,11 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +			g_strlcpy (s->error, last_error, sizeof s->error);
 +			return GNUTLS_E_PULL_ERROR;
 +		}
-+		/* the desktop goes on (AcornSSL's certificate question needs it) */
-+		claws_do_idle ();
++		/* the desktop goes on (AcornSSL's certificate question needs
++		   it): from the main thread, Claws Mail's idle; IMAP's thread
++		   (libetpan) just waits, while the main thread polls */
++		if (g_thread_self () == main_thread)
++			claws_do_idle ();
 +		g_usleep (1000);
 +	}
 +}
@@ -737,6 +780,8 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +int gnutls_certificate_set_x509_trust_file (gnutls_certificate_credentials_t res, const char *f,
 +					    gnutls_x509_crt_fmt_t t) { return 0; }
 +void gnutls_certificate_set_verify_flags (gnutls_certificate_credentials_t res, unsigned int f) { }
++void gnutls_certificate_set_retrieve_function (gnutls_certificate_credentials_t c,
++					       gnutls_certificate_retrieve_function *f) { }
 +void gnutls_certificate_set_retrieve_function2 (gnutls_certificate_credentials_t c,
 +						gnutls_certificate_retrieve_function2 *f) { }
 +
@@ -815,6 +860,7 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +
 +void ssl_init (void)
 +{
++	main_thread = g_thread_self ();
 +	gnutls_global_init ();
 +}
 +
@@ -868,6 +914,21 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +}
 +
 +#endif /* USE_GNUTLS */
+diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
+--- a/src/etpan/etpan-ssl.c	2025-09-29 06:32:17.000000000 +0100
++++ b/src/etpan/etpan-ssl.c	2026-10-07 17:33:48.585064262 +0100
+@@ -43,6 +43,11 @@
+ gboolean etpan_certificate_check(mailstream *stream, const char *host, gint port,
+ 				 gboolean accept_if_valid)
+ {
++#ifdef CLAWS_ACORNSSL
++	/* RISC OS: AcornSSL has checked the server's certificate (asking the
++	   user about one it couldn't verify) and doesn't hand it out */
++	return stream != NULL;
++#endif
+ #if (!defined LIBETPAN_API_CURRENT || LIBETPAN_API_CURRENT < 18)
+ 	unsigned char *cert_der = NULL;
+ 	int len;
 diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
 --- a/src/gtk/gtkunit.h	2018-09-10 14:00:33.000000000 +0100
 +++ b/src/gtk/gtkunit.h	2026-10-07 15:10:49.001152555 +0100
