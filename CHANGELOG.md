@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased (print layout and resolution, size icon: !L3afpad 0.9, GTKThemeTest 0.33, 2026-10-07)
+- **Printed pages were laid out in pixels, not points** (owner's photo:
+  L3afpad's header printed over the first line). GTK's default unit is the
+  surface's own, which programs take to be points (GTK's PDF and
+  PostScript surfaces on Unix are 72 dpi); our page bitmap was in printer
+  pixels, so offsets such as L3afpad's "10 mm above the margin" came out
+  a quarter as far at 300 dpi. GTK now gets 72 dpi contexts: each printed
+  page is drawn into a cairo recording surface in points, and the preview's
+  bitmap has a device scale of 90/72.
+- **Higher resolution:** pages print at the printer's own resolution up
+  to 600 dpi (was 300; Draft still 150). The recording is drawn at that
+  resolution a strip at a time (at most 4 MB of sprite) for each rectangle
+  PDriver_GetRectangle asks for, so memory doesn't grow with resolution
+  and banding printer drivers get only their band. Strips are plotted at
+  180/dpi OS units a pixel (OS_SpriteOp 52 scale 90/dpi) from rows a whole
+  number of OS units down, so they meet exactly.
+- **Size icon in the scroll bar's column** (owner's photo: a few pixels
+  right of the scroll bar and narrower). GTK's vertical scroll bar stops
+  short of the window's right edge (the text's frame), and the sicon
+  sprite is not quite the bar's width; the grip is now drawn under the bar,
+  as wide as it (new `gdk_riscos_window_set_size_grip_column`, set from the
+  theme's scroll bar fitting), and the click area follows it.
+- Tests: the fake printer asks for the page in 3 bands and puts the page
+  together from the strips (FAKE_PRINT_DUMP=file.ppm writes it);
+  l3afpad-fake 37 checks: strips per band, header apart from the text in
+  the top margin (2 lines of ink, first at row 186 of 3508), the grip under
+  the scroll bar.
+
 ## Unreleased (print residue: !L3afpad 0.8, GTKThemeTest 0.32, 2026-10-07)
 - **Printing left the Print box's area unredrawn** over the window and the
   pinboard (owner's photo). The print job stayed selected while GTK went

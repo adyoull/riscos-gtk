@@ -99,6 +99,10 @@ gboolean           _gdk_riscos_server_window_get_grip          (GdkRiscosServer 
                                                                  gint                id,
                                                                  int                *width,
                                                                  int                *height);
+void               _gdk_riscos_server_window_set_grip_column   (GdkRiscosServer    *server,
+                                                                 gint                id,
+                                                                 int                 x,
+                                                                 int                 width);
 void               _gdk_riscos_server_window_set_as_menu       (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 gboolean            as_menu);

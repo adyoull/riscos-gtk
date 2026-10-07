@@ -33,7 +33,7 @@ static int n_titles, n_file_items, save_as_index = -1, save_ds_seen, save_ds_typ
 static char save_ds_leaf[64], save_target[512], save_target_ro[512], drop_file[512], drop_file_ro[512];
 static int save_box_seen, drop_ack, quit_asked;
 static int font_index = -1, options_index = -1, font_dialog_seen, font_families;
-static unsigned int grip_pixel, grip_drag_type = -1, grip_presses_before, grip_presses_after;
+static unsigned int grip_under_bar, grip_pixel, grip_drag_type = -1, grip_presses_before, grip_presses_after;
 static int font_dialog_grip = -1;
 /* the icon bar */
 static int icon_clicked, window_at_start = -1, window_after_select;
@@ -46,13 +46,14 @@ static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, 
 static char text_after_dataopen[128], text_after_iconload[128];
 static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
 static int main_centred = -1, choices_centred = -1, main_cx, main_cy, choices_cx, choices_cy;
+#define PRINT_BANDS_SEEN 3
 static int printsave_seen, typeknown_seen, print_box_seen, print_box_title_ok, print_box_gadgets, print_button_at[4];
 static int print_index = -1, preview_index = -1, preview_seen, preview_back_off, preview_print_shown;
 static char preview_label[64];
 static int reports_before, ib_menu_x, ib_menu_y, ib_click_x;
 static char prequit_text[256];
 static char letter[512], letter_ro[512], note3[512], note3_ro[512];
-static int presses, bar_bottom = -1, win_h, grip_h_px;
+static int presses, bar_bottom = -1, win_h, grip_h_px, bar_left = -1, bar_right = -1, win_w, grip_w_px;
 
 static void
 check (int ok, const char *name)
@@ -716,7 +717,23 @@ next_step (void)
         win_h = gtk_widget_get_allocated_height (main_win);
         gdk_riscos_window_get_size_grip (gtk_widget_get_window (main_win), &gw, &grip_h_px);
         if (bar && gtk_widget_translate_coordinates (bar, main_win, 0, 0, &bx, &by))
-          bar_bottom = by + gtk_widget_get_allocated_height (bar);
+          {
+            bar_bottom = by + gtk_widget_get_allocated_height (bar);
+            bar_left = bx;
+            bar_right = bx + gtk_widget_get_allocated_width (bar);
+          }
+        win_w = gtk_widget_get_allocated_width (main_win);
+        grip_w_px = gw;
+        {
+          int i;
+          for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+            if (fake_windows[i].handle == main_handle && bar_left >= 0)
+              {
+                int px = (fake_windows[i].x0 >> fake_screen.xeig) + bar_left + 1;
+                int py = fake_screen.h - 1 - (fake_windows[i].y0 >> fake_screen.yeig) - 2;
+                grip_under_bar = fake_screen.mem[py * fake_screen.w + px] & 0xFFFFFF;
+              }
+        }
       }
       grip_drag_type = fake_dragbox_type;
       grip_presses_after = presses;
@@ -1219,6 +1236,10 @@ main (int argc, char **argv)
   check (grip_h_px > 0 && bar_bottom > 0 && bar_bottom <= win_h - grip_h_px,
          "the text's scroll bar stops above the size icon, as a Wimp scroll bar does");
   printf ("# scroll bar ends at %d, window %d high, grip %d\n", bar_bottom, win_h, grip_h_px);
+  printf ("# scroll bar x %d..%d, window %d wide, grip %d wide\n", bar_left, bar_right, win_w, grip_w_px);
+  check (grip_under_bar == 0x2010BD,
+         "the size icon sits under the scroll bar, in its column, as the Wimp's does");
+  printf ("# under the bar's left edge: &%06X\n", grip_under_bar);
   {
     int i;
     printf ("# icon bar menu:");
@@ -1270,13 +1291,18 @@ main (int argc, char **argv)
          "the job is suspended between pages: no Wimp_Poll (no redraw) while it's selected");
   printf ("# Wimp_Polls with the job selected: %d\n", fake_print_polls_selected);
   check (fake_print_rect[2] == 1488 && fake_print_rect[3] == 2105 && fake_print_sprite_w == 2480 &&
-         fake_print_sprite_h == 3508 && fake_print_scale[0] == 1488 && fake_print_scale[2] == 4960,
+         fake_print_sprite_h == 3508 && fake_print_scale[0] == 90 && fake_print_scale[2] == 300,
          "each page is the whole A4 paper (1488 x 2105 OS units) at the printer's 300 dpi");
-  check (fake_print_ink > 1000 && fake_print_ink_top > 100 && fake_print_ink_top < 400 &&
-         fake_print_ink_left > 180 && fake_print_ink_left < 300,
-         "the text is on the page, inside L3afpad's margins (20 mm left, its header in the top margin)");
-  printf ("# ink: %d pixels, first row %d, first column %d\n", fake_print_ink, fake_print_ink_top,
-          fake_print_ink_left);
+  check (fake_print_plots > PRINT_BANDS_SEEN,
+         "the page is printed in strips for each of the driver's rectangles (3 bands)");
+  printf ("# %d strips plotted\n", fake_print_plots);
+  /* L3afpad: header 10 mm above the 25 mm top margin (row 177 at 300 dpi),
+     the text from the margin (row 295) */
+  check (fake_print_ink > 1000 && fake_print_ink_top > 160 && fake_print_ink_top < 230 &&
+         fake_print_ink_left > 180 && fake_print_ink_left < 300 && fake_print_ink_runs >= 2,
+         "the text is on the page, inside L3afpad's margins (20 mm left), its header apart in the top margin");
+  printf ("# ink: %d pixels, first row %d, first column %d, %d lines\n", fake_print_ink,
+          fake_print_ink_top, fake_print_ink_left, fake_print_ink_runs);
   check (preview_seen && g_str_has_prefix (preview_label, "Page 1 of ") && preview_back_off &&
          preview_print_shown,
          "File > Print Preview shows the pages in a window (Page 1 of n, Back, Next, Print)");

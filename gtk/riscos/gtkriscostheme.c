@@ -494,6 +494,24 @@ fit_scrollbar (GtkWidget *bar, gpointer data)
   /* only a bar that runs into the corner, not one that ends well above */
   if (want <= 0 || want > (vertical ? gh : gw))
     want = 0;
+  /* the grip goes in the vertical bar's column, as wide as it */
+  if (vertical && gw > 0 && x + a.width > ww - gw && x < ww)
+    {
+      int *col = g_object_get_data (G_OBJECT (top), "riscos-gtk-grip-column");
+      if (col == NULL)
+        {
+          col = g_new0 (int, 2);
+          g_object_set_data_full (G_OBJECT (top), "riscos-gtk-grip-column", col, g_free);
+        }
+      if (col[0] != x || col[1] != a.width)
+        {
+          GdkRectangle corner = { MIN (x, ww - gw), wh - gh, ww - MIN (x, ww - gw), gh };
+          col[0] = x;
+          col[1] = a.width;
+          gdk_riscos_window_set_size_grip_column (gtk_widget_get_window (top), x, a.width);
+          gdk_window_invalidate_rect (gtk_widget_get_window (top), &corner, FALSE);
+        }
+    }
   if (want == ours)
     return;
   margin = MAX (0, margin - ours + want);

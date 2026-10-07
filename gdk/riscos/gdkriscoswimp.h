@@ -69,6 +69,10 @@ GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient);
 GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height);
+/* Put the grip in the column of the window's vertical scroll bar (x, width
+   in the window, pixels); width 0: at the window's right edge */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width);
 
 /* A Wimp error box (Wimp_ReportError, OK button) saying message,
  * "Message from" the program. */
@@ -187,13 +191,12 @@ gboolean         gdk_riscos_printer_info       (GdkRiscosPrinter *printer);
 /* Ask !Printers, open the printer, start a job */
 GDK_AVAILABLE_IN_ALL
 gboolean         gdk_riscos_print_begin        (const char *title, GError **error);
-/* A white page to draw on (width x height pixels), the same each page */
+/* Print a page GTK has drawn (@page: a recording surface, in points,
+   0,0 the paper's top left) at @dpi, in strips, covering the paper */
 GDK_AVAILABLE_IN_ALL
-cairo_surface_t *gdk_riscos_print_page_surface (int width, int height);
-/* Print it, covering the paper (points) */
-GDK_AVAILABLE_IN_ALL
-gboolean         gdk_riscos_print_page         (double paper_width, double paper_height,
-                                                int copies, GError **error);
+gboolean         gdk_riscos_print_page         (cairo_surface_t *page, double paper_width,
+                                                double paper_height, int dpi, int copies,
+                                                GError **error);
 /* End the job (abort: abandon it) */
 GDK_AVAILABLE_IN_ALL
 void             gdk_riscos_print_end          (gboolean abort);

@@ -10,10 +10,14 @@
  *     Sideways, Draft; Save, Cancel, Print. Its title is the printer's
  *     name ("Unknown printer" without one). Save keeps the settings for
  *     the next time without printing;
- *   - printing: each page drawn by GTK into a white bitmap at the
- *     printer's resolution (at most 300 dpi; Draft 150), on the printer's
- *     paper (PDriver_PageSize), and given to the printer driver as a
- *     sprite (gdk/riscos/gdkprint-riscos.c: !Printers' protocol, PDriver);
+ *   - printing: each page drawn by GTK into a cairo recording surface in
+ *     points, on the printer's paper (PDriver_PageSize), and printed by
+ *     gdk/riscos/gdkprint-riscos.c (!Printers' protocol, PDriver) at the
+ *     printer's resolution (at most 600 dpi; Draft 150) a strip at a time;
+ *   - units: GTK's default unit (GTK_UNIT_NONE) is the surface's own, which
+ *     programs take to be points (as GTK's PDF and PostScript surfaces on
+ *     Unix are); so the contexts are 72 dpi to GTK, and the preview's
+ *     bitmap gets a device scale;
  *     copies by the printer driver; landscape pages turned by GTK;
  *   - Print Preview: the pages drawn at 90 dpi (actual size on the RISC OS
  *     desktop) and shown in a window of our own: Page n of m, Back, Next,
@@ -48,7 +52,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_DPI    300
+#define MAX_DPI    600
 #define DRAFT_DPI  150
 #define PREVIEW_DPI 90
 
@@ -267,8 +271,9 @@ dbox_run (GtkWindow *parent, const char *printer_name, GtkPrintSettings *setting
 /* ---- printing ------------------------------------------------------ */
 
 typedef struct {
-  cairo_surface_t *surface;
+  cairo_surface_t *surface;    /* this page: a recording surface, points */
   double paper_w, paper_h;     /* points */
+  int dpi;
   int copies;
   gboolean failed;
 } RiscosJob;
@@ -281,15 +286,31 @@ job_free (RiscosJob *job)
   g_free (job);
 }
 
+/* a fresh page for GTK to draw (it takes the context after start_page) */
+static gboolean
+new_page (GtkPrintContext *ctx, RiscosJob *job)
+{
+  cairo_rectangle_t paper = { 0, 0, job->paper_w, job->paper_h };
+  cairo_t *cr;
+
+  if (job->surface)
+    cairo_surface_destroy (job->surface);
+  job->surface = cairo_recording_surface_create (CAIRO_CONTENT_COLOR_ALPHA, &paper);
+  if (cairo_surface_status (job->surface) != CAIRO_STATUS_SUCCESS)
+    return FALSE;
+  cr = cairo_create (job->surface);
+  gtk_print_context_set_cairo_context (ctx, cr, 72, 72);
+  cairo_destroy (cr);
+  return TRUE;
+}
+
 static void
 riscos_start_page (GtkPrintOperation *op, GtkPrintContext *ctx, GtkPageSetup *page_setup)
 {
   RiscosJob *job = op->priv->platform_data;
-  cairo_t *cr = cairo_create (job->surface);
 
-  cairo_set_source_rgb (cr, 1, 1, 1);
-  cairo_paint (cr);
-  cairo_destroy (cr);
+  if (!job->failed)
+    new_page (ctx, job);
 }
 
 static void
@@ -301,7 +322,7 @@ riscos_end_page (GtkPrintOperation *op, GtkPrintContext *ctx)
   if (job->failed)
     return;
   cairo_surface_flush (job->surface);
-  if (!gdk_riscos_print_page (job->paper_w, job->paper_h, job->copies, &error))
+  if (!gdk_riscos_print_page (job->surface, job->paper_w, job->paper_h, job->dpi, job->copies, &error))
     {
       job->failed = TRUE;
       if (op->priv->error == NULL)
@@ -317,8 +338,6 @@ riscos_end_run (GtkPrintOperation *op, gboolean wait, gboolean cancelled)
 {
   RiscosJob *job = op->priv->platform_data;
 
-  /* nothing more is drawn on it: its pixels go with the job */
-  cairo_surface_finish (job->surface);
   gdk_riscos_print_end (cancelled || job->failed);
 }
 
@@ -335,7 +354,6 @@ _gtk_print_operation_riscos_run_dialog (GtkPrintOperation *op,
   GtkPageSetup *page_setup, *base;
   GtkPaperSize *paper;
   RiscosJob *job;
-  cairo_t *cr;
   int dpi, w, h;
 
   *do_print = FALSE;
@@ -401,11 +419,13 @@ _gtk_print_operation_riscos_run_dialog (GtkPrintOperation *op,
       job->paper_h = t;
     }
   job->copies = MAX (1, gtk_print_settings_get_n_copies (settings));
+  job->dpi = dpi;
   w = (int) (job->paper_w * dpi / 72.0 + 0.5);
   h = (int) (job->paper_h * dpi / 72.0 + 0.5);
-  job->surface = gdk_riscos_print_page_surface (w, h);
-  if (job->surface == NULL)
+  if (!new_page (priv->print_context, job))
     {
+      if (job->surface)
+        cairo_surface_destroy (job->surface);
       g_set_error_literal (&priv->error, GTK_PRINT_ERROR, GTK_PRINT_ERROR_NOMEM,
                            _("There isn't enough memory to print a page."));
       gdk_riscos_print_end (TRUE);
@@ -413,10 +433,6 @@ _gtk_print_operation_riscos_run_dialog (GtkPrintOperation *op,
       g_object_unref (page_setup);
       return GTK_PRINT_OPERATION_RESULT_ERROR;
     }
-  cr = cairo_create (job->surface);
-  gtk_print_context_set_cairo_context (priv->print_context, cr, dpi, dpi);
-  cairo_destroy (cr);
-
   priv->platform_data = job;
   priv->free_platform_data = (GDestroyNotify) job_free;
   priv->print_pages = gtk_print_settings_get_print_pages (settings);
@@ -474,7 +490,7 @@ _gtk_print_operation_riscos_create_preview_surface (GtkPrintOperation *op,
   int w = (int) (gtk_page_setup_get_paper_width (page_setup, GTK_UNIT_INCH) * PREVIEW_DPI + 0.5);
   int h = (int) (gtk_page_setup_get_paper_height (page_setup, GTK_UNIT_INCH) * PREVIEW_DPI + 0.5);
 
-  *dpi_x = *dpi_y = PREVIEW_DPI;
+  *dpi_x = *dpi_y = 72;         /* points to GTK; the bitmap is scaled (see top) */
   *target = g_strdup ("riscos-preview");
   if (trace_on ())
     g_printerr ("riscos-gtk: print preview: pages %d x %d pixels\n", w, h);
@@ -486,7 +502,10 @@ _gtk_print_operation_riscos_create_preview_surface (GtkPrintOperation *op,
     int stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, MAX (1, w));
     guchar *pixels = g_malloc0 ((gsize) stride * MAX (1, h));
     g_object_set_data_full (G_OBJECT (op), PIXELS_KEY, pixels, g_free);
-    return cairo_image_surface_create_for_data (pixels, CAIRO_FORMAT_RGB24, MAX (1, w), MAX (1, h), stride);
+    cairo_surface_t *s = cairo_image_surface_create_for_data (pixels, CAIRO_FORMAT_RGB24,
+                                                              MAX (1, w), MAX (1, h), stride);
+    cairo_surface_set_device_scale (s, PREVIEW_DPI / 72.0, PREVIEW_DPI / 72.0);
+    return s;
   }
 }
 

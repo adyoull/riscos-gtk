@@ -110,6 +110,7 @@ typedef struct {
   unsigned furniture_wanted;  /* ... and what GDK asks for (applied when hidden) */
   gboolean as_menu;           /* opened as a transient dialogue (Wimp_CreateMenu) */
   gboolean menu_open;
+  int grip_x, grip_w;         /* the grip's column (GTK's vertical scroll bar), if set: w > 0 */
 } RiscosWindow;
 
 struct _GdkRiscosServer {
@@ -658,25 +659,57 @@ _gdk_riscos_server_window_get_grip (GdkRiscosServer *server, gint id, int *width
   return TRUE;
 }
 
+/* the grip's column: under GTK's vertical scroll bar when GTK has said
+   where that is, else the window's right edge */
+static int
+grip_width (GdkRiscosServer *server, RiscosWindow *w)
+{
+  return w->grip_w > 0 ? w->grip_w : server->grip_w;
+}
+
+static int
+grip_left (GdkRiscosServer *server, RiscosWindow *w)
+{
+  return w->grip_w > 0 ? w->grip_x : w->width - server->grip_w;
+}
+
+void
+_gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int x, int width)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL)
+    return;
+  w->grip_x = x;
+  w->grip_w = width > 0 && width <= 2 * server->grip_w ? width : 0;
+}
+
 static void
 paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface)
 {
   int sw = cairo_image_surface_get_width (surface), sh = cairo_image_surface_get_height (surface);
-  int x = MIN (w->width, sw) - server->grip_w, y = MIN (w->height, sh) - server->grip_h;
+  int gw = grip_width (server, w), gh = server->grip_h;
+  int x = grip_left (server, w), y = MIN (w->height, sh) - gh;
   cairo_t *cr;
 
-  if (x < 0 || y < 0)
+  if (x < 0 || y < 0 || x + gw > sw)
     return;
   cr = cairo_create (surface);
   if (server->grip)
     {
-      gdk_cairo_set_source_pixbuf (cr, server->grip, x, y);
+      /* in the scroll bar's column: as wide as the bar, as the Wimp's is */
+      cairo_rectangle (cr, x, y, gw, gh);
+      cairo_clip (cr);
+      cairo_translate (cr, x, y);
+      cairo_scale (cr, (double) gw / server->grip_w, 1.0);
+      gdk_cairo_set_source_pixbuf (cr, server->grip, 0, 0);
+      cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_NEAREST);
       cairo_paint (cr);
     }
   else
     {
       /* no sicon sprite: a plain ridged corner in the window greys */
-      int i, gw = server->grip_w, gh = server->grip_h;
+      int i;
       cairo_rectangle (cr, x, y, gw, gh);
       cairo_set_source_rgb (cr, 0.8, 0.8, 0.8);
       cairo_fill (cr);
@@ -738,7 +771,7 @@ handle_click (GdkRiscosServer *server, int *block)
   if (w->id != server->focus_window && !w->is_temp)
     take_caret (w);
   if ((pressed & (BUT_SELECT | BUT_ADJUST)) && server->buttons == 0 && has_grip (server, w) &&
-      x >= w->x + w->width - server->grip_w && y >= w->y + w->height - server->grip_h)
+      x >= w->x + grip_left (server, w) && y >= w->y + w->height - server->grip_h)
     {
       start_size_drag (server, w, (pressed & BUT_SELECT) != 0);
       return;

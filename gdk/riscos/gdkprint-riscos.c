@@ -22,12 +22,15 @@
  *     selected only while a page is printed and suspended (SelectJob 0)
  *     between pages, so that no Wimp_Poll (and no redraw, ours or another
  *     program's) happens with it selected;
- *   - each page: GTK draws it into a 32bpp sprite (90 dpi in its mode word,
- *     plotted scaled to the paper: OS_SpriteOp 52); PDriver_GiveRectangle
- *     with the whole paper (OS units, 1 = 400 millipoints, at the paper's
- *     bottom left), PDriver_DrawPage with the number of copies, plotting
- *     the sprite for each rectangle it asks for, until PDriver_GetRectangle
- *     says the page is done;
+ *   - each page: GTK draws it into a cairo recording surface (in points);
+ *     PDriver_GiveRectangle with the whole paper (OS units, 1 = 400
+ *     millipoints, at the paper's bottom left), PDriver_DrawPage with the
+ *     number of copies, then for each rectangle the driver asks for, the
+ *     page is drawn at the printer's resolution in strips of at most
+ *     STRIP_BYTES, each a 32bpp sprite plotted scaled (OS_SpriteOp 52) at
+ *     180/dpi OS units a pixel, until PDriver_GetRectangle says the page is
+ *     done. Strips start on rows a whole number of OS units down, so they
+ *     meet exactly;
  *   - PDriver_EndJob (PDriver_AbortJob on an error), the file closed, the
  *     previous job selected again; the hourglass on while printing.
  *
@@ -101,8 +104,8 @@ static struct {
   int old_job;
   char title[64];
   int page;
-  int *area;                    /* the page sprite's area */
-  int w, h;                     /* its size, pixels */
+  int *area;                    /* the strip sprite's area */
+  int w, rows;                  /* its size, pixels */
 } pr;
 
 static gboolean
@@ -376,76 +379,130 @@ gdk_riscos_print_begin (const char *title, GError **error)
   return TRUE;
 }
 
-/**
- * gdk_riscos_print_page_surface:
- *
- * A white page width x height pixels for GTK to draw, kept for the job.
- * The pixels are the page sprite's own (cairo's RGB24, turned into the
- * sprite's order when the page is printed).
- */
-cairo_surface_t *
-gdk_riscos_print_page_surface (int width, int height)
-{
-  int bytes = 16 + 44 + width * height * 4;
-  int *spr;
-  cairo_surface_t *s;
+#define STRIP_BYTES (4 * 1024 * 1024)
 
-  if (pr.area == NULL || pr.w != width || pr.h != height)
+static int
+gcd (int a, int b)
+{
+  while (b)
     {
-      g_free (pr.area);
-      pr.area = g_try_malloc (bytes);
-      if (pr.area == NULL)
-        return NULL;
-      pr.w = width;
-      pr.h = height;
-      pr.area[0] = bytes;
-      pr.area[1] = 1;
-      pr.area[2] = 16;
-      pr.area[3] = bytes;
-      spr = pr.area + 4;
-      spr[0] = 44 + width * height * 4;
-      memset (&spr[1], 0, 12);
-      memcpy (&spr[1], "page", 4);
-      spr[4] = width - 1;           /* words - 1 (32 bpp: one word a pixel) */
-      spr[5] = height - 1;
-      spr[6] = 0;
-      spr[7] = 31;
-      spr[8] = 44;
-      spr[9] = 44;                  /* no mask */
-      spr[10] = (int) ((6u << 27) | (90u << 14) | (90u << 1) | 1u);   /* 32 bpp, 90 dpi */
+      int t = a % b;
+      a = b;
+      b = t;
     }
-  memset (pr.area + 4 + 11, 0xFF, (size_t) width * height * 4);
-  s = cairo_image_surface_create_for_data ((unsigned char *) (pr.area + 4 + 11), CAIRO_FORMAT_RGB24,
-                                           width, height, width * 4);
-  return s;
+  return a;
+}
+
+/* the strip sprite: width x rows pixels, 32bpp, 90 dpi in its mode word */
+static gboolean
+strip_sprite (int width, int rows)
+{
+  int bytes = 16 + 44 + width * rows * 4;
+  int *spr;
+
+  if (pr.area != NULL && pr.w == width && pr.rows >= rows)
+    return TRUE;
+  g_free (pr.area);
+  pr.area = g_try_malloc (bytes);
+  if (pr.area == NULL)
+    return FALSE;
+  pr.w = width;
+  pr.rows = rows;
+  pr.area[0] = bytes;
+  pr.area[1] = 1;
+  pr.area[2] = 16;
+  pr.area[3] = bytes;
+  spr = pr.area + 4;
+  spr[0] = 44 + width * rows * 4;
+  memset (&spr[1], 0, 12);
+  memcpy (&spr[1], "page", 4);
+  spr[4] = width - 1;           /* words - 1 (32 bpp: one word a pixel) */
+  spr[5] = rows - 1;
+  spr[6] = 0;
+  spr[7] = 31;
+  spr[8] = 44;
+  spr[9] = 44;                  /* no mask */
+  spr[10] = (int) ((6u << 27) | (90u << 14) | (90u << 1) | 1u);   /* 32 bpp, 90 dpi */
+  return TRUE;
+}
+
+/* draw rows y0 .. y0+n-1 of the page into the strip and plot it */
+static _kernel_oserror *
+plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int y0, int n)
+{
+  _kernel_swi_regs r;
+  int *spr = pr.area + 4;
+  guint32 *p = (guint32 *) (spr + 11);
+  int scale[4] = { 90, 90, dpi, dpi };     /* a pixel: 2 OS units x 90/dpi */
+  cairo_surface_t *s;
+  cairo_t *cr;
+  int k;
+
+  spr[5] = n - 1;
+  s = cairo_image_surface_create_for_data ((unsigned char *) p, CAIRO_FORMAT_RGB24, pr.w, n, pr.w * 4);
+  cr = cairo_create (s);
+  cairo_set_source_rgb (cr, 1, 1, 1);
+  cairo_paint (cr);
+  cairo_translate (cr, 0, -y0);
+  cairo_scale (cr, dpi / 72.0, dpi / 72.0);
+  cairo_set_source_surface (cr, page, 0, 0);
+  cairo_paint (cr);
+  cairo_destroy (cr);
+  cairo_surface_finish (s);
+  cairo_surface_destroy (s);
+  /* cairo's 0xXXRRGGBB words to the sprite's &00BBGGRR */
+  for (k = pr.w * n; k--; p++)
+    *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
+  r.r[0] = 512 + 52;            /* put sprite scaled, by pointer */
+  r.r[1] = (int) pr.area;
+  r.r[2] = (int) spr;
+  r.r[3] = 0;
+  r.r[4] = page_os_h - ((y0 + n) * 180 + dpi / 2) / dpi;   /* its bottom */
+  r.r[5] = 0;                   /* overwrite */
+  r.r[6] = (int) scale;
+  r.r[7] = 0;
+  return _kernel_swi (OS_SpriteOp, &r, &r);
 }
 
 /**
  * gdk_riscos_print_page:
+ * @page: the page as GTK drew it: a recording surface in points, 0,0 at
+ *   the paper's top left
  * @paper_width, @paper_height: the paper, points
+ * @dpi: the resolution to print it at
  * @copies: how many
  *
- * Prints the page drawn into the page surface.
+ * Prints the page, drawn at @dpi a strip at a time, so that memory stays
+ * small at any resolution.
  */
 gboolean
-gdk_riscos_print_page (double paper_width, double paper_height, int copies, GError **error)
+gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_height,
+                       int dpi, int copies, GError **error)
 {
   _kernel_swi_regs r;
   _kernel_oserror *e;
   int rect[4], out[4], matrix[4] = { 65536, 0, 0, 65536 }, pos[2] = { 0, 0 };
-  int scale[4], more, id, n;
-  guint32 *p;
-  char page[12];
+  int more, id, w, h, step, strip, plotted = 0;
+  char pagename[12];
 
-  if (pr.area == NULL || pr.file == 0)
+  if (pr.file == 0)
     {
       set_error (error, NULL, "Not printing");
       return FALSE;
     }
-  /* cairo's 0xXXRRGGBB words to the sprite's &00BBGGRR */
-  p = (guint32 *) (pr.area + 4 + 11);
-  for (n = pr.w * pr.h; n--; p++)
-    *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
+  dpi = MAX (dpi, 18);
+  w = (int) (paper_width * dpi / 72.0 + 0.5);
+  h = (int) (paper_height * dpi / 72.0 + 0.5);
+  /* strips a whole number of OS units high (k rows = 180k/dpi OS units) */
+  step = dpi / gcd (dpi, 180);
+  strip = MAX (step, (STRIP_BYTES / (w * 4)) / step * step);
+  strip = MIN (strip, (h + step - 1) / step * step);
+  if (!strip_sprite (w, strip))
+    {
+      g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_NOMEM,
+                           "There isn't enough memory to print a page.");
+      return FALSE;
+    }
   pr.page++;
   if ((e = job_select ()) != NULL)
     goto fail;
@@ -460,34 +517,30 @@ gdk_riscos_print_page (double paper_width, double paper_height, int copies, GErr
   r.r[4] = (int) 0xFFFFFF00u;       /* white */
   if ((e = _kernel_swi (PDriver_GiveRectangle, &r, &r)) != NULL)
     goto fail;
-  g_snprintf (page, sizeof page, "%d", pr.page);
+  g_snprintf (pagename, sizeof pagename, "%d", pr.page);
   r.r[0] = MAX (1, copies);
   r.r[1] = (int) out;
   r.r[2] = pr.page;
-  r.r[3] = (int) page;
+  r.r[3] = (int) pagename;
   if ((e = _kernel_swi (PDriver_DrawPage, &r, &r)) != NULL)
     goto fail;
   more = r.r[0];
   id = r.r[2];
-  /* the sprite (2 OS units a pixel at 90 dpi) scaled to the paper */
-  scale[0] = rect[2];
-  scale[1] = rect[3];
-  scale[2] = pr.w * 2;
-  scale[3] = pr.h * 2;
   while (more)
     {
       if (id == 1)
         {
-          r.r[0] = 512 + 52;        /* put sprite scaled, by pointer */
-          r.r[1] = (int) pr.area;
-          r.r[2] = (int) (pr.area + 4);
-          r.r[3] = 0;
-          r.r[4] = 0;
-          r.r[5] = 0;               /* overwrite */
-          r.r[6] = (int) scale;
-          r.r[7] = 0;
-          if ((e = _kernel_swi (OS_SpriteOp, &r, &r)) != NULL)
-            goto fail;
+          /* the rows this rectangle covers (OS units up from the bottom) */
+          int top = MAX (0, (int) (((gint64) (rect[3] - out[3])) * dpi / 180));
+          int bottom = MIN (h, (int) ((((gint64) (rect[3] - out[1])) * dpi + 179) / 180));
+          int y;
+
+          for (y = top / step * step; y < bottom; y += strip)
+            {
+              if ((e = plot_strip (page, dpi, rect[3], y, MIN (strip, h - y))) != NULL)
+                goto fail;
+              plotted++;
+            }
         }
       r.r[1] = (int) out;
       if ((e = _kernel_swi (PDriver_GetRectangle, &r, &r)) != NULL)
@@ -497,8 +550,9 @@ gdk_riscos_print_page (double paper_width, double paper_height, int copies, GErr
     }
   job_suspend ();
   if (debug ())
-    g_printerr ("riscos-gtk: print: page %d (%d x %d pixels, %d x %d OS units), %d copies\n",
-                pr.page, pr.w, pr.h, rect[2], rect[3], copies);
+    g_printerr ("riscos-gtk: print: page %d at %d dpi (%d x %d pixels, %d x %d OS units), "
+                "strips of %d rows, %d plotted, %d copies\n",
+                pr.page, dpi, w, h, rect[2], rect[3], strip, plotted, copies);
   return TRUE;
 
 fail:

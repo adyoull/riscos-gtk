@@ -362,7 +362,52 @@ int fake_print_jobs, fake_print_pages, fake_print_copies, fake_print_ended, fake
 int fake_print_rect[4], fake_print_scale[4], fake_print_sprite_w, fake_print_sprite_h;
 int fake_print_ink, fake_print_ink_top = -1, fake_print_ink_left = -1;
 char fake_print_title[64];
-static int print_drawing, print_rect_id, print_selected, print_started;
+static int print_drawing, print_rect_id, print_selected, print_started, print_band;
+#define PRINT_BANDS 3                      /* the page asked for in 3 rectangles, as a dot-matrix driver */
+int fake_print_plots;                      /* sprites plotted on the last page */
+int fake_print_ink_runs;                   /* runs of rows with ink (lines of text) */
+static unsigned int *print_page;           /* the last page, put together from the plots */
+static int print_page_w, print_page_h, print_page_dpi;
+
+static void print_band_rect(int *out)
+{
+    int h = fake_print_rect[3] - fake_print_rect[1];
+    out[0] = fake_print_rect[0]; out[2] = fake_print_rect[2];
+    out[3] = fake_print_rect[3] - h * print_band / PRINT_BANDS;
+    out[1] = fake_print_rect[3] - h * (print_band + 1) / PRINT_BANDS;
+}
+
+static void print_page_done(void)
+{
+    int x, y, w = print_page_w, h = print_page_h;
+    fake_print_sprite_w = w; fake_print_sprite_h = h;
+    fake_print_ink = 0; fake_print_ink_top = fake_print_ink_left = -1;
+    if (!print_page) return;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++)
+        if ((print_page[(size_t) y * w + x] & 0xFFFFFF) != 0xFFFFFF) {
+            fake_print_ink++;
+            if (fake_print_ink_top < 0) fake_print_ink_top = y;
+            if (fake_print_ink_left < 0 || x < fake_print_ink_left) fake_print_ink_left = x;
+        }
+    fake_print_ink_runs = 0;
+    for (y = 0, x = 0; y < h; y++) {
+        int i, ink = 0;
+        for (i = 0; i < w && !ink; i++) ink = (print_page[(size_t) y * w + i] & 0xFFFFFF) != 0xFFFFFF;
+        if (ink && !x) fake_print_ink_runs++;
+        x = ink;
+    }
+    if (getenv ("FAKE_PRINT_DUMP")) {          /* the page as a PPM, to look at */
+        FILE *pf = fopen (getenv ("FAKE_PRINT_DUMP"), "wb");
+        if (pf) {
+            fprintf (pf, "P6\n%d %d\n255\n", w, h);
+            for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+                unsigned int c = print_page[(size_t) y * w + x];
+                fputc (c & 255, pf); fputc ((c >> 8) & 255, pf); fputc ((c >> 16) & 255, pf);
+            }
+            fclose (pf);
+        }
+    }
+}
 int fake_print_polls_selected;   /* Wimp_Poll with a print job selected (redraws to the printer!) */
 
 static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
@@ -394,20 +439,28 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
         fake_sprite_creates++;
         return NULL;
     }
-    if (reason == 52 && print_drawing) {           /* to the printer: recorded */
+    if (reason == 52 && print_drawing) {           /* to the printer: put into the page */
         const int *spr = (const int *) (long) r->r[2];
         const int *f = (const int *) (long) r->r[6];
         const unsigned int *pix = (const unsigned int *) ((const char *) spr + spr[8]);
-        int w = spr[4] + 1, h = spr[5] + 1, x, y;
-        fake_print_sprite_w = w; fake_print_sprite_h = h;
-        if (f) memcpy(fake_print_scale, f, sizeof fake_print_scale);
-        fake_print_ink = 0; fake_print_ink_top = fake_print_ink_left = -1;
-        for (y = 0; y < h; y++) for (x = 0; x < w; x++)
-            if ((pix[(size_t) y * w + x] & 0xFFFFFF) != 0xFFFFFF) {
-                fake_print_ink++;
-                if (fake_print_ink_top < 0) fake_print_ink_top = y;
-                if (fake_print_ink_left < 0 || x < fake_print_ink_left) fake_print_ink_left = x;
-            }
+        int w = spr[4] + 1, n = spr[5] + 1, dpi, top, y;
+        if (!f) return error("print: unscaled sprite");
+        memcpy(fake_print_scale, f, sizeof fake_print_scale);
+        dpi = 90 * f[2] / f[0];                    /* 2 OS units a pixel x f0/f2 */
+        if (!print_page || print_page_dpi != dpi) {
+            free(print_page);
+            print_page_dpi = dpi;
+            print_page_w = (fake_print_rect[2] * dpi + 90) / 180;
+            print_page_h = (fake_print_rect[3] * dpi + 90) / 180;
+            print_page = malloc((size_t) print_page_w * print_page_h * 4);
+            memset(print_page, 0xFF, (size_t) print_page_w * print_page_h * 4);
+        }
+        top = (int) (((long long) (fake_print_rect[3] - r->r[4]) * dpi + 90) / 180) - n;
+        for (y = 0; y < n; y++)
+            if (top + y >= 0 && top + y < print_page_h)
+                memcpy(print_page + (size_t) (top + y) * print_page_w, pix + (size_t) y * w,
+                       (size_t) (w < print_page_w ? w : print_page_w) * 4);
+        fake_print_plots++;
         return NULL;
     }
     if (reason == 34 || reason == 52) {             /* put sprite (scaled) */
@@ -926,11 +979,19 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         break;
     case 0x8014C:   /* PDriver_DrawPage: one rectangle, the one given */
         fake_print_pages++; fake_print_copies = r.r[0];
-        if (r.r[1]) memcpy((void *) (long) r.r[1], fake_print_rect, sizeof fake_print_rect);
+        print_band = 0; fake_print_plots = 0;
+        if (print_page) memset(print_page, 0xFF, (size_t) print_page_w * print_page_h * 4);
+        if (r.r[1]) print_band_rect((int *) (long) r.r[1]);
         r.r[0] = 1; r.r[2] = print_rect_id; print_drawing = 1;
         break;
-    case 0x8014D:   /* PDriver_GetRectangle: no more */
-        r.r[0] = 0; print_drawing = 0;
+    case 0x8014D:   /* PDriver_GetRectangle: the next band, then no more */
+        if (++print_band < PRINT_BANDS) {
+            if (r.r[1]) print_band_rect((int *) (long) r.r[1]);
+            r.r[0] = 1; r.r[2] = print_rect_id;
+        } else {
+            r.r[0] = 0; print_drawing = 0;
+            print_page_done();
+        }
         break;
     case 0x406C0: case 0x406C1: break;                /* Hourglass_On / Off */
     case 0x0D:      /* OS_Find: "printer:" only */

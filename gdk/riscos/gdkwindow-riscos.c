@@ -701,6 +701,28 @@ gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height)
   return has;
 }
 
+/**
+ * gdk_riscos_window_set_size_grip_column:
+ * @window: a toplevel
+ * @x: the left of the window's vertical scroll bar, pixels in the window
+ * @width: its width (0: the grip goes back to the window's right edge)
+ *
+ * Draws the size grip under the scroll bar, as wide as it, as the Wimp's
+ * Adjust Size icon sits under its vertical scroll bar.
+ */
+void
+gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width)
+{
+  GdkWindowImplRiscos *impl;
+
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return;
+  impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  _gdk_riscos_server_window_set_grip_column (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                             impl->id, x, width);
+}
+
 static void
 gdk_riscos_window_set_type_hint (GdkWindow        *window,
 				   GdkWindowTypeHint hint)
