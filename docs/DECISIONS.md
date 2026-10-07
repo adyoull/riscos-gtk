@@ -230,3 +230,15 @@ OS printer driver and matches the screen) rather than a Draw/Font Manager
 cairo back end; Print Preview as riscos-gtk's own window (GTK's runs a
 Linux previewer). !Printers' queue (a busy printer asking for a file) is
 refused rather than saving a printable file.
+
+**Changed 2026-10-07 (owner: printed text "extremely poor quality"):**
+text, lines and solid shapes now go to the printer driver as Draw paths
+(Draw_Fill / Draw_Stroke in ColourTrans colours), so they're as sharp as
+the printer prints; only what can't be a vector (images, gradients,
+transparency, clip paths, colour glyphs) stays a bitmap (up to 600 dpi,
+in strips). The split is cairo's own analysis, as for its PDF and
+PostScript output, through a small addition to cairo
+(`cairo/cairo-riscos-print.c`, `patches/cairo-1.18.0-riscos.diff`):
+`cairo_riscos_page_vectors`. Text is glyph outlines (unhinted), not
+Font Manager text, so it prints exactly as laid out with any font GTK
+uses. `RISCOS_GTK_PRINT_BITMAP=1` prints the old way.

@@ -23,14 +23,19 @@
  *     between pages, so that no Wimp_Poll (and no redraw, ours or another
  *     program's) happens with it selected;
  *   - each page: GTK draws it into a cairo recording surface (in points);
- *     PDriver_GiveRectangle with the whole paper (OS units, 1 = 400
- *     millipoints, at the paper's bottom left), PDriver_DrawPage with the
- *     number of copies, then for each rectangle the driver asks for, the
- *     page is drawn at the printer's resolution in strips of at most
- *     STRIP_BYTES, each a 32bpp sprite plotted scaled (OS_SpriteOp 52) at
- *     180/dpi OS units a pixel, until PDriver_GetRectangle says the page is
- *     done. Strips start on rows a whole number of OS units down, so they
- *     meet exactly;
+ *     cairo_riscos_page_vectors (riscos-gtk's addition to cairo, cairo/)
+ *     gives its solid fills, strokes and text (glyph outlines) as paths,
+ *     kept as Draw paths, and the region that has to be an image (images,
+ *     gradients, transparency, clip paths); PDriver_GiveRectangle with the
+ *     whole paper (OS units, 1 = 400 millipoints, at the paper's bottom
+ *     left), PDriver_DrawPage with the number of copies, then for each
+ *     rectangle the driver asks for: the paths (ColourTrans_SetGCOL,
+ *     Draw_Fill / Draw_Stroke: as sharp as the printer prints), then the
+ *     image region drawn at up to 600 dpi in strips of at most STRIP_BYTES,
+ *     each a 32bpp sprite plotted scaled (OS_SpriteOp 52) at 180/dpi OS
+ *     units a pixel, until PDriver_GetRectangle says the page is done.
+ *     Strips start on rows a whole number of OS units down, so they meet
+ *     exactly (RISCOS_GTK_PRINT_BITMAP set: the whole page as images);
  *   - PDriver_EndJob (PDriver_AbortJob on an error), the file closed, the
  *     previous job selected again; the hourglass on while printing.
  *
@@ -53,6 +58,8 @@
 #include <string.h>
 #include <kernel.h>
 #include <swis.h>
+#include <math.h>
+#include <cairo-riscos.h>
 
 #define PDriver_Info          0x80140
 #define PDriver_PageSize      0x80143
@@ -426,9 +433,11 @@ strip_sprite (int width, int rows)
   return TRUE;
 }
 
-/* draw rows y0 .. y0+n-1 of the page into the strip and plot it */
+/* draw pixels x0 .. x0+w-1 of rows y0 .. y0+n-1 of the page into the strip
+   and plot it: its bottom left at (x0, y0+n) in OS units (rounded) */
 static _kernel_oserror *
-plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int y0, int n)
+plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int x0, int w, int y0, int n,
+            const cairo_rectangle_t *clip)
 {
   _kernel_swi_regs r;
   int *spr = pr.area + 4;
@@ -438,25 +447,31 @@ plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int y0, int n)
   cairo_t *cr;
   int k;
 
+  spr[4] = w - 1;
   spr[5] = n - 1;
-  s = cairo_image_surface_create_for_data ((unsigned char *) p, CAIRO_FORMAT_RGB24, pr.w, n, pr.w * 4);
+  s = cairo_image_surface_create_for_data ((unsigned char *) p, CAIRO_FORMAT_RGB24, w, n, w * 4);
   cr = cairo_create (s);
   cairo_set_source_rgb (cr, 1, 1, 1);
   cairo_paint (cr);
-  cairo_translate (cr, 0, -y0);
+  cairo_translate (cr, -x0, -y0);
   cairo_scale (cr, dpi / 72.0, dpi / 72.0);
+  if (clip)
+    {
+      cairo_rectangle (cr, clip->x, clip->y, clip->width, clip->height);
+      cairo_clip (cr);
+    }
   cairo_set_source_surface (cr, page, 0, 0);
   cairo_paint (cr);
   cairo_destroy (cr);
   cairo_surface_finish (s);
   cairo_surface_destroy (s);
   /* cairo's 0xXXRRGGBB words to the sprite's &00BBGGRR */
-  for (k = pr.w * n; k--; p++)
+  for (k = w * n; k--; p++)
     *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
   r.r[0] = 512 + 52;            /* put sprite scaled, by pointer */
   r.r[1] = (int) pr.area;
   r.r[2] = (int) spr;
-  r.r[3] = 0;
+  r.r[3] = (x0 * 180 + dpi / 2) / dpi;
   r.r[4] = page_os_h - ((y0 + n) * 180 + dpi / 2) / dpi;   /* its bottom */
   r.r[5] = 0;                   /* overwrite */
   r.r[6] = (int) scale;
@@ -464,16 +479,220 @@ plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int y0, int n)
   return _kernel_swi (OS_SpriteOp, &r, &r);
 }
 
+/* ---- the page as vectors: Draw paths for the printer driver -------------
+   cairo_riscos_page_vectors (riscos-gtk's addition to cairo) gives the
+   page's fills, strokes and text as paths (points, y down); they're kept
+   as Draw paths (internal Draw units, 1/256 OS unit, y up from the paper's
+   bottom) and drawn with Draw_Fill / Draw_Stroke in each rectangle the
+   printer driver asks for, in their colours (ColourTrans_SetGCOL); what
+   can't be a vector comes back as a region, printed as images on top. */
+
+#define Draw_Fill            0x40702
+#define Draw_Stroke          0x40704
+#define ColourTrans_SetGCOL  0x40743
+
+#define DRAW_PER_POINT 640.0      /* 180/72 OS units x 256 */
+
+typedef struct {
+  gboolean stroke;
+  guint32 colour;               /* &BBGGRR00 */
+  int style;                    /* fill style */
+  int path;                     /* index of its path in the words */
+  int width;                    /* stroke: Draw units (0: thinnest) */
+  guint8 capjoin[8];            /* stroke: join, start cap, end cap, 0, mitre limit 16.16 */
+  int dash;                     /* stroke: index of its dash block in the words, or -1 */
+} DrawOp;
+
+typedef struct {
+  GArray *words;                /* the paths (and dash blocks), one after another */
+  GArray *ops;
+  int path;                     /* where the path being given starts */
+  double paper_h;               /* points */
+  int start_x, start_y;         /* the subpath's start (Draw units) */
+  gboolean closed;              /* the subpath was closed: a move first */
+} DrawList;
+
+static void
+dl_word (DrawList *dl, int w)
+{
+  g_array_append_val (dl->words, w);
+}
+
+static void
+dl_point (DrawList *dl, double x, double y)
+{
+  dl_word (dl, (int) lround (x * DRAW_PER_POINT));
+  dl_word (dl, (int) lround ((dl->paper_h - y) * DRAW_PER_POINT));
+}
+
+static void
+dl_move_to (void *closure, double x, double y)
+{
+  DrawList *dl = closure;
+  dl_word (dl, 2);
+  dl_point (dl, x, y);
+  dl->start_x = g_array_index (dl->words, int, dl->words->len - 2);
+  dl->start_y = g_array_index (dl->words, int, dl->words->len - 1);
+  dl->closed = FALSE;
+}
+
+static void
+dl_reopen (DrawList *dl)
+{
+  if (dl->closed)
+    {
+      dl_word (dl, 2);
+      dl_word (dl, dl->start_x);
+      dl_word (dl, dl->start_y);
+      dl->closed = FALSE;
+    }
+}
+
+static void
+dl_line_to (void *closure, double x, double y)
+{
+  DrawList *dl = closure;
+  dl_reopen (dl);
+  dl_word (dl, 8);
+  dl_point (dl, x, y);
+}
+
+static void
+dl_curve_to (void *closure, double x1, double y1, double x2, double y2, double x3, double y3)
+{
+  DrawList *dl = closure;
+  dl_reopen (dl);
+  dl_word (dl, 6);
+  dl_point (dl, x1, y1);
+  dl_point (dl, x2, y2);
+  dl_point (dl, x3, y3);
+}
+
+static void
+dl_close_path (void *closure)
+{
+  DrawList *dl = closure;
+  dl_word (dl, 5);
+  dl->closed = TRUE;
+}
+
+static guint32
+dl_colour (double r, double g, double b)
+{
+  return (guint32) lround (CLAMP (b, 0, 1) * 255) << 24 | (guint32) lround (CLAMP (g, 0, 1) * 255) << 16 |
+         (guint32) lround (CLAMP (r, 0, 1) * 255) << 8;
+}
+
+/* end the path being given, as op */
+static void
+dl_end (DrawList *dl, DrawOp *op)
+{
+  dl_word (dl, 0);
+  dl_word (dl, 0);
+  op->path = dl->path;
+  g_array_append_val (dl->ops, *op);
+  dl->path = dl->words->len;
+  dl->closed = FALSE;
+}
+
+static void
+dl_fill (void *closure, double r, double g, double b, int even_odd)
+{
+  DrawList *dl = closure;
+  DrawOp op = { 0 };
+  op.colour = dl_colour (r, g, b);
+  op.style = even_odd ? 0x32 : 0x30;      /* boundary centre; even-odd / non-zero */
+  op.dash = -1;
+  dl_end (dl, &op);
+}
+
+static void
+dl_stroke (void *closure, double r, double g, double b, double width, int cap, int join,
+           double miter_limit, const double *dashes, int n_dashes, double dash_offset)
+{
+  DrawList *dl = closure;
+  DrawOp op = { 0 };
+  guint32 mitre = (guint32) lround (CLAMP (miter_limit, 1, 32767) * 65536);
+  int i;
+
+  op.stroke = TRUE;
+  op.colour = dl_colour (r, g, b);
+  op.style = 0x38;                      /* boundary and interior pixels */
+  op.width = (int) lround (width * DRAW_PER_POINT);
+  op.capjoin[0] = join;
+  op.capjoin[1] = op.capjoin[2] = cap;
+  memcpy (&op.capjoin[4], &mitre, 4);
+  op.dash = -1;
+  dl_end (dl, &op);
+  if (n_dashes > 0)
+    {
+      /* the dash block after the path: offset, count, lengths */
+      DrawOp *last = &g_array_index (dl->ops, DrawOp, dl->ops->len - 1);
+      last->dash = dl->words->len;
+      dl_word (dl, (int) lround (dash_offset * DRAW_PER_POINT));
+      dl_word (dl, n_dashes);
+      for (i = 0; i < n_dashes; i++)
+        dl_word (dl, (int) lround (dashes[i] * DRAW_PER_POINT));
+      dl->path = dl->words->len;
+    }
+}
+
+static const cairo_riscos_page_funcs_t dl_funcs = {
+  dl_move_to, dl_line_to, dl_curve_to, dl_close_path, dl_fill, dl_stroke
+};
+
+static _kernel_oserror *
+dl_draw (DrawList *dl, int dpi)
+{
+  _kernel_swi_regs r;
+  _kernel_oserror *e;
+  guint32 last = 0xFFFFFFFF;
+  int flatness = MAX (1, 256 * 180 / dpi / 2);      /* half a printer pixel */
+  guint i;
+
+  for (i = 0; i < dl->ops->len; i++)
+    {
+      DrawOp *op = &g_array_index (dl->ops, DrawOp, i);
+      int *words = (int *) dl->words->data;
+      if (op->colour != last)
+        {
+          r.r[0] = (int) op->colour;
+          r.r[3] = 0;
+          r.r[4] = 0;
+          if ((e = _kernel_swi (ColourTrans_SetGCOL, &r, &r)) != NULL)
+            return e;
+          last = op->colour;
+        }
+      r.r[0] = (int) &words[op->path];
+      r.r[1] = op->style;
+      r.r[2] = 0;
+      r.r[3] = flatness;
+      if (op->stroke)
+        {
+          r.r[4] = op->width;
+          r.r[5] = (int) op->capjoin;
+          r.r[6] = op->dash >= 0 ? (int) &words[op->dash] : 0;
+          e = _kernel_swi (Draw_Stroke, &r, &r);
+        }
+      else
+        e = _kernel_swi (Draw_Fill, &r, &r);
+      if (e)
+        return e;
+    }
+  return NULL;
+}
+
 /**
  * gdk_riscos_print_page:
  * @page: the page as GTK drew it: a recording surface in points, 0,0 at
  *   the paper's top left
  * @paper_width, @paper_height: the paper, points
- * @dpi: the resolution to print it at
+ * @dpi: the resolution for what has to be printed as an image
  * @copies: how many
  *
- * Prints the page, drawn at @dpi a strip at a time, so that memory stays
- * small at any resolution.
+ * Prints the page: as vectors (Draw paths) where it can be, so that text
+ * and lines are as sharp as the printer makes them; the rest as images,
+ * drawn at @dpi a strip at a time so that memory stays small.
  */
 gboolean
 gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_height,
@@ -482,8 +701,11 @@ gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_h
   _kernel_swi_regs r;
   _kernel_oserror *e;
   int rect[4], out[4], matrix[4] = { 65536, 0, 0, 65536 }, pos[2] = { 0, 0 };
-  int more, id, w, h, step, strip, plotted = 0;
+  int more, id, w, h, step, strip, plotted = 0, n_rects = 0, i;
   char pagename[12];
+  DrawList dl = { 0 };
+  cairo_region_t *images;
+  gboolean ok = FALSE;
 
   if (pr.file == 0)
     {
@@ -497,12 +719,27 @@ gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_h
   step = dpi / gcd (dpi, 180);
   strip = MAX (step, (STRIP_BYTES / (w * 4)) / step * step);
   strip = MIN (strip, (h + step - 1) / step * step);
-  if (!strip_sprite (w, strip))
+
+  /* the vectors, and what has to be images */
+  dl.words = g_array_new (FALSE, FALSE, sizeof (int));
+  dl.ops = g_array_new (FALSE, FALSE, sizeof (DrawOp));
+  dl.paper_h = paper_height;
+  images = g_getenv ("RISCOS_GTK_PRINT_BITMAP") ? NULL : cairo_riscos_page_vectors (page, &dl_funcs, &dl);
+  if (images == NULL)
+    {
+      /* everything as an image (as before vectors) */
+      cairo_rectangle_int_t all = { 0, 0, (int) ceil (paper_width), (int) ceil (paper_height) };
+      g_array_set_size (dl.ops, 0);
+      images = cairo_region_create_rectangle (&all);
+    }
+  n_rects = cairo_region_num_rectangles (images);
+  if (n_rects > 0 && !strip_sprite (w, strip))
     {
       g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_NOMEM,
                            "There isn't enough memory to print a page.");
-      return FALSE;
+      goto done;
     }
+
   pr.page++;
   if ((e = job_select ()) != NULL)
     goto fail;
@@ -530,16 +767,38 @@ gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_h
     {
       if (id == 1)
         {
-          /* the rows this rectangle covers (OS units up from the bottom) */
-          int top = MAX (0, (int) (((gint64) (rect[3] - out[3])) * dpi / 180));
-          int bottom = MIN (h, (int) ((((gint64) (rect[3] - out[1])) * dpi + 179) / 180));
-          int y;
-
-          for (y = top / step * step; y < bottom; y += strip)
+          /* the vectors, then the images over them */
+          if ((e = dl_draw (&dl, dpi)) != NULL)
+            goto fail;
+          for (i = 0; i < n_rects; i++)
             {
-              if ((e = plot_strip (page, dpi, rect[3], y, MIN (strip, h - y))) != NULL)
-                goto fail;
-              plotted++;
+              cairo_rectangle_int_t ir;
+              cairo_rectangle_t clip;
+              int top, bottom, left, right, y;
+
+              cairo_region_get_rectangle (images, i, &ir);
+              clip.x = ir.x;
+              clip.y = ir.y;
+              clip.width = ir.width;
+              clip.height = ir.height;
+              /* its pixels, within this rectangle's rows (OS units up from the bottom) */
+              left = MAX (0, (int) floor (ir.x * dpi / 72.0));
+              right = MIN (w, (int) ceil ((ir.x + ir.width) * dpi / 72.0));
+              top = MAX ((int) floor (ir.y * dpi / 72.0),
+                         (int) (((gint64) (rect[3] - out[3])) * dpi / 180));
+              bottom = MIN ((int) ceil ((ir.y + ir.height) * dpi / 72.0),
+                            (int) ((((gint64) (rect[3] - out[1])) * dpi + 179) / 180));
+              top = MAX (0, top);
+              bottom = MIN (h, bottom);
+              if (right <= left)
+                continue;
+              for (y = top / step * step; y < bottom; y += strip)
+                {
+                  if ((e = plot_strip (page, dpi, rect[3], left, right - left, y,
+                                       MIN (strip, h - y), &clip)) != NULL)
+                    goto fail;
+                  plotted++;
+                }
             }
         }
       r.r[1] = (int) out;
@@ -550,15 +809,20 @@ gdk_riscos_print_page (cairo_surface_t *page, double paper_width, double paper_h
     }
   job_suspend ();
   if (debug ())
-    g_printerr ("riscos-gtk: print: page %d at %d dpi (%d x %d pixels, %d x %d OS units), "
-                "strips of %d rows, %d plotted, %d copies\n",
-                pr.page, dpi, w, h, rect[2], rect[3], strip, plotted, copies);
-  return TRUE;
+    g_printerr ("riscos-gtk: print: page %d: %u vector operations (%u words), %d image "
+                "rectangles at %d dpi (%d strips plotted), %d x %d OS units, %d copies\n",
+                pr.page, dl.ops->len, dl.words->len, n_rects, dpi, plotted, rect[2], rect[3], copies);
+  ok = TRUE;
+  goto done;
 
 fail:
   set_error (error, e, "Printing failed");
   job_suspend ();
-  return FALSE;
+done:
+  cairo_region_destroy (images);
+  g_array_free (dl.words, TRUE);
+  g_array_free (dl.ops, TRUE);
+  return ok;
 }
 
 /**

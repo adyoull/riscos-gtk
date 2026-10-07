@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased (vector printing: !L3afpad 0.13, GTKThemeTest 0.37, 2026-10-07)
+- **Printed text was poor** (owner's photo of the job in the printer's
+  viewer: thin, broken letters). Pages were bitmaps; a PDF/PostScript
+  driver or a viewer scaling them shows that. Now text, lines and solid
+  shapes are sent as **Draw paths** (Draw_Fill / Draw_Stroke, colours by
+  ColourTrans_SetGCOL), as sharp as the printer prints; what can't be a
+  vector (images, gradients, transparency, clip paths, colour glyphs) is
+  printed as before, as bitmaps over them, only where it is.
+  - cairo: new `cairo_riscos_page_vectors` (`cairo/cairo-riscos-print.c`,
+    `cairo/cairo-riscos.h`; `patches/cairo-1.18.0-riscos.diff` made by
+    `build/mkcairopatch.sh`; `build/dev-cairo.sh` rebuilds an existing
+    cairo): cairo's analysis surface (as for PDF/PostScript) against a
+    surface of ours that accepts opaque solid fills, strokes (uniform
+    scale; dashes, caps, joins, mitre limit) and outline text (unhinted
+    fonts), unclipped or in one rectangle; the NATIVE region is replayed to
+    callbacks as paths, the rest returned as a region.
+  - GDK: the paths kept as Draw paths (1/256 OS unit, y up from the
+    paper's bottom), drawn in every rectangle PDriver asks for; the image
+    region in strips at up to 600 dpi on top (sprites can now be a part
+    of a row: x position). `RISCOS_GTK_PRINT_BITMAP=1`: all bitmap, as
+    0.12.
+- Tests: the fake printer draws Draw_Fill/Draw_Stroke into the page with
+  cairo; l3afpad-fake checks the text page is all vectors (3 Draw calls a
+  band, no sprites) with the header and text where they were. New
+  printvec-fake (7 checks): a solid even-odd rectangle and a scaled dashed
+  curve come out as vectors; a gradient, a half-transparent fill and a
+  circle-clipped paint as the image region; a solid square over the
+  gradient stays in the image.
+
 ## Unreleased (start-up crash, real cause: !L3afpad 0.12, GTKThemeTest 0.36, 2026-10-07)
 - **0.11 still stopped at start-up with "EMT trap"** under the Raspberry
   theme. The backtrace, read against 0.11's own build, is in block_find at

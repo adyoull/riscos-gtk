@@ -12,7 +12,8 @@
  *     the next time without printing;
  *   - printing: each page drawn by GTK into a cairo recording surface in
  *     points, on the printer's paper (PDriver_PageSize), and printed by
- *     gdk/riscos/gdkprint-riscos.c (!Printers' protocol, PDriver) at the
+ *     gdk/riscos/gdkprint-riscos.c (!Printers' protocol, PDriver): text,
+ *     lines and solid shapes as Draw paths, the rest as images at the
  *     printer's resolution (at most 600 dpi; Draft 150) a strip at a time;
  *   - units: GTK's default unit (GTK_UNIT_NONE) is the surface's own, which
  *     programs take to be points (as GTK's PDF and PostScript surfaces on

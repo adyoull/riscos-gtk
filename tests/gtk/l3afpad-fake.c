@@ -1291,11 +1291,12 @@ main (int argc, char **argv)
          "the job is suspended between pages: no Wimp_Poll (no redraw) while it's selected");
   printf ("# Wimp_Polls with the job selected: %d\n", fake_print_polls_selected);
   check (fake_print_rect[2] == 1488 && fake_print_rect[3] == 2105 && fake_print_sprite_w == 2480 &&
-         fake_print_sprite_h == 3508 && fake_print_scale[0] == 90 && fake_print_scale[2] == 300,
+         fake_print_sprite_h == 3508,
          "each page is the whole A4 paper (1488 x 2105 OS units) at the printer's 300 dpi");
-  check (fake_print_plots > PRINT_BANDS_SEEN,
-         "the page is printed in strips for each of the driver's rectangles (3 bands)");
-  printf ("# %d strips plotted\n", fake_print_plots);
+  check (fake_print_draws >= PRINT_BANDS_SEEN && fake_print_plots == 0,
+         "the text page is printed as vectors (Draw paths) in each of the driver's rectangles, "
+         "no image");
+  printf ("# %d Draw_Fill/Draw_Stroke calls, %d sprites plotted\n", fake_print_draws, fake_print_plots);
   /* L3afpad: header 10 mm above the 25 mm top margin (row 177 at 300 dpi),
      the text from the margin (row 295) */
   check (fake_print_ink > 1000 && fake_print_ink_top > 160 && fake_print_ink_top < 230 &&

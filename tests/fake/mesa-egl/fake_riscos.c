@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <cairo.h>
 #include <kernel.h>
 #include <swis.h>
 #include "fake_riscos.h"
@@ -369,6 +370,64 @@ int fake_print_ink_runs;                   /* runs of rows with ink (lines of te
 static unsigned int *print_page;           /* the last page, put together from the plots */
 static int print_page_w, print_page_h, print_page_dpi;
 
+static void print_page_for(int dpi)
+{
+    if (!print_page || print_page_dpi != dpi) {
+        free(print_page);
+        print_page_dpi = dpi;
+        print_page_w = (fake_print_rect[2] * dpi + 90) / 180;
+        print_page_h = (fake_print_rect[3] * dpi + 90) / 180;
+        print_page = malloc((size_t) print_page_w * print_page_h * 4);
+        memset(print_page, 0xFF, (size_t) print_page_w * print_page_h * 4);
+    }
+}
+
+/* Draw_Fill / Draw_Stroke to the printer: drawn into the page (at the
+   printer's resolution) with cairo; the page's words are &00BBGGRR, so
+   cairo is given blue for red */
+int fake_print_draws;                      /* Draw_Fill/Draw_Stroke calls on the last page */
+static unsigned int print_gcol = 0;        /* ColourTrans_SetGCOL's &BBGGRR00 */
+
+static void print_draw(const int *path, int stroke, int width, const unsigned char *capjoin)
+{
+    cairo_surface_t *s;
+    cairo_t *cr;
+    double k;
+    print_page_for(fake_print_dpi);
+    k = fake_print_dpi / 180.0 / 256.0;           /* Draw units to pixels */
+    s = cairo_image_surface_create_for_data((unsigned char *) print_page, CAIRO_FORMAT_RGB24,
+                                            print_page_w, print_page_h, print_page_w * 4);
+    cr = cairo_create(s);
+    cairo_translate(cr, 0, print_page_h);
+    cairo_scale(cr, k, -k);
+    for (;;) {
+        int t = path[0] & 0xFF;
+        if (t == 0) break;
+        if (t == 2) { cairo_move_to(cr, path[1], path[2]); path += 3; }
+        else if (t == 8) { cairo_line_to(cr, path[1], path[2]); path += 3; }
+        else if (t == 6) { cairo_curve_to(cr, path[1], path[2], path[3], path[4], path[5], path[6]); path += 7; }
+        else if (t == 5 || t == 4) { cairo_close_path(cr); path += 1; }
+        else { fprintf(stderr, "fake: Draw path element %d\n", t); break; }
+    }
+    cairo_set_source_rgb(cr, ((print_gcol >> 24) & 255) / 255.0, ((print_gcol >> 16) & 255) / 255.0,
+                         ((print_gcol >> 8) & 255) / 255.0);
+    if (stroke) {
+        cairo_set_line_width(cr, width ? width : 1 / k);
+        if (capjoin) {
+            cairo_set_line_join(cr, capjoin[0] == 1 ? CAIRO_LINE_JOIN_ROUND :
+                                    capjoin[0] == 2 ? CAIRO_LINE_JOIN_BEVEL : CAIRO_LINE_JOIN_MITER);
+            cairo_set_line_cap(cr, capjoin[1] == 1 ? CAIRO_LINE_CAP_ROUND :
+                                   capjoin[1] == 2 ? CAIRO_LINE_CAP_SQUARE : CAIRO_LINE_CAP_BUTT);
+        }
+        cairo_stroke(cr);
+    } else
+        cairo_fill(cr);
+    cairo_destroy(cr);
+    cairo_surface_finish(s);
+    cairo_surface_destroy(s);
+    fake_print_draws++;
+}
+
 static void print_band_rect(int *out)
 {
     int h = fake_print_rect[3] - fake_print_rect[1];
@@ -447,19 +506,14 @@ static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
         if (!f) return error("print: unscaled sprite");
         memcpy(fake_print_scale, f, sizeof fake_print_scale);
         dpi = 90 * f[2] / f[0];                    /* 2 OS units a pixel x f0/f2 */
-        if (!print_page || print_page_dpi != dpi) {
-            free(print_page);
-            print_page_dpi = dpi;
-            print_page_w = (fake_print_rect[2] * dpi + 90) / 180;
-            print_page_h = (fake_print_rect[3] * dpi + 90) / 180;
-            print_page = malloc((size_t) print_page_w * print_page_h * 4);
-            memset(print_page, 0xFF, (size_t) print_page_w * print_page_h * 4);
-        }
+        int left = (int) (((long long) r->r[3] * dpi + 90) / 180), cols;
+        print_page_for(dpi);
         top = (int) (((long long) (fake_print_rect[3] - r->r[4]) * dpi + 90) / 180) - n;
-        for (y = 0; y < n; y++)
+        cols = left + w > print_page_w ? print_page_w - left : w;
+        for (y = 0; y < n && cols > 0; y++)
             if (top + y >= 0 && top + y < print_page_h)
-                memcpy(print_page + (size_t) (top + y) * print_page_w, pix + (size_t) y * w,
-                       (size_t) (w < print_page_w ? w : print_page_w) * 4);
+                memcpy(print_page + (size_t) (top + y) * print_page_w + left, pix + (size_t) y * w,
+                       (size_t) cols * 4);
         fake_print_plots++;
         return NULL;
     }
@@ -997,13 +1051,22 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     }
     case 0x80148: fake_print_ended++; print_started = print_selected = 0; break;    /* PDriver_EndJob */
     case 0x80149: fake_print_aborted++; print_started = print_selected = 0; break;  /* PDriver_AbortJob */
+    case 0x40743:   /* ColourTrans_SetGCOL: the colour, for the printer */
+        print_gcol = (unsigned) r.r[0];
+        break;
+    case 0x40702:   /* Draw_Fill */
+    case 0x40704:   /* Draw_Stroke */
+        if (!print_drawing) { e = error("Draw: only faked for the printer"); break; }
+        print_draw((const int *) (long) r.r[0], no == 0x40704, no == 0x40704 ? r.r[4] : 0,
+                   no == 0x40704 ? (const unsigned char *) (long) r.r[5] : NULL);
+        break;
     case 0x8014B:   /* PDriver_GiveRectangle */
         print_rect_id = r.r[0];
         memcpy(fake_print_rect, (const void *) (long) r.r[1], sizeof fake_print_rect);
         break;
     case 0x8014C:   /* PDriver_DrawPage: one rectangle, the one given */
         fake_print_pages++; fake_print_copies = r.r[0];
-        print_band = 0; fake_print_plots = 0;
+        print_band = 0; fake_print_plots = 0; fake_print_draws = 0;
         if (print_page) memset(print_page, 0xFF, (size_t) print_page_w * print_page_h * 4);
         if (r.r[1]) print_band_rect((int *) (long) r.r[1]);
         r.r[0] = 1; r.r[2] = print_rect_id; print_drawing = 1;
