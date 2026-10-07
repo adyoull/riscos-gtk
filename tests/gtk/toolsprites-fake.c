@@ -17,6 +17,8 @@
 #include "fake_riscos.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 static int n_tests, failures;
 
@@ -105,6 +107,15 @@ main (void)
   area[4] = area[5] = (int) (long) ptrs;
   area[8] = (int) 0xFFFFFFF0;     /* not a pointer: OS_ValidateAddress would wrap */
   area[9] = 0x10;                 /* nor this: the bottom page */
+  /* nor this: memory that's there (OS_ValidateAddress passes) but can't
+     be read in user mode, as the Pi's privileged memory */
+  {
+    long pg = sysconf (_SC_PAGESIZE);
+    void *priv = mmap (NULL, pg, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    memset (priv, 0, pg);
+    mprotect (priv, pg, PROT_NONE);
+    area[6] = (int) (long) priv;    /* within the count: looked at as a pointer */
+  }
   fake_tool_area_override = area;
 
   up = gdk_riscos_wimp_tool_sprite ("uicon");

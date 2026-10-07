@@ -396,6 +396,9 @@ gdk_riscos_wimp_sprite (const char *name)
 #ifndef OS_ValidateAddress
 #define OS_ValidateAddress 0x3A
 #endif
+#ifndef OS_Memory
+#define OS_Memory 0x68
+#endif
 
 static gboolean
 readable (const void *start, size_t len)
@@ -409,6 +412,16 @@ readable (const void *start, size_t len)
   if ((gsize) start < 0x4000 || len <= 0 || len > (64 << 20) ||
       (gsize) start + len < (gsize) start || (gsize) start + len > 0xFFFFFFFFu)
     return FALSE;
+  /* OS_Memory 24: readable in user mode (bit 0). OS_ValidateAddress only
+     says memory is there: on a Pi the Wimp's block holds words that are
+     addresses of privileged memory, which it passes and reading aborts
+     (owner's Log, 0.10 and 0.11: EMT trap in block_find) */
+  r.r[0] = 24;
+  r.r[1] = (int) start;
+  r.r[2] = (int) start + (int) len;
+  if (_kernel_swi (OS_Memory, &r, &r) == NULL)
+    return (r.r[1] & 1) != 0;
+  /* older RISC OS: no OS_Memory 24 */
   r.r[0] = (int) start;
   r.r[1] = (int) start + (int) len;
   if (_kernel_swi_c (OS_ValidateAddress, &r, &r, &carry) != NULL)

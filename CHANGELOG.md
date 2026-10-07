@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (start-up crash, real cause: !L3afpad 0.12, GTKThemeTest 0.36, 2026-10-07)
+- **0.11 still stopped at start-up with "EMT trap"** under the Raspberry
+  theme. The backtrace, read against 0.11's own build, is in block_find at
+  the name comparison, after `readable()` had passed: the Wimp's block
+  holds words that are addresses of memory that is mapped (so
+  OS_ValidateAddress passes) but not readable in user mode (privileged),
+  and reading it aborts. 0.10's crash was the same line; 0.11's "wrapping
+  range" diagnosis was wrong (its guard stays, harmless).
+  `readable()` now asks OS_Memory 24 (Check memory access, RISC OS 5.21+)
+  for bit 0, "completely readable in user mode", falling back to
+  OS_ValidateAddress where OS_Memory 24 isn't there.
+- Fake: OS_Memory 24 from the process's map (/proc/self/maps);
+  toolsprites-fake puts a mapped PROT_NONE page among the tool block's
+  pointers: 0.11's code segfaults on it, 0.12's passes.
+
 ## Unreleased (start-up crash: !L3afpad 0.11, GTKThemeTest 0.35, 2026-10-07)
 - **0.10 stopped at start-up with "EMT trap" under the Raspberry theme**
   (owner's Log: backtrace block_find < try_block < tool_area < tool_uri <

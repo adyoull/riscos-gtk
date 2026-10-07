@@ -624,6 +624,26 @@ _kernel_oserror *_kernel_swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out
     return e;
 }
 
+/* OS_Memory 24: bit 0 if r1..r2 is all readable in user mode, from the
+   process's own map (a page can be mapped, so OS_ValidateAddress passes,
+   and still not readable: the Pi's privileged memory, owner's Log 0.11) */
+static int user_readable(unsigned long lo, unsigned long hi)
+{
+    FILE *f = fopen("/proc/self/maps", "r");
+    char line[512];
+    unsigned long a, b, at = lo;
+    char perm[8];
+    if (!f) return 0;
+    while (at < hi && fgets(line, sizeof line, f))
+        if (sscanf(line, "%lx-%lx %7s", &a, &b, perm) == 3 && a <= at && at < b) {
+            if (perm[0] != 'r') break;
+            at = b;
+            rewind(f);
+        }
+    fclose(f);
+    return at >= hi;
+}
+
 static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
 {
     _kernel_swi_regs r = *in;
@@ -632,6 +652,10 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     int *block;
 
     switch (no) {
+    case 0x68:      /* OS_Memory: 24 (check memory access) only */
+        if (r.r[0] != 24) { e = error("OS_Memory: not faked"); break; }
+        r.r[1] = user_readable((unsigned) in->r[1], (unsigned) in->r[2]) ? (1 | 4) : 0;    /* (completely, partially) readable */
+        break;
     case OS_SpriteOp:
         e = sprite_op(&r);
         break;
