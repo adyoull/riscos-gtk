@@ -403,6 +403,12 @@ readable (const void *start, size_t len)
   _kernel_swi_regs r;
   int carry = 1;
 
+  /* not a range that wraps past the top of memory (a word from the tool
+     block taken as a pointer: OS_ValidateAddress faults on it on a Pi,
+     owner's Log, 0.10), nor one in the bottom page */
+  if ((gsize) start < 0x4000 || len <= 0 || len > (64 << 20) ||
+      (gsize) start + len < (gsize) start || (gsize) start + len > 0xFFFFFFFFu)
+    return FALSE;
   r.r[0] = (int) start;
   r.r[1] = (int) start + (int) len;
   if (_kernel_swi_c (OS_ValidateAddress, &r, &r, &carry) != NULL)
@@ -628,8 +634,8 @@ span_find (const char *name)
   if (lo == NULL)
     return NULL;
   /* the tables may come before or after the window sprites in the file */
-  lo = lo - 64 * 1024 > (const char *) 0x8000 ? lo - 64 * 1024 : lo;
-  hi = hi + 64 * 1024;
+  lo = (gsize) lo > 0x8000 + 64 * 1024 ? lo - 64 * 1024 : lo;
+  hi = (gsize) hi < 0xFFFFFFFFu - 64 * 1024 ? hi + 64 * 1024 : hi;
   while (!readable (lo, 4096) && lo < hi)
     lo += 4096;
   for (p = (const char *) ((gsize) lo & ~(gsize) 3); p + 48 <= hi; p += 4)

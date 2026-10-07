@@ -103,6 +103,8 @@ main (void)
   area[2] = 0x0042F3A4;
   area[3] = 0x00438124;
   area[4] = area[5] = (int) (long) ptrs;
+  area[8] = (int) 0xFFFFFFF0;     /* not a pointer: OS_ValidateAddress would wrap */
+  area[9] = 0x10;                 /* nor this: the bottom page */
   fake_tool_area_override = area;
 
   up = gdk_riscos_wimp_tool_sprite ("uicon");

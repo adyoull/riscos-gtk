@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased (start-up crash: !L3afpad 0.11, GTKThemeTest 0.35, 2026-10-07)
+- **0.10 stopped at start-up with "EMT trap" under the Raspberry theme**
+  (owner's Log: backtrace block_find < try_block < tool_area < tool_uri <
+  make_css < gtk_init). Looking for the tool sprites, the Wimp's block is
+  tried as a table of pointers; with the Raspberry theme loaded one of its
+  words is near the top of memory, and OS_ValidateAddress on start .. start
+  + 48 wrapped past &FFFFFFFF, which faults in the kernel (the check is
+  older than 0.10; which words the block holds depends on the theme).
+  `readable()` now refuses ranges that wrap, are over 64 MB or start in the
+  bottom page; span_find's window is clamped likewise.
+- The fake OS_ValidateAddress now aborts on a wrapping range, as the Pi
+  does; toolsprites-fake puts &FFFFFFF0 and &10 in the tool block (without
+  the fix it aborts).
+
 ## Unreleased (Raspberry theme: !L3afpad 0.10, GTKThemeTest 0.34, 2026-10-07)
 - **The Raspberry theme's scroll bars came out in garbled colours**
   (owner's photo). That theme's tool sprites are 8bpp without a palette;

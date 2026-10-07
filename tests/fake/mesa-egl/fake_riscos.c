@@ -1087,6 +1087,13 @@ _kernel_oserror *_kernel_swi_c(int no, _kernel_swi_regs *in, _kernel_swi_regs *o
         unsigned long a = (unsigned long) (unsigned) in->r[0] & ~(pg - 1);
         unsigned long end = (unsigned long) (unsigned) in->r[1];
         unsigned char v;
+        /* a range that wraps past the top of memory: the Pi's kernel
+           faults in the SWI (owner's Log: EMT trap, 0.10) */
+        if (end < (unsigned long) (unsigned) in->r[0]) {
+            fprintf(stderr, "fake: OS_ValidateAddress &%X-&%X wraps: the kernel would fault\n",
+                    (unsigned) in->r[0], (unsigned) in->r[1]);
+            abort();
+        }
         *carry = 0;
         for (; a < end; a += pg)
             if (mincore((void *) a, pg, &v) != 0) { *carry = 1; break; }
