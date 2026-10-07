@@ -1266,6 +1266,9 @@ main (int argc, char **argv)
           fake_print_rect[0], fake_print_rect[1], fake_print_rect[2], fake_print_rect[3],
           fake_print_sprite_w, fake_print_sprite_h, fake_print_scale[0], fake_print_scale[2],
           fake_print_scale[1], fake_print_scale[3]);
+  check (fake_print_polls_selected == 0,
+         "the job is suspended between pages: no Wimp_Poll (no redraw) while it's selected");
+  printf ("# Wimp_Polls with the job selected: %d\n", fake_print_polls_selected);
   check (fake_print_rect[2] == 1488 && fake_print_rect[3] == 2105 && fake_print_sprite_w == 2480 &&
          fake_print_sprite_h == 3508 && fake_print_scale[0] == 1488 && fake_print_scale[2] == 4960,
          "each page is the whole A4 paper (1488 x 2105 OS units) at the printer's 300 dpi");

@@ -80,6 +80,7 @@ extern int fake_print_jobs, fake_print_pages, fake_print_copies, fake_print_ende
 extern int fake_print_rect[4], fake_print_scale[4], fake_print_sprite_w, fake_print_sprite_h;
 extern int fake_print_ink, fake_print_ink_top, fake_print_ink_left;
 extern char fake_print_title[64];
+extern int fake_print_polls_selected;   /* Wimp_Polls while a print job was selected */
 int fake_wimp_script_pos(void);          /* script entry last returned, -1 before */
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;

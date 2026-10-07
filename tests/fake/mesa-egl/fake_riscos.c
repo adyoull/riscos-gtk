@@ -362,7 +362,8 @@ int fake_print_jobs, fake_print_pages, fake_print_copies, fake_print_ended, fake
 int fake_print_rect[4], fake_print_scale[4], fake_print_sprite_w, fake_print_sprite_h;
 int fake_print_ink, fake_print_ink_top = -1, fake_print_ink_left = -1;
 char fake_print_title[64];
-static int print_drawing, print_rect_id;
+static int print_drawing, print_rect_id, print_selected, print_started;
+int fake_print_polls_selected;   /* Wimp_Poll with a print job selected (redraws to the printer!) */
 
 static _kernel_oserror *sprite_op(_kernel_swi_regs *r)
 {
@@ -683,6 +684,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         break;
     case 0x400C7:   /* Wimp_Poll */
     case 0x400E1: { /* Wimp_PollIdle */
+        if (print_selected) fake_print_polls_selected++;
         int reason;
         block = (int *) (long) r.r[1];
         memset(block, 0, 64);
@@ -906,12 +908,18 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         r.r[3] = 14173; r.r[4] = 14173;
         r.r[5] = fake_print_paper[0] - 14173; r.r[6] = fake_print_paper[1] - 14173;
         break;
-    case 0x80145:   /* PDriver_SelectJob */
-        if (r.r[0]) { fake_print_jobs++; strncpy(fake_print_title, r.r[1] ? (const char *) (long) r.r[1] : "", 63); }
-        r.r[0] = 0;
+    case 0x80145: { /* PDriver_SelectJob: 0 suspends; a new handle starts a job */
+        int old = print_selected;
+        if (r.r[0] && r.r[0] != print_started) {
+            fake_print_jobs++; print_started = r.r[0];
+            strncpy(fake_print_title, r.r[1] ? (const char *) (long) r.r[1] : "", 63);
+        }
+        print_selected = r.r[0];
+        r.r[0] = old;
         break;
-    case 0x80148: fake_print_ended++; break;          /* PDriver_EndJob */
-    case 0x80149: fake_print_aborted++; break;        /* PDriver_AbortJob */
+    }
+    case 0x80148: fake_print_ended++; print_started = print_selected = 0; break;    /* PDriver_EndJob */
+    case 0x80149: fake_print_aborted++; print_started = print_selected = 0; break;  /* PDriver_AbortJob */
     case 0x8014B:   /* PDriver_GiveRectangle */
         print_rect_id = r.r[0];
         memcpy(fake_print_rect, (const void *) (long) r.r[1], sizeof fake_print_rect);

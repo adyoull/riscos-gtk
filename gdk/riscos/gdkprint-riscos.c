@@ -18,7 +18,10 @@
  *         (if it doesn't come, print anyway);
  *       . Message_DataSaveAck: the printer is busy and !Printers wants a
  *         file to queue: refused ("the printer is busy");
- *   - the job: "printer:" opened for output, PDriver_SelectJob;
+ *   - the job: "printer:" opened for output, PDriver_SelectJob; the job is
+ *     selected only while a page is printed and suspended (SelectJob 0)
+ *     between pages, so that no Wimp_Poll (and no redraw, ours or another
+ *     program's) happens with it selected;
  *   - each page: GTK draws it into a 32bpp sprite (90 dpi in its mode word,
  *     plotted scaled to the paper: OS_SpriteOp 52); PDriver_GiveRectangle
  *     with the whole paper (OS units, 1 = 400 millipoints, at the paper's
@@ -96,6 +99,7 @@ static struct {
   char error[240];
   int file;                     /* "printer:" */
   int old_job;
+  char title[64];
   int page;
   int *area;                    /* the page sprite's area */
   int w, h;                     /* its size, pixels */
@@ -116,6 +120,31 @@ from_latin1 (const char *s)
   for (; *s; s++)
     g_string_append_unichar (out, (unsigned char) *s);
   return g_string_free (out, FALSE);
+}
+
+/* The job is selected only while we print a page, and suspended
+   (PDriver_SelectJob 0) the rest of the time: while it's selected every
+   graphics call, a redraw included, goes to the printer, so a Wimp_Poll
+   then would send the desktop's redraws (ours and other programs') to the
+   printer and leave the screen unredrawn */
+static _kernel_oserror *
+job_select (void)
+{
+  _kernel_swi_regs r;
+
+  r.r[0] = pr.file;
+  r.r[1] = (int) pr.title;
+  return _kernel_swi (PDriver_SelectJob, &r, &r);
+}
+
+static void
+job_suspend (void)
+{
+  _kernel_swi_regs r;
+
+  r.r[0] = 0;
+  r.r[1] = 0;
+  _kernel_swi (PDriver_SelectJob, &r, &r);
 }
 
 static void
@@ -326,8 +355,9 @@ gdk_riscos_print_begin (const char *title, GError **error)
       return FALSE;
     }
   pr.file = r.r[0];
+  g_strlcpy (pr.title, latin1, sizeof pr.title);
   r.r[0] = pr.file;
-  r.r[1] = (int) latin1;
+  r.r[1] = (int) pr.title;
   if ((e = _kernel_swi (PDriver_SelectJob, &r, &r)) != NULL)
     {
       set_error (error, e, "Can't start printing");
@@ -339,6 +369,7 @@ gdk_riscos_print_begin (const char *title, GError **error)
     }
   pr.old_job = r.r[0];
   pr.page = 0;
+  job_suspend ();                   /* until a page is printed */
   _kernel_swi (Hourglass_On, &r, &r);
   if (debug ())
     g_printerr ("riscos-gtk: print: job \"%s\" started (file %d)\n", latin1, pr.file);
@@ -416,6 +447,8 @@ gdk_riscos_print_page (double paper_width, double paper_height, int copies, GErr
   for (n = pr.w * pr.h; n--; p++)
     *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
   pr.page++;
+  if ((e = job_select ()) != NULL)
+    goto fail;
   rect[0] = 0;
   rect[1] = 0;
   rect[2] = (int) (paper_width * 1000.0 / MILLIPOINTS_PER_OS + 0.5);
@@ -462,6 +495,7 @@ gdk_riscos_print_page (double paper_width, double paper_height, int copies, GErr
       more = r.r[0];
       id = r.r[2];
     }
+  job_suspend ();
   if (debug ())
     g_printerr ("riscos-gtk: print: page %d (%d x %d pixels, %d x %d OS units), %d copies\n",
                 pr.page, pr.w, pr.h, rect[2], rect[3], copies);
@@ -469,6 +503,7 @@ gdk_riscos_print_page (double paper_width, double paper_height, int copies, GErr
 
 fail:
   set_error (error, e, "Printing failed");
+  job_suspend ();
   return FALSE;
 }
 
@@ -483,6 +518,7 @@ gdk_riscos_print_end (gboolean abort)
 
   if (pr.file)
     {
+      job_select ();
       r.r[0] = pr.file;
       _kernel_swi (abort ? PDriver_AbortJob : PDriver_EndJob, &r, &r);
       r.r[0] = 0;

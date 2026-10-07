@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (print residue: !L3afpad 0.8, GTKThemeTest 0.32, 2026-10-07)
+- **Printing left the Print box's area unredrawn** over the window and the
+  pinboard (owner's photo). The print job stayed selected while GTK went
+  back to Wimp_Poll between pages, so the redraws the Wimp asked for went
+  to the printer driver instead of the screen. The job is now suspended
+  (PDriver_SelectJob 0) except while a page prints and at EndJob/AbortJob.
+- Fake printer: SelectJob tracks the selected job; Wimp_Poll counts polls
+  made while a job is selected. l3afpad-fake has 35 checks, adding "no
+  Wimp_Poll while the job is selected" (a mutation without the suspend
+  gives 7).
+
 ## Unreleased (printing: !L3afpad 0.7, GTKThemeTest 0.31, 2026-10-06)
 - **Printing** through RISC OS's printer drivers (owner's choices: the
   Toolbox Print box, bitmap pages, a preview window of our own).
