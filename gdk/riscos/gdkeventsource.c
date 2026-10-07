@@ -21,6 +21,7 @@
 
 #include "gdkeventsource.h"
 #include "gdkdevicemanager-riscos.h"
+#include "gdkriscoswimp.h"
 
 #include "gdkinternals.h"
 
@@ -435,6 +436,25 @@ _gdk_riscos_display_queue_events (GdkDisplay *display)
 {
 }
 
+static GdkRiscosEventWatch event_watch;
+static gpointer event_watch_data;
+
+/**
+ * gdk_riscos_set_event_watch:
+ * @watch: (nullable): called with each event before GTK has it
+ * @data: for @watch
+ *
+ * For a program that wants to see events first without replacing GTK's
+ * own handler (gdk_event_handler_set): e.g. to know which of its windows
+ * is being used. @watch mustn't change or free the event.
+ */
+void
+gdk_riscos_set_event_watch (GdkRiscosEventWatch watch, gpointer data)
+{
+  event_watch = watch;
+  event_watch_data = data;
+}
+
 static gboolean
 gdk_event_source_dispatch (GSource     *source,
                            GSourceFunc  callback,
@@ -449,6 +469,8 @@ gdk_event_source_dispatch (GSource     *source,
 
   if (event)
     {
+      if (event_watch)
+        event_watch (event, event_watch_data);
       _gdk_event_emit (event);
 
       gdk_event_free (event);

@@ -242,3 +242,13 @@ PostScript output, through a small addition to cairo
 `cairo_riscos_page_vectors`. Text is glyph outlines (unhinted), not
 Font Manager text, so it prints exactly as laid out with any font GTK
 uses. `RISCOS_GTK_PRINT_BITMAP=1` prints the old way.
+
+## Multiple windows in L3afpad (2026-10-07)
+Owner's choice: each document its own window in one task (as Edit), not
+several copies of the program (each copy would add an icon bar icon and
+its own 20+ MB). L3afpad wasn't written for that (one window's state in
+globals), so rather than rewrite it the RISC OS patch lists each file's
+per-window variables and riscos-l3afpad.c swaps them when another window
+is used (input events: GDK's new event watch). The cost is that any new
+per-window variable L3afpad gains must be listed; the test's Undo check
+fails if the swap is missing.

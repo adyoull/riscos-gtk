@@ -1,21 +1,31 @@
-diff -ru a/src/callback.c b/src/callback.c
+diff -ruN a/src/callback.c b/src/callback.c
 --- a/src/callback.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/callback.c	2026-10-06 21:09:59.250615810 +0100
-@@ -36,6 +36,13 @@
++++ b/src/callback.c	2026-10-07 11:17:07.420419854 +0100
+@@ -18,6 +18,9 @@
+  */
+ 
+ #include "l3afpad.h"
++#ifdef __riscos
++#include "riscos-windows.h"
++#endif
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -36,6 +39,13 @@
  }
  
  void on_file_new(void)
 +#ifdef __riscos
 +{
-+	/* RISC OS runs one copy of a program (no second process to start):
-+	   New empties the window, asking to save first, as Close does */
-+	on_file_close();
++	/* RISC OS runs one copy of a program, with a window per document:
++	   New opens another window (riscos-l3afpad.c) */
++	riscos_l3afpad_new_window();
 +}
 +#else
  {
  	gchar *comline;
  	gchar *option;
-@@ -49,6 +56,7 @@
+@@ -49,6 +59,7 @@
  	g_spawn_command_line_async(comline, NULL);
  	g_free(comline);
  }
@@ -23,9 +33,104 @@ diff -ru a/src/callback.c b/src/callback.c
  
  void on_file_open(void)
  #ifdef ENABLE_CSDI
-diff -ru a/src/dnd.c b/src/dnd.c
+@@ -169,9 +180,22 @@
+ 		get_file_basename(pub->fi->filename, FALSE));
+ }
+ #endif
++#ifdef __riscos
++/* Close (and the close icon): asks to save, then closes the window
++   (riscos-l3afpad.c); riscos_l3afpad_empty () empties a window */
++void on_file_close(void)
++{
++	riscos_l3afpad_close_window();
++}
++
++void riscos_l3afpad_empty(void)
++{
++	{
++#else
+ void on_file_close(void)
+ {
+ 	if (!check_text_modification()) {
++#endif
+ 		force_block_cb_modified_changed(pub->mw->view);
+ //		undo_block_signal(textbuffer);
+ 		gtk_text_buffer_set_text(pub->mw->buffer, "", 0);
+@@ -194,12 +218,19 @@
+ }
+ 
+ void on_file_quit(void)
++#ifdef __riscos
++{
++	/* every window asks about unsaved text (riscos-l3afpad.c) */
++	riscos_l3afpad_quit();
++}
++#else
+ {
+ 	if (!check_text_modification()) {
+ 		save_config_file();
+ 		gtk_main_quit();
+ 	}
+ }
++#endif
+ 
+ void on_edit_undo(void)
+ {
+@@ -241,10 +272,11 @@
+ //	g_signal_emit_by_name(G_OBJECT(pub->mw->view), "select-all");
+ }
+ 
++static gboolean quick_find_flag = FALSE;
++
+ static void activate_quick_find(void)
+ {
+-	static gboolean flag = FALSE;
+-
++#define flag quick_find_flag
+ 	if (!flag) {
+ 		gtk_widget_set_sensitive(
+ 			gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Search/FindNext"),
+@@ -254,6 +286,7 @@
+ 			TRUE);
+ 		flag = TRUE;
+ 	}
++#undef flag
+ }
+ 
+ void on_search_find(void)
+@@ -307,12 +340,12 @@
+ 	show_line_numbers(pub->mw->view, state);
+ }
+ 
++static gboolean on_top_flag = FALSE;
++
+ void on_option_always_on_top(void)
+ {
+-	static gboolean flag = FALSE;
+-
+-	flag =! flag;
+-	gtk_window_set_keep_above(GTK_WINDOW(pub->mw->window), flag);
++	on_top_flag =! on_top_flag;
++	gtk_window_set_keep_above(GTK_WINDOW(pub->mw->window), on_top_flag);
+ }
+ 
+ void on_option_auto_indent(void)
+@@ -356,3 +389,12 @@
+ 		"logo-icon-name", PACKAGE,
+ 		NULL);
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(callback) {
++	L3_VAR(quick_find_flag), L3_VAR(on_top_flag), L3_END
++};
++#endif
+diff -ruN a/src/dnd.c b/src/dnd.c
 --- a/src/dnd.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/dnd.c	2026-10-06 21:09:59.250835184 +0100
++++ b/src/dnd.c	2026-10-07 11:16:33.378596126 +0100
 @@ -139,6 +139,10 @@
  			filename = g_strstrip(parse_file_uri(files[i]));
  			if (i + j == 0)
@@ -45,9 +150,57 @@ diff -ru a/src/dnd.c b/src/dnd.c
  			g_free(filename);
  			i++;
  		}
-diff -ru a/src/main.c b/src/main.c
+diff -ruN a/src/hlight.c b/src/hlight.c
+--- a/src/hlight.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/hlight.c	2026-10-07 11:16:53.041605820 +0100
+@@ -86,3 +86,12 @@
+ 	g_signal_connect(G_OBJECT(pub->mw->view), "paste-clipboard",
+ 		G_CALLBACK(cb_paste_clipboard), NULL);
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(hlight) {
++	L3_VAR(searched_flag), L3_END
++};
++#endif
+diff -ruN a/src/indent.c b/src/indent.c
+--- a/src/indent.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/indent.c	2026-10-07 11:16:53.041689213 +0100
+@@ -222,3 +222,12 @@
+ 		gtk_text_buffer_move_mark_by_name(buffer, "insert", &end_iter);
+ 	}
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(indent) {
++	L3_VAR(auto_indent), L3_VAR(default_tab_width), L3_VAR(current_tab_width), L3_END
++};
++#endif
+diff -ruN a/src/linenum.c b/src/linenum.c
+--- a/src/linenum.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/linenum.c	2026-10-07 11:16:53.041770666 +0100
+@@ -306,3 +306,12 @@
+ 		NULL);
+ 	show_line_numbers(text_view, FALSE);
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(linenum) {
++	L3_VAR(min_number_window_width), L3_VAR(line_number_visible), L3_END
++};
++#endif
+diff -ruN a/src/main.c b/src/main.c
 --- a/src/main.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/main.c	2026-10-06 21:10:10.974740906 +0100
++++ b/src/main.c	2026-10-07 11:17:07.420823713 +0100
 @@ -43,8 +43,13 @@
  	gchar buf[BUFSIZ];
  	gchar **num;
@@ -83,13 +236,76 @@ diff -ru a/src/main.c b/src/main.c
  	fp = fopen(path, "w");
  	if (!fp) {
  		g_print("%s: can't save config file - %s\n", PACKAGE, path);
-@@ -191,11 +204,20 @@
+@@ -191,11 +204,83 @@
  		fi->filename = parse_file_uri(argv[1]);
  }
  
 +#ifdef __riscos
 +/* riscos-l3afpad.c: the program's environment on RISC OS */
 +void riscos_l3afpad_init(gint *argc, gchar ***argv);
++#endif
++
++#ifdef __riscos
++#include "riscos-windows.h"
++
++/* A document window, its options from the Choices (the first window, and
++   each one riscos-l3afpad.c opens: pub set up first, its state fresh) */
++void l3afpad_setup_window(void)
++{
++	Conf *conf;
++
++	pub->mw = create_main_window();
++
++	conf = g_malloc(sizeof(Conf));
++	conf->width       = 600;
++	conf->height      = 400;
++	conf->fontname    = g_strdup("Monospace 12");
++	conf->wordwrap    = FALSE;
++	conf->linenumbers = FALSE;
++	conf->autoindent  = FALSE;
++	conf->tabwidth    = get_current_tab_width();
++
++	load_config_file(conf);
++
++	gtk_window_set_default_size(
++		GTK_WINDOW(pub->mw->window), conf->width, conf->height);
++	set_text_font_by_name(pub->mw->view, conf->fontname);
++
++	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
++		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/WordWrap")),
++		conf->wordwrap);
++	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
++		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/LineNumbers")),
++		conf->linenumbers);
++	indent_set_default_tab_width(conf->tabwidth);
++	indent_refresh_tab_width(pub->mw->view);
++	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
++		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/AutoIndent")),
++		conf->autoindent);
++
++#ifdef __riscos
++	/* RISC OS: L3afpad starts on the icon bar; its window opens with a
++	   file, or from the icon (riscos-l3afpad.c) */
++	gtk_container_foreach(GTK_CONTAINER(pub->mw->window),
++		(GtkCallback) gtk_widget_show_all, NULL);
++#else
++	gtk_widget_show_all(pub->mw->window);
++#endif
++	g_free(conf->fontname);
++	g_free(conf);
++
++#if ENABLE_EMACS
++	check_emacs_key_theme(GTK_WINDOW(pub->mw->window), pub->mw->menubar);
++#endif
++
++	hlight_init(pub->mw->buffer);
++	undo_init(pub->mw->view,
++		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Edit/Undo"),
++		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Edit/Redo"));
++//	hlight_init(pub->mw->buffer);
++	dnd_init(pub->mw->view);
++	riscos_l3afpad_window_created();
++}
 +#endif
 +
  gint main(gint argc, gchar **argv)
@@ -104,7 +320,19 @@ diff -ru a/src/main.c b/src/main.c
  	bindtextdomain(PACKAGE, LOCALEDIR);
  	bind_textdomain_codeset(PACKAGE, "UTF-8");
  	textdomain(PACKAGE);
-@@ -247,7 +269,16 @@
+@@ -218,6 +303,11 @@
+ 
+ 	selection_primary = gtk_clipboard_get(GDK_SELECTION_PRIMARY);
+ 
++#ifdef __riscos
++	l3afpad_setup_window();
++	if (pub->fi->filename)
++		gtk_widget_show(pub->mw->window);
++#else
+ 	pub->mw = create_main_window();
+ 
+ 	conf = g_malloc(sizeof(Conf));
+@@ -247,7 +337,16 @@
  		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/AutoIndent")),
  		conf->autoindent);
  
@@ -121,7 +349,11 @@ diff -ru a/src/main.c b/src/main.c
  	g_free(conf->fontname);
  	g_free(conf);
  
-@@ -264,7 +295,8 @@
+@@ -261,10 +360,12 @@
+ 		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Edit/Redo"));
+ //	hlight_init(pub->mw->buffer);
+ 	dnd_init(pub->mw->view);
++#endif
  
  	if (pub->fi->filename)
  		file_open_real(pub->mw->view, pub->fi);
@@ -131,9 +363,88 @@ diff -ru a/src/main.c b/src/main.c
  	else
  		stdin_data = gedit_utils_get_stdin();
  #endif
-diff -ru a/src/window.c b/src/window.c
+diff -ruN a/src/menu.c b/src/menu.c
+--- a/src/menu.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/menu.c	2026-10-07 11:16:53.041848882 +0100
+@@ -216,3 +216,12 @@
+ 
+ 	return ifactory;
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(menu) {
++	L3_VAR(menu_item_save), L3_VAR(menu_item_cut), L3_VAR(menu_item_copy), L3_VAR(menu_item_paste), L3_VAR(menu_item_delete), L3_END
++};
++#endif
+diff -ruN a/src/riscos-windows.h b/src/riscos-windows.h
+--- a/src/riscos-windows.h	1970-01-01 01:00:00.000000000 +0100
++++ b/src/riscos-windows.h	2026-10-07 11:16:53.042100884 +0100
+@@ -0,0 +1,27 @@
++/* riscos-windows.h - riscos-gtk: L3afpad on RISC OS keeps a window per
++ * document in one task. L3afpad keeps a window's state in file-level
++ * variables; each file lists those here, and riscos-l3afpad.c swaps them
++ * (with pub) when another window is used. GPL-2.0-or-later, as L3afpad.
++ * Copyright (C) 2026 Andrew Youll. */
++#ifndef RISCOS_WINDOWS_H
++#define RISCOS_WINDOWS_H
++
++#include <stddef.h>
++
++typedef struct {
++	void *address;
++	size_t size;
++} L3State;
++
++#define L3_STATE_TABLE(name) const L3State l3_state_##name[] =
++#define L3_VAR(v) { (void *) &(v), sizeof (v) }
++#define L3_END { NULL, 0 }
++
++/* riscos-l3afpad.c */
++void riscos_l3afpad_new_window(void);
++void riscos_l3afpad_close_window(void);
++void riscos_l3afpad_quit(void);
++void riscos_l3afpad_empty(void);
++void riscos_l3afpad_window_created(void);
++
++#endif
+diff -ruN a/src/undo.c b/src/undo.c
+--- a/src/undo.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/undo.c	2026-10-07 11:16:53.041920264 +0100
+@@ -381,3 +381,12 @@
+ {
+ 	while (undo_redo_real(buffer)) {};
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(undo) {
++	L3_VAR(undo_w), L3_VAR(redo_w), L3_VAR(undo_list), L3_VAR(redo_list), L3_VAR(undo_gstr), L3_VAR(ui_tmp), L3_VAR(modified_step), L3_VAR(prev_keyval), L3_VAR(seq_reserve), L3_END
++};
++#endif
+diff -ruN a/src/view.c b/src/view.c
+--- a/src/view.c	2015-07-05 21:27:58.000000000 +0100
++++ b/src/view.c	2026-10-07 11:16:53.041997926 +0100
+@@ -383,3 +383,12 @@
+ 
+ 	return view;
+ }
++
++#ifdef __riscos
++/* this file's per-window state, swapped by riscos-l3afpad.c when another
++   of the program's windows is used */
++#include "riscos-windows.h"
++L3_STATE_TABLE(view) {
++	L3_VAR(keyval), L3_VAR(view_scroll_flag), L3_END
++};
++#endif
+diff -ruN a/src/window.c b/src/window.c
 --- a/src/window.c	2015-07-05 21:27:58.000000000 +0100
-+++ b/src/window.c	2026-10-06 21:10:10.971859773 +0100
++++ b/src/window.c	2026-10-07 11:16:33.378752338 +0100
 @@ -37,10 +37,20 @@
  	gtk_window_set_icon_from_file(GTK_WINDOW(mw->window), ICONDIR"/l3afpad.png", NULL);
  	gtk_window_set_default_icon_name(PACKAGE);

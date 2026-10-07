@@ -45,6 +45,12 @@ static int hidden_after_close, empty_after_close;
 static int dataopen_ref, dataopen_ack, iconload_ref, iconload_ack, prequit_ack, prequit_dialog;
 static char text_after_dataopen[128], text_after_iconload[128];
 static int visible_after_dataopen, still_running_after_cancel, quit_chosen, forced_quit;
+/* multiple windows */
+static GtkWidget *letter_win, *note_win, *third_win;
+static int reopen_ref, reopen_ack;
+static int docs_after_iconload = -1, docs_after_select = -1, docs_after_reopen = -1, docs_after_close = -1;
+static int letter_unmodified, note_modified, letter_undo = -1, note_undo = -1, offset_x, offset_y;
+static int third_empty, third_destroyed, letter_handle, note_handle, letter_text_ok, note_text_ok;
 static int main_centred = -1, choices_centred = -1, main_cx, main_cy, choices_cx, choices_cy;
 #define PRINT_BANDS_SEEN 3
 static int printsave_seen, typeknown_seen, print_box_seen, print_box_title_ok, print_box_gadgets, print_button_at[4];
@@ -145,6 +151,126 @@ fake_handle_of (GtkWidget *top, int *ox, int *oy)
   return 0;
 }
 
+/* L3afpad's document windows on the screen (mapped, with a text view) */
+static int
+doc_windows (GtkWidget **out, int max)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  int n = 0;
+
+  for (l = tops; l; l = l->next)
+    if (gtk_widget_get_mapped (l->data) && find_type (l->data, GTK_TYPE_TEXT_VIEW))
+      {
+        if (n < max)
+          out[n] = l->data;
+        n++;
+      }
+  g_list_free (tops);
+  return n;
+}
+
+/* the window whose text starts with prefix */
+static GtkWidget *
+doc_with_text (const char *prefix)
+{
+  GtkWidget *w[8];
+  int i, n = doc_windows (w, 8);
+
+  for (i = 0; i < n && i < 8; i++)
+    {
+      GtkTextBuffer *b = gtk_text_view_get_buffer (GTK_TEXT_VIEW (find_type (w[i], GTK_TYPE_TEXT_VIEW)));
+      GtkTextIter s0, e0;
+      char *t;
+      gboolean ok;
+      gtk_text_buffer_get_bounds (b, &s0, &e0);
+      t = gtk_text_buffer_get_text (b, &s0, &e0, FALSE);
+      ok = g_str_has_prefix (t, prefix);
+      g_free (t);
+      if (ok)
+        return w[i];
+    }
+  return NULL;
+}
+
+/* the Wimp handle of any of our windows (by where it is) */
+static int
+handle_of (GtkWidget *top)
+{
+  int i, ox, oy;
+
+  gdk_window_get_origin (gtk_widget_get_window (top), &ox, &oy);
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle && fake_windows[i].handle != FOREIGN &&
+        (fake_windows[i].x0 >> 1) == ox && 1024 - (fake_windows[i].y1 >> 1) == oy)
+      return fake_windows[i].handle;
+  return 0;
+}
+
+/* a text view's text (free it) */
+static char *
+text_of (GtkWidget *v)
+{
+  GtkTextBuffer *b = gtk_text_view_get_buffer (GTK_TEXT_VIEW (v));
+  GtkTextIter s0, e0;
+  gtk_text_buffer_get_bounds (b, &s0, &e0);
+  return gtk_text_buffer_get_text (b, &s0, &e0, FALSE);
+}
+
+/* a window's Edit > Undo item */
+static GtkWidget *
+undo_item (GtkWidget *win)
+{
+  GtkWidget *bar = find_type (win, GTK_TYPE_MENU_BAR), *r = NULL;
+  GList *tops, *t;
+
+  if (bar == NULL)
+    return NULL;
+  tops = gtk_container_get_children (GTK_CONTAINER (bar));
+  for (t = tops; t && !r; t = t->next)
+    {
+      GtkWidget *sub = gtk_menu_item_get_submenu (t->data);
+      GList *items, *i;
+      if (sub == NULL)
+        continue;
+      items = gtk_container_get_children (GTK_CONTAINER (sub));
+      for (i = items; i && !r; i = i->next)
+        if (GTK_IS_MENU_ITEM (i->data) && gtk_menu_item_get_label (i->data) &&
+            strstr (gtk_menu_item_get_label (i->data), "Undo"))
+          r = i->data;
+      g_list_free (items);
+    }
+  g_list_free (tops);
+  return r;
+}
+
+/* Is the Edit > Undo item of a window's menu available? */
+static int
+undo_available (GtkWidget *win)
+{
+  GtkWidget *bar = find_type (win, GTK_TYPE_MENU_BAR);
+  GList *tops, *t;
+  int r = -1;
+
+  if (bar == NULL)
+    return -1;
+  tops = gtk_container_get_children (GTK_CONTAINER (bar));
+  for (t = tops; t && r < 0; t = t->next)
+    {
+      GtkWidget *sub = gtk_menu_item_get_submenu (t->data);
+      GList *items, *i;
+      if (sub == NULL)
+        continue;
+      items = gtk_container_get_children (GTK_CONTAINER (sub));
+      for (i = items; i; i = i->next)
+        if (GTK_IS_MENU_ITEM (i->data) && gtk_menu_item_get_label (i->data) &&
+            strstr (gtk_menu_item_get_label (i->data), "Undo"))
+          r = gtk_widget_get_sensitive (i->data);
+      g_list_free (items);
+    }
+  g_list_free (tops);
+  return r;
+}
+
 /* Is Wimp window handle in the middle of the 1280 x 1024 (2560 x 2048 OS
    units) screen? (its work area's centre within 4 OS units) */
 static int
@@ -223,6 +349,8 @@ message_hook (int reason, int *b, int dest, int icon)
         dataopen_ack++;               /* the DataOpen: L3afpad loads it */
       else if (iconload_ref && b[3] == iconload_ref)
         iconload_ack++;
+      else if (reopen_ref && b[3] == reopen_ref)
+        reopen_ack++;                 /* the file opened again (its window brought forward) */
       else
         drop_ack++;                   /* our drop taken */
       break;
@@ -487,8 +615,15 @@ step_ready (void)
     case 13:
     case 21:
     case 24:
-    case 27:
+    case 32:
       return menu_seen && fake_menu != NULL;
+    case 28:
+      {
+        GtkWidget *w[8];
+        return doc_windows (w, 8) >= 3 || waits > 40;
+      }
+    case 30:
+      return third_win == NULL || waits > 40;
     case 14:
       return dialog_titled ("L3afpad choices", GTK_TYPE_DIALOG) != NULL;
     case 16:
@@ -499,10 +634,7 @@ step_ready (void)
       g_free (t);
       return ok;
     case 18:
-      t = buffer_text ();
-      ok = strstr (t, "Dropped on the icon") != NULL;
-      g_free (t);
-      return ok;
+      return doc_with_text ("Dropped on the icon") != NULL;
     case 19:
       return prequit_ack > 0;
     case 22:
@@ -821,6 +953,15 @@ next_step (void)
     case 18:     /* a text file dropped on the icon: DataLoad to window -2 */
       {
         char *t = buffer_text ();
+        if (getenv ("L3_DEBUG"))
+          {
+            GtkWidget *w[8];
+            int i, n = doc_windows (w, 8);
+            printf ("# after DataOpen: %d windows; main_win %p visible %d text \"%.30s\"\n", n,
+                    (void *) main_win, gtk_widget_get_visible (main_win), t);
+            for (i = 0; i < n && i < 8; i++)
+              printf ("#   window %p\n", (void *) w[i]);
+          }
         g_strlcpy (text_after_dataopen, t, sizeof text_after_dataopen);
         g_free (t);
         visible_after_dataopen = gtk_widget_get_visible (main_win);
@@ -830,8 +971,29 @@ next_step (void)
       break;
     case 19:     /* unsaved text, then the desktop shuts down: PreQuit; Cancel */
       {
-        char *t = buffer_text ();
+        char *t;
         int q[64];
+        GtkWidget *w[8];
+        /* the file dropped on the icon has a window of its own */
+        docs_after_iconload = doc_windows (w, 8);
+        letter_win = doc_with_text ("Opened by DataOpen");
+        note_win = doc_with_text ("Dropped on the icon");
+        if (letter_win && note_win && note_win != letter_win)
+          {
+            int lx, ly, nx, ny;
+            gdk_window_get_root_origin (gtk_widget_get_window (letter_win), &lx, &ly);
+            gdk_window_get_root_origin (gtk_widget_get_window (note_win), &nx, &ny);
+            offset_x = nx - lx;
+            offset_y = ny - ly;
+            letter_handle = handle_of (letter_win);
+            note_handle = handle_of (note_win);
+            /* the rest of the test works in the new window */
+            main_win = note_win;
+            view = find_type (note_win, GTK_TYPE_TEXT_VIEW);
+            main_handle = note_handle;
+            fake_target_window = main_handle;
+          }
+        t = buffer_text ();
         g_strlcpy (text_after_iconload, t, sizeof text_after_iconload);
         g_free (t);
         gtk_text_buffer_insert_at_cursor (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)), "!", 1);
@@ -947,13 +1109,111 @@ next_step (void)
             gtk_widget_destroy (pw);
           }
         nulls (10);
+        /* type in the second window: click in its text, then a key */
+        {
+          int x, y;
+          fake_target_window = main_handle;
+          fake_target_icon = -1;
+          gtk_widget_translate_coordinates (view, main_win, 40, 40, &x, &y);
+          add (FAKE_MOVE, x, y, 0);
+          add (6, x, y, 4);
+          add (FAKE_RELEASE, 0, 0, 0);
+          nulls (5);
+          type ("x");
+          nulls (5);
+        }
       }
       break;
-    case 27:     /* still here; Menu on the icon again (the text still unsaved) */
+    case 27:     /* each window its own state: then a click in the first window's text */
+      {
+        GtkTextBuffer *lb = letter_win ? gtk_text_view_get_buffer (GTK_TEXT_VIEW (find_type (letter_win, GTK_TYPE_TEXT_VIEW))) : NULL;
+        letter_unmodified = lb && !gtk_text_buffer_get_modified (lb);
+        note_modified = gtk_text_buffer_get_modified (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
+        /* only the one typed in has something to undo */
+        letter_undo = letter_win ? undo_available (letter_win) : -1;
+        note_undo = undo_available (note_win);
+        if (letter_win)
+          {
+            int x, y;
+            GtkWidget *lv = find_type (letter_win, GTK_TYPE_TEXT_VIEW);
+            fake_target_window = letter_handle;
+            fake_target_icon = -1;
+            gtk_widget_translate_coordinates (lv, letter_win, 40, 40, &x, &y);
+            add (FAKE_MOVE, x, y, 0);
+            add (6, x, y, 4);
+            add (FAKE_RELEASE, 0, 0, 0);
+          }
+        nulls (10);
+      }
+      break;
+    case 28:     /* Edit > Undo in the first window: undoes nothing there, and not the
+                    second window's typing; then Select on the icon: a new, empty window */
+      {
+        GtkWidget *item = letter_win ? undo_item (letter_win) : NULL;
+        GtkWidget *lv = letter_win ? find_type (letter_win, GTK_TYPE_TEXT_VIEW) : NULL;
+        char *lt, *nt;
+        if (item)
+          gtk_menu_item_activate (GTK_MENU_ITEM (item));
+        lt = lv ? text_of (lv) : g_strdup ("");
+        nt = text_of (find_type (note_win, GTK_TYPE_TEXT_VIEW));
+        letter_text_ok = g_str_has_prefix (lt, "Opened by DataOpen");
+        note_text_ok = strchr (nt, 'x') != NULL;
+        g_free (lt);
+        g_free (nt);
+        fake_target_window = main_handle;
+      }
+      iconbar_click (4);
+      nulls (10);
+      break;
+    case 29:     /* the file that's open already, double-clicked again: no new window */
+      {
+        GtkWidget *w[8];
+        int i, n;
+        docs_after_select = n = doc_windows (w, 8);
+        for (i = 0; i < n && i < 8; i++)
+          if (w[i] != letter_win && w[i] != note_win)
+            third_win = w[i];
+        if (third_win)
+          {
+            char *t;
+            GtkTextBuffer *b = gtk_text_view_get_buffer (GTK_TEXT_VIEW (find_type (third_win, GTK_TYPE_TEXT_VIEW)));
+            GtkTextIter s0, e0;
+            gtk_text_buffer_get_bounds (b, &s0, &e0);
+            t = gtk_text_buffer_get_text (b, &s0, &e0, FALSE);
+            third_empty = t[0] == 0;
+            g_free (t);
+          }
+        broadcast_file (5, 0, 0, note3_ro, &reopen_ref);
+        nulls (20);
+      }
+      break;
+    case 30:     /* close the new window (nothing in it): it goes */
+      {
+        GtkWidget *w[8];
+        docs_after_reopen = doc_windows (w, 8);
+        if (third_win)
+          {
+            g_object_add_weak_pointer (G_OBJECT (third_win), (gpointer *) &third_win);
+            fake_target_window = handle_of (third_win);
+            add (3, 0, 0, 0);          /* Close_Window_Request */
+          }
+        nulls (10);
+      }
+      break;
+    case 31:
+      {
+        GtkWidget *w[8];
+        docs_after_close = doc_windows (w, 8);
+        third_destroyed = third_win == NULL;
+        fake_target_window = main_handle;
+        nulls (4);
+      }
+      break;
+    case 32:     /* still here; Menu on the icon again (the text still unsaved) */
       still_running_after_cancel = 1;
       iconbar_click (2);
       break;
-    case 28:     /* Quit */
+    case 33:     /* Quit */
       fake_target_window = main_handle;
       fake_target_icon = -1;
       {
@@ -1074,7 +1334,7 @@ hook (int reason)
     }
   if (stage == 1 && fake_wimp_script_pos () >= fake_wimp_script_len - 3)
     {
-      if (step >= 28)
+      if (step >= 33)
         {
           /* Quit was chosen: L3afpad should end; if not, stop it */
           if (++quit_asked > 200)
@@ -1308,6 +1568,26 @@ main (int argc, char **argv)
          preview_print_shown,
          "File > Print Preview shows the pages in a window (Page 1 of n, Back, Next, Print)");
   printf ("# preview: \"%s\"\n", preview_label);
+  check (docs_after_iconload == 2 && letter_win && note_win && note_win != letter_win,
+         "a second file (dropped on the icon) opens in a window of its own; the first keeps its file");
+  check (offset_x == 24 && offset_y == 24,
+         "the second window opens 48 OS units down and right of the first");
+  check (letter_unmodified && note_modified && letter_undo == 0 && note_undo == 1,
+         "each window keeps its own state: typing in the second leaves the first unmodified, "
+         "with nothing to undo");
+  check (letter_text_ok && note_text_ok,
+         "Edit > Undo in the first window (after a click in it) leaves both texts alone: "
+         "each window has its own undo");
+  check (docs_after_select == 3 && third_empty,
+         "Select on the icon with windows open opens another, empty window");
+  check (docs_after_reopen == 3 && reopen_ack == 1, "a file that's already open, opened again, brings its window "
+         "forward rather than opening another");
+  check (docs_after_close == 2 && third_destroyed,
+         "closing one of several windows closes it (the others stay)");
+  printf ("# windows: %d after the icon drop (offset %d,%d), %d after Select, %d after reopening, "
+          "%d after closing; undo %d/%d; handles %d %d\n", docs_after_iconload, offset_x, offset_y,
+          docs_after_select, docs_after_reopen, docs_after_close, letter_undo, note_undo,
+          letter_handle, note_handle);
   check (quit_chosen && !forced_quit && fake_reports == reports_before + 1,
          "Quit from the icon bar menu with unsaved text asks; Discard quits");
   check (strstr (logbuf, "CRITICAL") == NULL && strstr (logbuf, "WARNING") == NULL,

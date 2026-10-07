@@ -6,26 +6,28 @@ in the riscos-gtk project.
 
 Using it
 - Run it: L3afpad puts its icon on the icon bar. Click Select on the icon
-  to open its window. Or drop a text file on !L3afpad in a Filer window.
-- The icon bar icon: Select opens the window; Menu gives Info (About
-  this program), Choices... and Quit. Drop a text file on the icon to
-  open it. While L3afpad is loaded, double-clicking a text file opens it
-  here, and running !L3afpad again gives it the file.
-- Quit (or a desktop shutdown) with unsaved text asks: Cancel or
-  Discard.
-- Closing the window empties it (asking to save first); L3afpad stays on
-  the icon bar until you choose Quit.
+  to open a window. Or drop a text file on !L3afpad in a Filer window.
+- Each text has its own window, as in Edit: Select on the icon, and
+  File > New, open a new empty window; a text file dropped on the icon,
+  or double-clicked while L3afpad is loaded, opens in a window of its
+  own (a file that's open already has its window brought to the front).
+  Running !L3afpad again gives the file to the copy that's running.
+- The icon bar icon: Select opens a new window; Menu gives Info (About
+  this program), Choices... and Quit.
+- Quit (or a desktop shutdown) with unsaved text in any window asks:
+  Cancel or Discard. File > Quit asks in each window with unsaved text.
+- Closing a window asks to save first; L3afpad stays on the icon bar
+  until you choose Quit.
 - Choices...: font, tab width, word wrap, line numbers, auto indent. Set
-  uses them and keeps them in <Choices$Write>.L3afpad.Choices.
+  uses them in every window, and keeps them in
+  <Choices$Write>.L3afpad.Choices for new windows.
 - Click Menu over the window for its menu (File, Edit, Search, Options,
   Help). Keyboard short-cuts are shown in the menus (^S save, ^O open...).
-- Drag a text file from a Filer window onto the window to open it.
+- Drag a text file from a Filer window onto a window to open it there.
 - File > Save As: a RISC OS Save box. Drag its icon to a Filer window, or
   give a full name and click Save. Names without an extension are saved
   as Text (&FFF).
 - File > Open: an Open box. Drag a file to it from a Filer window.
-- File > New empties the window (asking to save first): RISC OS runs one
-  copy of a program, so there's no second window.
 - File > Print...: the RISC OS Print box (All or From/to pages, Copies,
   Scale, Upright/Sideways, Draft; Save keeps the settings). It prints to
   the printer set up in !Printers. File > Print Preview shows the pages
@@ -36,7 +38,6 @@ Using it
 Not yet
 - Double-clicking a text file when L3afpad isn't loaded starts your usual
   editor, not L3afpad (it doesn't claim Text files in its !Boot).
-- One window (one text) at a time.
 
 Messages go to <Wimp$ScrapDir>.L3afpad.Log. Please send it, with a note of
 anything that behaves differently from a RISC OS editor.

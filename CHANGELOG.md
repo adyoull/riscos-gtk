@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (multiple windows: !L3afpad 0.14, GTKThemeTest 0.38, 2026-10-07)
+- **!L3afpad: a window per document in one task** (owner's choice: "each
+  file its own window", as Edit). Select on the icon bar and File > New
+  open a new empty window (a hidden empty one first); a file dropped on
+  the icon or double-clicked opens in a window of its own, 48 OS units
+  down and right of the last; a file that's open already has its window
+  brought forward. Closing a window asks to save, then closes it (the
+  last one is emptied and hidden: L3afpad stays on the icon bar). Quit /
+  PreQuit ask if any window has unsaved text; File > Quit asks in each.
+  Choices apply to every window.
+  - How: L3afpad keeps a window's state in `pub` and file-level variables.
+    The patch lists them per file (`src/riscos-windows.h`, tables in
+    callback.c, hlight.c, indent.c, linenum.c, menu.c, undo.c, view.c;
+    callback.c's two function statics moved to file level) and factors
+    the window set-up out of main() (`l3afpad_setup_window`);
+    `apps/l3afpad/riscos-l3afpad.c` keeps a Doc per window and swaps the
+    variables (and `pub`) when an input event (click, key, focus in, drop,
+    close) goes to another window or one of its dialogue boxes or menus -
+    not while a modal dialogue box holds the input. A new window starts
+    from the variables' values at program start. Search history and the
+    clipboard stay shared.
+- **GDK:** `gdk_riscos_set_event_watch` - a program sees each event before
+  GTK without replacing GTK's handler (riscos-gtk's own Menu-over-text
+  handler is already installed with gdk_event_handler_set).
+- Tests: l3afpad-fake 44 checks (7 new): the icon drop opens a second
+  window (the first keeps its file), offset 24,24 pixels; typing in the
+  second leaves the first unmodified with nothing to undo; Edit > Undo in
+  the first (after a click in it) leaves both texts alone (fails without
+  the variables being swapped); Select with windows open gives a third,
+  empty window; the open file again gives no new window (acknowledged);
+  closing one of several destroys it.
+
 ## Unreleased (vector printing: !L3afpad 0.13, GTKThemeTest 0.37, 2026-10-07)
 - **Printed text was poor** (owner's photo of the job in the printer's
   viewer: thin, broken letters). Pages were bitmaps; a PDF/PostScript

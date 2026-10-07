@@ -73,6 +73,10 @@ gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint
    in the window, pixels); width 0: at the window's right edge */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gint width);
+/* Called with each event before GTK has it (see gdkeventsource.c) */
+typedef void (*GdkRiscosEventWatch) (GdkEvent *event, gpointer data);
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_set_event_watch (GdkRiscosEventWatch watch, gpointer data);
 
 /* A Wimp error box (Wimp_ReportError, OK button) saying message,
  * "Message from" the program. */
