@@ -1,0 +1,26 @@
+@NAME@ @VERSION@ - where its source is
+
+This program is built with riscos-gtk (GTK 3 for RISC OS), @RELEASE@,
+from riscos-gtk commit @COMMIT@.
+
+It contains, statically linked, GTK, GLib, pango, cairo, gdk-pixbuf, ATK,
+fribidi and their libraries. These are under the GNU Lesser General
+Public License version 2.1 (LicenceLGPL), and other free licences listed
+in riscos-gtk's LICENCES.md.
+
+You may change those libraries and relink this program with your
+changes. The complete corresponding source, which is everything needed
+to rebuild this program, is the riscos-gtk source archive published
+with this release (riscos-gtk-<release>-src.tar). It contains:
+- riscos-gtk at the commit above: the RISC OS backend, the patches to
+  each library, and this program's RISC OS code and build scripts;
+- the upstream source of every library and of the program itself.
+
+docs/BUILDING.md in the archive says how to rebuild. The source is at:
+
+  @SOURCE_URL@
+
+If you received this program without the source and can't find it
+there, ask the person who gave it to you, or the maintainer (Andrew
+Youll); a copy will be provided for at least three years from the
+release date.

@@ -15,9 +15,10 @@ or adapted from other projects keep their original licence, listed below.
 | `gdk/riscos/*` except `gdkriscos-server.c`, `gdktransfer-riscos.c`, `gdkpointer-riscos.c`, `gdkwimptheme-riscos.c`, `gdkriscoswimp.h`, `gdkriscosmenu.h` and `meson.build` | GTK 3.24.41 `gdk/broadway/` (client side), renamed broadway → riscos, with riscos-gtk's changes | LGPL version 2.1 or later, as GTK |
 | `gdk/riscos/gdkriscos-server.c`, `gdk/riscos/gdktransfer-riscos.c`, `gdk/riscos/gdkpointer-riscos.c`, `gdk/riscos/gdkwimptheme-riscos.c`, `gdk/riscos/gdkriscoswimp.h`, `gdk/riscos/gdkriscosmenu.h`, `gdk/riscos/meson.build`, `gtk/riscos/*` (Wimp menus, the Wimp theme, Save and Open boxes) | Written for riscos-gtk; part of GTK and its backend, so under GTK's licence | LGPL version 2.1 or later |
 | `theme/icons-list.txt`, the apps' `share/icons/RISCOS` (made by `build/mkicons.py`, MIT) | [Adwaita icon theme](https://gitlab.gnome.org/GNOME/adwaita-icon-theme) 3.36.1, GNOME Project (the licence files go with the icons) | LGPL version 3 or CC-BY-SA 3.0 |
-| `patches/l3afpad-0.8.18.1.11-riscos.diff`, `apps/l3afpad/*` (config.h, riscos-l3afpad.c, the app files; Licence is the GPL-2 text, LicenceLGPL L3afpad's COPYING) | Changes to [L3afpad](https://github.com/stevenhoneyman/l3afpad) 0.8.18.1.11 (Tarot Osuji, Steven Honeyman); its icon made into !Sprites | GPL version 2 or later, as L3afpad |
+| `patches/l3afpad-0.8.18.1.11-riscos.diff`, `apps/l3afpad/*` (config.h, riscos-l3afpad.c, the app files; Licence is the GPL-2 text) | Changes to [L3afpad](https://github.com/stevenhoneyman/l3afpad) 0.8.18.1.11 (Tarot Osuji, Steven Honeyman); its icon made into !Sprites | GPL version 2 or later, as L3afpad |
 | `patches/claws-mail-4.4.0-riscos.diff` (including `src/common/ssl_acornssl.c` and the `gnutls-acornssl` headers), `apps/claws/*` (riscos-claws.c, objects.mk, unaligned-safe.txt, the app files; Licence is Claws Mail's COPYING, GPL-3; LicenceEtPan libetpan's COPYRIGHT) | Changes to [Claws Mail](https://www.claws-mail.org/) 4.4.0 (the Claws Mail team); its icon made into !Sprites | GPL version 3 or later, as Claws Mail |
 | libetpan 1.9.4 (built by `build/build-claws.sh`, linked into !ClawsMail; not in this repository) | [libetpan](https://github.com/dinhvh/libetpan), DINH Viet Hoa | BSD-style (its COPYRIGHT, shipped as LicenceEtPan) |
+| `riscos/licences/LGPL-2.1.txt` | The GNU LGPL 2.1 text (Free Software Foundation), copied into every package as LicenceLGPL | Verbatim copying permitted |
 | `tests/claws/mailserver.py`, `tests/gtk/claws-fake.c` | Written for riscos-gtk | MIT |
 | The AcornSSL section of `tests/fake/mesa-egl/fake_riscos.c` (test code, not in any package) | Adapted from [riscos-ffmpeg](https://github.com/adyoull/riscos-ffmpeg)'s `tests/host/fake_acornssl.c` | GPL version 2 or later, as riscos-ffmpeg |
 | `patches/gtk+3.0-3.24.41-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
@@ -50,12 +51,13 @@ checksum. A RISC OS program built here links them statically.
 | cairo 1.18.0 | LGPL version 2.1 or MPL 1.1 |
 | pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.41 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
-| UnixLib 5.0.3.1 and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
+| UnixLib 5.0.3.3 (riscos-unixlib release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 
-**Static linking and the LGPL.** GLib (and later pango, GTK, ATK, cairo
-parts) are LGPL. A program that links them statically may be distributed
-only if users can relink it against a modified library, so a release must
-ship the program's object files and a link script (a "relink kit") with
-the sources of the LGPL libraries and our changes to them. UnixLib has no
-dlopen, so shared libraries aren't an option today. Test builds (such as
-!GLibTest) are covered by shipping the sources and this repo.
+**Static linking and the LGPL.** GLib, pango, GTK, ATK, gdk-pixbuf,
+fribidi and cairo are LGPL and are linked statically (UnixLib has no
+dlopen). LGPL 2.1 section 6 is met by publishing, with each release, the
+complete source: this repository at the release commit plus every upstream
+tarball (`build/make-release.sh` makes `riscos-gtk-<release>-src.tar`),
+from which every program, open source itself, can be rebuilt against a
+changed library. Each package carries `LicenceLGPL` and a `Source` file
+saying where that archive is. Details: docs/SOURCE-AND-LICENCES.md.

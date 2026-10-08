@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.24.41-riscos1-rc1 (release candidate, for review, 2026-10-08)
+The first release candidate: !L3afpad 0.17, !ClawsMail 0.4, GTKThemeTest
+0.41, and the complete source. Everything above "Unreleased" below.
+- Release documents: `docs/RELEASE-NOTES.md`, `docs/RC-TEST-PLAN.md` (the
+  Pi sign-off), `docs/BUILDING.md`, `docs/SOURCE-AND-LICENCES.md`; the
+  README rewritten for the release.
+- `build/make-release.sh` / `make release RELEASE=...`: from a committed
+  tree, the three programs, `riscos-gtk-<release>-src.tar` (the
+  repository at the commit plus every upstream tarball) and
+  `MANIFEST.txt` (SHA-256s, commit, toolchain, UnixLib). Makefile targets
+  `l3afpad`, `themetest`, `claws`, `release`.
+- Every package now carries `LicenceLGPL` (one copy in
+  `riscos/licences/`) and a `Source` file (commit, release, what it links,
+  where the source archive is, a three-year offer); GTKThemeTest gains its
+  MIT `Licence`. !Help licence paragraphs list them. ClawsMail's default
+  version in build-claws.sh is 0.4.
+- LICENCES.md: the LGPL obligation is met by the source archive (all
+  three programs are open source), not an object-file relink kit; UnixLib
+  5.0.3.3.
+
 ## Unreleased (only a bar in the corner takes the grip: !ClawsMail 0.4, !L3afpad 0.17, GTKThemeTest 0.41, 2026-10-07)
 - Owner: "the scroll bar must run to the bottom right edge for it to
   claim the grip." So 0.3's grip at the foot of a bar that ends above the

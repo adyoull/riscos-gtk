@@ -33,6 +33,15 @@ sed "s/@VERSION@/$VERSION/g" "$FILES/!Help,fff" > "$A/!Help,fff"
 for f in "$FILES"/*; do
   case "$(basename "$f")" in '!Run,feb'|'!Help,fff') ;; *) cp -r "$f" "$A/" ;; esac
 done
+# Every package: the LGPL (GTK, GLib and the libraries are linked into
+# it) and where its complete source is (docs/SOURCE-AND-LICENCES.md)
+cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$A/LicenceLGPL,fff"
+COMMIT=$(git -C "$REPO_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+[ -z "$(git -C "$REPO_DIR" status --porcelain --untracked-files=no 2>/dev/null)" ] || COMMIT="$COMMIT (with changes)"
+sed -e "s|@NAME@|$NAME|g" -e "s|@VERSION@|$VERSION|g" -e "s|@COMMIT@|$COMMIT|g" \
+    -e "s|@RELEASE@|${RELEASE:-a development build}|g" \
+    -e "s|@SOURCE_URL@|${SOURCE_URL:-https://github.com/adyoull/riscos-gtk}|g" \
+    "$REPO_DIR/riscos/licences/Source.txt" > "$A/Source,fff"
 cp "$GCCSDK_ENV"/riscos/PThrTicker,ffa "$GCCSDK_ENV"/riscos/PThreadTicker-ReadMe,fff \
    "$GCCSDK_ENV"/riscos/PThreadTicker-Licence,fff "$A/"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' \

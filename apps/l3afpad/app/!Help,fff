@@ -44,5 +44,7 @@ anything that behaves differently from a RISC OS editor.
 
 Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
 
-Licences: L3afpad GPL v2; GTK, GLib and friends LGPL; icons from GNOME's
-Adwaita (LGPL v3 / CC-BY-SA 3.0); DejaVu fonts (free licence, in fonts).
+Licences: L3afpad GPL v2 (Licence); GTK, GLib and friends LGPL v2.1
+(LicenceLGPL); icons from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0);
+DejaVu fonts (free licence, in fonts); PThreadTicker (its Licence).
+Source says where the complete source is.

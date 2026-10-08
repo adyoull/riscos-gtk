@@ -58,7 +58,8 @@ Not yet
 
 Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
 
-Licences: Claws Mail GPL v3 (Licence); GTK, GLib and friends LGPL
-(LicenceLGPL); Nettle LGPL v3 / GPL v2; libetpan BSD-style (its COPYRIGHT,
-in LicenceEtPan); icons from GNOME's Adwaita (LGPL v3
-/ CC-BY-SA 3.0); DejaVu fonts (free licence, in fonts).
+Licences: Claws Mail GPL v3 (Licence); GTK, GLib and friends LGPL v2.1
+(LicenceLGPL); Nettle LGPL v3 / GPL v2; libetpan BSD-style
+(LicenceEtPan); icons from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0);
+DejaVu fonts (free licence, in fonts); PThreadTicker (its Licence).
+Source says where the complete source is.
