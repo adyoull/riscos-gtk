@@ -22,5 +22,5 @@ Toolbox/Wimp UI test).
 The sprite plotting itself (eig caching, BGRA → RISC OS pixel order) is in
 riscos-mesa's SDL driver, `patches/sdl2/src.video.riscos.SDL_riscosframebuffer.c.p`.
 
-All of the files above are the owner's own work under the MIT licence
+All of the files above are Andrew Youll's own work under the MIT licence
 (riscos-mesa's `LICENSE`).

@@ -2,7 +2,7 @@
 
 ## 3.24.41-riscos1.0-rc3 — public beta (2026-10-09)
 ClawsMail 0.8's functionality confirmed on the Pi, links opening in Iris
-included; then the owner asked for a public beta RC3.
+included; this release is the public beta RC3.
 - !ClawsMail 0.8 (the two sections below). L3afpad 0.19 and GTKThemeTest
   0.43 are unchanged since RC2, rebuilt to name this release.
 - Release notes: public beta status, a "Reporting problems" section, what
@@ -17,11 +17,11 @@ included; then the owner asked for a public beta RC3.
   confirmed on the Pi are marked "yes".
 
 ## ClawsMail 0.8 (2026-10-09)
-The owner's Pi report on 0.7 (photos), and follow-ups:
-- **"Why is HTML view on a grey background":** litehtml leaves an
+Fixes from testing 0.7 on the Pi, and follow-ups:
+- **The HTML view was on a grey background:** litehtml leaves an
   uncoloured page transparent, so the theme's grey showed through. Now
   the canvas is painted white first (`lh_widget::draw`), as in a browser.
-- **"Why does it not show the from and two bits from the msg view":**
+- **The HTML view didn't show the headers the text view shows:**
   - The litehtml viewer replaces the text view, which is where Claws
     Mail prints the headers.
   - It now has a Claws Mail TextView above the HTML showing the
@@ -29,15 +29,14 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
     colours, clickable addresses.
   - New `textview_show_message_headers`. It's hidden when Claws Mail's
     header pane is on.
-- **"Context middle click doesn't work in html view":**
+- **Menu clicks didn't work in the HTML view:**
   - The viewer swallowed every Menu click. Away from a link it now lets
     the click through, so the window's menu opens.
   - On a link, its own menu (Open Link, Copy Link) is "Link >" in the
     window's menu.
   - Copy Link copies to the global clipboard. RISC OS has no PRIMARY
     selection.
-- **"Can we use mimemap for directing hyperlinks ... go through !Iris
-  ... or netsurf":**
+- **Links open in !Iris or NetSurf (not through MimeMap):**
   - MimeMap maps MIME types to file types. Links go through the Acorn
     URI handler instead.
   - Claws Mail's `open_uri` calls `riscos_claws_open_uri`:
@@ -49,7 +48,7 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
       dispatched once it shows in the task list (polled every 0.5 s, for
       up to 30 s).
     - If nothing takes the link, an error box says so.
-- **"In the about window it says gnutls ... and can we change the logo":**
+- **The About box said GnuTLS and showed the old logo:**
   - The About box's feature list says AcornSSL.
   - The logo, in the About box and the set-up wizard, is the new
     application icon drawn large (`riscos_claws_priv_pixbuf`;
@@ -64,8 +63,7 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
   - the About box's AcornSSL line and logo.
 
 ## ClawsMail 0.7 (2026-10-09)
-- **HTML mail** (owner: "how can we add HTML email support to clawsmail";
-  chose litehtml with remote images):
+- **HTML mail** (chosen: litehtml with remote images):
   - Claws Mail's litehtml viewer plug-in is built and linked into the
     program; `riscos-claws.c` starts it (`riscos_claws_plugins`, called
     from main.c just before Claws Mail loads its plug-ins). UnixLib has
@@ -81,8 +79,8 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
     privacy setting, Choices... > Plugins > LiteHTML).
   - New default on RISC OS: the HTML part of multipart/alternative
     messages is shown.
-- **RISC OS icons** (owner: "can we do RISC OS icons for the app itself
-  and menu bar as the GTK3 ones look out of place"):
+- **RISC OS icons** for the application itself and its toolbar (the GTK 3
+  ones looked out of place):
   - Original icons drawn by `tools/mkclawsicons.py` in the style of the
     RISC OS 5 desktop: 57 toolbar icons, 22 message-list marks, the
     folder icons, and a new !ClawsMail application icon (34 x 34 and
@@ -111,9 +109,9 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
 - Packages carry LicenceLiteHTML and LicenceGumbo.
 
 ## 3.24.41-riscos1.0-rc2 (2026-10-09)
-- **One menu per window** (owner: "the middle button context menu is
-  different depending on where you middle click in clawmail"). The owner
-  chose "the main menu with a context submenu":
+- **One menu per window.** Menu in ClawsMail gave a different menu
+  depending on where it was clicked. Now the window's main menu opens,
+  with the context menu as a submenu:
   - `gtk/riscos/gtkmenu-riscos.c`: a widget's context menu opened by a
     Menu click, in a window with a menu, opens the window's menu with the
     context menu as its first entry.
@@ -135,7 +133,7 @@ The owner's Pi report on 0.7 (photos), and follow-ups:
 ## 3.24.41-riscos1.0-rc1 (release candidate, signed off on the Pi, 2026-10-09)
 The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 0.42, and the complete source. Everything above "Unreleased" below.
-- Owner on ClawsMail 0.4 on the Pi (photo): two size icons at first start
+- ClawsMail 0.4 on the Pi: two size icons appeared at first start
   until something redrew the window; the main window opened at start
   rather than starting on the icon bar; closing it quit (it should stay on
   the icon bar). Fixed:
@@ -152,10 +150,10 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 - A clean build from a fresh clone (`make deps` then `make release`)
   succeeds: 34 static libraries, three packages, the source tar and the
   manifest.
-- Owner's Pi sign-off: size icon right in all three programs; ClawsMail
+- Signed off on the Pi: size icon right in all three programs; ClawsMail
   IMAP receive and SMTP send with TLS 1.2 through AcornSSL; starts on the
-  icon bar, closing the last window leaves it there; "all working fine".
-- Version named `3.24.41-riscos1.0-rc1` (owner: add a .x point number).
+  icon bar, closing the last window leaves it there; all working.
+- Version named `3.24.41-riscos1.0-rc1` (a .x point number added).
 - Release documents: `docs/RELEASE-NOTES.md`, `docs/RC-TEST-PLAN.md` (the
   Pi sign-off), `docs/BUILDING.md`, `docs/SOURCE-AND-LICENCES.md`; the
   README rewritten for the release.
@@ -174,8 +172,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   5.0.3.3.
 
 ## Unreleased (only a bar in the corner takes the grip: !ClawsMail 0.4, !L3afpad 0.17, GTKThemeTest 0.41, 2026-10-07)
-- Owner: "the scroll bar must run to the bottom right edge for it to
-  claim the grip." So 0.3's grip at the foot of a bar that ends above the
+- A scroll bar must run to the bottom right edge to claim the grip. So
+  0.3's grip at the foot of a bar that ends above the
   corner is gone: only a vertical bar running down into the bottom right
   corner takes the grip (at the window's foot, under the bar); a window
   without one has the empty scroll bar outside it, as in 0.2. Claws Mail's
@@ -188,8 +186,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   (its Wimp window a bar wider than GTK's).
 
 ## Unreleased (the app's own scroll bar takes the grip: !ClawsMail 0.3, !L3afpad 0.16, GTKThemeTest 0.40, 2026-10-07)
-- Owner: "if the app has its own scroll bar on the right hand edge the
-  wimp scroll bar isn't needed." Now:
+- A program's own scroll bar on the window's right edge makes the extra
+  Wimp scroll bar unneeded. Now:
   - any vertical GTK scroll bar at the window's right edge takes the
     grip, not only one running into the corner. The lowest such bar is
     used. One with something under it (Claws Mail's message list, above
@@ -208,8 +206,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 
 ## Unreleased (IMAP; the size grip's scroll bar: !ClawsMail 0.2, !L3afpad 0.15, GTKThemeTest 0.39, 2026-10-07)
 - **!ClawsMail 0.2: IMAP** (stage 2), through libetpan 1.9.4, its TLS
-  through AcornSSL like the rest (owner: "we're using AcornSSL for SSL and
-  TLS"). libetpan is built for GnuTLS against Claws Mail's GnuTLS-subset
+  through AcornSSL like the rest (AcornSSL is used for all SSL and
+  TLS). libetpan is built for GnuTLS against Claws Mail's GnuTLS-subset
   headers, so its sessions are AcornSSL sessions in `ssl_acornssl.c`;
   the shim gained what libetpan uses (GnuTLS 2 type names,
   gnutls_retr2_st, set_retrieve_function, set_default_priority,
@@ -226,10 +224,10 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   `tests/claws/mailserver.py` now serves IMAP4rev1 too) has its INBOX
   found and scanned, logs in, selects, fetches the message whole into
   the cache, through a third AcornSSL session.
-- **The size grip no longer covers a window's contents** (owner: "the
-  resizing widget is overhanging part of the screen so it does need a
-  scroll bar showing"). A document window whose bottom right corner has
-  no GTK scroll bar running into it (Claws Mail's main window, with its
+- **The size grip no longer covers a window's contents** (it
+  overhung part of the contents and needs a scroll bar to sit on). A
+  document window whose bottom right corner has no GTK scroll bar running
+  into it (Claws Mail's main window, with its
   status bar; GTKThemeTest) gets an empty vertical scroll bar down its
   right edge, outside GTK's window, as the Wimp's furniture is outside
   the work area, with the grip at its foot: GTK draws the bar (with the
@@ -242,8 +240,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   the decisions. hellotest's toggle-size check allows for the strip.
 
 ## Unreleased (Claws Mail: !ClawsMail 0.1, 2026-10-07)
-- **!ClawsMail 0.1: Claws Mail 4.4.0, the second GTK program** (owner:
-  "an email client that can use AcornSSL"; "Try claws mail"). Stage 1:
+- **!ClawsMail 0.1: Claws Mail 4.4.0, the second GTK program** (chosen
+  as an email client that can use AcornSSL). Stage 1:
   POP3 and SMTP, local MH folders, no plug-ins, no IMAP (libetpan: stage
   2). `build/build-claws.sh` (Nettle 3.10.2 built into the stage for its
   stored-password DES), `patches/claws-mail-4.4.0-riscos.diff`,
@@ -289,8 +287,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   hand (`apps/claws/unaligned-safe.txt`), one fixed (SOCKS5).
 
 ## Unreleased (multiple windows: !L3afpad 0.14, GTKThemeTest 0.38, 2026-10-07)
-- **!L3afpad: a window per document in one task** (owner's choice: "each
-  file its own window", as Edit). Select on the icon bar and File > New
+- **!L3afpad: a window per document in one task** (each
+  file its own window, as Edit). Select on the icon bar and File > New
   open a new empty window (a hidden empty one first); a file dropped on
   the icon or double-clicked opens in a window of its own, 48 OS units
   down and right of the last; a file that's open already has its window
@@ -321,7 +319,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   closing one of several destroys it.
 
 ## Unreleased (vector printing: !L3afpad 0.13, GTKThemeTest 0.37, 2026-10-07)
-- **Printed text was poor** (owner's photo of the job in the printer's
+- **Printed text was poor** (the job seen in the printer's
   viewer: thin, broken letters). Pages were bitmaps; a PDF/PostScript
   driver or a viewer scaling them shows that. Now text, lines and solid
   shapes are sent as **Draw paths** (Draw_Fill / Draw_Stroke, colours by
@@ -366,7 +364,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 
 ## Unreleased (start-up crash: !L3afpad 0.11, GTKThemeTest 0.35, 2026-10-07)
 - **0.10 stopped at start-up with "EMT trap" under the Raspberry theme**
-  (owner's Log: backtrace block_find < try_block < tool_area < tool_uri <
+  (a Pi's Log: backtrace block_find < try_block < tool_area < tool_uri <
   make_css < gtk_init). Looking for the tool sprites, the Wimp's block is
   tried as a table of pointers; with the Raspberry theme loaded one of its
   words is near the top of memory, and OS_ValidateAddress on start .. start
@@ -380,7 +378,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 
 ## Unreleased (Raspberry theme: !L3afpad 0.10, GTKThemeTest 0.34, 2026-10-07)
 - **The Raspberry theme's scroll bars came out in garbled colours**
-  (owner's photo). That theme's tool sprites are 8bpp without a palette;
+  (seen on the Pi). That theme's tool sprites are 8bpp without a palette;
   the RISC OS 5 Wimp colours them through translation tables kept in the
   same Tools file as sprites "table_<Wimp colour>" (the Wimp's
   Doc/ToolTables: a 256-word image, &00BBGGRR each; table_2 when there's
@@ -394,7 +392,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   unpaletted sprites and table_1 / table_2 beside them.
 
 ## Unreleased (print layout and resolution, size icon: !L3afpad 0.9, GTKThemeTest 0.33, 2026-10-07)
-- **Printed pages were laid out in pixels, not points** (owner's photo:
+- **Printed pages were laid out in pixels, not points** (seen on the Pi:
   L3afpad's header printed over the first line). GTK's default unit is the
   surface's own, which programs take to be points (GTK's PDF and
   PostScript surfaces on Unix are 72 dpi); our page bitmap was in printer
@@ -409,7 +407,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   and banding printer drivers get only their band. Strips are plotted at
   180/dpi OS units a pixel (OS_SpriteOp 52 scale 90/dpi) from rows a whole
   number of OS units down, so they meet exactly.
-- **Size icon in the scroll bar's column** (owner's photo: a few pixels
+- **Size icon in the scroll bar's column** (seen on the Pi: a few pixels
   right of the scroll bar and narrower). GTK's vertical scroll bar stops
   short of the window's right edge (the text's frame), and the sicon
   sprite is not quite the bar's width; the grip is now drawn under the bar,
@@ -423,7 +421,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 
 ## Unreleased (print residue: !L3afpad 0.8, GTKThemeTest 0.32, 2026-10-07)
 - **Printing left the Print box's area unredrawn** over the window and the
-  pinboard (owner's photo). The print job stayed selected while GTK went
+  pinboard (seen on the Pi). The print job stayed selected while GTK went
   back to Wimp_Poll between pages, so the redraws the Wimp asked for went
   to the printer driver instead of the screen. The job is now suspended
   (PDriver_SelectJob 0) except while a page prints and at EndJob/AbortJob.
@@ -433,7 +431,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   gives 7).
 
 ## Unreleased (printing: !L3afpad 0.7, GTKThemeTest 0.31, 2026-10-06)
-- **Printing** through RISC OS's printer drivers (owner's choices: the
+- **Printing** through RISC OS's printer drivers (chosen: the
   Toolbox Print box, bitmap pages, a preview window of our own).
   - GTK patch: gtkprintoperation-unix.c hands every platform function to
     the new `gtk/gtkprint-riscos.c` on RISC OS (GTK's print back-end
@@ -473,11 +471,11 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   "printer:", hourglass) recording what it's given.
 
 ## UnixLib 5.0.3.3: !L3afpad 0.6, GTKThemeTest 0.30, GTKHello 0.5, GTKTest 0.6 (2026-10-06)
-- **Relinked against UnixLib 5.0.3.3** (owner's request; riscos-unixlib
+- **Relinked against UnixLib 5.0.3.3** (riscos-unixlib
   handoff 2026-10-06-all-ports-unixlib-5.0.3.3: fork with threads, waits
   in read/write/stdio (eventfd, used by GLib, can be cancelled), getserv*,
   heap gaps, swprintf, exit codes). No riscos-crossdev release has it yet,
-  so (owner's choice) `build/unixlib-overlay.sh` makes a copy of crossdev
+  so `build/unixlib-overlay.sh` makes a copy of crossdev
   1.3 with the v5.0.3.3 release's libunixlib.a (sha256 e24f16c3…, checked);
   the public headers are the same as 5.0.3.2's, so only the link changes.
   `build/env.sh` sets UNIXLIB_VERSION from the library's checksum and
@@ -486,8 +484,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   5.0.3.3". PThreadTicker stays 0.03.
 
 ## !L3afpad 0.5, GTKThemeTest 0.29 (2026-10-06)
-- **Windows open in the middle of the screen** (owner: the application and
-  Choices windows should). A toplevel GTK hasn't placed (no position
+- **Windows open in the middle of the screen** (the application and
+  Choices windows among them). A toplevel GTK hasn't placed (no position
   asked for: GTK_WIN_POS_NONE, no gtk_window_move, so no GDK_HINT_POS /
   USER_POS) is centred on the screen the first time it's shown, then
   reopens where it was (gdkwindow-riscos.c, `placed`). Windows GTK places
@@ -497,9 +495,9 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   centred).
 
 ## !L3afpad 0.4, GTKThemeTest 0.28 (2026-10-06)
-- **The icon bar done as our other RISC OS programs do it** (owner: 0.3's
-  was "nothing like RISC OS"; looked at Reel, !FFmpeg's front end, YTDL,
-  NetStats, RDPClient):
+- **The icon bar done as our other RISC OS programs do it** (0.3's
+  didn't follow RISC OS practice; modelled on Reel, !FFmpeg's front end,
+  YTDL, NetStats, RDPClient):
   - the icon: non-indirected sprite icon, flags &301A, 0,0,68,68 (as
     Reel/!FFmpeg);
   - the menu: the program's name as title, **Info, Choices... (only if the
@@ -529,8 +527,8 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   (fake_report_answer).
 
 ## !L3afpad 0.3, GTKThemeTest 0.27 (2026-10-06)
-- **The icon bar** (owner: "GTK apps are missing an icon bar entry").
-  Owner's choices: every program gets one automatically, with hooks; a
+- **The icon bar** (GTK programs had no icon bar icon).
+  Decided: every program gets one automatically, with hooks; a
   program stays on the icon bar when its last window closes; L3afpad
   gets a new Choices window.
   - GDK (`gdk/riscos/gdkiconbar-riscos.c`): Wimp_CreateIcon on the icon
@@ -571,7 +569,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   Wimp_ProcessKey's key, Mouse_Click icon handles.
 
 ## !L3afpad 0.2, GTKThemeTest 0.26 (2026-10-06)
-- **Options > Font crashed !L3afpad** (owner's Log: "Unknown type
+- **Options > Font crashed !L3afpad** (the Log: "Unknown type
   PangoFontFamily specified in treemodel model", then an EMT trap).
   GtkBuilder finds types it hasn't seen by looking up `*_get_type` in the
   program with GModule, which a statically linked RISC OS program can't
@@ -579,7 +577,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   font chooser's list store names Pango types. GTK patch (gtkbuilder.c):
   on RISC OS, a table of the Pango, GdkPixbuf and GIO types builder files
   name (PangoFontFamily/Face, GAppInfo, GIcon, GFile, GMenu...).
-- **Size grip** (owner: "the draggable corner in the bottom right"). The
+- **Size grip** (the draggable corner at the bottom right). The
   Wimp only puts its Adjust Size icon where a window's scroll bars meet,
   and GTK windows have no Wimp scroll bars. Resizable document windows
   (not dialogue boxes) now show the desktop's own size icon sprite
@@ -596,7 +594,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   on a dialogue). Fake Wimp has `sicon`/`psicon` tool sprites.
 
 ## !L3afpad 0.1, GTKThemeTest 0.25 (2026-10-06)
-- 0.24 confirmed on the Pi (owner's photo of the Log: no warnings left,
+- 0.24 confirmed on the Pi (the Log: no warnings left,
   icons from sprites 25 of 25).
 - **!L3afpad 0.1**: L3afpad 0.8.18.1.11 (GPL-2+; Ubuntu universe source),
   the first real GTK program ported. build/build-l3afpad.sh: no configure
@@ -632,7 +630,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   file dropped in once, no warnings, quit) added to build-linuxarm.sh.
 
 ## Unreleased (GTKThemeTest 0.24, 2026-10-06)
-- Owner's 0.23 Log: icons from sprites 25 of 25 (every Wimp sprite looked
+- 0.23's Pi Log: icons from sprites 25 of 25 (every Wimp sprite looked
   for was there). Two warnings remained, both fixed:
   - "GLib-GIO-WARNING: Failed to create file monitor for .../!UnixHome/
     home/.config/glib-2.0/settings/keyfile": GLib chose its keyfile
@@ -646,7 +644,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 - themetest-fake 37 (GSettings in memory).
 
 ## Unreleased (GTKThemeTest 0.23, 2026-10-06)
-- Icons (owner's choice: the desktop's sprites first, a shipped set for
+- Icons (chosen: the desktop's sprites first, a shipped set for
   the rest):
   - At start-up the theme makes an icon theme "RISCOS-Wimp" of the
     desktop's own sprites for the names RISC OS has pictures for:
@@ -684,7 +682,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 ## Unreleased (GTKThemeTest 0.21, 2026-10-06)
 - Theme layout checked against the Toolbox manual (riscos.com, chapter 16
   Window class gadget pictures, chapter 5 Discard/Cancel/Save), measured
-  pixel by pixel. Owner: keep the theme's colours (only layout and sizes
+  pixel by pixel. Decision: keep the theme's colours (only layout and sizes
   to follow the manual); widgets still read from the desktop's sprites.
   - number range: the field has its own border; the adjuster arrows sit
     outside it on the grey, bare (no slab), 4px to its right.
@@ -695,13 +693,13 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 - Already matched: action buttons and their sizes, display fields,
   writables (52 OS units), labelled boxes, option/radio icons and scroll
   bars (the desktop's sprites), Wimp menus, the Save box (0.20).
-- Noted, not changed (colours, owner's choice): the manual's default
+- Noted, not changed (colours, as decided): the manual's default
   button channel is cream, labelled boxes are light grey/white, slider
   bars grey. GTK 3 paints box-shadows in list order (last on top), so the
   default button shows only its outer grey ring; left as it is.
 
 ## Unreleased (GTKThemeTest 0.20, 2026-10-06)
-- Owner: 0.19's Save box shape and size were wrong (wide and short). Now
+- 0.19's Save box shape and size were wrong (wide and short). Now
   laid out from measurements of the Toolbox manual's picture of the
   SaveAs box (1 pixel = 2 OS units): work area 155 x 148, icon 34 x 34
   centred 6 from the top, writable 26 high inset 18/17, the Selection
@@ -710,7 +708,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   Widths grow only if the desktop font needs it.
 
 ## Unreleased (GTKThemeTest 0.19, 2026-10-06)
-- Owner: 0.18 works, but the Save box looked nothing like RISC OS's.
+- 0.18 works, but the Save box looked nothing like RISC OS's.
   Redone after the Toolbox SaveAs dialogue (riscos.com Toolbox manual,
   ch. 14, and its picture): file icon, the name centred under it with the
   caret at its end, Cancel and Save (default) the same width across the
@@ -751,14 +749,14 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   page. edittest-fake: 9 new checks (35).
 
 ## Unreleased (GTKThemeTest 0.17, 2026-10-05)
-- Owner: 0.16's scroll bars are correct on the Pi (tool sprites through
+- 0.16's scroll bars are correct on the Pi (tool sprites through
   the pointer table). "All sheets (mixed)" didn't change when clicked:
   GTK keeps a check button inconsistent until the program clears it, and
   themetest didn't. It now clears it on the first toggle (mixed -> on ->
   off), as a tri-state option should behave.
 
 ## Unreleased (GTKThemeTest 0.16, 2026-10-05)
-- Owner's 0.15 Log: Wimp_ReadSysInfo 9's block: +16 and +20 both
+- 0.15's Pi Log: Wimp_ReadSysInfo 9's block: +16 and +20 both
   &201A3058, which points to a table of addresses &2047xxxx (the sprites,
   elsewhere); +24 &234, +28 &20, +32 an address inside the block. New
   fourth way: the table of sprite pointers at +16's address (count from
@@ -767,7 +765,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   -> table -> sprites outside the block); the suite takes that way.
 
 ## Unreleased (GTKThemeTest 0.15, 2026-10-05)
-- Owner's 0.14 Log: Wimp sprites 7 of 7 (pool via Wimp_BaseOfSprites;
+- 0.14's Pi Log: Wimp sprites 7 of 7 (pool via Wimp_BaseOfSprites;
   4bpp mode 20 without palettes), true colours right. Tool sprites still
   0: Wimp_ReadSysInfo 9's block at &20045AE0 starts 00008D90 0000005A
   0042F3A4 00438124 201A3058: size and count (90) of a sprite area, but
@@ -779,7 +777,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   suite takes the by-name path; TT_ICONS takes the plain-area path.
 
 ## Unreleased (GTKThemeTest 0.14, 2026-10-05)
-- Owner's 0.13 Log: "Wimp sprites 0 of 7; window border sprites 0 of 27";
+- 0.13's Pi Log: "Wimp sprites 0 of 7; window border sprites 0 of 27";
   Wimp_ReadSysInfo 9 = &20045AE0 not taken as a sprite area; the Wimp
   colours came as #f0f0f0 for white.
 - Wimp_ReadPalette with R2 = "TRUE" (true colours; without it the bottom
@@ -792,14 +790,14 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   Wimp_BaseOfSprites.
 
 ## Unreleased (GTKThemeTest 0.13, 2026-10-05)
-- Owner on 0.12: "still doesnt use the RISC OS widgets". The theme now
+- 0.12 still didn't use the RISC OS widgets on the Pi. The theme now
   always writes one line to the program's log: Wimp colours read or not,
   Wimp sprites found (of 7), window border sprites found (of 27), and
   whether the PNGs could be written (and where), to see on the Pi which
   step fails.
 
 ## Unreleased (GTKThemeTest 0.12, 2026-10-05)
-- Owner (photo, 0.11): GTK's scroll bars didn't follow the desktop's
+- 0.11 on the Pi: GTK's scroll bars didn't follow the desktop's
   theme (RISC OS 5 is themeable). Scroll bars are now drawn with the
   Wimp's window border (tool) sprites, names from the PRMs' "Naming
   Convention": uicon/dicon/licon/ricon (and pressed p...), the wells
@@ -816,7 +814,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   checks a scrolled window draws with it (33 checks).
 
 ## Unreleased (GTKThemeTest 0.11, 2026-10-05)
-- Owner: redo the theming with the Wimp's sprites read. At start-up
+- Theming redone with the Wimp's sprites read. At start-up
   (gtk_init_check, GTK patch) gtk/riscos/gtkriscostheme.c adds a style
   provider just above the theme (GTK_STYLE_PROVIDER_PRIORITY_SETTINGS + 1:
   GtkSettings adds the theme at SETTINGS, not THEME) that redefines
@@ -838,7 +836,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   (32 checks).
 
 ## Unreleased (GTKThemeTest 0.10, 2026-10-05)
-- Owner (0.9: "cursors look good"): the scroll wheel did nothing. Windows
+- 0.9's pointers are right on the Pi; the scroll wheel did nothing. Windows
   now ask for extended scroll requests (extra window flags bit 1, window
   block +39); the wheel's Scroll_Request (+32/+36 in OS units, multiples
   of 4, y positive = up) becomes GDK scroll events at the pointer, one
@@ -850,7 +848,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   long list down three nudges and up one (26 checks).
 
 ## Unreleased (GTKThemeTest 0.9, 2026-10-05)
-- Owner: pointers in the RISC OS pointer colours, and the text pointer
+- Pointers in the RISC OS pointer colours, and the text pointer
   and caret as RISC OS has them.
 - Our pointer sprites now use the desktop's pointer colours: filled with
   the lighter of pointer colours 1 and 2, outlined with the darker (read
@@ -926,7 +924,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   (not applied yet).
 
 ## Unreleased (M3: the window menu; GTKThemeTest 0.5, 2026-10-05)
-- Owner: GTK programs should use menus as RISC OS does, Menu anywhere.
+- GTK programs now use menus as RISC OS does, Menu anywhere.
   A GtkMenuBar now takes no room and draws nothing (gtkmenubar.c patch);
   a Menu click in its window that no widget used opens one Wimp menu at
   the pointer (-64 OS units), titled with the program's name, with the
@@ -1036,7 +1034,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   the log has both streams (11/11; the old hello.c fails it).
 
 ## Unreleased (theme revision 3, 2026-10-04)
-- Theme toward the RISC OS 5 default desktop (owner's choice: fonts and
+- Theme toward the RISC OS 5 default desktop (chosen: fonts and
   sizes; buttons and fields; scroll bars, menus, lists): Style Guide heights
   in OS units (buttons/writables 52 = 26px, menu entries and option rows 44
   = 22px), R6 default-button channel, Wimp-style scroll bars (colour 3 well,
@@ -1072,7 +1070,7 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   `-static` are gone.
 
 ## M1 done (2026-10-04)
-- GTKTest 0.5 on the owner's Pi (UnixLib 5.0.3.2-rc2): glibtest 29/29,
+- GTKTest 0.5 on a Raspberry Pi (UnixLib 5.0.3.2-rc2): glibtest 29/29,
   rendertest 22/22 (DejaVu Sans through fontconfig, harfbuzz kerning, cairo,
   pixman, gdk-pixbuf). First text layout and draw, font loading included:
   127 ms. Results and the picture in tests/glib/results/.
@@ -1110,6 +1108,6 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
   (four small patches) cross-built for RISC OS.
 - `tests/glib/glibtest.c` (29 checks): passes under qemu-arm-aligntrap
   (arm-linux build of the same GLib); !GLibTest 0.1 built for the Pi,
-  passes riscos-crossdev's checks; on the owner's Pi: 29/29.
+  passes riscos-crossdev's checks; on the Pi: 29/29.
 - `tests/fake/`: riscos-mesa's fake Wimp/screen and event harnesses, for
   the GDK backend's host tests.

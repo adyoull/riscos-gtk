@@ -1,4 +1,4 @@
-# GTKHello 0.4 on the Pi (owner, 2026-10-04)
+# GTKHello 0.4 on the Pi (2026-10-04)
 
 Photo: GTKHello-0.4-pi-toggle-size.jpg (toggled to full screen).
 

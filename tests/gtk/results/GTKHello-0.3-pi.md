@@ -1,4 +1,4 @@
-# GTKHello 0.3 on the Pi (owner, 2026-10-04)
+# GTKHello 0.3 on the Pi (2026-10-04)
 
 RISC OS 5, 1920x1200, 32 bpp TBGR, EIG 1,1 (see GTKHello-0.3-pi-Log.txt).
 

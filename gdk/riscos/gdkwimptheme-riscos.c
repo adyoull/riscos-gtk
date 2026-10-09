@@ -408,14 +408,14 @@ readable (const void *start, size_t len)
 
   /* not a range that wraps past the top of memory (a word from the tool
      block taken as a pointer: OS_ValidateAddress faults on it on a Pi,
-     owner's Log, 0.10), nor one in the bottom page */
+     seen on the Pi with 0.10), nor one in the bottom page */
   if ((gsize) start < 0x4000 || len <= 0 || len > (64 << 20) ||
       (gsize) start + len < (gsize) start || (gsize) start + len > 0xFFFFFFFFu)
     return FALSE;
   /* OS_Memory 24: readable in user mode (bit 0). OS_ValidateAddress only
      says memory is there: on a Pi the Wimp's block holds words that are
      addresses of privileged memory, which it passes and reading aborts
-     (owner's Log, 0.10 and 0.11: EMT trap in block_find) */
+     (seen on the Pi with 0.10 and 0.11: EMT trap in block_find) */
   r.r[0] = 24;
   r.r[1] = (int) start;
   r.r[2] = (int) start + (int) len;

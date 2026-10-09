@@ -1,6 +1,6 @@
 # Decisions
 
-From the feasibility study (2026-09-24) and the owner's choices since.
+From the feasibility study (2026-09-24) and the choices made since.
 
 ## GTK 3.24 with a new native GDK backend
 - GTK 3, not GTK 4: GTK 3 draws through cairo image surfaces, which suits
@@ -38,9 +38,9 @@ From the feasibility study (2026-09-24) and the owner's choices since.
   `sysroot/riscos-gtk`, so no build-machine path is compiled in. !Run
   files point GLib and GTK at their data with environment variables.
 
-## Owner's choices (2026-10-03)
+## Choices (2026-10-03)
 - Folder `RiscOS/GTK/`, repo `riscos-gtk`, rules as the other ports
-  (git bundles delivered, the owner pushes; handoffs outside git).
+  (changes delivered as git bundles; handoff notes kept outside git).
 - Own files MIT; copied files keep their licences.
 - DejaVu Sans stands in for Homerton (as Warzone 2100 ships it).
 - M1 passes on QEMU first; the Pi run of !GLibTest comes later.
@@ -57,7 +57,7 @@ the user's configured desktop font size (Wimp_ReadSysInfo / Font_ReadDefn
 on the desktop font).
 
 ## Theme follows the RISC OS 5 default desktop (2026-10-04)
-Owner's choice: the stock RISC OS 5/Pi look (3D grey, Homerton, standard
+Chosen: the stock RISC OS 5/Pi look (3D grey, Homerton, standard
 Wimp palette) rather than RISC OS 3 or a NetSurf-like flat look. Sizes are
 the Style Guide's in OS units at EIG 1 (theme/README.md has the table).
 
@@ -75,7 +75,7 @@ Not covered: custom widgets inside menus (only labels/short-cuts are
 shown), menu bar keyboard navigation, tear-off menus.
 
 ## No menu bar: Menu anywhere opens the program's menu (2026-10-05)
-Owner's choice ("context menu how RISC OS does, middle click anywhere").
+Chosen: the context menu as RISC OS does it, Menu anywhere.
 GtkMenuBar is kept (accelerators, mnemonics, app code that updates it)
 but takes no space and isn't drawn; its titles become the entries of a
 Wimp menu titled with the program's name, opened by Menu where no widget
@@ -104,12 +104,12 @@ their active points (they're taken from the mask when there is one), and
 there's no resize or move pointer. So riscos-gtk draws every shape itself
 (2bpp, palette, no mask, exact active points) and uses only ptr_default
 from the Wimp, to put the normal pointer back. Easy to switch a shape to a
-Wimp sprite later if the owner prefers the system look.
-Update (0.9, owner): the shapes use the desktop's pointer colours (palette
+Wimp sprite later if the system look is preferred.
+Update (0.9): the shapes use the desktop's pointer colours (palette
 kept), and the text pointer is the Wimp's ptr_write when it exists.
 
 ## The theme takes the desktop's Wimp colours and sprites (2026-10-05)
-Owner's choice over real Wimp icons as widgets (which would fight GTK's
+Chosen over real Wimp icons as widgets (which would fight GTK's
 own widgets): the shipped CSS theme stays the base (sizes, layout, the
 3D borders in @wimpN colours), and at start-up a provider above it swaps
 in the desktop's Wimp palette and the Wimp sprite pool's option, radio,
@@ -132,8 +132,8 @@ Not done yet: saving straight into another program by RAM transfer (it
 goes through <Wimp$Scrap>), several files at once, DataOpen.
 
 ## The Save box follows the Toolbox SaveAs dialogue (2026-10-06)
-Owner: 0.18's box "looks nothing like a RISC OS saving DnD dialogue";
-source given: the Toolbox manual (riscos.com, ResEd and chapter 14,
+0.18's box looked nothing like a RISC OS save dialogue; reference:
+the Toolbox manual (riscos.com, ResEd and chapter 14,
 SaveAs). So the box copies the SaveAs object's default window: draggable
 file_xxx sprite, writable filename (centred, caret at the end), Cancel and
 Save (default) action buttons; no Selection option (GTK has no such
@@ -144,8 +144,8 @@ follows GTK's decorations/functions/resizable/type hint, so other GTK
 dialogue boxes lose close/back/size icons the same way.
 
 ## Theme checked against the Toolbox manual (2026-10-06)
-Owner asked to confirm the theme against riscos.com's Toolbox manual; its
-gadget pictures (chapter 16) were measured pixel by pixel. Owner then:
+The theme was checked against riscos.com's Toolbox manual; its
+gadget pictures (chapter 16) were measured pixel by pixel. Decision:
 keep the theme's original colours; what matters is how dialogue boxes
 are laid out and sized; widgets keep reading the desktop's sprites at
 start-up. So layout changed (number range arrows outside the field,
@@ -165,7 +165,7 @@ widgets, filters and previews programs add to the dialogue are not shown
 (RISC OS boxes have no place for them).
 
 ## Icons: the desktop's sprites, then a shipped set (2026-10-06)
-Owner's choice (of: desktop sprites + fallback / Adwaita only / a new
+Chosen (of: desktop sprites + fallback / Adwaita only / a new
 RISC OS-style set). Names RISC OS has a picture for come from the Wimp
 sprite pool at start-up, like the rest of the theme; everything else
 from a trimmed Adwaita 3.36 (PNG). The list of names is
@@ -183,7 +183,7 @@ GTK has a RISC OS print route.
 
 ## A drawn size grip, not Wimp scroll bars (2026-10-06)
 The Wimp draws its Adjust Size icon only in the scroll bar column, and GTK
-windows have no Wimp scroll bars. Owner's choice (of: drawn grip / a real,
+windows have no Wimp scroll bars. Chosen (of: drawn grip / a real,
 empty Wimp scroll bar column beside GTK's own): resizable document windows
 get the desktop's `sicon` sprite drawn in the corner of the work area, and
 a press there starts the Wimp's own size drag. GTK scroll bars that run
@@ -191,7 +191,7 @@ into the corner stop short of it. Dialogue boxes get none (as on RISC OS);
 they keep the toggle size icon.
 
 ## The icon bar (2026-10-06)
-Owner's choices (asked):
+Choices:
 - every GTK program gets an icon bar icon automatically, with Info,
   Open..., Close, Choices... and Quit, done by the program's handlers or
   else its GtkApplication or its own menu items (rather than opt-in);
@@ -205,25 +205,25 @@ unless it's given a file. It claims Text (&FFF) for Message_DataOpen
 only while loaded; its !Boot doesn't take over double-clicked text files.
 
 ## The icon bar as our other programs do it (2026-10-06)
-Owner: 0.3's icon bar was "nothing like RISC OS"; mimic the other ports
-exactly. Reel, !FFmpeg's front end, YTDL and NetStats all: a &301A sprite
-icon; Menu = Info (proginfo window) + the program's own items + Quit, at
-x-64 / 96+44n; Select opens the main window; Adjust keeps a menu open;
-questions as Wimp_ReportError boxes with a custom button; one copy, the
-second handing its file over. So the GTK icon bar menu is Info,
-Choices... (only when there are settings), Quit; Open... and Close are
-gone (RISC OS opens by dragging to the icon or double-clicking, and closes
-with the close icon).
+0.3's icon bar didn't follow RISC OS practice; it now mimics the other
+ports exactly. Reel, !FFmpeg's front end, YTDL and NetStats all: a &301A
+sprite icon; Menu = Info (proginfo window) + the program's own items +
+Quit, at x-64 / 96+44n; Select opens the main window; Adjust keeps a
+menu open; questions as Wimp_ReportError boxes with a custom button; one
+copy, the second handing its file over. So the GTK icon bar menu is
+Info, Choices... (only when there are settings), Quit; Open... and Close
+are gone (RISC OS opens by dragging to the icon or double-clicking, and
+closes with the close icon).
 
 ## UnixLib 5.0.3.3 before a crossdev release has it (2026-10-06)
-Owner: relink against UnixLib's latest release (5.0.3.3). riscos-crossdev's
-latest is 1.3 (5.0.3.2). Owner's choice (of: overlay now / wait for
+Relinked against UnixLib's latest release (5.0.3.3). riscos-crossdev's
+latest is 1.3 (5.0.3.2). Chosen (of: overlay now / wait for
 crossdev 1.4): crossdev 1.3 with the 5.0.3.3 release library swapped in
 (build/unixlib-overlay.sh, checksum-checked; headers unchanged), until a
 crossdev release carries 5.0.3.3; a handoff asks Crossdev for 1.4.
 
 ## Printing (2026-10-06)
-Owner's choices: the Toolbox PrintDbox as the Print box (not GTK's
+Choices: the Toolbox PrintDbox as the Print box (not GTK's
 GtkPrintUnixDialog); bitmap pages (each page a sprite at the printer's
 resolution, at most 300 dpi, sent through PDriver: works with every RISC
 OS printer driver and matches the screen) rather than a Draw/Font Manager
@@ -231,7 +231,7 @@ cairo back end; Print Preview as riscos-gtk's own window (GTK's runs a
 Linux previewer). !Printers' queue (a busy printer asking for a file) is
 refused rather than saving a printable file.
 
-**Changed 2026-10-07 (owner: printed text "extremely poor quality"):**
+**Changed 2026-10-07 (printed text was of very poor quality):**
 text, lines and solid shapes now go to the printer driver as Draw paths
 (Draw_Fill / Draw_Stroke in ColourTrans colours), so they're as sharp as
 the printer prints; only what can't be a vector (images, gradients,
@@ -244,7 +244,7 @@ Font Manager text, so it prints exactly as laid out with any font GTK
 uses. `RISCOS_GTK_PRINT_BITMAP=1` prints the old way.
 
 ## Multiple windows in L3afpad (2026-10-07)
-Owner's choice: each document its own window in one task (as Edit), not
+Chosen: each document its own window in one task (as Edit), not
 several copies of the program (each copy would add an icon bar icon and
 its own 20+ MB). L3afpad wasn't written for that (one window's state in
 globals), so rather than rewrite it the RISC OS patch lists each file's
@@ -254,7 +254,7 @@ per-window variable L3afpad gains must be listed; the test's Undo check
 fails if the swap is missing.
 
 ## Claws Mail, the second program (2026-10-07)
-Owner's choice: an email client that uses AcornSSL, Claws Mail. Staged:
+Chosen: an email client that uses AcornSSL, Claws Mail. Staged:
 (1) POP3/SMTP with local MH folders, no plug-ins; (2) IMAP through
 libetpan with AcornSSL; (3) polish (attachments to and from the Filer by
 file type, threads, Choices). TLS: rather than port GnuTLS or OpenSSL,
@@ -281,11 +281,11 @@ the grip at its foot, rather than the grip drawn over its contents. It
 is outside GTK's window so that GTK's layout and position are untouched
 (an earlier try, a margin inside the window, grew windows after they
 were shown and moved some).
-Changed the same day (owner: "if the app has its own scroll bar on the
-right hand edge the wimp scroll bar isn't needed"): any GTK vertical bar
+Changed the same day (a program's own scroll bar on the right edge
+makes the extra Wimp scroll bar unneeded): any GTK vertical bar
 at the right edge takes the grip (at its foot if something is under it),
 and such bars are shown always; the extra bar is only for windows with
 no scroll bar at their right edge.
-Changed again (owner: "the scroll bar must run to the bottom right edge
-for it to claim the grip"): only a vertical bar running into the bottom
+Changed again (a scroll bar must run to the bottom right edge to
+claim the grip): only a vertical bar running into the bottom
 right corner takes the grip; otherwise the window has the outside bar.

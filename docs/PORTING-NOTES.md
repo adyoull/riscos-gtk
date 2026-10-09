@@ -84,7 +84,7 @@ static-only toolchain. Both came out of riscos-gtk's handoffs
 All three are generic enough to offer upstream. (A fourth, checking
 getservbyname_r with `links`, was dropped once UnixLib 5.0.3.2 added it.)
 
-## First RISC OS run (!GLibTest 0.1, 2026-10-03, owner's Pi, SDFS)
+## First RISC OS run (!GLibTest 0.1, 2026-10-03, a Raspberry Pi 4, SDFS)
 **29/29 passed** (`tests/glib/results/GLibTest-0.1-pi-2026-10-03.txt`):
 main loop, nested loop, GCond, GThreadPool with g_main_context_invoke back
 to the main thread (eventfd wake-up), GIO sync and async (GTask worker

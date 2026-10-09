@@ -1332,7 +1332,7 @@ main (int argc, char **argv)
   printf ("# exported %d bytes: \"%.*s\"\n", export_len, export_len, export_got);
   check (paste_request_seen >= 1,
          "Paste after another task took the clipboard broadcasts Message_DataRequest");
-  check (paste_fetch_seen, "the owner's DataSave is answered with RAMFetch");
+  check (paste_fetch_seen, "the clipboard owner's DataSave is answered with RAMFetch");
   check (strcmp (text_after_paste, UTF8_TEXT) == 0,
          "Paste puts the other task's Latin-1 text in the field (as UTF-8)");
   printf ("# after Paste: \"%s\"\n", text_after_paste);

@@ -308,7 +308,7 @@ const char *fake_tool_names[] = {
 
 static const int *build_tool_area(void)
 {
-    /* As a RISC OS 5 Pi's Wimp_ReadSysInfo 9 block (owner's Log, 0.15):
+    /* As a RISC OS 5 Pi's Wimp_ReadSysInfo 9 block (read on the Pi with 0.15):
        +0 a size, +4 the count, +8/+12 words that aren't offsets, +16 and
        +20 a pointer to a table of pointers to the sprites, which are
        elsewhere (here: from word 1024 on, outside the block's size). */
@@ -808,7 +808,7 @@ _kernel_oserror *_kernel_swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out
 
 /* OS_Memory 24: bit 0 if r1..r2 is all readable in user mode, from the
    process's own map (a page can be mapped, so OS_ValidateAddress passes,
-   and still not readable: the Pi's privileged memory, owner's Log 0.11) */
+   and still not readable: the Pi's privileged memory, seen with 0.11) */
 static int user_readable(unsigned long lo, unsigned long hi)
 {
     FILE *f = fopen("/proc/self/maps", "r");
@@ -1303,7 +1303,7 @@ _kernel_oserror *_kernel_swi_c(int no, _kernel_swi_regs *in, _kernel_swi_regs *o
         unsigned long end = (unsigned long) (unsigned) in->r[1];
         unsigned char v;
         /* a range that wraps past the top of memory: the Pi's kernel
-           faults in the SWI (owner's Log: EMT trap, 0.10) */
+           faults in the SWI (seen on the Pi: EMT trap, 0.10) */
         if (end < (unsigned long) (unsigned) in->r[0]) {
             fprintf(stderr, "fake: OS_ValidateAddress &%X-&%X wraps: the kernel would fault\n",
                     (unsigned) in->r[0], (unsigned) in->r[1]);
