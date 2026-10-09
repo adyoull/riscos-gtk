@@ -1,9 +1,11 @@
-# riscos-gtk 3.24.41-riscos1.0 — release candidate 2
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 3)
 
-**Status: candidate for review.** These notes describe what RC2 contains and
-what still has to happen before it is released. Items marked
-*[decision]* need the maintainer's choice; *[Pi]* needs sign-off on real
-hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
+**Status: public beta.** RC3 is the first build offered to everyone to
+try. It has been tested on a Raspberry Pi 4, but not yet widely: please
+report anything that goes wrong (see "Reporting problems" below). The
+final 3.24.41-riscos1.0 will be this build with whatever the beta turns
+up fixed. Items marked *[Pi]* still need a check on real hardware
+([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
 
 ## What it is
 
@@ -24,18 +26,18 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC2
+## What's in RC3
 
 | Package | Version | What |
 |---|---|---|
 | `L3afpad-0.19.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.19 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-0.6.zip` | Claws Mail 4.4.0, RISC OS port 0.6 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Starts on the icon bar; closing its window leaves it there |
+| `ClawsMail-0.8.zip` | Claws Mail 4.4.0, RISC OS port 0.8 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
 | `GTKThemeTest-0.43.zip` | 0.43 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `riscos-gtk-3.24.41-riscos1.0-rc2-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-3.24.41-riscos1.0-rc3-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
-release *[decision]*.
+release.
 
 ## Requirements
 
@@ -128,6 +130,24 @@ release *[decision]*.
   Adwaita's icons for everything else.
 - **Fonts:** DejaVu Sans, shipped in each package.
 
+**ClawsMail**
+- **HTML mail:** shown laid out, with its fonts, colours, tables and
+  pictures, by Claws Mail's LiteHTML viewer, built into the program. The
+  message's headers are shown above it. When a message has both a plain
+  text and an HTML version, the HTML one is shown.
+- **Pictures on the web** in HTML mail are fetched only if you turn on
+  remote content (Choices... > Plugins > LiteHTML), over http or https
+  (AcornSSL).
+- **Links:** clicking one (in HTML or plain text mail) sends it to your
+  browser through RISC OS's URI handler. If no browser is running, Iris
+  is started (or NetSurf, if the Filer hasn't seen Iris). mailto: links
+  start a new message.
+- **RISC OS icons:** the toolbar, the message list's marks and the
+  application icon are drawn in the RISC OS style; the folder list uses
+  the Filer's own directory icons from the desktop theme. Claws Mail's
+  own icons can be chosen in Choices... > Display > Themes.
+- **The About box** names AcornSSL and shows the RISC OS port's logo.
+
 **Network** (ClawsMail)
 - **TLS:** all of it goes through AcornSSL: pop3s, imaps, smtps and
   STARTTLS. AcornSSL checks server certificates and asks the user about
@@ -135,22 +155,26 @@ release *[decision]*.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC2
+## Known issues and limits in RC3
 
-- **Pi sign-off of RC1 (2026-10-09):** L3afpad 0.18, GTKThemeTest 0.42 and
-  ClawsMail 0.5 all signed off on the Pi:
-  - the size icon in all three;
-  - ClawsMail fetching over IMAP and sending over SMTP, both with
-    TLS 1.2 through AcornSSL;
-  - ClawsMail starting on the icon bar, and staying there when its window
-    closes.
-
-  POP3 hasn't been tried against a real server.
-- **RC2 (after RC1's sign-off):** the report that Menu in ClawsMail gave
-  a different menu depending on where you clicked. Now there is one menu
-  per window, with any context menu as its first entry (above). This
-  changes GTK itself, so all three programs are rebuilt: L3afpad 0.19,
-  ClawsMail 0.6, GTKThemeTest 0.43 *[Pi]*.
+- **Tested on the Pi so far (2026-10-09):**
+  - RC1 (L3afpad 0.18, GTKThemeTest 0.42, ClawsMail 0.5) signed off: the
+    size icon in all three; ClawsMail fetching over IMAP and sending
+    over SMTP, both with TLS 1.2 through AcornSSL; ClawsMail starting on
+    the icon bar and staying there when its window closes.
+  - ClawsMail 0.8: "works perfectly", including one menu per window, HTML
+    mail, the RISC OS icons, and links opening in Iris.
+  - Not yet reported on the Pi: L3afpad 0.19 and GTKThemeTest 0.43
+    (RC2's one-menu-per-window change: test plan 2.2a) *[Pi]*.
+  - POP3 hasn't been tried against a real server.
+- **What changed since RC1:**
+  - RC2: one menu per window (Menu in ClawsMail gave a different menu
+    depending on where you clicked); any context menu is the window
+    menu's first entry. In GTK, so all three programs were rebuilt.
+  - RC3: ClawsMail 0.8, with HTML mail, links to the browser, RISC OS
+    icons and the About box above. GTK itself is unchanged since RC2,
+    so L3afpad 0.19 and GTKThemeTest 0.43 are the same versions as in
+    RC2 (rebuilt to name this release).
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -167,27 +191,39 @@ release *[decision]*.
 - **No translations:** messages are in English only.
 - **Each program carries its own copy of the libraries,** about 20 MB.
 - **ClawsMail:**
-  - no plug-ins, spell checking or Claws Mail certificate manager;
+  - no spell checking, other plug-ins or Claws Mail certificate manager;
   - news (NNTP) is built but untested;
   - IMAP with STARTTLS takes the same code path as imaps but hasn't been
     tested against a server;
   - attachments can't yet be dragged out to the Filer or opened with RISC
     OS programs;
-  - web links open nothing.
+  - links in HTML mail open in a browser, but forms and scripts in HTML
+    mail do nothing (as in Claws Mail elsewhere).
 - **ClawsMail's settings,** and its mailbox by default, live in
   `<Choices$Write>.ClawsMail`.
 - **Warnings in Claws Mail's Log:** a few harmless GTK warnings appear
   during start-up (a title set before its window exists; button sizes).
+
+## Reporting problems
+
+- **What to send:** what you did, what happened, your machine, RISC OS
+  version, screen mode and desktop theme, and the program's Log:
+  `<Wimp$ScrapDir>.<Program>.Log` (for example
+  `<Wimp$ScrapDir>.ClawsMail.Log`). A photo of the screen helps.
+- **Where:** the riscos-gtk GitHub issues
+  (https://github.com/adyoull/riscos-gtk/issues), or the ROOL forum
+  thread for the beta.
+- **Before reporting a crash:** check that SharedUnixLibrary,
+  ARMEABISupport and Iconv are up to date from PackMan.
 
 ## Building
 
 [BUILDING.md](BUILDING.md). In short:
 - **Toolchain:** riscos-crossdev v1.3, with UnixLib 5.0.3.3 added by
   `build/unixlib-overlay.sh`, because no crossdev release carries 5.0.3.3
-  yet *[decision: release with the overlay documented, or wait for
-  crossdev 1.4]*.
+  yet. The overlay is documented rather than waiting for crossdev 1.4.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc2` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc3` builds the packages, the
   source archive and the manifest.
 
 ## Tests
@@ -205,7 +241,7 @@ code against a fake RISC OS and Wimp:
 | toolsprites-fake | 3 |
 | printvec-fake | 7 |
 | l3afpad-fake | 44 |
-| claws-fake | 21 |
+| claws-fake | 36 |
 
 All pass at the RC commit.
 
@@ -217,10 +253,13 @@ On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 - **L3afpad:** GPL 2, by Tarot Osuji and Steven Honeyman.
 - **Claws Mail:** GPL 3, by the Claws Mail team.
 - **libetpan:** BSD-style, by DINH Viet Hoa.
+- **litehtml:** BSD-style, by Yuri Kobets (in Claws Mail's LiteHTML
+  viewer, GPL 3).
+- **gumbo:** Apache License 2.0, Google and contributors.
 - **Nettle:** LGPL 3 / GPL 2.
 - **Adwaita icons:** LGPL 3 / CC-BY-SA 3.0.
 - **DejaVu fonts:** their own free licence.
-- **riscos-gtk's own files:** MIT.
+- **riscos-gtk's own files:** MIT, including ClawsMail's RISC OS icons.
 
 Details: [../LICENCES.md](../LICENCES.md) and
 [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md).

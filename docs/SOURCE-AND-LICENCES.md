@@ -19,7 +19,7 @@ so shared libraries aren't possible today.
 | Claws Mail only: libetpan 1.9.4 | BSD-style | Its notice: `LicenceEtPan` in the package |
 | Claws Mail only: its litehtml viewer plug-in, with litehtml | Plug-in GPL 3 or later; litehtml BSD-style | litehtml's notice: `LicenceLiteHTML` in the package |
 | Claws Mail only: gumbo 0.12.0 | Apache License 2.0 | Its licence: `LicenceGumbo` in the package |
-| UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release *[decision: include it in the source archive too]* |
+| UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release, which the source archive and each package's `Source` point to |
 
 The package also carries some data and modules:
 
@@ -73,7 +73,8 @@ The packaging script (`build/build-app.sh`) adds these to every package:
 
 1. **Build:** `make release RELEASE=<release>` from a committed tree.
    Set `SOURCE_URL` to the release page, so every package's `Source`
-   names it *[decision: GitHub releases of adyoull/riscos-gtk?]*.
+   names it: the GitHub release of adyoull/riscos-gtk,
+   `https://github.com/adyoull/riscos-gtk/releases/tag/v<release>`.
 2. **Publish together, on one page:** the three zips, the source tar and
    `MANIFEST.txt`.
 3. **Tag the commit** as `v<release>`. It is the commit `MANIFEST.txt`

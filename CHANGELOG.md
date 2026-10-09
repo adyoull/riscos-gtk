@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased: ClawsMail 0.8 (2026-10-09)
+## 3.24.41-riscos1.0-rc3 — public beta (2026-10-09)
+Owner: "clawsmail works perfectly", "hyperlinks open in Iris", then
+"produce a public beta RC3".
+- !ClawsMail 0.8 (the two sections below). L3afpad 0.19 and GTKThemeTest
+  0.43 are unchanged since RC2, rebuilt to name this release.
+- Release notes: public beta status, a "Reporting problems" section, what
+  has been tested on the Pi, and ClawsMail's HTML mail, links, icons and
+  About box. The assumed review decisions are now stated as decided:
+  - the overlay toolchain is documented;
+  - GTKHello and GTKTest are left out;
+  - the source is published on GitHub releases;
+  - UnixLib's source is referred to, not included.
+- RC test plan: lines 4.15 to 4.20 for ClawsMail 0.8; the lines
+  confirmed on the Pi are marked "yes".
+
+## ClawsMail 0.8 (2026-10-09)
 The owner's Pi report on 0.7 (photos), and follow-ups:
 - **"Why is HTML view on a grey background":** litehtml leaves an
   uncoloured page transparent, so the theme's grey showed through. Now

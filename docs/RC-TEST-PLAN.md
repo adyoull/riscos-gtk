@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc2 — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc3 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -34,7 +34,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 |---|---|---|---|
 | 2.1 | All four pages: widgets drawn in the desktop's colours and sprites (option, radio, scroll bars) | yes | |
 | 2.2 | Menu over the window gives the program's menu as a Wimp menu; short-cuts shown; ticks and shading right | yes | |
-| 2.2a | **Menu over the context area (page 4): the window's menu with "Selection >" first; Selection > Info works** | **changed (0.43)** | |
+| 2.2a | **Menu over the context area (page 4): the window's menu with "Selection >" first; Selection > Info works** | **changed (0.43, RC2)** | |
 | 2.3 | Pop-up (combo): a Wimp menu to the right of the field | yes | |
 | 2.4 | Text fields: typing, the caret, Menu gives Cut/Copy/Paste; paste text copied in Edit and copy text into Edit | partly (drag yes; clipboard with other programs not reported) | |
 | 2.5 | Drag text from a field to a Filer window (a Text file) and a Text file onto a field | yes | |
@@ -62,7 +62,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 0.6 (0.4 started once on the Pi; the rest new)
+## 4. ClawsMail 0.8
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -71,9 +71,9 @@ provider offers them.
 | # | Test | Seen before | Result |
 |---|---|---|---|
 | 4.1 | First start: the setup wizard, then the main window; settings land in `<Choices$Write>.ClawsMail` | new | |
-| 4.1a | Later starts: only the icon on the icon bar, no window; Select on the icon opens the main window | **new (0.5)** | |
-| 4.1b | Close the main window: Claws Mail stays on the icon bar (and keeps checking mail); Select opens it again; Quit from the icon bar menu quits | **new (0.5)** | |
-| 4.1c | One size icon only, from the moment the main window opens (not one in the window's corner as well) | **new (0.5)** | |
+| 4.1a | Later starts: only the icon on the icon bar, no window; Select on the icon opens the main window | yes | |
+| 4.1b | Close the main window: Claws Mail stays on the icon bar (and keeps checking mail); Select opens it again; Quit from the icon bar menu quits | yes | |
+| 4.1c | One size icon only, from the moment the main window opens (not one in the window's corner as well) | yes | |
 | 4.2 | POP3 over SSL/TLS (995): Get Mail fetches into the Inbox; AcornSSL's certificate question if any | new | |
 | 4.3 | SMTP over SSL/TLS (465) and STARTTLS (587): Write, send to yourself; filed in Sent | new | |
 | 4.4 | IMAP over SSL/TLS (993): the server's folders appear; INBOX lists messages; a message opens | new | |
@@ -85,8 +85,14 @@ provider offers them.
 | 4.10 | Main window: the message list's bar ends above the message view, so the empty scroll bar is outside, with the size icon at its foot | new | |
 | 4.11 | Compose window: the size icon under the text's scroll bar | new | |
 | 4.12 | Choices... on the icon bar menu opens Preferences | new | |
-| 4.14 | **Menu over the message list, the folder list and elsewhere in the main window: always the main menu (File, Edit, View...); over the message list its first entry is "Message >" (Reply...), over the folder list "Folder >"; choosing from them works** | **new (0.6)** | |
+| 4.14 | Menu over the message list, the folder list and elsewhere in the main window: always the main menu (File, Edit, View...); over the message list its first entry is "Message >" (Reply...), over the folder list "Folder >"; choosing from them works | yes (0.8) | |
 | 4.13 | Leave it running an hour checking mail: no growth in memory (Task Manager), no crash | new | |
+| 4.15 | HTML mail (a newsletter): laid out on a white page, not plain text; From/To/Subject/Date above it; pictures sent with it shown | yes (0.8) | |
+| 4.16 | Remote content on (Choices... > Plugins > LiteHTML): the newsletter's web pictures load over https; the desktop keeps running meanwhile | new | |
+| 4.17 | Menu over HTML mail: the window's menu; on a link, "Link >" first (Open Link, Copy Link; Copy Link pastes in Edit) | yes (0.8) | |
+| 4.18 | Click a link: Iris running opens it; with no browser running Iris starts and opens it; with only NetSurf installed, NetSurf does; a mailto: link starts a new message | partly (Iris yes, 0.8) | |
+| 4.19 | RISC OS icons: the !ClawsMail icon; the toolbar; the folders as the Filer's directory icons with signs on Inbox, Sent, Queue, Drafts; Choices... > Display > Themes switches to Claws Mail's own icons and back | yes (0.8) | |
+| 4.20 | Help > About (or icon bar Menu > Info): AcornSSL (not GnuTLS) and the RISC OS logo | yes (0.8) | |
 
 ## 5. Packaging and licences
 

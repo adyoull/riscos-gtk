@@ -1,7 +1,7 @@
 #!/bin/bash -e
 # Build a riscos-gtk release (or release candidate) from a clean checkout:
 # the three programs, the complete corresponding source, and a manifest.
-#   RCD_DIR=... [SRC=... SYSROOT=...] build/make-release.sh 3.24.41-riscos1.0-rc2
+#   RCD_DIR=... [SRC=... SYSROOT=...] build/make-release.sh 3.24.41-riscos1.0-rc3
 # Needs the libraries already built (make deps) with the same toolchain.
 # Writes out/release/<RELEASE>/:
 #   L3afpad-<v>.zip, ClawsMail-<v>.zip, GTKThemeTest-<v>.zip
@@ -14,7 +14,7 @@
 # The programs' versions are in build/build-<app>.sh (or L3AFPAD_VERSION,
 # CLAWS_VERSION, THEMETEST_VERSION). MIT licence.
 HERE=$(cd "$(dirname "$0")" && pwd)
-RELEASE=${1:?usage: build/make-release.sh RELEASE (e.g. 3.24.41-riscos1.0-rc2)}
+RELEASE=${1:?usage: build/make-release.sh RELEASE (e.g. 3.24.41-riscos1.0-rc3)}
 export TARGET=riscos RELEASE
 export SOURCE_URL=${SOURCE_URL:-https://github.com/adyoull/riscos-gtk/releases/tag/v$RELEASE}
 . "$HERE/env.sh"

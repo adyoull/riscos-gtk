@@ -4,7 +4,7 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: release candidate 1 (3.24.41-riscos1.0-rc2), under review.** GTK
+**Status: public beta (3.24.41-riscos1.0-rc3).** GTK
 programs run on RISC OS as ordinary Wimp tasks:
 - **Windows:** Wimp windows with the Wimp's own furniture.
 - **Menus:** Wimp menus, opened with Menu anywhere in a window.
@@ -16,9 +16,9 @@ programs run on RISC OS as ordinary Wimp tasks:
 
 Two real programs come with it: **!L3afpad**, a text editor, and
 **!ClawsMail**, an email client (POP3, IMAP and SMTP, with TLS through
-AcornSSL). **!GTKThemeTest** shows every common widget.
+AcornSSL; HTML mail; links open in Iris or NetSurf). **!GTKThemeTest** shows every common widget.
 
-- What RC2 contains, requirements and known issues:
+- What RC3 contains, requirements, known issues and how to report problems:
   [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md)
 - The Pi sign-off list: [docs/RC-TEST-PLAN.md](docs/RC-TEST-PLAN.md)
 - Building: [docs/BUILDING.md](docs/BUILDING.md)
@@ -31,7 +31,7 @@ AcornSSL). **!GTKThemeTest** shows every common widget.
 | M1 | Dependency stack: GLib, libpng/FreeType/expat/fontconfig, fribidi, harfbuzz, pixman, cairo, pango, gdk-pixbuf, ATK, libepoxy | done; tested on the Pi (GTKTest) |
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | done; tested on the Pi (GTKHello) |
 | M3 | Keyboard, Wimp menus, pointer shapes, clipboard, drag and drop, scroll wheel | done; tested on the Pi (GTKThemeTest) |
-| M4 | Save/Open boxes, the icon bar, printing, packaging; real programs | done: !L3afpad (tested on the Pi); !ClawsMail (QEMU only, Pi sign-off pending) |
+| M4 | Save/Open boxes, the icon bar, printing, packaging; real programs | done: !L3afpad and !ClawsMail, both tested on the Pi |
 | M5 | Next: a devkit for other developers' GTK programs; AbiWord or Gnumeric | — |
 
 Design decisions and why: [docs/DECISIONS.md](docs/DECISIONS.md). What
@@ -48,7 +48,7 @@ cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev-ul5033
 make deps                                   # the libraries
 make l3afpad claws themetest                # the programs, in out/
-make release RELEASE=3.24.41-riscos1.0-rc2    # programs + complete source + MANIFEST
+make release RELEASE=3.24.41-riscos1.0-rc3    # programs + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 
