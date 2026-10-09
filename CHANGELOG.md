@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased: ClawsMail 0.7 (2026-10-09)
+- **HTML mail** (owner: "how can we add HTML email support to clawsmail";
+  chose litehtml with remote images):
+  - Claws Mail's litehtml viewer plug-in is built and linked into the
+    program; `riscos-claws.c` starts it (`riscos_claws_plugins`, called
+    from main.c just before Claws Mail loads its plug-ins). UnixLib has
+    no dlopen, so plug-ins are linked in.
+  - gumbo 0.12.0 (the HTML parser litehtml uses) is built by
+    `build-claws.sh` (Ubuntu's orig tarball; in SHA256SUMS).
+  - Remote images: `apps/claws/litehtml/http.cpp` replaces the
+    plug-in's libcurl loader. It uses plain sockets and, for https,
+    Claws Mail's `ssl_init_socket`, so AcornSSL checks the certificate.
+    It runs in the viewer's GTask thread, with no signals. Redirects,
+    chunked bodies, a 16 MB limit and a 10 s connect timeout.
+  - Remote content is still off by default (the plug-in's own
+    privacy setting, Choices... > Plugins > LiteHTML).
+  - New default on RISC OS: the HTML part of multipart/alternative
+    messages is shown.
+- **RISC OS icons** (owner: "can we do RISC OS icons for the app itself
+  and menu bar as the GTK3 ones look out of place"):
+  - Original icons drawn by `tools/mkclawsicons.py` in the style of the
+    RISC OS 5 desktop: 57 toolbar icons, 22 message-list marks, the
+    folder icons, and a new !ClawsMail application icon (34 x 34 and
+    17 x 17).
+  - They are a Claws Mail icon theme in the application,
+    `share/claws-mail/themes/RISCOS`, listed in Choices... > Display >
+    Themes. It is the default on RISC OS.
+  - The folder list's icons are the desktop's own small_dir / small_diro
+    sprites, so they match the Filer in any desktop theme, with an
+    emblem for Inbox, Sent, Queue and Drafts. The list check boxes are
+    the Wimp's option sprites. This is in `riscos_claws_stock_pixbuf`,
+    called from a patched `stock_pixmap.c`.
+  - The two new defaults (the icons and HTML parts) are set once, the
+    first time 0.7 runs (`<Choices$Write>.ClawsMail.claws-mail.RISCOSDefaults`).
+    A later choice in Preferences is kept.
+- Tests: claws-fake 29 checks (8 new):
+  - the theme is chosen, Get Mail's icon is the theme's PNG, and the
+    inbox's icon is the desktop sprite with the emblem;
+  - HTML: the HTML part is shown by the litehtml viewer, laid out (a CSS
+    block measured on screen), with a remote image over http (through a
+    redirect, sent chunked) and one over https (through the fake
+    AcornSSL).
+
+  mailserver.py gains an HTTP server. `claws-fake-claws.c` has the calls
+  that need Claws Mail's headers.
+- Packages carry LicenceLiteHTML and LicenceGumbo.
+
 ## 3.24.41-riscos1.0-rc2 (2026-10-09)
 - **One menu per window** (owner: "the middle button context menu is
   different depending on where you middle click in clawmail"). The owner

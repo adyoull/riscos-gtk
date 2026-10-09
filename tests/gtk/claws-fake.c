@@ -3,7 +3,7 @@
  * its TLS through the fake AcornSSL (tests/fake/mesa-egl/fake_riscos.c) and
  * tests/claws/mailserver.py as the mail servers.
  *
- *   claws-fake APPDIR OUTDIR POP3PORT SMTPPORT IMAPPORT
+ *   claws-fake APPDIR OUTDIR POP3PORT SMTPPORT IMAPPORT HTTPPORT
  *
  * APPDIR has the fonts and GTK's data (as !GTKHello's); OUTDIR gets the home
  * directory (an account: POP3 over TLS from the start, SMTP with STARTTLS;
@@ -36,7 +36,23 @@ FolderItem *folder_find_item_from_identifier (const char *identifier);
 int folder_item_scan (FolderItem *item);
 char *folder_item_fetch_msg (FolderItem *item, int num);
 
+/* claws-fake-claws.c (with Claws Mail's headers) */
+int fake_claws_show_message (const char *folder, int num);
+const char *fake_claws_viewer (GtkWidget **widget);
+void fake_claws_remote_content (int on);
+const char *fake_claws_theme (void);
+int fake_claws_promote_html (void);
+GdkPixbuf *fake_claws_stock (int which);
+
 static int n_tests, n_failed;
+static int pop_inbox_files;
+static char pop_inbox_text[4096];
+/* HTML mail and the RISC OS icons (below) */
+static const char *html_viewer = "(none)";
+static int html_polls, html_red, html_green, html_yellow;
+static char http_port[16];
+static int folder_from_desktop = -1;
+static int theme_chosen = -1, theme_icons = -1, defaults_marker = -1, promote_html = -1;
 static const char *outdir;
 static char home[600];
 static int stage, polls, password_answers, send_pressed, compose_seen;
@@ -472,7 +488,7 @@ finish (void)
   check (password_answers >= 1, "it asks for the POP3 password (answered)");
   check (strstr (server_log, "POP3 RETR 1") != NULL,
          "it fetches the message over POP3 (pop3s: TLS from the start)");
-  check (inbox_files == 1 && strstr (inbox_text, "Subject: Hello from the test") != NULL,
+  check (pop_inbox_files == 1 && strstr (pop_inbox_text, "Subject: Hello from the test") != NULL,
          "the message is in the inbox (an MH folder)");
   check (fake_acornssl_sessions >= 2 && fake_acornssl_handshake_steps >= 6,
          "TLS goes through AcornSSL: a session each for POP3 and SMTP, handshakes done");
@@ -506,6 +522,20 @@ finish (void)
           menu_title[2], menu_first[2], menu_second[2]);
   if (closed_window && GTK_IS_WINDOW (closed_window))
     close_hides = !gtk_widget_get_visible (closed_window);
+  check (theme_chosen == 1 && defaults_marker == 1,
+         "the RISC OS icons are chosen at the first start (RISCOSDefaults written)");
+  check (theme_icons == 1, "Get Mail's toolbar icon comes from the RISC OS icon theme");
+  check (folder_from_desktop == 1,
+         "the inbox's icon is the desktop's directory sprite with the theme's inbox emblem");
+  check (promote_html == 1, "the HTML part of multipart/alternative is shown by default");
+  check (strcmp (html_viewer, "text/html") == 0, "an HTML message is shown by the litehtml viewer");
+  check (html_red >= 200 * 50 * 9 / 10, "the HTML is laid out: the 200x50 red block is drawn");
+  check (strstr (server_log, "HTTP GET /moved/green.png") && strstr (server_log, "HTTP GET /green.png") &&
+         html_green >= 1500, "a remote image over http (through a redirect, sent chunked) is shown");
+  check (strstr (server_log, "HTTP GET /yellow.png") && html_yellow >= 1500,
+         "a remote image over https (through AcornSSL) is shown");
+  printf ("# HTML: viewer %s, red %d, green %d, yellow %d pixels after %d looks\n",
+          html_viewer, html_red, html_green, html_yellow, html_polls);
   check (close_hides == 1,
          "closing the main window hides it: Claws Mail stays on the icon bar");
   check (imap_found == 1 && imap_scanned == 0,
@@ -527,6 +557,125 @@ finish (void)
   printf ("1..%d\n", n_tests);
   fflush (stdout);
   _exit (n_failed);
+}
+
+/* HTML mail (the litehtml viewer): a multipart/alternative message is
+   put in the inbox as message 2 and shown; its HTML part has a red block
+   and two remote images, green over http (through a redirect) and yellow
+   over https (AcornSSL), both from mailserver.py */
+
+static gboolean
+html_go (gpointer d)
+{
+  fake_claws_remote_content (1);
+  fake_claws_show_message ("#mh/Mailbox/inbox", 2);
+  return G_SOURCE_REMOVE;
+}
+
+/* pixels of colour c (0xBBGGRR) in the main window's viewer area */
+static int
+count_colour (GtkWidget *w, unsigned int c)
+{
+  int x, y, x0, y0, wx, wy, n = 0;
+  GdkWindow *gw = gtk_widget_get_window (w);
+
+  if (!gw)
+    return 0;
+  gtk_widget_translate_coordinates (w, gtk_widget_get_toplevel (w), 0, 0, &wx, &wy);
+  gdk_window_get_origin (gtk_widget_get_window (gtk_widget_get_toplevel (w)), &x0, &y0);
+  x0 += wx;
+  y0 += wy;
+  for (y = MAX (y0, 0); y < MIN (y0 + gtk_widget_get_allocated_height (w), 1024); y++)
+    for (x = MAX (x0, 0); x < MIN (x0 + gtk_widget_get_allocated_width (w), 1280); x++)
+      {
+        unsigned int p = fake_screen_pixel (x, y);
+        if (abs ((int) (p & 0xFF) - (int) (c & 0xFF)) < 12 &&
+            abs ((int) ((p >> 8) & 0xFF) - (int) ((c >> 8) & 0xFF)) < 12 &&
+            abs ((int) ((p >> 16) & 0xFF) - (int) ((c >> 16) & 0xFF)) < 12)
+          n++;
+      }
+  return n;
+}
+
+static void
+write_png (const char *dir, const char *name, unsigned int rgb)
+{
+  GdkPixbuf *pb = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, 40, 40);
+  char *p = g_build_filename (dir, name, NULL);
+  gdk_pixbuf_fill (pb, rgb << 8 | 0xFF);
+  gdk_pixbuf_save (pb, p, "png", NULL, NULL);
+  g_object_unref (pb);
+  g_free (p);
+}
+
+/* the RISC OS icons: the theme is chosen, and Get Mail's icon and the
+   inbox's are the theme's PNGs */
+
+static int
+same_pixbuf (GdkPixbuf *a, const char *file)
+{
+  GdkPixbuf *b = gdk_pixbuf_new_from_file (file, NULL);
+  int r = 0;
+
+  if (a && b && gdk_pixbuf_get_width (a) == gdk_pixbuf_get_width (b) &&
+      gdk_pixbuf_get_height (a) == gdk_pixbuf_get_height (b) &&
+      gdk_pixbuf_get_n_channels (a) == gdk_pixbuf_get_n_channels (b))
+    {
+      int y, w = gdk_pixbuf_get_width (a) * gdk_pixbuf_get_n_channels (a);
+      r = 1;
+      for (y = 0; y < gdk_pixbuf_get_height (a); y++)
+        if (memcmp (gdk_pixbuf_get_pixels (a) + y * gdk_pixbuf_get_rowstride (a),
+                    gdk_pixbuf_get_pixels (b) + y * gdk_pixbuf_get_rowstride (b), w))
+          r = 0;
+    }
+  if (b)
+    g_object_unref (b);
+  return r;
+}
+
+/* the inbox's icon: the desktop's directory sprite with the theme's
+   inbox emblem bottom right (riscos-claws.c), not the theme's PNG */
+static int
+desktop_folder (GdkPixbuf *pb, const char *theme)
+{
+  char *f = g_build_filename (theme, "emblem_inbox.png", NULL), *png = g_build_filename (theme, "inbox_close.png", NULL);
+  GdkPixbuf *e = gdk_pixbuf_new_from_file (f, NULL);
+  int ok = pb && e && gdk_pixbuf_get_n_channels (pb) == 4 && !same_pixbuf (pb, png), x, y, opaque = 0;
+
+  for (y = 0; ok && y < 9; y++)
+    for (x = 0; ok && x < 9; x++)
+      {
+        const guchar *a = gdk_pixbuf_get_pixels (e) + y * gdk_pixbuf_get_rowstride (e) + x * 4;
+        const guchar *b = gdk_pixbuf_get_pixels (pb) + (y + 7) * gdk_pixbuf_get_rowstride (pb) + (x + 7) * 4;
+        if (a[3] == 255)
+          {
+            opaque++;
+            if (a[0] != b[0] || a[1] != b[1] || a[2] != b[2])
+              ok = 0;
+          }
+      }
+  if (e)
+    g_object_unref (e);
+  g_free (f);
+  g_free (png);
+  return ok && opaque > 10;
+}
+
+static void
+check_theme (void)
+{
+  const char *want = getenv ("CLAWS_RISCOS_THEME");
+  char *f1, *marker;
+
+  theme_chosen = want && fake_claws_theme () && strcmp (fake_claws_theme (), want) == 0;
+  f1 = g_build_filename (want ? want : ".", "mail_receive.png", NULL);
+  theme_icons = same_pixbuf (fake_claws_stock (0), f1);
+  folder_from_desktop = want && desktop_folder (fake_claws_stock (1), want);
+  marker = g_build_filename (home, ".claws-mail", "RISCOSDefaults", NULL);
+  defaults_marker = g_file_test (marker, G_FILE_TEST_EXISTS);
+  promote_html = fake_claws_promote_html ();
+  g_free (f1);
+  g_free (marker);
 }
 
 static void
@@ -585,6 +734,8 @@ hook (int reason)
       if (inbox_files >= 1)
         {
           dump_shot ("received");
+          pop_inbox_files = inbox_files;
+          g_strlcpy (pop_inbox_text, inbox_text, sizeof pop_inbox_text);
           /* started, mail fetched: and no main window yet; Select on the icon */
           start_hidden = window_titled ("Claws Mail") == NULL;
           g_idle_add (iconbar_select, NULL);
@@ -623,7 +774,45 @@ hook (int reason)
         queue_files = count_files (d, NULL, 0);
         if (sent_files >= 1 && queue_files == 0)
           {
+            char *msg, d2[700];
             dump_shot ("sent");
+            check_theme ();
+            g_snprintf (d2, sizeof d2, "%s/Mail/inbox", home);
+            msg = g_strdup_printf (
+              "From: Dave <dave@example.com>\r\nTo: test@example.com\r\n"
+              "Subject: HTML from the test\r\nDate: Wed, 07 Oct 2026 12:00:00 +0100\r\n"
+              "Message-ID: <html1@example.com>\r\nMIME-Version: 1.0\r\n"
+              "Content-Type: multipart/alternative; boundary=\"b1\"\r\n\r\n"
+              "--b1\r\nContent-Type: text/plain; charset=us-ascii\r\n\r\nThe plain version.\r\n"
+              "--b1\r\nContent-Type: text/html; charset=us-ascii\r\n\r\n"
+              "<html><body style=\"background:#ffffff\"><p>HTML mail on RISC OS</p>"
+              "<div style=\"background:#d02020;width:200px;height:50px\"></div>"
+              "<img src=\"http://localhost:%s/moved/green.png\" width=\"40\" height=\"40\">"
+              "<img src=\"https://localhost:%s/yellow.png\" width=\"40\" height=\"40\">"
+              "</body></html>\r\n--b1--\r\n", http_port, http_port);
+            write_file (d2, "2", msg);
+            g_free (msg);
+            g_idle_add (html_go, NULL);
+            stage = 20;
+          }
+      }
+      break;
+    case 20:    /* HTML mail shown by the litehtml viewer, remote images in */
+      {
+        GtkWidget *vw = NULL;
+        const char *t = fake_claws_viewer (&vw);
+        html_polls++;
+        if (t)
+          html_viewer = t;
+        if (vw && gtk_widget_get_mapped (vw))
+          {
+            html_red = count_colour (vw, 0x2020D0);
+            html_green = count_colour (vw, 0x00C800);
+            html_yellow = count_colour (vw, 0x00E6E6);
+          }
+        if ((html_red > 0 && html_green > 0 && html_yellow > 0) || html_polls > 4000)
+          {
+            dump_shot ("html");
             stage = 10;
           }
       }
@@ -670,8 +859,9 @@ main (int argc, char **argv)
   static const char *boxes[] = { "inbox", "sent", "queue", "trash", "draft" };
   int i;
 
-  if (argc < 6)
+  if (argc < 7)
     return 2;
+  g_strlcpy (http_port, argv[6], sizeof http_port);
   outdir = argv[2];
   {
     /* absolute: Claws changes directory to its settings */
@@ -690,6 +880,10 @@ main (int argc, char **argv)
       g_snprintf (mail, sizeof mail, "%s/Mail/%s", home, boxes[i]);
       g_mkdir_with_parents (mail, 0755);
     }
+  g_snprintf (pop, sizeof pop, "%s/http", outdir);
+  g_mkdir_with_parents (pop, 0755);
+  write_png (pop, "green.png", 0x00C800);
+  write_png (pop, "yellow.png", 0xE6E600);
   g_snprintf (pop, sizeof pop, "%s/imap", outdir);
   g_mkdir_with_parents (pop, 0755);
   write_file (pop, "1", "From: Carol <carol@example.com>\r\nTo: imap@example.com\r\n"

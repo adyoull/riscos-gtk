@@ -17,6 +17,8 @@ so shared libraries aren't possible today.
 | harfbuzz, pixman, expat, fontconfig, libffi, libepoxy, zlib, libpng, libjpeg-turbo, FreeType, PCRE2 | MIT, BSD, zlib, libpng, IJG or FreeType licences | The notices (LICENCES.md) |
 | Claws Mail only: Nettle 3.10.2 | LGPL 3 or GPL 2 | Covered by the GPL program's source |
 | Claws Mail only: libetpan 1.9.4 | BSD-style | Its notice: `LicenceEtPan` in the package |
+| Claws Mail only: its litehtml viewer plug-in, with litehtml | Plug-in GPL 3 or later; litehtml BSD-style | litehtml's notice: `LicenceLiteHTML` in the package |
+| Claws Mail only: gumbo 0.12.0 | Apache License 2.0 | Its licence: `LicenceGumbo` in the package |
 | UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release *[decision: include it in the source archive too]* |
 
 The package also carries some data and modules:
@@ -26,6 +28,7 @@ The package also carries some data and modules:
 | DejaVu fonts | Bitstream Vera / Arev: free; its `Licence` in `fonts/` |
 | Adwaita icons (`share/icons`) | LGPL 3 / CC-BY-SA 3.0 |
 | The RISCOS theme | MIT |
+| ClawsMail's RISC OS icons (`share/claws-mail/themes/RISCOS`, `!Sprites`), drawn by `tools/mkclawsicons.py` | MIT |
 | PThreadTicker module | Its own `PThreadTicker-Licence` |
 
 ## The LGPL and static linking
@@ -45,7 +48,7 @@ release, `riscos-gtk-<release>-src.tar`, made by
 - the repository at the release commit: the backend, the patches, every
   program's RISC OS code, the build scripts and these documents;
 - every upstream tarball named in `build/SHA256SUMS.txt`: the
-  libraries, L3afpad, Claws Mail, Nettle and libetpan.
+  libraries, L3afpad, Claws Mail, Nettle, libetpan and gumbo.
 
 With the riscos-crossdev toolchain, `docs/BUILDING.md` rebuilds every
 program from it, including after changing a library. All three programs'
@@ -62,7 +65,7 @@ The packaging script (`build/build-app.sh`) adds these to every package:
   copy for three years.
 - The program's own licence: `Licence`. L3afpad: GPL 2. Claws Mail: GPL
   3. GTKThemeTest: MIT.
-- For Claws Mail, `LicenceEtPan`.
+- For Claws Mail, `LicenceEtPan`, `LicenceLiteHTML` and `LicenceGumbo`.
 - `fonts/Licence`, `PThreadTicker-Licence`.
 - `!Help`: lists the above.
 

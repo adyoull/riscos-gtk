@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A small POP3 and SMTP server for the Claws Mail test (tests/gtk/claws-fake.c).
 
-  mailserver.py DIR POP3PORT SMTPPORT [IMAPPORT]
+  mailserver.py DIR POP3PORT SMTPPORT [IMAPPORT [HTTPPORT]]
 
 Plain text: the fake AcornSSL in the test's fake RISC OS passes bytes
 through unencrypted, so "TLS" (pop3s, SMTP STARTTLS) arrives here as plain
@@ -14,6 +14,9 @@ IMAP (if IMAPPORT is given): one mailbox, INBOX, holding DIR/imap/*
 LOGIN, LIST/LSUB, SELECT/EXAMINE, STATUS, (UID) SEARCH, (UID) FETCH of
 UID, FLAGS, RFC822.SIZE, INTERNALDATE, BODY[...] / BODY.PEEK[...] (whole,
 HEADER, TEXT, HEADER.FIELDS) and RFC822*, (UID) STORE, NOOP, IDLE.
+HTTP (if HTTPPORT is given; https arrives as plain text too): GET of
+DIR/http/NAME, sent chunked; /moved/NAME answers 302 with a relative
+Location (/NAME); logged as "HTTP GET <path>".
 MIT licence.
 """
 import os
@@ -23,6 +26,7 @@ import threading
 
 DIR, POP3PORT, SMTPPORT = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 IMAPPORT = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+HTTPPORT = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 lock = threading.Lock()
 
 
@@ -335,6 +339,29 @@ class IMAP(socketserver.StreamRequestHandler):
                 self.send(tag + " BAD unknown")
 
 
+class HTTP(socketserver.StreamRequestHandler):
+    def handle(self):
+        req = self.rfile.readline().decode("latin-1").split()
+        while self.rfile.readline().strip():
+            pass
+        path = req[1] if len(req) > 1 else "/"
+        log("HTTP GET " + path)
+        if path.startswith("/moved/"):
+            self.wfile.write(("HTTP/1.1 302 Found\r\nLocation: /%s\r\nContent-Length: 0\r\n"
+                              "Connection: close\r\n\r\n" % path[7:]).encode("latin-1"))
+            return
+        f = os.path.join(DIR, "http", os.path.basename(path))
+        if not os.path.isfile(f):
+            self.wfile.write(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return
+        data = open(f, "rb").read()
+        out = b"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+        for i in range(0, len(data), 100):
+            c = data[i:i + 100]
+            out += b"%x\r\n" % len(c) + c + b"\r\n"
+        self.wfile.write(out + b"0\r\n\r\n")
+
+
 class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -347,6 +374,9 @@ if __name__ == "__main__":
     if IMAPPORT:
         imap = Server(("127.0.0.1", IMAPPORT), IMAP)
         threading.Thread(target=imap.serve_forever, daemon=True).start()
+    if HTTPPORT:
+        http = Server(("127.0.0.1", HTTPPORT), HTTP)
+        threading.Thread(target=http.serve_forever, daemon=True).start()
     with open(os.path.join(DIR, "server.ready"), "w") as f:
         f.write("ok\n")
     smtp.serve_forever()

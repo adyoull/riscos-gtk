@@ -29,7 +29,7 @@ build() {  # NAME SOURCE PKGS...
   $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags "$@") "$s" \
     -o "$REPO_DIR/out/$n-linuxarm" \
     -Wl,-Bstatic $(pkg-config --libs --static "$@" | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-    -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 }
 
 build glibtest "$REPO_DIR/tests/glib/glibtest.c" gio-2.0
@@ -51,7 +51,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DHELLO_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/hellotest.c" "$REPO_DIR/tests/gtk/hello.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
   -o "$REPO_DIR/out/hellotest-linuxarm" -Wl,--wrap=freopen \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 HA=$REPO_DIR/out/hello-linuxarm-app
 rm -rf "$HA"; mkdir -p "$HA/fonts" "$HA/share/themes/RISCOS"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' \
@@ -75,7 +75,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/themetest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
   -o "$REPO_DIR/out/themetest-fake-linuxarm" -Wl,--wrap=freopen \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 TT=$REPO_DIR/out/themetest-linuxarm
 rm -rf "$TT"; mkdir -p "$TT"
 
@@ -85,7 +85,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/edittest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
   -o "$REPO_DIR/out/edittest-fake-linuxarm" -Wl,--wrap=freopen \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 ET=$REPO_DIR/out/edittest-linuxarm
 rm -rf "$ET"; mkdir -p "$ET"
 
@@ -94,13 +94,13 @@ rm -rf "$ET"; mkdir -p "$ET"
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
   "$REPO_DIR/tests/gtk/toolsprites-fake.c" -o "$REPO_DIR/out/toolsprites-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
 # Printing: the page split into Draw vectors and images (cairo/).
 $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags cairo) \
   "$REPO_DIR/tests/gtk/printvec-fake.c" -o "$REPO_DIR/out/printvec-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static cairo | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
 # L3afpad (the first real GTK program) on the fake Wimp: its sources with
 # its RISC OS patch, main renamed, driven by tests/gtk/l3afpad-fake.c
@@ -118,7 +118,7 @@ done
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
   "$REPO_DIR/tests/gtk/l3afpad-fake.c" "$L3O"/*.o -o "$REPO_DIR/out/l3afpad-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 L3T=$REPO_DIR/out/l3afpad-linuxarm
 rm -rf "$L3T"; mkdir -p "$L3T"
 
@@ -134,14 +134,15 @@ rm -f "$CS/main.o"
 make -s -C "$CS" main.o CPPFLAGS="-D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$CS/common/gnutls-acornssl -Dmain=claws_main" > /dev/null
 mv "$CS/main.o" "$CO/main.o"
 (cd "$CO" && $CC $RO_CFLAGS -c -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -D__riscos=1 \
-  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/apps/claws/riscos-claws.c")
+  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/apps/claws/riscos-claws.c" \
+  "$REPO_DIR/tests/gtk/claws-fake-claws.c")
 $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/claws-fake.c" \
-  "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/etpan/.libs/libclawsetpan.a" "$CS/gtk/.libs/libclawsgtk.a" \
-  -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
-  -Wl,-Bdynamic -lresolv -ldl -lm -pthread
+  "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/etpan/.libs/libclawsetpan.a" "$CS/gtk/.libs/libclawsgtk.a" "$CS/plugins/litehtml_viewer/liblhviewer.a" \
+  -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle -lgumbo $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 CT=$REPO_DIR/out/claws-linuxarm
 rm -rf "$CT"; mkdir -p "$CT"
-CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2))
+CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2)); CP4=$((CP1 + 3))
 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
@@ -152,9 +153,9 @@ run edittest-fake "$HA" "$ET"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
-python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 & mailserver=$!
+python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 & mailserver=$!
 for i in $(seq 50); do [ -f "$CT/server.ready" ] && break; sleep 0.1; done
-run claws-fake "$HA" "$CT" $CP1 $CP2 $CP3
+CLAWS_RISCOS_THEME="$REPO_DIR/apps/claws/app/share/claws-mail/themes/RISCOS" run claws-fake "$HA" "$CT" $CP1 $CP2 $CP3 $CP4
 kill $mailserver 2>/dev/null || true
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"

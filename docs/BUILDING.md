@@ -67,8 +67,21 @@ Each library's changes are one diff in `patches/`. riscos-gtk's own GTK
 and GDK sources are in `gdk/riscos/` and `gtk/riscos/`, and cairo's in
 `cairo/`.
 
-Nettle and libetpan aren't built here: `build/build-claws.sh` builds them
-into the same sysroot the first time it runs.
+Nettle, libetpan and gumbo aren't built here: `build/build-claws.sh`
+builds them into the same sysroot the first time it runs. It also builds
+Claws Mail's litehtml viewer (HTML mail) from Claws Mail's own tarball and
+links it in, with `apps/claws/litehtml/http.cpp` in place of its libcurl
+image loader.
+
+ClawsMail's RISC OS icons are in the repository
+(`apps/claws/app/share/claws-mail/themes/RISCOS`, `apps/claws/app/!Sprites`).
+`tools/mkclawsicons.py` draws them (needs Pillow); run it again after
+changing a drawing:
+
+```sh
+python3 tools/mkclawsicons.py apps/claws/app/share/claws-mail/themes/RISCOS /tmp/spr
+python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!clawsmail.png' 'sm!clawsmail=/tmp/spr/sm!clawsmail.png'
+```
 
 ## 4. The programs and the release
 

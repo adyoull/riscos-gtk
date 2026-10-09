@@ -1,18 +1,18 @@
 diff -ruN a/src/common/gnutls-acornssl/gnutls/abstract.h b/src/common/gnutls-acornssl/gnutls/abstract.h
 --- a/src/common/gnutls-acornssl/gnutls/abstract.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/abstract.h	2026-10-07 15:11:43.451240256 +0100
++++ b/src/common/gnutls-acornssl/gnutls/abstract.h	2026-10-09 10:31:41.829867296 +0100
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/crypto.h b/src/common/gnutls-acornssl/gnutls/crypto.h
 --- a/src/common/gnutls-acornssl/gnutls/crypto.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/crypto.h	2026-10-07 15:11:43.451240256 +0100
++++ b/src/common/gnutls-acornssl/gnutls/crypto.h	2026-10-09 10:31:41.829903376 +0100
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acornssl/gnutls/gnutls.h
 --- a/src/common/gnutls-acornssl/gnutls/gnutls.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-07 17:33:25.377131310 +0100
++++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-09 10:31:41.829933405 +0100
 @@ -0,0 +1,225 @@
 +/*
 + * gnutls.h - riscos-gtk: the part of GnuTLS's API Claws Mail uses, for
@@ -241,19 +241,19 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +#endif
 diff -ruN a/src/common/gnutls-acornssl/gnutls/pkcs12.h b/src/common/gnutls-acornssl/gnutls/pkcs12.h
 --- a/src/common/gnutls-acornssl/gnutls/pkcs12.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/pkcs12.h	2026-10-07 15:11:43.451240256 +0100
++++ b/src/common/gnutls-acornssl/gnutls/pkcs12.h	2026-10-09 10:31:41.830031327 +0100
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/x509.h b/src/common/gnutls-acornssl/gnutls/x509.h
 --- a/src/common/gnutls-acornssl/gnutls/x509.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/x509.h	2026-10-07 15:11:43.451240256 +0100
++++ b/src/common/gnutls-acornssl/gnutls/x509.h	2026-10-09 10:31:41.830055594 +0100
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/proxy.c b/src/common/proxy.c
 --- a/src/common/proxy.c	2022-05-06 11:11:03.000000000 +0100
-+++ b/src/common/proxy.c	2026-10-07 15:40:38.036228789 +0100
++++ b/src/common/proxy.c	2026-10-09 10:31:41.830102072 +0100
 @@ -239,7 +239,10 @@
  	socks_req[3] = 3;
  	socks_req[4] = (guchar)len;
@@ -268,7 +268,7 @@ diff -ruN a/src/common/proxy.c b/src/common/proxy.c
  		g_warning("socks5_connect: SOCKS5 connect request write failed");
 diff -ruN a/src/common/socket.c b/src/common/socket.c
 --- a/src/common/socket.c	2026-02-16 10:02:04.000000000 +0000
-+++ b/src/common/socket.c	2026-10-07 15:33:35.004725131 +0100
++++ b/src/common/socket.c	2026-10-09 10:31:41.830281954 +0100
 @@ -61,6 +61,11 @@
  #include "socket.h"
  #include "utils.h"
@@ -399,7 +399,7 @@ diff -ruN a/src/common/socket.c b/src/common/socket.c
  	g_free(lookup_data);
 diff -ruN a/src/common/ssl.c b/src/common/ssl.c
 --- a/src/common/ssl.c	2026-02-16 11:12:40.000000000 +0000
-+++ b/src/common/ssl.c	2026-10-07 15:13:22.090591995 +0100
++++ b/src/common/ssl.c	2026-10-09 10:31:41.830422748 +0100
 @@ -22,7 +22,10 @@
  #include "claws-features.h"
  #endif
@@ -414,7 +414,7 @@ diff -ruN a/src/common/ssl.c b/src/common/ssl.c
  #include <stdlib.h>
 diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 --- a/src/common/ssl_acornssl.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/ssl_acornssl.c	2026-10-07 17:33:48.584505558 +0100
++++ b/src/common/ssl_acornssl.c	2026-10-09 10:31:41.830483324 +0100
 @@ -0,0 +1,498 @@
 +/*
 + * ssl_acornssl.c - riscos-gtk: Claws Mail's TLS through RISC OS's AcornSSL
@@ -916,7 +916,7 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +#endif /* USE_GNUTLS */
 diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
 --- a/src/etpan/etpan-ssl.c	2025-09-29 06:32:17.000000000 +0100
-+++ b/src/etpan/etpan-ssl.c	2026-10-07 17:33:48.585064262 +0100
++++ b/src/etpan/etpan-ssl.c	2026-10-09 10:31:41.830653021 +0100
 @@ -43,6 +43,11 @@
  gboolean etpan_certificate_check(mailstream *stream, const char *host, gint port,
  				 gboolean accept_if_valid)
@@ -931,7 +931,7 @@ diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
  	int len;
 diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
 --- a/src/gtk/gtkunit.h	2018-09-10 14:00:33.000000000 +0100
-+++ b/src/gtk/gtkunit.h	2026-10-07 15:10:49.001152555 +0100
++++ b/src/gtk/gtkunit.h	2026-10-09 10:31:41.830729807 +0100
 @@ -87,6 +87,10 @@
   * #GTK_TYPE_UNIT is a #GType derived from #G_TYPE_INT.
   **/
@@ -945,19 +945,21 @@ diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
  
 diff -ruN a/src/main.c b/src/main.c
 --- a/src/main.c	2026-03-08 13:45:13.000000000 +0000
-+++ b/src/main.c	2026-10-09 08:39:24.483902238 +0100
-@@ -173,6 +173,10 @@
++++ b/src/main.c	2026-10-09 10:32:24.988397575 +0100
+@@ -173,6 +173,12 @@
  static SnDisplay *sn_display = NULL;
  #endif
  
 +#ifdef __riscos
 +/* riscos-claws.c: the program's environment and icon bar on RISC OS */
 +void riscos_claws_init(int *argc, char ***argv);
++void riscos_claws_plugins(void);
++void riscos_claws_prefs_read(void);
 +#endif
  static gint lock_socket = -1;
  static gint lock_socket_tag = 0;
  
-@@ -976,6 +980,10 @@
+@@ -976,6 +982,10 @@
  
  	sc_starting = TRUE;
  
@@ -968,7 +970,7 @@ diff -ruN a/src/main.c b/src/main.c
  #ifdef G_OS_WIN32
  	win32_open_log();
  #endif
-@@ -995,9 +1003,16 @@
+@@ -995,9 +1005,16 @@
  
  	sock_init();
  
@@ -985,7 +987,30 @@ diff -ruN a/src/main.c b/src/main.c
  #ifdef HAVE_STARTUP_NOTIFICATION
  #ifdef GDK_WINDOWING_X11
  	if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-@@ -1477,7 +1492,14 @@
+@@ -1201,6 +1218,10 @@
+ 
+ 	folder_system_init();
+ 	prefs_common_read_config();
++#ifdef __riscos
++	/* riscos-claws.c: settings for RISC OS once read (the RISC OS icons) */
++	riscos_claws_prefs_read();
++#endif
+ 
+ 	if (prefs_update_config_version_common() < 0) {
+ 		debug_print("Main configuration file version upgrade failed, exiting\n");
+@@ -1432,6 +1453,11 @@
+ 
+ 	num_folder_class = g_list_length(folder_get_list());
+ 
++#ifdef __riscos
++	/* riscos-claws.c: the plug-ins linked into the program (the litehtml
++	   viewer for HTML mail) */
++	riscos_claws_plugins();
++#endif
+ 	plugin_load_all("GTK3");
+ 
+ 	if (g_list_length(folder_get_list()) != num_folder_class) {
+@@ -1477,7 +1503,14 @@
  	/* if not crashed, show window now */
  	if (!mainwin_shown) {
  		/* apart if something told not to show */
@@ -1000,7 +1025,7 @@ diff -ruN a/src/main.c b/src/main.c
  			main_window_popup(mainwin);
  	}
  
-@@ -1587,6 +1609,7 @@
+@@ -1587,6 +1620,7 @@
  	}
  
  	/* register the callback of unix domain socket input */
@@ -1010,7 +1035,7 @@ diff -ruN a/src/main.c b/src/main.c
  					lock_socket_input_cb,
 diff -ruN a/src/mainwindow.c b/src/mainwindow.c
 --- a/src/mainwindow.c	2026-03-08 14:11:00.000000000 +0000
-+++ b/src/mainwindow.c	2026-10-09 08:39:24.485253731 +0100
++++ b/src/mainwindow.c	2026-10-09 10:31:41.831410560 +0100
 @@ -3886,7 +3886,14 @@
  	hooks_invoke(MAIN_WINDOW_CLOSE, &close_allowed);
  
@@ -1026,3 +1051,77 @@ diff -ruN a/src/mainwindow.c b/src/mainwindow.c
  
  	return TRUE;
  }
+diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_viewer/lh_widget.cpp
+--- a/src/plugins/litehtml_viewer/lh_widget.cpp	2023-10-22 16:03:41.000000000 +0100
++++ b/src/plugins/litehtml_viewer/lh_widget.cpp	2026-10-09 10:39:29.926229365 +0100
+@@ -26,7 +26,9 @@
+ #include <fcntl.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#ifndef __riscos
+ #include <curl/curl.h>
++#endif
+ #include <gdk/gdk.h>
+ 
+ #include "utils.h"
+diff -ruN a/src/prefs_common.c b/src/prefs_common.c
+--- a/src/prefs_common.c	2026-03-06 10:37:09.000000000 +0000
++++ b/src/prefs_common.c	2026-10-09 10:31:53.140596833 +0100
+@@ -122,7 +122,13 @@
+ 	 &prefs_common.mime_open_cmd,     P_STRING, NULL, NULL, NULL},
+ 
+ 	/* Interface */
++#ifdef __riscos
++	/* riscos-gtk: the RISC OS icons in the application (Choices can
++	   still pick Claws Mail's own) */
++	{"pixmap_theme_path", "/<ClawsMail$Dir>/share/claws-mail/themes/RISCOS",
++#else
+ 	{"pixmap_theme_path", DEFAULT_PIXMAP_THEME, 
++#endif
+ 	 &prefs_common.pixmap_theme_path, P_STRING, NULL, NULL, NULL},
+ #ifdef HAVE_SVG
+ 	{"enable_alpha_svg", "TRUE",
+diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
+--- a/src/stock_pixmap.c	2024-02-19 06:56:35.000000000 +0000
++++ b/src/stock_pixmap.c	2026-10-09 11:13:09.970126831 +0100
+@@ -31,6 +31,9 @@
+ 
+ #include "defs.h"
+ #include "stock_pixmap.h"
++#ifdef __riscos
++GdkPixbuf *riscos_claws_stock_pixbuf(const char *name, const char *theme);
++#endif
+ #include "gtkutils.h"
+ #include "utils.h"
+ #include "prefs_common.h"
+@@ -779,7 +782,18 @@
+ 			pix_d->pixmap = NULL;
+ 		}
+ 
++#ifdef __riscos
++		/* riscos-claws.c: folders and check boxes from the desktop's
++		   own sprites, with the RISC OS icons */
++		pix = riscos_claws_stock_pixbuf(pix_d->file, prefs_common.pixmap_theme_path);
++		if (pix) {
++			g_free(pix_d->icon_path);
++			pix_d->icon_path = g_strdup(prefs_common.pixmap_theme_path);
++		}
++		if (pix == NULL && strcmp(prefs_common.pixmap_theme_path, DEFAULT_PIXMAP_THEME) != 0) {
++#else
+ 		if (strcmp(prefs_common.pixmap_theme_path, DEFAULT_PIXMAP_THEME) != 0) {
++#endif
+ 			if (is_dir_exist(prefs_common.pixmap_theme_path)) {
+ 				char *icon_file_name;
+ try_next_extension:
+@@ -879,6 +893,11 @@
+ 	g_dir_close(dp);
+ }
+ 
++#ifdef __riscos
++/* the themes in the application: the RISC OS icons (riscos-claws.c) */
++#undef PACKAGE_DATA_DIR
++#define PACKAGE_DATA_DIR "/<ClawsMail$Dir>/share/claws-mail"
++#endif
+ gchar *stock_pixmap_get_system_theme_dir_for_theme(const gchar *theme)
+ {
+ 	if (theme && *theme) {

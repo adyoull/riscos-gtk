@@ -5,8 +5,9 @@ riscos-gtk's RISC OS backend. Secure connections (TLS) go through RISC
 OS's own AcornSSL module.
 
 POP3 and IMAP to fetch mail, SMTP to send it; mail kept in local (MH)
-folders or on the IMAP server. Plug-ins and spell checking are not
-included yet.
+folders or on the IMAP server. HTML mail is shown laid out, with its
+pictures (Claws Mail's LiteHTML viewer, built in). Spell checking and
+other plug-ins are not included yet.
 
 Needs
 - RISC OS 5.28 or later (for AcornSSL), in a 16 or 32 bpp screen mode.
@@ -53,8 +54,27 @@ Using it
 - The server's certificate is checked by AcornSSL; Claws Mail's own
   certificate manager isn't available.
 
+HTML mail
+- An HTML message is shown as its sender laid it out: fonts, colours,
+  tables and the pictures sent with it. When a message has both a plain
+  text and an HTML version, the HTML one is shown (Choices... > Message
+  View > Text Options > "Select the HTML part of multipart/alternative
+  messages" to change that). The list of parts on the right of the
+  message switches between them.
+- Pictures on the web (remote content) aren't fetched unless you ask:
+  senders use them to see when you read a message. To load them, turn
+  on "Enable loading of remote content" in Choices... > Plugins >
+  LiteHTML. They are fetched over http or https, through AcornSSL.
+- Links in HTML mail are shown, but don't open a browser yet.
+
+Icons
+- The toolbar, folder list and message list use RISC OS icons. The
+  folders are the Filer's own directory icons from your desktop theme,
+  with a small sign for Inbox, Sent, Queue and Drafts. Claws Mail's own
+  icons can be chosen in Choices... > Display > Themes.
+
 Not yet
-- News (NNTP) is built in but untested; plug-ins, spell checking,
+- News (NNTP) is built in but untested; other plug-ins, spell checking,
   address books other than Claws Mail's own.
 - Saving attachments to a Filer window by dragging; opening attachments
   with RISC OS programs.
@@ -64,6 +84,8 @@ Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
 
 Licences: Claws Mail GPL v3 (Licence); GTK, GLib and friends LGPL v2.1
 (LicenceLGPL); Nettle LGPL v3 / GPL v2; libetpan BSD-style
-(LicenceEtPan); icons from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0);
+(LicenceEtPan); litehtml BSD-style (LicenceLiteHTML); gumbo Apache 2.0
+(LicenceGumbo); the RISC OS icons are riscos-gtk's own (MIT); other
+icons from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0);
 DejaVu fonts (free licence, in fonts); PThreadTicker (its Licence).
 Source says where the complete source is.
