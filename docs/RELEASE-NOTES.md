@@ -26,9 +26,9 @@ the riscos-gtk revision, as riscos-ffmpeg and riscos-mesa do *[decision]*.
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.17.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.17 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-0.4.zip` | Claws Mail 4.4.0, RISC OS port 0.4 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders |
-| `GTKThemeTest-0.41.zip` | 0.41 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `L3afpad-0.18.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.18 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-0.5.zip` | Claws Mail 4.4.0, RISC OS port 0.5 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Starts on the icon bar; closing its window leaves it there |
+| `GTKThemeTest-0.42.zip` | 0.42 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
 | `riscos-gtk-3.24.41-riscos1-rc1-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
@@ -131,10 +131,20 @@ release *[decision]*.
 ## Known issues and limits in RC1
 
 - **Pi sign-off still needed for:**
-  - the size-grip / outside-scroll-bar rule (L3afpad 0.15–0.17,
-    GTKThemeTest 0.39–0.41);
-  - all of ClawsMail. 0.1–0.4 has only been run under QEMU against test
-    servers, through a stand-in for AcornSSL *[Pi]*.
+  - the size-grip / outside-scroll-bar rule (L3afpad 0.15–0.18,
+    GTKThemeTest 0.39–0.42);
+  - most of ClawsMail: 0.4 has been started on the Pi (fixes below),
+    but POP3, IMAP and SMTP against real servers through AcornSSL have not
+    been signed off *[Pi]*.
+- **Fixed after the first look at ClawsMail 0.4 on the Pi:**
+  - two size icons at first start (the old one stayed in the window's
+    corner until something redrew it): GTK now redraws the corner when
+    the grip moves to the outside scroll bar;
+  - it opened its main window at start: it now starts on the icon bar,
+    and Select opens the window (the first time only, after the set-up
+    wizard, the window opens by itself);
+  - closing the main window quit it: it now hides the window and stays
+    on the icon bar; Quit is on the icon bar menu and in File.
 - **RISC OS theme changes** take effect at the next start of a program
   (RISC OS themes only change on a reboot anyway).
 - **GTK's Page Setup dialogue** isn't replaced: the paper size comes from
@@ -180,7 +190,7 @@ code against a fake RISC OS and Wimp:
 | toolsprites-fake | 3 |
 | printvec-fake | 7 |
 | l3afpad-fake | 44 |
-| claws-fake | 15 |
+| claws-fake | 18 |
 
 All pass at the RC commit.
 

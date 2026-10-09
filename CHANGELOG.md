@@ -1,8 +1,25 @@
 # Changelog
 
-## 3.24.41-riscos1-rc1 (release candidate, for review, 2026-10-08)
-The first release candidate: !L3afpad 0.17, !ClawsMail 0.4, GTKThemeTest
-0.41, and the complete source. Everything above "Unreleased" below.
+## 3.24.41-riscos1-rc1 (release candidate, for review, 2026-10-09)
+The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
+0.42, and the complete source. Everything above "Unreleased" below.
+- Owner on ClawsMail 0.4 on the Pi (photo): two size icons at first start
+  until something redrew the window; the main window opened at start
+  rather than starting on the icon bar; closing it quit (it should stay on
+  the icon bar). Fixed:
+  - `gtkriscostheme.c`: when the grip moves between the window's corner
+    and the outside scroll bar, GTK redraws the corner, so the grip drawn
+    there in the first frame doesn't stay;
+  - Claws patch, main.c: on RISC OS the main window isn't shown at start
+    (only the first time, after the set-up wizard); Select on the icon
+    shows it. mainwindow.c: its close icon hides it (Quit: icon bar menu,
+    File > Exit). !Help says so.
+  - claws-fake 18 checks (3 new: starts on the icon bar, Select shows the
+    window, closing hides it; plus a guard that the corner has no second
+    grip, though the fake didn't reproduce the Pi's case).
+- A clean build from a fresh clone (`make deps` then `make release`)
+  succeeds: 34 static libraries, three packages, the source tar and the
+  manifest.
 - Release documents: `docs/RELEASE-NOTES.md`, `docs/RC-TEST-PLAN.md` (the
   Pi sign-off), `docs/BUILDING.md`, `docs/SOURCE-AND-LICENCES.md`; the
   README rewritten for the release.

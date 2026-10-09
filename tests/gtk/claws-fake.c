@@ -189,6 +189,58 @@ dump_shot (const char *name)
 
 static int sent_files, queue_files = -1;
 
+/* RISC OS behaviour: Claws Mail starts on the icon bar (no main window
+   until Select on the icon); closing the main window hides it and leaves
+   Claws Mail running on the icon bar */
+static int start_hidden = -1, shown_by_select, close_hides = -1;
+static GtkWidget *closed_window;
+static int strip_ok = -1, corner_clean = -1, main_w, main_exact, main_wider, corner_same;
+
+/* The main window (while shown): its message list's scroll bar ends above
+   the corner, so the window has the empty scroll bar outside it (its Wimp
+   window a bar wider than GTK's), the grip at its foot; and the grip
+   isn't left behind in the GTK window's own corner as well (the Pi's
+   "two resize icons" at first start). */
+static void
+check_main_window (GtkWidget *mw)
+{
+  int i, x, y, w, h, dx, dy, gw = 14;
+  GdkWindow *gw_ = gtk_widget_get_window (mw);
+
+  main_w = w = gtk_widget_get_allocated_width (mw);
+  h = gtk_widget_get_allocated_height (mw);
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle)
+      {
+        int vw = (fake_windows[i].x1 - fake_windows[i].x0) >> 1;
+        main_exact += vw == w;
+        main_wider += vw > w && vw <= w + 40;
+      }
+  strip_ok = w > 0 && main_exact == 0 && main_wider >= 1;
+  gdk_window_get_origin (gw_, &x, &y);
+  /* the strip's grip: x + w .. x + w + gw, bottom gw rows; the GTK
+     corner: x + w - gw .. x + w, the same rows */
+  corner_same = 0;
+  for (dy = 0; dy < gw; dy++)
+    for (dx = 0; dx < gw; dx++)
+      corner_same += fake_screen_pixel (x + w - gw + dx, y + h - gw + dy) ==
+                     fake_screen_pixel (x + w + dx, y + h - gw + dy);
+  corner_clean = corner_same < gw * gw / 2;
+}
+
+static gboolean
+iconbar_select (gpointer data)
+{
+  gpointer d;
+  const GdkRiscosIconbarHandlers *h = gdk_riscos_iconbar_get_handlers (&d);
+  if (h && h->show)
+    {
+      h->show (d);
+      shown_by_select = 1;
+    }
+  return G_SOURCE_REMOVE;
+}
+
 /* IMAP (libetpan, its TLS through the same AcornSSL code): the INBOX of
    the second account, scanned and its message fetched, from the main
    loop as a click on the folder would */
@@ -258,7 +310,8 @@ finish (void)
   g_free (t);
   g_free (p);
 
-  check (main_window_seen, "Claws Mail starts, with its main window");
+  check (start_hidden == 1, "Claws Mail starts on the icon bar: no main window until Select");
+  check (main_window_seen && shown_by_select, "Select on the icon bar shows the main window");
   check (password_answers >= 1, "it asks for the POP3 password (answered)");
   check (strstr (server_log, "POP3 RETR 1") != NULL,
          "it fetches the message over POP3 (pop3s: TLS from the start)");
@@ -276,25 +329,16 @@ finish (void)
          "the server has the message sent (To and Subject from the mailto: URL)");
   check (sent_files == 1 && queue_files == 0,
          "the message moves from Queue to Sent once it's sent");
-  {
-    /* the main window: its message list's scroll bar is at the right edge
-       but ends above the corner (the message view and status bar under
-       it), so it doesn't take the grip: the window has the empty scroll
-       bar outside it (its Wimp window a bar wider than GTK's), the grip
-       at its foot */
-    GtkWidget *mw = window_titled ("Claws Mail");
-    int i, w = mw ? gtk_widget_get_allocated_width (mw) : 0, exact = 0, wider = 0;
-    for (i = 0; i < FAKE_MAX_WINDOWS; i++)
-      if (fake_windows[i].handle)
-        {
-          int vw = (fake_windows[i].x1 - fake_windows[i].x0) >> 1;
-          exact += vw == w;
-          wider += vw > w && vw <= w + 40;
-        }
-    check (w > 0 && exact == 0 && wider >= 1,
-           "the main window's scroll bars don't reach its bottom right corner: the size grip has a scroll bar of its own");
-    printf ("# main window %d px wide: %d Wimp windows that wide, %d a scroll bar wider\n", w, exact, wider);
-  }
+  check (strip_ok == 1,
+         "the main window's scroll bars don't reach its bottom right corner: the size grip has a scroll bar of its own");
+  check (corner_clean == 1,
+         "and the grip isn't also left in the window's own corner (one size icon, not two)");
+  printf ("# main window %d px wide: %d Wimp windows that wide, %d a scroll bar wider; corner %d grip-like pixels\n",
+          main_w, main_exact, main_wider, corner_same);
+  if (closed_window && GTK_IS_WINDOW (closed_window))
+    close_hides = !gtk_widget_get_visible (closed_window);
+  check (close_hides == 1,
+         "closing the main window hides it: Claws Mail stays on the icon bar");
   check (imap_found == 1 && imap_scanned == 0,
          "IMAP: the second account's INBOX is found and scanned (imaps through AcornSSL)");
   check (strstr (server_log, "IMAP") && strstr (server_log, "LOGIN ****") &&
@@ -372,6 +416,9 @@ hook (int reason)
       if (inbox_files >= 1)
         {
           dump_shot ("received");
+          /* started, mail fetched: and no main window yet; Select on the icon */
+          start_hidden = window_titled ("Claws Mail") == NULL;
+          g_idle_add (iconbar_select, NULL);
           stage = 1;
         }
       break;
@@ -409,6 +456,12 @@ hook (int reason)
           {
             dump_shot ("sent");
             stage = 4;
+            /* look at the main window, then close it (its close icon) */
+            if ((closed_window = window_titled ("Claws Mail")))
+              {
+                check_main_window (closed_window);
+                gtk_window_close (GTK_WINDOW (closed_window));
+              }
             g_idle_add (imap_go, NULL);
           }
       }

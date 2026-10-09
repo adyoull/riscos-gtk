@@ -753,6 +753,14 @@ fit_strip (GtkWidget *top, int gw)
 
   if (want == strip && (want == 0 || made_h == wh))
     return;
+  if (want != strip)
+    {
+      /* the grip moves between the window's corner and the strip: GTK
+         draws the corner again, so the old one doesn't stay behind */
+      int ww = gtk_widget_get_allocated_width (top);
+      GdkRectangle corner = { MAX (0, ww - 2 * MAX (gw, strip)), MAX (0, wh - gh), 2 * MAX (gw, strip), gh };
+      gdk_window_invalidate_rect (win, &corner, TRUE);
+    }
   g_object_set_data (G_OBJECT (top), STRIP_KEY, GINT_TO_POINTER (want));
   g_object_set_data (G_OBJECT (top), "riscos-gtk-strip-h", GINT_TO_POINTER (wh));
   if (want > 0)

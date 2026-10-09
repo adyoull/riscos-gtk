@@ -28,7 +28,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.3 | Each program's Log ends with no warnings at start-up (Claws Mail: only the known start-up GTK warnings) | yes (L3afpad, ThemeTest) / new (Claws) | |
 | 1.4 | Start each under the RISC OS 5 default theme and under the Raspberry theme | yes | |
 
-## 2. GTKThemeTest 0.41 (the backend and theme)
+## 2. GTKThemeTest 0.42 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -41,12 +41,12 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.7 | File > Open: Open box; drag a file to it | yes | |
 | 2.8 | Pointer shapes over text and resize handles; pointer colours | yes | |
 | 2.9 | Scroll wheel in the lists and text view | yes | |
-| 2.10 | **Size grip: no scroll bar runs into the corner, so an empty scroll bar outside the window's right edge with the size icon at its foot; nothing of the window is covered** | **new (0.39–0.41)** | |
+| 2.10 | **Size grip (one icon only, from the first frame): no scroll bar runs into the corner, so an empty scroll bar outside the window's right edge with the size icon at its foot; nothing of the window is covered** | **new (0.39–0.42)** | |
 | 2.11 | Drag the size icon: the window resizes; clicking the empty bar elsewhere does nothing | **new** | |
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.17
+## 3. L3afpad 0.18
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -56,12 +56,12 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.4 | Save As / Open boxes; a name without an extension saves as Text | yes | |
 | 3.5 | File > Print: the Print box, print a page with text: sharp text, layout right, no residue on screen | yes | |
 | 3.6 | Print Preview, then Print from it | yes | |
-| 3.7 | **Size icon at the bottom right, under the text's scroll bar, no extra bar outside** | changed (0.15–0.17 rework) | |
+| 3.7 | **Size icon at the bottom right, under the text's scroll bar, no extra bar outside** | changed (0.15–0.18 rework) | |
 | 3.8 | Choices: font, tab width, wrap, line numbers; Set applies to all windows; kept after Quit | yes | |
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 0.4 (all new on the Pi)
+## 4. ClawsMail 0.5 (0.4 started once on the Pi; the rest new)
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -69,7 +69,10 @@ provider offers them.
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 4.1 | First start: the setup wizard; settings land in `<Choices$Write>.ClawsMail` | new | |
+| 4.1 | First start: the setup wizard, then the main window; settings land in `<Choices$Write>.ClawsMail` | new | |
+| 4.1a | Later starts: only the icon on the icon bar, no window; Select on the icon opens the main window | **new (0.5)** | |
+| 4.1b | Close the main window: Claws Mail stays on the icon bar (and keeps checking mail); Select opens it again; Quit from the icon bar menu quits | **new (0.5)** | |
+| 4.1c | One size icon only, from the moment the main window opens (not one in the window's corner as well) | **new (0.5)** | |
 | 4.2 | POP3 over SSL/TLS (995): Get Mail fetches into the Inbox; AcornSSL's certificate question if any | new | |
 | 4.3 | SMTP over SSL/TLS (465) and STARTTLS (587): Write, send to yourself; filed in Sent | new | |
 | 4.4 | IMAP over SSL/TLS (993): the server's folders appear; INBOX lists messages; a message opens | new | |

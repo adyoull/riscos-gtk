@@ -945,7 +945,7 @@ diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
  
 diff -ruN a/src/main.c b/src/main.c
 --- a/src/main.c	2026-03-08 13:45:13.000000000 +0000
-+++ b/src/main.c	2026-10-07 15:28:34.535115945 +0100
++++ b/src/main.c	2026-10-09 08:39:24.483902238 +0100
 @@ -173,6 +173,10 @@
  static SnDisplay *sn_display = NULL;
  #endif
@@ -985,7 +985,22 @@ diff -ruN a/src/main.c b/src/main.c
  #ifdef HAVE_STARTUP_NOTIFICATION
  #ifdef GDK_WINDOWING_X11
  	if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-@@ -1587,6 +1602,7 @@
+@@ -1477,7 +1492,14 @@
+ 	/* if not crashed, show window now */
+ 	if (!mainwin_shown) {
+ 		/* apart if something told not to show */
++#ifdef __riscos
++		/* RISC OS: a program starts on the icon bar, and Select there
++		   shows its window (riscos-claws.c). The very first time,
++		   after the set-up wizard, the window is shown. */
++		if (show_at_startup && never_ran)
++#else
+ 		if (show_at_startup)
++#endif
+ 			main_window_popup(mainwin);
+ 	}
+ 
+@@ -1587,6 +1609,7 @@
  	}
  
  	/* register the callback of unix domain socket input */
@@ -993,3 +1008,21 @@ diff -ruN a/src/main.c b/src/main.c
  	lock_socket_tag = claws_input_add(lock_socket,
  					G_IO_IN | G_IO_HUP | G_IO_ERR | G_IO_PRI,
  					lock_socket_input_cb,
+diff -ruN a/src/mainwindow.c b/src/mainwindow.c
+--- a/src/mainwindow.c	2026-03-08 14:11:00.000000000 +0000
++++ b/src/mainwindow.c	2026-10-09 08:39:24.485253731 +0100
+@@ -3886,7 +3886,14 @@
+ 	hooks_invoke(MAIN_WINDOW_CLOSE, &close_allowed);
+ 
+ 	if (close_allowed && mainwin->lock_count == 0)
++#ifdef __riscos
++		/* RISC OS: closing the window leaves Claws Mail on the icon
++		   bar (Select shows the window again; Quit is on the icon
++		   bar's menu and in File) */
++		gtk_widget_hide(mainwin->window);
++#else
+ 		app_exit_cb(NULL, data);
++#endif
+ 
+ 	return TRUE;
+ }

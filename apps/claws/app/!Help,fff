@@ -15,9 +15,13 @@ Needs
   server for the Resolver).
 
 Starting
-- Run it: Claws Mail puts its icon on the icon bar and opens its main
-  window. The first time, it asks for your name, email address and your
-  mail servers (POP3 or IMAP, and SMTP), and where to keep your mail.
+- Run it: Claws Mail puts its icon on the icon bar. Click Select on the
+  icon to open its main window. The first time, it asks for your name,
+  email address and your mail servers (POP3 or IMAP, and SMTP), and where
+  to keep your mail, then opens the main window.
+- Closing the main window leaves Claws Mail on the icon bar, still
+  checking mail; Select on the icon opens it again. Quit is on the icon
+  bar menu (and File > Exit).
 - Use "SSL/TLS" (pop3s port 995, imaps port 993, smtps port 465) or
   "STARTTLS" for your servers where your provider supports them: almost
   all do now. All of it goes through AcornSSL.
