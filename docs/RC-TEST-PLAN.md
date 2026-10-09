@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc1 — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc2 — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -28,12 +28,13 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.3 | Each program's Log ends with no warnings at start-up (Claws Mail: only the known start-up GTK warnings) | yes (L3afpad, ThemeTest) / new (Claws) | |
 | 1.4 | Start each under the RISC OS 5 default theme and under the Raspberry theme | yes | |
 
-## 2. GTKThemeTest 0.42 (the backend and theme)
+## 2. GTKThemeTest 0.43 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
 | 2.1 | All four pages: widgets drawn in the desktop's colours and sprites (option, radio, scroll bars) | yes | |
 | 2.2 | Menu over the window gives the program's menu as a Wimp menu; short-cuts shown; ticks and shading right | yes | |
+| 2.2a | **Menu over the context area (page 4): the window's menu with "Selection >" first; Selection > Info works** | **changed (0.43)** | |
 | 2.3 | Pop-up (combo): a Wimp menu to the right of the field | yes | |
 | 2.4 | Text fields: typing, the caret, Menu gives Cut/Copy/Paste; paste text copied in Edit and copy text into Edit | partly (drag yes; clipboard with other programs not reported) | |
 | 2.5 | Drag text from a field to a Filer window (a Text file) and a Text file onto a field | yes | |
@@ -46,7 +47,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.18
+## 3. L3afpad 0.19
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -61,7 +62,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 0.5 (0.4 started once on the Pi; the rest new)
+## 4. ClawsMail 0.6 (0.4 started once on the Pi; the rest new)
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -84,6 +85,7 @@ provider offers them.
 | 4.10 | Main window: the message list's bar ends above the message view, so the empty scroll bar is outside, with the size icon at its foot | new | |
 | 4.11 | Compose window: the size icon under the text's scroll bar | new | |
 | 4.12 | Choices... on the icon bar menu opens Preferences | new | |
+| 4.14 | **Menu over the message list, the folder list and elsewhere in the main window: always the main menu (File, Edit, View...); over the message list its first entry is "Message >" (Reply...), over the folder list "Folder >"; choosing from them works** | **new (0.6)** | |
 | 4.13 | Leave it running an hour checking mail: no growth in memory (Task Manager), no crash | new | |
 
 ## 5. Packaging and licences

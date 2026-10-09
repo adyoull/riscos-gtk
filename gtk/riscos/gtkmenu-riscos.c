@@ -216,8 +216,14 @@ item_ticked (GtkWidget *item)
          gtk_check_menu_item_get_active (GTK_CHECK_MENU_ITEM (item));
 }
 
+static int build (MenuState *st, GtkMenuShell *menu, const char *title_utf8);
+
+/* menu's items as a Wimp menu; extra_menu (if not NULL) adds a first
+   item, extra_label, leading to it as a submenu (the window menu with a
+   context menu in it) */
 static int
-build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
+build_with (MenuState *st, GtkMenuShell *menu, const char *title_utf8,
+            GtkMenuShell *extra_menu, const char *extra_label)
 {
   GList *kids = gtk_container_get_children (GTK_CONTAINER (menu)), *l;
   GPtrArray *items = g_ptr_array_new ();
@@ -245,6 +251,12 @@ build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
       g_array_index (dotted, gboolean, items->len - 1) = FALSE;
     }
   g_list_free (kids);
+  if (extra_menu)
+    {
+      gboolean dot = TRUE;          /* a dotted line under it */
+      g_ptr_array_insert (items, 0, extra_menu);
+      g_array_insert_val (dotted, 0, dot);
+    }
   n = items->len;
   if (n == 0)
     {
@@ -269,15 +281,24 @@ build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
   for (i = 0; i < n; i++)
     {
       GtkWidget *item = g_ptr_array_index (items, i);
-      GtkWidget *label = find_label (item);
-      gchar *utf8 = item_text (item);
       char buf[TEXT_MAX];
       wm->items[i] = g_object_ref (item);
-      gdk_riscos_utf8_to_latin1 (utf8, buf, sizeof buf);
-      g_free (utf8);
-      label_text[i] = g_strdup (buf);
-      shortcut_text (label, buf, sizeof buf);
-      key_text[i] = g_strdup (buf);
+      if (extra_menu && i == 0)
+        {
+          gdk_riscos_utf8_to_latin1 (extra_label, buf, sizeof buf);
+          label_text[i] = g_strdup (buf);
+          key_text[i] = g_strdup ("");
+        }
+      else
+        {
+          GtkWidget *label = find_label (item);
+          gchar *utf8 = item_text (item);
+          gdk_riscos_utf8_to_latin1 (utf8, buf, sizeof buf);
+          g_free (utf8);
+          label_text[i] = g_strdup (buf);
+          shortcut_text (label, buf, sizeof buf);
+          key_text[i] = g_strdup (buf);
+        }
       label_w = MAX (label_w, gdk_riscos_text_width (label_text[i]));
       if (key_text[i][0])
         key_w = MAX (key_w, gdk_riscos_text_width (key_text[i]));
@@ -307,7 +328,8 @@ build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
   for (i = 0; i < n; i++)
     {
       GtkWidget *item = wm->items[i];
-      GtkWidget *submenu = gtk_menu_item_get_submenu (GTK_MENU_ITEM (item));
+      GtkWidget *submenu = extra_menu && i == 0 ? GTK_WIDGET (extra_menu)
+                                                : gtk_menu_item_get_submenu (GTK_MENU_ITEM (item));
       int *it = block + 7 + 6 * i;
       char *text;
 
@@ -332,7 +354,7 @@ build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
       wm->sub[i] = -1;
       if (GTK_IS_MENU (submenu))
         {
-          gchar *sub_title = item_text (item);
+          gchar *sub_title = extra_menu && i == 0 ? g_strdup (extra_label) : item_text (item);
           int child = build (st, GTK_MENU_SHELL (submenu), sub_title);
           g_free (sub_title);
           if (child >= 0)
@@ -353,6 +375,12 @@ build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
   g_ptr_array_free (items, TRUE);
   g_array_free (dotted, TRUE);
   return index;
+}
+
+static int
+build (MenuState *st, GtkMenuShell *menu, const char *title_utf8)
+{
+  return build_with (st, menu, title_utf8, NULL, NULL);
 }
 
 /* Bring ticks and shading up to date (before reopening after Adjust) */
@@ -592,6 +620,45 @@ position (MenuState *st, GtkWidget *parent_menu_item,
     }
 }
 
+/* The window menu (a hidden menu bar) of the window a Menu click is in,
+   when the current event is that click; *under: the widget clicked */
+static GtkWidget *
+context_window_menu (GtkWidget **under)
+{
+  GdkEvent *event = gtk_get_current_event ();
+  GtkWidget *w = NULL, *top, *bar = NULL;
+
+  if (event && event->type == GDK_BUTTON_PRESS && event->button.button == 3 && event->any.window)
+    {
+      gdk_window_get_user_data (event->any.window, (gpointer *) &w);
+      if (w && GTK_IS_WIDGET (w) && (top = gtk_widget_get_toplevel (w)) && GTK_IS_WINDOW (top))
+        {
+          bar = g_object_get_data (G_OBJECT (top), "riscos-gtk-window-menu");
+          if (bar && (!gtk_widget_get_visible (bar) || !gtk_widget_is_sensitive (bar)))
+            bar = NULL;
+        }
+    }
+  if (event)
+    gdk_event_free (event);
+  *under = bar ? w : NULL;
+  return bar;
+}
+
+/* The context submenu's name: "riscos-gtk-context-name" on the widget
+   clicked or an ancestor (a program can say "Folder", "Message"...), else
+   "Selection" */
+static const char *
+context_name (GtkWidget *w)
+{
+  for (; w; w = gtk_widget_get_parent (w))
+    {
+      const char *name = g_object_get_data (G_OBJECT (w), "riscos-gtk-context-name");
+      if (name)
+        return name;
+    }
+  return "Selection";
+}
+
 /* ---- the hooks ---- */
 
 gboolean
@@ -643,6 +710,33 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
     title = g_get_prgname ();
   if (parent_menu_item && GTK_IS_MENU_ITEM (parent_menu_item))
     title_owned = item_text (parent_menu_item);
+
+  /* A widget's context menu from a Menu click, in a window with a menu:
+     the window's menu, with the context menu as its first entry, so that
+     Menu gives the same menu anywhere in the window (RISC OS: one menu
+     per window), and what's under the pointer is in it */
+  if (!parent_menu_shell && !parent_menu_item && !st->combo)
+    {
+      GtkWidget *under = NULL, *bar = context_window_menu (&under);
+      if (bar && GTK_WIDGET (menu) != bar)
+        {
+          const char *name = context_name (under);
+          built = build_with (st, GTK_MENU_SHELL (bar), title, GTK_MENU_SHELL (menu), name);
+          g_free (title_owned);
+          if (built >= 0)
+            {
+              GdkDevice *pointer = gdk_seat_get_pointer (gdk_display_get_default_seat (display));
+              gdk_device_get_position (pointer, NULL, &x, &y);
+              current = st;
+              trace ("context menu in the window menu", st);
+              gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
+                                            x - 32, y, menu_event, st);
+              return TRUE;
+            }
+          state_free (st);
+          return TRUE;
+        }
+    }
 
   built = build (st, GTK_MENU_SHELL (menu), title_owned ? title_owned : title);
   g_free (title_owned);

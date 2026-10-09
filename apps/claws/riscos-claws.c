@@ -34,6 +34,8 @@
 #include "compose.h"
 #include "prefs_gtk.h"
 #include "version.h"
+#include "folderview.h"
+#include "summaryview.h"
 
 #ifndef RISCOS_PORT_VERSION
 #define RISCOS_PORT_VERSION "dev"
@@ -77,6 +79,24 @@ static const struct {
   { 0xBA6, "application/vnd.ms-excel", "xls" },
   { 0xF91, "message/rfc822", "eml" },
 };
+
+/* Menu in the main window gives the window's menu everywhere; over the
+   folder list or the message list, that list's own menu is its first
+   entry (riscos-gtk's gtkmenu-riscos.c), named here. Set once the main
+   window exists. */
+static gboolean
+name_context_menus (gpointer d)
+{
+  MainWindow *mainwin = mainwindow_get_mainwindow ();
+
+  if (mainwin == NULL || mainwin->folderview == NULL || mainwin->summaryview == NULL)
+    return G_SOURCE_CONTINUE;
+  if (mainwin->folderview->ctree)
+    g_object_set_data (G_OBJECT (mainwin->folderview->ctree), "riscos-gtk-context-name", "Folder");
+  if (mainwin->summaryview->ctree)
+    g_object_set_data (G_OBJECT (mainwin->summaryview->ctree), "riscos-gtk-context-name", "Message");
+  return G_SOURCE_REMOVE;
+}
 
 static void
 show (gpointer d)
@@ -159,6 +179,7 @@ riscos_claws_init (int *argc, char ***argv)
   g_set_application_name ("Claws Mail");
 
   gdk_riscos_iconbar_set_handlers (&handlers, NULL);
+  g_timeout_add (200, name_context_menus, NULL);
   gdk_riscos_iconbar_set_sprite ("!clawsmail");
   gdk_riscos_iconbar_set_info ("Claws Mail", "Email client",
                                "\xc2\xa9 the Claws Mail team and others; RISC OS port Andrew Youll",

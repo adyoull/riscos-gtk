@@ -1,6 +1,6 @@
-# riscos-gtk 3.24.41-riscos1.0 — release candidate 1
+# riscos-gtk 3.24.41-riscos1.0 — release candidate 2
 
-**Status: candidate for review.** These notes describe what RC1 contains and
+**Status: candidate for review.** These notes describe what RC2 contains and
 what still has to happen before it is released. Items marked
 *[decision]* need the maintainer's choice; *[Pi]* needs sign-off on real
 hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
@@ -24,14 +24,14 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC1
+## What's in RC2
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.18.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.18 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-0.5.zip` | Claws Mail 4.4.0, RISC OS port 0.5 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Starts on the icon bar; closing its window leaves it there |
-| `GTKThemeTest-0.42.zip` | 0.42 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `riscos-gtk-3.24.41-riscos1.0-rc1-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.19.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.19 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-0.6.zip` | Claws Mail 4.4.0, RISC OS port 0.6 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Starts on the icon bar; closing its window leaves it there |
+| `GTKThemeTest-0.43.zip` | 0.43 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `riscos-gtk-3.24.41-riscos1.0-rc2-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -80,6 +80,11 @@ release *[decision]*.
   dotted separators and a short-cut column.
 - **Menu bar:** a program's menu bar becomes a Menu-click menu, as RISC
   OS programs have, and is not drawn in the window.
+- **One menu per window:** Menu anywhere in a window gives the same menu.
+  Over something with its own context menu, such as a list, that menu is
+  the first entry. In ClawsMail it is "Message >" over the message list
+  and "Folder >" over the folder list; elsewhere it is "Selection >".
+  Over a text view, Menu gives the window's menu, as in Edit.
 - **Pop-ups:** combo boxes are Wimp menus opening to the right of the
   field, as Toolbox pop-ups do; context menus open 64 OS units left of
   the pointer.
@@ -130,9 +135,9 @@ release *[decision]*.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC1
+## Known issues and limits in RC2
 
-- **Pi sign-off (2026-10-09):** L3afpad 0.18, GTKThemeTest 0.42 and
+- **Pi sign-off of RC1 (2026-10-09):** L3afpad 0.18, GTKThemeTest 0.42 and
   ClawsMail 0.5 all signed off on the Pi:
   - the size icon in all three;
   - ClawsMail fetching over IMAP and sending over SMTP, both with
@@ -141,6 +146,11 @@ release *[decision]*.
     closes.
 
   POP3 hasn't been tried against a real server.
+- **RC2 (after RC1's sign-off):** the report that Menu in ClawsMail gave
+  a different menu depending on where you clicked. Now there is one menu
+  per window, with any context menu as its first entry (above). This
+  changes GTK itself, so all three programs are rebuilt: L3afpad 0.19,
+  ClawsMail 0.6, GTKThemeTest 0.43 *[Pi]*.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -177,7 +187,7 @@ release *[decision]*.
   yet *[decision: release with the overlay documented, or wait for
   crossdev 1.4]*.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc1` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc2` builds the packages, the
   source archive and the manifest.
 
 ## Tests
@@ -195,7 +205,7 @@ code against a fake RISC OS and Wimp:
 | toolsprites-fake | 3 |
 | printvec-fake | 7 |
 | l3afpad-fake | 44 |
-| claws-fake | 18 |
+| claws-fake | 21 |
 
 All pass at the RC commit.
 

@@ -193,6 +193,163 @@ static int sent_files, queue_files = -1;
    until Select on the icon); closing the main window hides it and leaves
    Claws Mail running on the icon bar */
 static int start_hidden = -1, shown_by_select, close_hides = -1;
+
+/* Menu in the main window: the window's menu everywhere; over the message
+   list and the folder list, with that list's menu as its first entry
+   ("Message", "Folder"; riscos-claws.c names them), as one RISC OS menu
+   per window. menu_first[k], menu_second[k]: the opened menu's first two
+   entries for k = message list, folder list, elsewhere (the status bar). */
+static char menu_title[3][64], menu_first[3][64], menu_second[3][64];
+static int menu_sub_items[3] = { -1, -1, -1 };
+static char menu_sub_first[3][64];
+
+static GtkWidget *
+find_named (GtkWidget *w, const char *name)
+{
+  const char *n = g_object_get_data (G_OBJECT (w), "riscos-gtk-context-name");
+  GtkWidget *r = NULL;
+  if (n && strcmp (n, name) == 0)
+    return w;
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *l, *kids = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = kids; l && !r; l = l->next)
+        r = find_named (l->data, name);
+      g_list_free (kids);
+    }
+  return r;
+}
+
+static GtkWidget *
+find_statusbar (GtkWidget *w)
+{
+  GtkWidget *r = NULL;
+  if (GTK_IS_STATUSBAR (w))
+    return w;
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *l, *kids = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = kids; l && !r; l = l->next)
+        r = find_statusbar (l->data);
+      g_list_free (kids);
+    }
+  return r;
+}
+
+static const char *
+menu_item_text (const int *m, int i)
+{
+  const int *it = m + 7 + 6 * i;
+  return (it[2] & 0x100) ? (const char *) (long) it[3] : "";
+}
+
+/* A Menu click (GDK button 3) on widget w's middle, as GDK would deliver
+   it: on the widget's own GDK window under that point. (Scripted Wimp
+   clicks can't be used here: the test runs on null events throughout.) */
+static void
+menu_press (GtkWidget *mw, GtkWidget *w)
+{
+  GdkWindow *top = gtk_widget_get_window (mw), *win = gtk_widget_get_window (w), *best = win;
+  GList *l, *kids;
+  int ox, oy, x, y, rx, ry, wx, wy;
+  GdkEvent *ev;
+
+  /* the middle, or 60 pixels down if that's higher (a short folder
+     list: on its rows, where its menu is) */
+  gtk_widget_translate_coordinates (w, mw, gtk_widget_get_allocated_width (w) / 2,
+                                    MIN (gtk_widget_get_allocated_height (w) / 2, 60), &x, &y);
+  gdk_window_get_origin (top, &ox, &oy);
+  rx = ox + x;
+  ry = oy + y;
+  /* a child window of the widget's (a list's rows) under the point */
+  kids = gdk_window_peek_children (win);
+  for (l = kids; l; l = l->next)
+    {
+      gpointer ud = NULL;
+      int cx, cy;
+      gdk_window_get_user_data (l->data, &ud);
+      gdk_window_get_origin (l->data, &cx, &cy);
+      if (ud == w && rx >= cx && ry >= cy && rx < cx + gdk_window_get_width (l->data) &&
+          ry < cy + gdk_window_get_height (l->data))
+        best = l->data;
+    }
+  gdk_window_get_origin (best, &wx, &wy);
+  ev = gdk_event_new (GDK_BUTTON_PRESS);
+  ev->button.window = g_object_ref (best);
+  ev->button.send_event = FALSE;
+  ev->button.time = GDK_CURRENT_TIME;
+  ev->button.x = rx - wx;
+  ev->button.y = ry - wy;
+  ev->button.x_root = rx;
+  ev->button.y_root = ry;
+  ev->button.button = 3;
+  gdk_event_set_device (ev, gdk_seat_get_pointer (gdk_display_get_default_seat (gdk_display_get_default ())));
+  gtk_main_do_event (ev);
+  ev->type = GDK_BUTTON_RELEASE;
+  gtk_main_do_event (ev);
+  gdk_event_free (ev);
+}
+
+static int menu_k = -1;
+
+static gboolean
+menu_go (gpointer data)
+{
+  int k = GPOINTER_TO_INT (data);
+  GtkWidget *mw = window_titled ("Claws Mail"), *w;
+
+  w = !mw ? NULL : k == 0 ? find_named (mw, "Message") : k == 1 ? find_named (mw, "Folder") : find_statusbar (mw);
+  if (w)
+    menu_press (mw, w);
+  else
+    g_strlcpy (menu_first[k], "(no widget)", sizeof menu_first[k]);
+  return G_SOURCE_REMOVE;
+}
+
+/* One Menu click (k: 0 message list, 1 folder list, 2 status bar);
+   TRUE when its menu has been looked at */
+static int
+menu_step (int k)
+{
+  static int opened_before, waits;
+  int i;
+
+  if (menu_k != k)
+    {
+      menu_k = k;
+      waits = 0;
+      opened_before = fake_menus_opened;
+      g_idle_add (menu_go, GINT_TO_POINTER (k));
+      return 0;
+    }
+  if (fake_menus_opened != opened_before && fake_menu)
+    {
+      const int *m = fake_menu, *sub = (const int *) (long) m[7 + 1];
+      g_strlcpy (menu_title[k], (m[7] & 0x100) ? (const char *) (long) m[0] : "", sizeof menu_title[k]);
+      g_strlcpy (menu_first[k], menu_item_text (m, 0), sizeof menu_first[k]);
+      g_strlcpy (menu_second[k], menu_item_text (m, 1), sizeof menu_second[k]);
+      menu_sub_items[k] = 0;
+      if (m[7 + 1] != -1 && sub)
+        g_strlcpy (menu_sub_first[k], menu_item_text (sub, 0), sizeof menu_sub_first[k]);
+      if (m[7 + 1] != -1 && sub)
+        for (i = 0; i < 64; i++)
+          {
+            menu_sub_items[k]++;
+            if (sub[7 + 6 * i] & 0x80)
+              break;
+          }
+      /* close it, as a click elsewhere would */
+      gdk_riscos_display_close_menu (gdk_display_get_default ());
+      return 1;
+    }
+  if (++waits > 50 || menu_first[k][0])
+    {
+      if (!menu_first[k][0])
+        g_strlcpy (menu_first[k], "(no menu)", sizeof menu_first[k]);
+      return 1;
+    }
+  return 0;
+}
 static GtkWidget *closed_window;
 static int strip_ok = -1, corner_clean = -1, main_w, main_exact, main_wider, corner_same;
 
@@ -335,6 +492,18 @@ finish (void)
          "and the grip isn't also left in the window's own corner (one size icon, not two)");
   printf ("# main window %d px wide: %d Wimp windows that wide, %d a scroll bar wider; corner %d grip-like pixels\n",
           main_w, main_exact, main_wider, corner_same);
+  check (strncmp (menu_first[0], "Message", 7) == 0 && strncmp (menu_second[0], "File", 4) == 0 &&
+         menu_sub_items[0] > 0,
+         "Menu over the message list: the window's menu, with the list's menu as \"Message >\" first");
+  check (strncmp (menu_first[1], "Folder", 6) == 0 && strncmp (menu_second[1], "File", 4) == 0 &&
+         menu_sub_items[1] > 0,
+         "Menu over the folder list: the window's menu, with \"Folder >\" first");
+  check (strncmp (menu_first[2], "File", 4) == 0,
+         "Menu elsewhere in the window: the window's menu (File first)");
+  printf ("# menus: message list \"%s\" [%s (%s...; %d), %s], folder list \"%s\" [%s (%s...; %d), %s], status bar \"%s\" [%s, %s]\n",
+          menu_title[0], menu_first[0], menu_sub_first[0], menu_sub_items[0], menu_second[0],
+          menu_title[1], menu_first[1], menu_sub_first[1], menu_sub_items[1], menu_second[1],
+          menu_title[2], menu_first[2], menu_second[2]);
   if (closed_window && GTK_IS_WINDOW (closed_window))
     close_hides = !gtk_widget_get_visible (closed_window);
   check (close_hides == 1,
@@ -455,16 +624,26 @@ hook (int reason)
         if (sent_files >= 1 && queue_files == 0)
           {
             dump_shot ("sent");
-            stage = 4;
-            /* look at the main window, then close it (its close icon) */
-            if ((closed_window = window_titled ("Claws Mail")))
-              {
-                check_main_window (closed_window);
-                gtk_window_close (GTK_WINDOW (closed_window));
-              }
-            g_idle_add (imap_go, NULL);
+            stage = 10;
           }
       }
+      break;
+    case 10:    /* Menu over the message list, the folder list, elsewhere */
+    case 11:
+    case 12:
+      if (menu_step (stage - 10))
+        stage++;
+      if (stage == 13)
+        {
+          stage = 4;
+          /* look at the main window, then close it (its close icon) */
+          if ((closed_window = window_titled ("Claws Mail")))
+            {
+              check_main_window (closed_window);
+              gtk_window_close (GTK_WINDOW (closed_window));
+            }
+          g_idle_add (imap_go, NULL);
+        }
       break;
     case 4:     /* IMAP */
       if (imap_done)
@@ -474,7 +653,7 @@ hook (int reason)
         }
       break;
     }
-  if (polls > 60000)
+  if (polls > 150000)
     {
       printf ("# timed out at stage %d\n", stage);
       dump_windows ();

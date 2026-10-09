@@ -671,7 +671,7 @@ hook (int reason)
               add (6, x + wd / 2, y + ht / 2, 2);   /* Menu button */
               add (FAKE_RELEASE, 0, 0, 0);
               nulls (8);
-              add (9, 2, -1, 0);
+              add (9, 0, 2, -1);    /* Selection > Info */
               nulls (10);
             }
         }
@@ -698,7 +698,7 @@ main (int argc, char **argv)
   char *targv[4];
   int saved_out = dup (1), saved_err = dup (2);
   FILE *lf;
-  int pages, f, v, c, p, k, i, w;
+  int pages, f, v, c, ct, p, k, i, w;
 
   if (argc < 3)
     return 2;
@@ -735,7 +735,8 @@ main (int argc, char **argv)
   w = find_menu2 ("GTKThemeTest", "File", 0);        /* the window menu */
   f = find_menu2 ("File", "Open...", 0);             /* its submenus */
   v = find_menu2 ("View", "Show grid", 0);
-  c = find_menu2 ("GTKThemeTest", "Select all", 0);  /* the context menu */
+  c = find_menu2 ("Selection", "Select all", 0);     /* the context menu... */
+  ct = find_menu2 ("GTKThemeTest", "Selection", 0);  /* ...in the window menu */
   pages = (strstr (logbuf, "page 1: Options") != NULL) + (strstr (logbuf, "page 2: Lists") != NULL)
           + (strstr (logbuf, "page 3: Dialogues") != NULL);
 
@@ -803,8 +804,9 @@ main (int argc, char **argv)
   check (c >= 0 && menus[c].n == 4 && strcmp (menus[c].text[2], "Info") == 0 &&
          (menus[c].flags[1] & 2) && (menus[c].icon[3] & (1 << 22)),
          "context menu: dotted line after Clear selection, last entry shaded");
-  check (c >= 0 && abs (menus[c].x - (ctx_x - 64)) <= 4 && abs (menus[c].y - ctx_y) <= 4,
-         "context menu: opens 64 OS units left of the pointer");
+  check (ct >= 0 && strcmp (menus[ct].text[1], "File") == 0 &&
+         abs (menus[ct].x - (ctx_x - 64)) <= 4 && abs (menus[ct].y - ctx_y) <= 4,
+         "context menu: the window's menu with it as \"Selection >\" first, 64 OS units left of the pointer");
   check (strstr (logbuf, "menu \"Info\"") != NULL, "context menu: choosing Info activates it");
 
   check (spr_ok[0] && spr_ok[1], "Wimp sprites: 8bpp with the standard palette and a 1bpp mask");

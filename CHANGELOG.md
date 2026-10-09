@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.24.41-riscos1.0-rc2 (2026-10-09)
+- **One menu per window** (owner: "the middle button context menu is
+  different depending on where you middle click in clawmail"). The owner
+  chose "the main menu with a context submenu":
+  - `gtk/riscos/gtkmenu-riscos.c`: a widget's context menu opened by a
+    Menu click, in a window with a menu, opens the window's menu with the
+    context menu as its first entry.
+  - The entry's name comes from "riscos-gtk-context-name" on the widget
+    or an ancestor, defaulting to "Selection".
+  - `riscos-claws.c` names the message list "Message" and the folder list
+    "Folder".
+  - Text views still give the window's menu directly.
+  - This is GTK-wide, so every program gets it.
+- Tests:
+  - claws-fake 21 checks (3 new): Menu over the message list, over the
+    folder list and over the status bar. The first two give the window's
+    menu with "Message >" or "Folder >" first, then File; the status bar
+    gives File first. The poll limit is raised for the longer run.
+  - themetest-fake's context menu checks now expect "Selection >" in the
+    window menu.
+- !ClawsMail 0.6, !L3afpad 0.19, GTKThemeTest 0.43.
+
 ## 3.24.41-riscos1.0-rc1 (release candidate, signed off on the Pi, 2026-10-09)
 The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 0.42, and the complete source. Everything above "Unreleased" below.
