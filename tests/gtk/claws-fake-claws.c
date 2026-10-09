@@ -15,6 +15,7 @@
 #include "prefs_common.h"
 #include "stock_pixmap.h"
 #include "plugins/litehtml_viewer/lh_prefs.h"
+#include "about.h"
 
 int fake_claws_show_message (const char *folder, int num);
 const char *fake_claws_viewer (GtkWidget **widget);
@@ -22,6 +23,7 @@ void fake_claws_remote_content (int on);
 const char *fake_claws_theme (void);
 int fake_claws_promote_html (void);
 GdkPixbuf *fake_claws_stock (int which);
+void fake_claws_about (void);
 
 /* scan folder (an identifier, "#mh/Mailbox/inbox") and show message num in
    the main window */
@@ -79,4 +81,10 @@ fake_claws_stock (int which)
   GdkPixbuf *pb = NULL;
   stock_pixbuf_gdk (which == 0 ? STOCK_PIXMAP_MAIL_RECEIVE : STOCK_PIXMAP_INBOX_CLOSE, &pb);
   return pb;
+}
+
+void
+fake_claws_about (void)
+{
+  about_show ();
 }

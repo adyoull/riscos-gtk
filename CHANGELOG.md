@@ -1,6 +1,53 @@
 # Changelog
 
-## Unreleased: ClawsMail 0.7 (2026-10-09)
+## Unreleased: ClawsMail 0.8 (2026-10-09)
+The owner's Pi report on 0.7 (photos), and follow-ups:
+- **"Why is HTML view on a grey background":** litehtml leaves an
+  uncoloured page transparent, so the theme's grey showed through. Now
+  the canvas is painted white first (`lh_widget::draw`), as in a browser.
+- **"Why does it not show the from and two bits from the msg view":**
+  - The litehtml viewer replaces the text view, which is where Claws
+    Mail prints the headers.
+  - It now has a Claws Mail TextView above the HTML showing the
+    message's headers exactly as the text view does: same fonts and
+    colours, clickable addresses.
+  - New `textview_show_message_headers`. It's hidden when Claws Mail's
+    header pane is on.
+- **"Context middle click doesn't work in html view":**
+  - The viewer swallowed every Menu click. Away from a link it now lets
+    the click through, so the window's menu opens.
+  - On a link, its own menu (Open Link, Copy Link) is "Link >" in the
+    window's menu.
+  - Copy Link copies to the global clipboard. RISC OS has no PRIMARY
+    selection.
+- **"Can we use mimemap for directing hyperlinks ... go through !Iris
+  ... or netsurf":**
+  - MimeMap maps MIME types to file types. Links go through the Acorn
+    URI handler instead.
+  - Claws Mail's `open_uri` calls `riscos_claws_open_uri`:
+    - `mailto:` starts a message.
+    - Anything else is sent with URI_Dispatch (&4E381), which a running
+      browser claims.
+    - If neither Iris nor NetSurf is running, Iris (Iris$Dir), else
+      NetSurf (NetSurf$Dir), is started with Wimp_StartTask. The link is
+      dispatched once it shows in the task list (polled every 0.5 s, for
+      up to 30 s).
+    - If nothing takes the link, an error box says so.
+- **"In the about window it says gnutls ... and can we change the logo":**
+  - The About box's feature list says AcornSSL.
+  - The logo, in the About box and the set-up wizard, is the new
+    application icon drawn large (`riscos_claws_priv_pixbuf`;
+    `claws_mail_logo*.png` and `claws_mail_icon*.png` in the RISC OS
+    theme, drawn by mkclawsicons.py).
+- Tests: claws-fake 36 checks (7 new):
+  - headers above the HTML;
+  - a white canvas;
+  - Menu away from a link and on a link;
+  - a link click starting Iris and dispatching the link (a faked
+    URI_Dispatch, Wimp_StartTask and TaskManager);
+  - the About box's AcornSSL line and logo.
+
+## ClawsMail 0.7 (2026-10-09)
 - **HTML mail** (owner: "how can we add HTML email support to clawsmail";
   chose litehtml with remote images):
   - Claws Mail's litehtml viewer plug-in is built and linked into the

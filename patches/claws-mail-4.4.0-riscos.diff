@@ -914,6 +914,26 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +}
 +
 +#endif /* USE_GNUTLS */
+diff -ruN a/src/common/utils.c b/src/common/utils.c
+--- a/src/common/utils.c	2025-07-15 11:55:19.000000000 +0100
++++ b/src/common/utils.c	2026-10-09 11:34:32.876238871 +0100
+@@ -2719,8 +2719,16 @@
+ }
+ #endif
+ 
++#ifdef __riscos
++/* riscos-claws.c: links go to the RISC OS browser (the URI handler) */
++gint riscos_claws_open_uri(const gchar *uri);
++#endif
+ gint open_uri(const gchar *uri, const gchar *cmdline)
+ {
++#ifdef __riscos
++	if (uri != NULL)
++		return riscos_claws_open_uri(uri);
++#endif
+ 
+ #ifndef G_OS_WIN32
+ 	gchar buf[BUFFSIZE];
 diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
 --- a/src/etpan/etpan-ssl.c	2025-09-29 06:32:17.000000000 +0100
 +++ b/src/etpan/etpan-ssl.c	2026-10-09 10:31:41.830653021 +0100
@@ -929,6 +949,28 @@ diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
  #if (!defined LIBETPAN_API_CURRENT || LIBETPAN_API_CURRENT < 18)
  	unsigned char *cert_der = NULL;
  	int len;
+diff -ruN a/src/gtk/about.c b/src/gtk/about.c
+--- a/src/gtk/about.c	2026-03-08 13:43:46.000000000 +0000
++++ b/src/gtk/about.c	2026-10-09 11:36:30.237275952 +0100
+@@ -447,10 +447,18 @@
+ #else
+ 	gtk_text_buffer_insert_pixbuf(buffer, &iter, inactive_pixbuf);
+ #endif
++#ifdef CLAWS_ACORNSSL
++	/* riscos-gtk: TLS is RISC OS's AcornSSL module (ssl_acornssl.c) */
++	gtk_text_buffer_insert_with_tags_by_name(buffer, &iter, (" AcornSSL "), -1,
++						 "bold", NULL);
++	gtk_text_buffer_insert(buffer, &iter, 
++		"RISC OS's TLS module: adds support for encrypted connections to servers\n", -1);
++#else
+ 	gtk_text_buffer_insert_with_tags_by_name(buffer, &iter, (" GnuTLS "), -1,
+ 						 "bold", NULL);
+ 	gtk_text_buffer_insert(buffer, &iter, 
+ 		(gchar *)C_("GnuTLS", "adds support for encrypted connections to servers\n"), -1);
++#endif
+ 
+ #if HAVE_ICONV
+ 	gtk_text_buffer_insert_pixbuf(buffer, &iter, active_pixbuf);
 diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
 --- a/src/gtk/gtkunit.h	2018-09-10 14:00:33.000000000 +0100
 +++ b/src/gtk/gtkunit.h	2026-10-09 10:31:41.830729807 +0100
@@ -1051,9 +1093,79 @@ diff -ruN a/src/mainwindow.c b/src/mainwindow.c
  
  	return TRUE;
  }
+diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.c b/src/plugins/litehtml_viewer/lh_viewer.c
+--- a/src/plugins/litehtml_viewer/lh_viewer.c	2024-06-09 11:08:34.000000000 +0100
++++ b/src/plugins/litehtml_viewer/lh_viewer.c	2026-10-09 11:42:16.107553859 +0100
+@@ -25,6 +25,12 @@
+ #include "mainwindow.h"
+ #include "statusbar.h"
+ #include "lh_viewer.h"
++#ifdef __riscos
++#include "textview.h"
++#include "mimeview.h"
++#include "messageview.h"
++#include "prefs_common.h"
++#endif
+ 
+ static gchar *content_types[] = { "text/html", NULL };
+ 
+@@ -75,6 +81,18 @@
+ 		utf8 = string;
+ 	}
+ 
++#ifdef __riscos
++	/* riscos-gtk: the message's headers above the HTML, as the text view
++	   shows them above a text body (unless the header pane shows them) */
++	if (viewer->headers && viewer->mimeviewer.mimeview &&
++	    viewer->mimeviewer.mimeview->messageview) {
++		GtkTextBuffer *b = gtk_text_view_get_buffer(GTK_TEXT_VIEW(viewer->headers->text));
++		viewer->headers->messageview = viewer->mimeviewer.mimeview->messageview;
++		textview_show_message_headers(viewer->headers, partinfo);
++		gtk_widget_set_visible(viewer->headers->vbox,
++			!prefs_common.display_header_pane && gtk_text_buffer_get_char_count(b) > 0);
++	}
++#endif
+ 	lh_widget_set_partinfo(viewer->widget, partinfo);
+ 	lh_widget_open_html(viewer->widget, utf8);
+ 	g_free(utf8);
+@@ -154,10 +172,23 @@
+ 	gtk_widget_set_name(GTK_WIDGET(viewer->vbox), "litehtml_viewer");
+ 
+ 	GtkWidget *w = lh_widget_get_widget(viewer->widget);
++#ifdef __riscos
++	viewer->headers = textview_create();
++	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(viewer->headers->scrolledwin),
++			GTK_POLICY_NEVER, GTK_POLICY_NEVER);
++	/* its own height only: the HTML gets the rest */
++	gtk_widget_set_vexpand(viewer->headers->scrolledwin, FALSE);
++	gtk_box_pack_start(GTK_BOX(viewer->vbox), viewer->headers->vbox,
++			FALSE, FALSE, 0);
++#endif
+ 	gtk_box_pack_start(GTK_BOX(viewer->vbox), w,
+ 			TRUE, TRUE, 1);
+ 
+ 	gtk_widget_show_all(viewer->vbox);
++#ifdef __riscos
++	textview_init(viewer->headers);
++	gtk_widget_hide(viewer->headers->vbox);
++#endif
+ 
+ 	return (MimeViewer *)viewer;
+ }
+diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.h b/src/plugins/litehtml_viewer/lh_viewer.h
+--- a/src/plugins/litehtml_viewer/lh_viewer.h	2022-05-06 11:11:04.000000000 +0100
++++ b/src/plugins/litehtml_viewer/lh_viewer.h	2026-10-09 11:34:32.874541096 +0100
+@@ -26,4 +26,7 @@
+ 	MimeViewer mimeviewer;
+ 	lh_widget_wrapped *widget;
+ 	GtkWidget *vbox;
++#ifdef __riscos
++	struct _TextView *headers;	/* the message's headers, above the HTML */
++#endif
+ };
 diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_viewer/lh_widget.cpp
 --- a/src/plugins/litehtml_viewer/lh_widget.cpp	2023-10-22 16:03:41.000000000 +0100
-+++ b/src/plugins/litehtml_viewer/lh_widget.cpp	2026-10-09 10:39:29.926229365 +0100
++++ b/src/plugins/litehtml_viewer/lh_widget.cpp	2026-10-09 11:34:32.875213593 +0100
 @@ -26,7 +26,9 @@
  #include <fcntl.h>
  #include <sys/types.h>
@@ -1064,6 +1176,59 @@ diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_vie
  #include <gdk/gdk.h>
  
  #include "utils.h"
+@@ -76,6 +78,10 @@
+ 	gtk_container_add(GTK_CONTAINER(m_viewport), m_drawing_area);
+ 	g_signal_connect(m_drawing_area, "draw",
+ 			G_CALLBACK(draw_cb), this);
++#ifdef __riscos
++	/* riscos-gtk: a link's menu is "Link >" in the window's menu */
++	g_object_set_data(G_OBJECT(m_drawing_area), "riscos-gtk-context-name", (gpointer)"Link");
++#endif
+ 	g_signal_connect(m_drawing_area, "motion_notify_event",
+ 			G_CALLBACK(motion_notify_event), this);
+ 	g_signal_connect(m_drawing_area, "button_press_event",
+@@ -218,6 +224,16 @@
+ 	width = x2 - x1;
+ 	height = y2 - y1;
+ 
++#ifdef __riscos
++	/* riscos-gtk: an HTML page's canvas is white unless it says otherwise
++	   (the drawing area showed the theme's grey) */
++	cairo_save(cr);
++	cairo_set_source_rgb(cr, 1, 1, 1);
++	cairo_rectangle(cr, x1, y1, width, height);
++	cairo_fill(cr);
++	cairo_restore(cr);
++#endif
++
+ 	litehtml::position pos;
+ 	pos.width = (int)width;
+ 	pos.height = (int)height;
+@@ -502,6 +518,11 @@
+ 
+ 		if (url != NULL)
+ 			w->popup_context_menu(url, event);
++#ifdef __riscos
++		/* riscos-gtk: Menu away from a link gives the window's menu */
++		else
++			return FALSE;
++#endif
+ 
+ 		return TRUE;
+ 	}
+@@ -590,7 +611,12 @@
+ {
+ 	lh_widget_wrapped *w = (lh_widget_wrapped *)user_data;
+ 
++#ifdef __riscos
++	/* riscos-gtk: RISC OS has one clipboard */
++	gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
++#else
+ 	gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_PRIMARY),
++#endif
+ 			w->m_clicked_url.c_str(), -1);
+ 	gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
+ 			w->m_clicked_url.c_str(), -1);
 diff -ruN a/src/prefs_common.c b/src/prefs_common.c
 --- a/src/prefs_common.c	2026-03-06 10:37:09.000000000 +0000
 +++ b/src/prefs_common.c	2026-10-09 10:31:53.140596833 +0100
@@ -1083,18 +1248,31 @@ diff -ruN a/src/prefs_common.c b/src/prefs_common.c
  	{"enable_alpha_svg", "TRUE",
 diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
 --- a/src/stock_pixmap.c	2024-02-19 06:56:35.000000000 +0000
-+++ b/src/stock_pixmap.c	2026-10-09 11:13:09.970126831 +0100
-@@ -31,6 +31,9 @@
++++ b/src/stock_pixmap.c	2026-10-09 11:36:30.237712023 +0100
+@@ -31,6 +31,10 @@
  
  #include "defs.h"
  #include "stock_pixmap.h"
 +#ifdef __riscos
 +GdkPixbuf *riscos_claws_stock_pixbuf(const char *name, const char *theme);
++GdkPixbuf *riscos_claws_priv_pixbuf(const char *name);
 +#endif
  #include "gtkutils.h"
  #include "utils.h"
  #include "prefs_common.h"
-@@ -779,7 +782,18 @@
+@@ -744,6 +748,11 @@
+ 
+ 	pix_d = &privpixmaps[icon];
+ 
++#ifdef __riscos
++	/* riscos-claws.c: the RISC OS port's own logo and icon */
++	if (!pix_d->pixbuf)
++		pix_d->pixbuf = riscos_claws_priv_pixbuf(pix_d->file);
++#endif
+ 	if (!pix_d->pixbuf)
+ 		pix_d->pixbuf = gdk_pixbuf_new_from_xpm_data((const gchar **) pix_d->data);
+ 
+@@ -779,7 +788,18 @@
  			pix_d->pixmap = NULL;
  		}
  
@@ -1113,7 +1291,7 @@ diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
  			if (is_dir_exist(prefs_common.pixmap_theme_path)) {
  				char *icon_file_name;
  try_next_extension:
-@@ -879,6 +893,11 @@
+@@ -879,6 +899,11 @@
  	g_dir_close(dp);
  }
  
@@ -1125,3 +1303,43 @@ diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
  gchar *stock_pixmap_get_system_theme_dir_for_theme(const gchar *theme)
  {
  	if (theme && *theme) {
+diff -ruN a/src/textview.c b/src/textview.c
+--- a/src/textview.c	2026-03-06 10:37:09.000000000 +0000
++++ b/src/textview.c	2026-10-09 11:34:32.650982843 +0100
+@@ -2366,6 +2366,22 @@
+ 		textview_show_contact_pic(textview);
+ }
+ 
++#ifdef __riscos
++/* riscos-gtk: only the message's headers, as the text view shows them
++   above a text body (the litehtml viewer shows them above HTML mail) */
++void textview_show_message_headers(TextView *textview, MimeInfo *partinfo)
++{
++	MimeInfo *root = partinfo;
++
++	while (root && procmime_mimeinfo_parent(root))
++		root = procmime_mimeinfo_parent(root);
++	textview_clear(textview);
++	if (root && root->type == MIMETYPE_MESSAGE && root->subtype &&
++	    !g_ascii_strcasecmp(root->subtype, "rfc822"))
++		textview_add_part(textview, root);
++}
++#endif
++
+ gboolean textview_search_string(TextView *textview, const gchar *str,
+ 				gboolean case_sens)
+ {
+diff -ruN a/src/textview.h b/src/textview.h
+--- a/src/textview.h	2026-02-16 09:48:39.000000000 +0000
++++ b/src/textview.h	2026-10-09 11:34:32.874125527 +0100
+@@ -98,6 +98,10 @@
+ 				 const gchar	*info_str);
+ void textview_show_mime_part	(TextView	*textview,
+ 				 MimeInfo	*partinfo);
++#ifdef __riscos
++void textview_show_message_headers	(TextView	*textview,
++					 MimeInfo	*partinfo);
++#endif
+ void textview_clear		(TextView	*textview);
+ void textview_destroy		(TextView	*textview);
+ void textview_set_font		(TextView	*textview,

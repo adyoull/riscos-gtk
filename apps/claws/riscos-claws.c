@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <glib.h>
 #include <gtk/gtk.h>
+#include <kernel.h>
 #include <gdk/gdkriscos.h>
 #include "main.h"
 #include "mainwindow.h"
@@ -46,6 +47,7 @@
 #include "stock_pixmap.h"
 #include "utils.h"
 #include "defs.h"
+#include "alertpanel.h"
 
 #ifndef RISCOS_PORT_VERSION
 #define RISCOS_PORT_VERSION "dev"
@@ -55,6 +57,8 @@ void riscos_claws_init (int *argc, char ***argv);
 void riscos_claws_plugins (void);
 void riscos_claws_prefs_read (void);
 GdkPixbuf *riscos_claws_stock_pixbuf (const char *name, const char *theme);
+gint riscos_claws_open_uri (const gchar *uri);
+GdkPixbuf *riscos_claws_priv_pixbuf (const char *name);
 
 /* the litehtml viewer plug-in, linked in (build-claws.sh renames its
    plugin_init) */
@@ -385,4 +389,148 @@ riscos_claws_stock_pixbuf (const char *name, const char *theme)
         p[i] = p[i] * 2 / 5;
     }
   return pb;
+}
+
+/* The RISC OS port's logo (the About box, the set-up wizard) and window
+   icon, whichever icon theme is chosen: the application icon drawn big,
+   in the RISC OS theme (tools/mkclawsicons.py). NULL: Claws Mail's own. */
+GdkPixbuf *
+riscos_claws_priv_pixbuf (const char *name)
+{
+  const char *theme = g_getenv ("CLAWS_RISCOS_THEME") ? g_getenv ("CLAWS_RISCOS_THEME") : RISCOS_THEME;
+  char *f;
+  GdkPixbuf *pb;
+
+  if (!name || !g_str_has_prefix (name, "claws_mail_"))
+    return NULL;
+  f = g_strdup_printf ("%s/%s.png", theme, name);
+  pb = gdk_pixbuf_new_from_file (f, NULL);
+  g_free (f);
+  return pb;
+}
+
+/* Links (in HTML mail, in text mail, Open link): to the RISC OS browser.
+   - mailto: starts a message here.
+   - Anything else goes to the Acorn URI handler, URI_Dispatch (&4E381;
+     Acorn URI Handler functional specification: R0 flags, R1 the URI,
+     R2 0; on exit R0 bit 0 set if it was rejected). A browser that's
+     running claims it (Message_URI_MProcess); if none does, the URI
+     handler starts Alias$Open_URI_<scheme> if that's set.
+   - Iris is preferred, then NetSurf: if neither is running but the Filer
+     has seen one (Iris$Dir, NetSurf$Dir), it's started first
+     (Wimp_StartTask &400DE) and the link dispatched once it's running
+     (polled every half second, for up to 30 seconds). */
+#define URI_Dispatch 0x4E381
+#ifndef Wimp_StartTask
+#define Wimp_StartTask 0x400DE
+#endif
+#ifndef TaskManager_EnumerateTasks
+#define TaskManager_EnumerateTasks 0x42681
+#endif
+
+static char *pending_uri;
+static int pending_polls;
+
+/* a task whose name starts with name (any case) is running */
+static gboolean
+task_running (const char *name)
+{
+  int buf[16 * 4];
+  _kernel_swi_regs r;
+  size_t n = strlen (name);
+
+  r.r[0] = 0;
+  do
+    {
+      int *p;
+      r.r[1] = (int) (gsize) buf;
+      r.r[2] = sizeof buf;
+      if (_kernel_swi (TaskManager_EnumerateTasks, &r, &r) != NULL)
+        return FALSE;
+      for (p = buf; (char *) p < (char *) (gsize) r.r[1]; p += 4)
+        if (g_ascii_strncasecmp ((const char *) (gsize) p[1], name, n) == 0)
+          return TRUE;
+    }
+  while (r.r[0] >= 0);
+  return FALSE;
+}
+
+static gboolean
+browser_running (void)
+{
+  return task_running ("Iris") || task_running ("NetSurf");
+}
+
+static int
+dispatch (const char *uri)
+{
+  _kernel_swi_regs r;
+  _kernel_oserror *e;
+
+  r.r[0] = 0;
+  r.r[1] = (int) (gsize) uri;
+  r.r[2] = 0;
+  e = _kernel_swi (URI_Dispatch, &r, &r);
+  if (e != NULL || (r.r[0] & 1))
+    {
+      alertpanel_error ("No web browser took the link:\n%s\n\n%s", uri,
+                        e ? e->errmess : "Start Iris or NetSurf, then try again.");
+      return -1;
+    }
+  return 0;
+}
+
+static gboolean
+dispatch_when_started (gpointer d)
+{
+  if (browser_running () || ++pending_polls > 60)
+    {
+      char *uri = pending_uri;
+      pending_uri = NULL;
+      if (uri)
+        dispatch (uri);
+      g_free (uri);
+      return G_SOURCE_REMOVE;
+    }
+  return G_SOURCE_CONTINUE;
+}
+
+gint
+riscos_claws_open_uri (const gchar *uri)
+{
+  const char *app = NULL;
+
+  if (g_ascii_strncasecmp (uri, "mailto:", 7) == 0)
+    {
+      compose_new (NULL, uri, NULL);
+      return 0;
+    }
+  if (pending_uri)
+    {
+      /* a browser is being started: this link goes when it's running */
+      g_free (pending_uri);
+      pending_uri = g_strdup (uri);
+      return 0;
+    }
+  if (!browser_running ())
+    {
+      if (g_getenv ("Iris$Dir"))
+        app = "/<Iris$Dir>";
+      else if (g_getenv ("NetSurf$Dir"))
+        app = "/<NetSurf$Dir>";
+    }
+  if (app)
+    {
+      _kernel_swi_regs r;
+
+      r.r[0] = (int) (gsize) app;
+      if (_kernel_swi (Wimp_StartTask, &r, &r) == NULL)
+        {
+          pending_uri = g_strdup (uri);
+          pending_polls = 0;
+          g_timeout_add (500, dispatch_when_started, NULL);
+          return 0;
+        }
+    }
+  return dispatch (uri);
 }

@@ -65,7 +65,18 @@ HTML mail
   senders use them to see when you read a message. To load them, turn
   on "Enable loading of remote content" in Choices... > Plugins >
   LiteHTML. They are fetched over http or https, through AcornSSL.
-- Links in HTML mail are shown, but don't open a browser yet.
+- The message's headers (From, To, Subject, Date) are shown above it,
+  as above a plain text message.
+- Menu over the message gives the window's menu; over a link, its
+  first entry is "Link >" (Open Link, Copy Link).
+
+Links
+- Clicking a link (in HTML or plain text mail) sends it to your web
+  browser through RISC OS's URI handler. If neither Iris nor NetSurf is
+  running, ClawsMail starts Iris (or NetSurf if the Filer hasn't seen
+  Iris) and hands it the link once it's running. A browser that's
+  already running takes the link.
+- A mailto: link starts a new message in ClawsMail.
 
 Icons
 - The toolbar, folder list and message list use RISC OS icons. The
@@ -78,7 +89,6 @@ Not yet
   address books other than Claws Mail's own.
 - Saving attachments to a Filer window by dragging; opening attachments
   with RISC OS programs.
-- Web links in messages open nothing yet.
 
 Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
 

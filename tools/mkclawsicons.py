@@ -65,12 +65,13 @@ def lerp(a, b, t):
 
 
 class Icon:
-    def __init__(self, w, h):
-        self.w, self.h = w, h
-        self.im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+    def __init__(self, w, h, k=1):
+        """w x h pixels of drawing, made k times bigger (the logos)"""
+        self.w, self.h, self.k = w, h, k
+        self.im = Image.new("RGBA", (w * k * S, h * k * S), (0, 0, 0, 0))
 
     def _p(self, pts):
-        return [(x * S, y * S) for x, y in pts]
+        return [(x * S * self.k, y * S * self.k) for x, y in pts]
 
     def _layer(self, mask, fill):
         """fill (a colour or (top, bottom) gradient) through mask"""
@@ -99,9 +100,9 @@ class Icon:
         if outline:
             q = self._p(pts + ([pts[0]] if closed else []))
             l = Image.new("RGBA", self.im.size)
-            ImageDraw.Draw(l).line(q, fill=outline, width=int(ow * S), joint="curve")
+            ImageDraw.Draw(l).line(q, fill=outline, width=int(ow * S * self.k), joint="curve")
             for x, y in q:
-                r = ow * S / 2
+                r = ow * S * self.k / 2
                 ImageDraw.Draw(l).ellipse([x - r, y - r, x + r, y + r], fill=outline)
             self.im.alpha_composite(l)
 
@@ -636,11 +637,11 @@ def taper(c, pts, wmax, fill, outline=K):
     c.poly(left + right[::-1], fill, outline, 1)
 
 
-def app_icon(size):
+def app_icon(size, k=1):
     """a letter in its envelope, scored by Claws' claw: three green
-    scratches across its front"""
+    scratches across its front (k: k times bigger, for the logos)"""
     if size == 34:
-        c = Icon(34, 34)
+        c = Icon(34, 34, k)
         c.poly([(3.5, 14.5), (16.5, 4.5), (29.5, 14.5)], (FLAP, FLAP2))
         c.rect(7.5, 7.5, 25.5, 22.5, PAPER, K2)
         for y in (10.5, 12.5, 14.5, 16.5):
@@ -694,6 +695,13 @@ def main():
     s = app_icon(17)
     s.save(os.path.join(sprites, "sm!clawsmail.png"))
     out += [("!clawsmail", a), ("sm!clawsmail", s)]
+    # the About box's and set-up wizard's logo, and the window icons
+    # (riscos_claws_priv_pixbuf): the application icon, drawn big
+    big = app_icon(34, 4)
+    big.save(os.path.join(theme, "claws_mail_logo.png"))
+    app_icon(34, 2).save(os.path.join(theme, "claws_mail_logo_small.png"))
+    big.resize((64, 64), Image.LANCZOS).save(os.path.join(theme, "claws_mail_icon_64.png"))
+    big.resize((48, 48), Image.LANCZOS).save(os.path.join(theme, "claws_mail_icon.png"))
     if len(sys.argv) > 3:
         z, cols = 4, 10
         cell = 34 * z + 8

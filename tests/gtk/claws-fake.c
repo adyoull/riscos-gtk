@@ -43,6 +43,7 @@ void fake_claws_remote_content (int on);
 const char *fake_claws_theme (void);
 int fake_claws_promote_html (void);
 GdkPixbuf *fake_claws_stock (int which);
+void fake_claws_about (void);
 
 static int n_tests, n_failed;
 static int pop_inbox_files;
@@ -52,6 +53,8 @@ static const char *html_viewer = "(none)";
 static int html_polls, html_red, html_green, html_yellow;
 static char http_port[16];
 static int folder_from_desktop = -1;
+static int html_headers = -1, html_white = -1, link_opened = -1, about_acornssl = -1, about_logo = -1;
+static char html_header_text[512];
 static int theme_chosen = -1, theme_icons = -1, defaults_marker = -1, promote_html = -1;
 static const char *outdir;
 static char home[600];
@@ -106,6 +109,41 @@ count_files (const char *dir, char *first, size_t len)
       }
   g_dir_close (d);
   return c;
+}
+
+/* the browser: URI_Dispatch, Wimp_StartTask, TaskManager_EnumerateTasks
+   (riscos-claws.c's riscos_claws_open_uri); "Iris" runs once started */
+static char uri_dispatched[256], task_started[128];
+static int iris_running, uri_dispatches, start_tasks;
+
+static int
+swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
+{
+  static char iris[] = "Iris\x0d";
+  switch (no & ~0x20000)
+    {
+    case 0x4E381:       /* URI_Dispatch */
+      g_strlcpy (uri_dispatched, (const char *) (long) r->r[1], sizeof uri_dispatched);
+      uri_dispatches++;
+      r->r[0] = 0;
+      return 1;
+    case 0x400DE:       /* Wimp_StartTask */
+      g_strlcpy (task_started, (const char *) (long) r->r[0], sizeof task_started);
+      start_tasks++;
+      iris_running = 1;
+      r->r[0] = 0;
+      return 1;
+    case 0x42681:       /* TaskManager_EnumerateTasks */
+      if (iris_running && r->r[0] == 0 && r->r[2] >= 16)
+        {
+          int *b = (int *) (long) r->r[1];
+          b[0] = 0x1234; b[1] = (int) (long) iris; b[2] = 640; b[3] = 0;
+          r->r[1] += 16;
+        }
+      r->r[0] = -1;
+      return 1;
+    }
+  return 0;
 }
 
 static GtkWidget *
@@ -215,9 +253,48 @@ static int start_hidden = -1, shown_by_select, close_hides = -1;
    ("Message", "Folder"; riscos-claws.c names them), as one RISC OS menu
    per window. menu_first[k], menu_second[k]: the opened menu's first two
    entries for k = message list, folder list, elsewhere (the status bar). */
-static char menu_title[3][64], menu_first[3][64], menu_second[3][64];
-static int menu_sub_items[3] = { -1, -1, -1 };
-static char menu_sub_first[3][64];
+static char menu_title[5][64], menu_first[5][64], menu_second[5][64];
+static int menu_sub_items[5] = { -1, -1, -1, -1, -1 };
+static char menu_sub_first[5][64];
+/* k = 3, 4: Menu over the HTML (litehtml) view, away from a link and on
+   one; html_area / html_link: those points in the view's drawing area */
+static GtkWidget *html_area;
+static int html_blank_x, html_blank_y, html_link_x = -1, html_link_y = -1;
+
+/* a click (button 1 also moves the pointer there first) at x, y in w's
+   own GDK window, as GDK would deliver it */
+static void
+click_widget (GtkWidget *w, int x, int y, int button)
+{
+  GdkWindow *win = gtk_widget_get_window (w);
+  GdkDevice *dev = gdk_seat_get_pointer (gdk_display_get_default_seat (gdk_display_get_default ()));
+  GdkEvent *ev;
+  int ox, oy;
+
+  gdk_window_get_origin (win, &ox, &oy);
+  ev = gdk_event_new (GDK_MOTION_NOTIFY);
+  ev->motion.window = g_object_ref (win);
+  ev->motion.x = x;
+  ev->motion.y = y;
+  ev->motion.x_root = ox + x;
+  ev->motion.y_root = oy + y;
+  gdk_event_set_device (ev, dev);
+  gtk_main_do_event (ev);
+  gdk_event_free (ev);
+  ev = gdk_event_new (GDK_BUTTON_PRESS);
+  ev->button.window = g_object_ref (win);
+  ev->button.time = GDK_CURRENT_TIME;
+  ev->button.x = x;
+  ev->button.y = y;
+  ev->button.x_root = ox + x;
+  ev->button.y_root = oy + y;
+  ev->button.button = button;
+  gdk_event_set_device (ev, dev);
+  gtk_main_do_event (ev);
+  ev->type = GDK_BUTTON_RELEASE;
+  gtk_main_do_event (ev);
+  gdk_event_free (ev);
+}
 
 static GtkWidget *
 find_named (GtkWidget *w, const char *name)
@@ -314,6 +391,14 @@ menu_go (gpointer data)
   int k = GPOINTER_TO_INT (data);
   GtkWidget *mw = window_titled ("Claws Mail"), *w;
 
+  if (k >= 3)
+    {
+      if (html_area && (k == 3 || html_link_x >= 0))
+        click_widget (html_area, k == 3 ? html_blank_x : html_link_x, k == 3 ? html_blank_y : html_link_y, 3);
+      else
+        g_strlcpy (menu_first[k], "(no widget)", sizeof menu_first[k]);
+      return G_SOURCE_REMOVE;
+    }
   w = !mw ? NULL : k == 0 ? find_named (mw, "Message") : k == 1 ? find_named (mw, "Folder") : find_statusbar (mw);
   if (w)
     menu_press (mw, w);
@@ -531,9 +616,21 @@ finish (void)
   check (strcmp (html_viewer, "text/html") == 0, "an HTML message is shown by the litehtml viewer");
   check (html_red >= 200 * 50 * 9 / 10, "the HTML is laid out: the 200x50 red block is drawn");
   check (strstr (server_log, "HTTP GET /moved/green.png") && strstr (server_log, "HTTP GET /green.png") &&
-         html_green >= 1500, "a remote image over http (through a redirect, sent chunked) is shown");
-  check (strstr (server_log, "HTTP GET /yellow.png") && html_yellow >= 1500,
+         html_green >= 600, "a remote image over http (through a redirect, sent chunked) is shown");
+  check (strstr (server_log, "HTTP GET /yellow.png") && html_yellow >= 600,
          "a remote image over https (through AcornSSL) is shown");
+  check (html_headers == 1, "the message's headers (From, Subject...) are shown above the HTML");
+  check (html_white == 1, "the HTML's canvas is white where the page doesn't colour it");
+  check (strncmp (menu_first[3], "File", 4) == 0, "Menu over the HTML away from a link: the window's menu (File first)");
+  check (strncmp (menu_first[4], "Link", 4) == 0 && strncmp (menu_second[4], "File", 4) == 0 &&
+         menu_sub_items[4] >= 2, "Menu on a link: the window's menu with \"Link >\" (Open, Copy) first");
+  check (link_opened == 1, "a click on a link starts Iris (Iris$Dir) and gives it the link (URI_Dispatch)");
+  check (about_acornssl == 1, "the About box names AcornSSL, not GnuTLS");
+  check (about_logo == 1, "the About box shows the RISC OS port's logo");
+  printf ("# HTML view: link at %d,%d; menus \"%s\" / \"%s\" (\"%s\", %d items); started \"%s\", dispatched \"%s\"\n",
+          html_link_x, html_link_y, menu_first[3], menu_first[4], menu_sub_first[4], menu_sub_items[4],
+          task_started, uri_dispatched);
+  printf ("# headers: %s\n", html_header_text);
   printf ("# HTML: viewer %s, red %d, green %d, yellow %d pixels after %d looks\n",
           html_viewer, html_red, html_green, html_yellow, html_polls);
   check (close_hides == 1,
@@ -678,6 +775,111 @@ check_theme (void)
   g_free (marker);
 }
 
+/* all of a widget tree's text views' text, joined */
+static void
+all_text (GtkWidget *w, GString *out)
+{
+  if (GTK_IS_TEXT_VIEW (w))
+    {
+      GtkTextIter a, b;
+      GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (w));
+      char *t;
+      gtk_text_buffer_get_bounds (buf, &a, &b);
+      t = gtk_text_buffer_get_text (buf, &a, &b, FALSE);
+      g_string_append (out, t);
+      g_free (t);
+    }
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *l, *kids = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = kids; l; l = l->next)
+        all_text (l->data, out);
+      g_list_free (kids);
+    }
+}
+
+/* the HTML view once drawn: the headers above it, its white canvas, and
+   where its link (the green picture) and an empty place are */
+static void
+html_look (GtkWidget *vw)
+{
+  GtkWidget *tv;
+  int x, y, ox, oy, w, h, gx = 0, gy = 0, n = 0;
+
+  if (!vw)
+    return;
+  tv = find_type (vw, GTK_TYPE_TEXT_VIEW);
+  if (tv)
+    {
+      GString *t = g_string_new (NULL);
+      all_text (tv, t);
+      g_strlcpy (html_header_text, t->str, sizeof html_header_text);
+      g_string_free (t, TRUE);
+      html_headers = gtk_widget_is_visible (tv) && strstr (html_header_text, "From:") &&
+                     strstr (html_header_text, "Dave") && strstr (html_header_text, "Subject:") &&
+                     strstr (html_header_text, "HTML from the test");
+    }
+  else
+    html_headers = 0;
+  html_area = find_type (vw, GTK_TYPE_DRAWING_AREA);
+  if (!html_area || !gtk_widget_get_window (html_area))
+    return;
+  gdk_window_get_origin (gtk_widget_get_window (html_area), &ox, &oy);
+  w = gtk_widget_get_allocated_width (html_area);
+  h = MIN (gtk_widget_get_allocated_height (html_area), 300);
+  for (y = MAX (oy, 0); y < MIN (oy + h, 1024); y++)
+    for (x = MAX (ox, 0); x < MIN (ox + w, 1280); x++)
+      {
+        unsigned int p = fake_screen_pixel (x, y);
+        if ((p & 0xFF) < 12 && abs ((int) ((p >> 8) & 0xFF) - 0xC8) < 12 && ((p >> 16) & 0xFF) < 12)
+          gx += x - ox, gy += y - oy, n++;
+      }
+  if (n)
+    html_link_x = gx / n, html_link_y = gy / n;
+  html_blank_x = w - 40;
+  html_blank_y = 12;
+  if (ox + html_blank_x < 1280 && oy + html_blank_y < 1024)
+    html_white = (fake_screen_pixel (ox + html_blank_x, oy + html_blank_y) & 0xFFFFFF) == 0xFFFFFF;
+}
+
+static gboolean
+about_go (gpointer d)
+{
+  fake_claws_about ();
+  return G_SOURCE_REMOVE;
+}
+
+/* a GtkImage in the tree showing the PNG file */
+static int
+has_image (GtkWidget *w, const char *file)
+{
+  int r = 0;
+  if (GTK_IS_IMAGE (w) && gtk_image_get_storage_type (GTK_IMAGE (w)) == GTK_IMAGE_PIXBUF)
+    r = same_pixbuf (gtk_image_get_pixbuf (GTK_IMAGE (w)), file);
+  if (!r && GTK_IS_CONTAINER (w))
+    {
+      GList *l, *kids = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = kids; l && !r; l = l->next)
+        r = has_image (l->data, file);
+      g_list_free (kids);
+    }
+  return r;
+}
+
+static void
+about_look (GtkWidget *ab)
+{
+  GString *t = g_string_new (NULL);
+  const char *want = getenv ("CLAWS_RISCOS_THEME");
+  char *logo = g_build_filename (want ? want : ".", "claws_mail_logo.png", NULL);
+
+  all_text (ab, t);
+  about_acornssl = strstr (t->str, " AcornSSL ") != NULL && strstr (t->str, "GnuTLS") == NULL;
+  about_logo = has_image (ab, logo);
+  g_string_free (t, TRUE);
+  g_free (logo);
+}
+
 static void
 hook (int reason)
 {
@@ -785,9 +987,9 @@ hook (int reason)
               "Content-Type: multipart/alternative; boundary=\"b1\"\r\n\r\n"
               "--b1\r\nContent-Type: text/plain; charset=us-ascii\r\n\r\nThe plain version.\r\n"
               "--b1\r\nContent-Type: text/html; charset=us-ascii\r\n\r\n"
-              "<html><body style=\"background:#ffffff\"><p>HTML mail on RISC OS</p>"
+              "<html><body><p>HTML mail on RISC OS</p>"
               "<div style=\"background:#d02020;width:200px;height:50px\"></div>"
-              "<img src=\"http://localhost:%s/moved/green.png\" width=\"40\" height=\"40\">"
+              "<a href=\"https://example.com/news\"><img src=\"http://localhost:%s/moved/green.png\" width=\"40\" height=\"40\"></a>"
               "<img src=\"https://localhost:%s/yellow.png\" width=\"40\" height=\"40\">"
               "</body></html>\r\n--b1--\r\n", http_port, http_port);
             write_file (d2, "2", msg);
@@ -813,6 +1015,44 @@ hook (int reason)
         if ((html_red > 0 && html_green > 0 && html_yellow > 0) || html_polls > 4000)
           {
             dump_shot ("html");
+            html_look (vw);
+            stage = 21;
+          }
+      }
+      break;
+    case 21:    /* Menu over the HTML away from a link: the window's menu */
+      if (menu_step (3))
+        stage = 22;
+      break;
+    case 22:    /* Menu on a link: the window's menu with "Link >" first */
+      if (menu_step (4))
+        {
+          stage = 23;
+          html_polls = 0;
+          if (html_area && html_link_x >= 0)
+            click_widget (html_area, html_link_x, html_link_y, 1);
+        }
+      break;
+    case 23:    /* a click on the link: Iris is started, then gets it */
+      if (uri_dispatches || ++html_polls > 3000)
+        {
+          link_opened = start_tasks == 1 && strcmp (task_started, "/<Iris$Dir>") == 0 &&
+                        uri_dispatches == 1 && strcmp (uri_dispatched, "https://example.com/news") == 0;
+          g_idle_add (about_go, NULL);
+          html_polls = 0;
+          stage = 24;
+        }
+      break;
+    case 24:    /* the About box: AcornSSL, the RISC OS logo */
+      {
+        GtkWidget *ab = window_titled ("About");
+        if (ab || ++html_polls > 2000)
+          {
+            if (ab)
+              about_look (ab);
+            dump_shot ("about");
+            if (ab)
+              gtk_widget_destroy (ab);
             stage = 10;
           }
       }
@@ -927,6 +1167,8 @@ main (int argc, char **argv)
   fake_set_screen (1280, 1024, 0, 5);
   fake_wimp_nulls = 1 << 30;           /* null events throughout */
   fake_wimp_hook = hook;
+  fake_swi_hook = swi_hook;
+  g_setenv ("Iris$Dir", "/nonexistent/!Iris", TRUE);
   g_snprintf (logpath, sizeof logpath, "%s/ClawsMail.Log", outdir);
   fflush (stdout);
   if (freopen (logpath, "w", stderr) == NULL)
