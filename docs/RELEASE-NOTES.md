@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1 — release candidate 1
+# riscos-gtk 3.24.41-riscos1.0 — release candidate 1
 
 **Status: candidate for review.** These notes describe what RC1 contains and
 what still has to happen before it is released. Items marked
@@ -19,8 +19,10 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1` names the GTK release it's built from and
-the riscos-gtk revision, as riscos-ffmpeg and riscos-mesa do *[decision]*.
+**Version:** `3.24.41-riscos1.0`: the GTK release it's built from
+(3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
+fixes to this release become riscos1.1, riscos1.2 ...). Release
+candidates add `-rcN`.
 
 ## What's in RC1
 
@@ -29,7 +31,7 @@ the riscos-gtk revision, as riscos-ffmpeg and riscos-mesa do *[decision]*.
 | `L3afpad-0.18.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.18 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
 | `ClawsMail-0.5.zip` | Claws Mail 4.4.0, RISC OS port 0.5 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Starts on the icon bar; closing its window leaves it there |
 | `GTKThemeTest-0.42.zip` | 0.42 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `riscos-gtk-3.24.41-riscos1-rc1-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-3.24.41-riscos1.0-rc1-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -130,12 +132,15 @@ release *[decision]*.
 
 ## Known issues and limits in RC1
 
-- **Pi sign-off still needed for:**
-  - the size-grip / outside-scroll-bar rule (L3afpad 0.15–0.18,
-    GTKThemeTest 0.39–0.42);
-  - most of ClawsMail: 0.4 has been started on the Pi (fixes below),
-    but POP3, IMAP and SMTP against real servers through AcornSSL have not
-    been signed off *[Pi]*.
+- **Pi sign-off (2026-10-09):** L3afpad 0.18, GTKThemeTest 0.42 and
+  ClawsMail 0.5 all signed off on the Pi:
+  - the size icon in all three;
+  - ClawsMail fetching over IMAP and sending over SMTP, both with
+    TLS 1.2 through AcornSSL;
+  - ClawsMail starting on the icon bar, and staying there when its window
+    closes.
+
+  POP3 hasn't been tried against a real server.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -172,7 +177,7 @@ release *[decision]*.
   yet *[decision: release with the overlay documented, or wait for
   crossdev 1.4]*.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1-rc1` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc1` builds the packages, the
   source archive and the manifest.
 
 ## Tests

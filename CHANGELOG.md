@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.24.41-riscos1-rc1 (release candidate, for review, 2026-10-09)
+## 3.24.41-riscos1.0-rc1 (release candidate, signed off on the Pi, 2026-10-09)
 The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 0.42, and the complete source. Everything above "Unreleased" below.
 - Owner on ClawsMail 0.4 on the Pi (photo): two size icons at first start
@@ -20,6 +20,10 @@ The first release candidate: !L3afpad 0.18, !ClawsMail 0.5, GTKThemeTest
 - A clean build from a fresh clone (`make deps` then `make release`)
   succeeds: 34 static libraries, three packages, the source tar and the
   manifest.
+- Owner's Pi sign-off: size icon right in all three programs; ClawsMail
+  IMAP receive and SMTP send with TLS 1.2 through AcornSSL; starts on the
+  icon bar, closing the last window leaves it there; "all working fine".
+- Version named `3.24.41-riscos1.0-rc1` (owner: add a .x point number).
 - Release documents: `docs/RELEASE-NOTES.md`, `docs/RC-TEST-PLAN.md` (the
   Pi sign-off), `docs/BUILDING.md`, `docs/SOURCE-AND-LICENCES.md`; the
   README rewritten for the release.

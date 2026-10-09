@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1-rc1 — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc1 — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the

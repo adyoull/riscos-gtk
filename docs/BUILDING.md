@@ -74,7 +74,7 @@ into the same sysroot the first time it runs.
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.41-riscos1-rc1     # out/release/3.24.41-riscos1-rc1/
+make release RELEASE=3.24.41-riscos1.0-rc1     # out/release/3.24.41-riscos1.0-rc1/
 ```
 
 `make release` runs `build/make-release.sh`:
