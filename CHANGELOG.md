@@ -1,12 +1,13 @@
 # Changelog
 
 ## 3.24.41-riscos1.0-rc3 — public beta (2026-10-09)
-Owner: "clawsmail works perfectly", "hyperlinks open in Iris", then
-"produce a public beta RC3".
+ClawsMail 0.8's functionality confirmed on the Pi, links opening in Iris
+included; then the owner asked for a public beta RC3.
 - !ClawsMail 0.8 (the two sections below). L3afpad 0.19 and GTKThemeTest
   0.43 are unchanged since RC2, rebuilt to name this release.
 - Release notes: public beta status, a "Reporting problems" section, what
-  has been tested on the Pi, and ClawsMail's HTML mail, links, icons and
+  has been confirmed on the Pi (stated as functionality confirmed, not
+  quoted), and ClawsMail's HTML mail, links, icons and
   About box. The assumed review decisions are now stated as decided:
   - the overlay toolchain is documented;
   - GTKHello and GTKTest are left out;

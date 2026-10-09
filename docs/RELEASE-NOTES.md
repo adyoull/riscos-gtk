@@ -162,8 +162,8 @@ release.
     size icon in all three; ClawsMail fetching over IMAP and sending
     over SMTP, both with TLS 1.2 through AcornSSL; ClawsMail starting on
     the icon bar and staying there when its window closes.
-  - ClawsMail 0.8: "works perfectly", including one menu per window, HTML
-    mail, the RISC OS icons, and links opening in Iris.
+  - ClawsMail 0.8: functionality confirmed: one menu per window, HTML
+    mail, the RISC OS icons, the About box, and links opening in Iris.
   - Not yet reported on the Pi: L3afpad 0.19 and GTKThemeTest 0.43
     (RC2's one-menu-per-window change: test plan 2.2a) *[Pi]*.
   - POP3 hasn't been tried against a real server.
