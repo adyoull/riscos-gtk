@@ -275,7 +275,8 @@ about 9 MB. To have OpenGL:
 
    This is `-Wl,-u,eglGetProcAddress` plus riscos-mesa's `libEGL.a`,
    `libOSMesa.a` and `-lstdc++`. GTK refers to EGL weakly; the `-u`
-   pulls libEGL in.
+   pulls libEGL in. With meson, use `dependency('riscos-gtk-gl')`;
+   `env.sh` writes that pkg-config file when it finds the devkit.
 3. **Package it as usual.** `riscos-gtk-package` adds riscos-mesa's
    licences (`LicenceMesa`) when it finds Mesa in the program.
 

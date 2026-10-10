@@ -62,7 +62,9 @@ export RISCOS_GTK_LIBS="-static $(pkg-config --libs --static gtk+-3.0 | tr ' ' '
 
 # OpenGL for GtkGLArea: riscos-mesa's EGL and OSMesa, linked only into
 # programs that ask (GDK refers to EGL weakly; -u pulls libEGL in). Full
-# paths, not -L: pkg-config would put the sysroot in front of a -L.
+# paths, not -L; in the .pc file written out in full as -Wl, because
+# pkg-config puts the devkit's sysroot in front of a -L, a bare path or
+# a path variable.
 : "${RISCOS_MESA_DEVKIT:=${RISCOS_DEVKIT:-}}"
 if [ -n "$RISCOS_MESA_DEVKIT" ] && [ -f "$RISCOS_MESA_DEVKIT/lib/libEGL.a" ] &&
    [ -f "$RISCOS_MESA_DEVKIT/lib/libOSMesa.a" ]; then
@@ -71,12 +73,11 @@ if [ -n "$RISCOS_MESA_DEVKIT" ] && [ -f "$RISCOS_MESA_DEVKIT/lib/libEGL.a" ] &&
   export RISCOS_GTK_GL_LIBS="-Wl,-u,eglGetProcAddress $RISCOS_MESA_DEVKIT/lib/libEGL.a $RISCOS_MESA_DEVKIT/lib/libOSMesa.a -lstdc++"
   cat > "$RISCOS_GTK_PREFIX/lib/pkgconfig/riscos-gtk-gl.pc" <<EOT
 # Written by the riscos-gtk devkit's env.sh: OpenGL for GtkGLArea
-mesa=$RISCOS_MESA_DEVKIT
 Name: riscos-gtk-gl
 Description: OpenGL for GtkGLArea on RISC OS (riscos-mesa's EGL and OSMesa)
 Version: $(sed -n 's/^riscos-mesa devkit //p' "$RISCOS_MESA_DEVKIT/VERSION" 2>/dev/null)
 Requires: gtk+-3.0 epoxy
-Libs: -Wl,-u,eglGetProcAddress \${mesa}/lib/libEGL.a \${mesa}/lib/libOSMesa.a -lstdc++
+Libs: -Wl,-u,eglGetProcAddress -Wl,$RISCOS_MESA_DEVKIT/lib/libEGL.a -Wl,$RISCOS_MESA_DEVKIT/lib/libOSMesa.a -lstdc++
 EOT
 else
   unset RISCOS_GTK_GL_LIBS
