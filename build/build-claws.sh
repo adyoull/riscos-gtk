@@ -125,7 +125,7 @@ echo "build-claws.sh: built Claws Mail's objects in $C/src ($TARGET)"
 
 # !ClawsMail: Claws Mail's objects (main.o included) and its libclawsgtk,
 # with riscos-claws.c
-VERSION=${VERSION:-0.9}
+VERSION=${VERSION:-0.10}
 OBJS=$(ls "$C"/src/*.o)
 exec "$HERE/build-app.sh" ClawsMail claws-mail "$VERSION" "$REPO_DIR/apps/claws/app" \
   -DHAVE_CONFIG_H -DRISCOS_PORT_VERSION=\"$VERSION\" -I"$C" -I"$C/src" -I"$C/src/common" -I"$C/src/gtk" \

@@ -61,7 +61,8 @@ release.
 - **High resolution (EX0 EY0, 180 dpi) modes:** windows, text and
   widgets are their usual size and drawn at the screen's resolution
   (GDK scale 2). Desktop sprites are shown at 180 dpi where the desktop
-  has them, otherwise doubled.
+  has them, otherwise doubled. ClawsMail's icons and both programs'
+  application icons are drawn at 180 dpi too.
 - **Placement:** new windows open centred on the screen; a program's
   next window opens 48 OS units down and to the right of the last.
 - **Toggle size:** works, and the window is laid out again at the new

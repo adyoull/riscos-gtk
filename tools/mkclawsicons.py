@@ -13,8 +13,11 @@ and reduced, with outlines on pixel centres so they stay sharp:
              made from the desktop's own small_dir / small_diro sprites at
              run time, with the emblem_*.png drawn here on top; the folder
              PNGs are used where the desktop has no such sprite).
-  SPRITEDIR  !clawsmail.png (34 x 34) and sm!clawsmail.png (17 x 17), for
-             tools/png2sprite.py.
+  SPRITEDIR  !clawsmail.png (34 x 34) and sm!clawsmail.png (17 x 17) for
+             !Sprites, and !clawsmail11.png (68 x 68) and sm!clawsmail11.png
+             (34 x 34) for !Sprites11 (180 dpi), for tools/png2sprite.py.
+  Every theme icon is also drawn twice the size as NAME@2.png, for 180 dpi
+  (EX0 EY0) modes.
   SHEET.png  optional: every icon enlarged, to look at.
 
 Needs Pillow. MIT licence. Copyright (C) 2026 Andrew Youll.
@@ -579,32 +582,32 @@ FOLDERS["dir_subs_open"] = (True, ["subs"], False)
 FOLDERS["dir_subs_close_mark"] = (False, ["subs", "mark"], False)
 
 
-def emblem_image(name):
-    c = Icon(9, 9)
+def emblem_image(name, k=1):
+    c = Icon(9, 9, k)
     dict(EMBLEMS)[name](c)
     return c.image()
 
 
-def folder_image(name):
+def folder_image(name, k=1):
     open_, ems, trash = FOLDERS[name]
-    c = Icon(16, 16)
+    c = Icon(16, 16, k)
     if trash:
         wastebasket(c, 2.5, 1.5, 13.5, 14.5)
     else:
         folder(c, 0.5, 3.5, 14.5, 13.5, open_)
     im = c.image()
-    im = place_emblems(im, ems)
+    im = place_emblems(im, ems, k)
     if "noselect" in name:
         im = Image.blend(im, Image.new("RGBA", im.size, (220, 220, 220, 0)), 0.45)
     return im
 
 
-def place_emblems(im, ems):
+def place_emblems(im, ems, k=1):
     """the kind's emblem bottom right; hrm and mark top left / bottom left"""
     pos = {"inbox": (7, 7), "outbox": (7, 7), "queue": (7, 7), "drafts": (7, 7), "subs": (7, 7),
            "hrm": (0, 7), "mark": (7, 0)}
     for e in ems:
-        im.alpha_composite(emblem_image(e), pos[e])
+        im.alpha_composite(emblem_image(e, k), (pos[e][0] * k, pos[e][1] * k))
     return im
 
 
@@ -663,8 +666,8 @@ def app_icon(size, k=1):
     return c.image()
 
 
-def render(f, w, h):
-    c = Icon(w, h)
+def render(f, w, h, k=1):
+    c = Icon(w, h, k)
     f(c)
     return c.image()
 
@@ -674,32 +677,44 @@ def main():
     os.makedirs(theme, exist_ok=True)
     os.makedirs(sprites, exist_ok=True)
     out = []
+    # each icon also drawn twice the size, NAME@2.png, for 180 dpi (EX0
+    # EY0) modes, where GTK draws at GDK scale 2 (riscos-claws.c)
     for name, f in TOOLBAR:
         im = render(f, 24, 24)
         im.save(os.path.join(theme, name + ".png"))
+        render(f, 24, 24, 2).save(os.path.join(theme, name + "@2.png"))
         out.append((name, im))
     for name, w, h, f in MARKS:
         im = render(f, w, h)
         im.save(os.path.join(theme, name + ".png"))
+        render(f, w, h, 2).save(os.path.join(theme, name + "@2.png"))
         out.append((name, im))
     for name, _ in EMBLEMS:
         im = emblem_image(name)
         im.save(os.path.join(theme, "emblem_" + name + ".png"))
+        emblem_image(name, 2).save(os.path.join(theme, "emblem_" + name + "@2.png"))
         out.append(("emblem_" + name, im))
     for name in sorted(FOLDERS):
         im = folder_image(name)
         im.save(os.path.join(theme, name + ".png"))
+        folder_image(name, 2).save(os.path.join(theme, name + "@2.png"))
         out.append((name, im))
     a = app_icon(34)
     a.save(os.path.join(sprites, "!clawsmail.png"))
     s = app_icon(17)
     s.save(os.path.join(sprites, "sm!clawsmail.png"))
     out += [("!clawsmail", a), ("sm!clawsmail", s)]
+    # !Sprites11 (180 dpi): 68 x 68, and the 34 x 34 drawing as the small
+    # icon (PRMs, Icon Sets)
+    app_icon(34, 2).save(os.path.join(sprites, "!clawsmail11.png"))
+    a.save(os.path.join(sprites, "sm!clawsmail11.png"))
     # the About box's and set-up wizard's logo, and the window icons
     # (riscos_claws_priv_pixbuf): the application icon, drawn big
     big = app_icon(34, 4)
     big.save(os.path.join(theme, "claws_mail_logo.png"))
+    app_icon(34, 8).save(os.path.join(theme, "claws_mail_logo@2.png"))
     app_icon(34, 2).save(os.path.join(theme, "claws_mail_logo_small.png"))
+    big.save(os.path.join(theme, "claws_mail_logo_small@2.png"))
     big.resize((64, 64), Image.LANCZOS).save(os.path.join(theme, "claws_mail_icon_64.png"))
     big.resize((48, 48), Image.LANCZOS).save(os.path.join(theme, "claws_mail_icon.png"))
     if len(sys.argv) > 3:

@@ -59,6 +59,7 @@ void riscos_claws_prefs_read (void);
 GdkPixbuf *riscos_claws_stock_pixbuf (const char *name, const char *theme);
 gint riscos_claws_open_uri (const gchar *uri);
 GdkPixbuf *riscos_claws_priv_pixbuf (const char *name);
+GdkPixbuf *riscos_claws_stock_hires (const char *name, const char *theme);
 
 /* the litehtml viewer plug-in, linked in (build-claws.sh renames its
    plugin_init) */
@@ -310,11 +311,13 @@ fit (GdkPixbuf *src, int w, int h)
 }
 
 static void
-emblem (GdkPixbuf *dst, const char *theme, const char *name, int x, int y)
+emblem (GdkPixbuf *dst, const char *theme, const char *name, int x, int y, int scale)
 {
-  char *f = g_strdup_printf ("%s/emblem_%s.png", theme, name);
+  char *f = g_strdup_printf ("%s/emblem_%s%s.png", theme, name, scale == 2 ? "@2" : "");
   GdkPixbuf *e = gdk_pixbuf_new_from_file (f, NULL);
 
+  x *= scale;
+  y *= scale;
   if (e)
     {
       int w = MIN (gdk_pixbuf_get_width (e), gdk_pixbuf_get_width (dst) - x);
@@ -325,8 +328,16 @@ emblem (GdkPixbuf *dst, const char *theme, const char *name, int x, int y)
   g_free (f);
 }
 
-GdkPixbuf *
-riscos_claws_stock_pixbuf (const char *name, const char *theme)
+/* A desktop sprite at GDK pixels (scale 1) or at the screen's (scale 2) */
+static GdkPixbuf *
+desktop_sprite (const char *name, int scale)
+{
+  return scale == 2 ? gdk_riscos_wimp_sprite_scaled (name, 2) : gdk_riscos_wimp_sprite (name);
+}
+
+/* riscos_claws_stock_pixbuf at scale 1 or 2 (twice the pixels) */
+static GdkPixbuf *
+compose_stock (const char *name, const char *theme, int scale)
 {
   static const char *const kinds[] = { "dir_", "inbox_", "outbox_", "queue_", "drafts_" };
   GdkPixbuf *spr, *pb;
@@ -338,10 +349,10 @@ riscos_claws_stock_pixbuf (const char *name, const char *theme)
     return NULL;
   if (!strcmp (name, "checkbox_on") || !strcmp (name, "checkbox_off"))
     {
-      spr = gdk_riscos_wimp_sprite (name[9] == 'n' ? "opton" : "optoff");
+      spr = desktop_sprite (name[9] == 'n' ? "opton" : "optoff", scale);
       if (!spr)
         return NULL;
-      pb = fit (spr, 13, 13);
+      pb = fit (spr, 13 * scale, 13 * scale);
       g_object_unref (spr);
       return pb;
     }
@@ -362,25 +373,25 @@ riscos_claws_stock_pixbuf (const char *name, const char *theme)
   else
     return NULL;
 
-  spr = gdk_riscos_wimp_sprite (open ? "small_diro" : "small_dir");
+  spr = desktop_sprite (open ? "small_diro" : "small_dir", scale);
   if (!spr && open)
-    spr = gdk_riscos_wimp_sprite ("small_dir");
+    spr = desktop_sprite ("small_dir", scale);
   if (!spr)
-    spr = gdk_riscos_wimp_sprite (open ? "directoryo" : "directory");
+    spr = desktop_sprite (open ? "directoryo" : "directory", scale);
   if (!spr && open)
-    spr = gdk_riscos_wimp_sprite ("directory");
+    spr = desktop_sprite ("directory", scale);
   if (!spr)
     return NULL;
-  pb = fit (spr, 16, 16);
+  pb = fit (spr, 16 * scale, 16 * scale);
   g_object_unref (spr);
   if (k > 0)
-    emblem (pb, theme, kinds[k][0] == 'd' ? "drafts" : k == 1 ? "inbox" : k == 2 ? "outbox" : "queue", 7, 7);
+    emblem (pb, theme, kinds[k][0] == 'd' ? "drafts" : k == 1 ? "inbox" : k == 2 ? "outbox" : "queue", 7, 7, scale);
   if (subs)
-    emblem (pb, theme, "subs", 7, 7);
+    emblem (pb, theme, "subs", 7, 7, scale);
   if (strstr (rest, "_hrm"))
-    emblem (pb, theme, "hrm", 0, 7);
+    emblem (pb, theme, "hrm", 0, 7, scale);
   if (strstr (rest, "_mark"))
-    emblem (pb, theme, "mark", 7, 0);
+    emblem (pb, theme, "mark", 7, 0, scale);
   if (noselect)
     {
       guchar *p = gdk_pixbuf_get_pixels (pb);
@@ -388,6 +399,38 @@ riscos_claws_stock_pixbuf (const char *name, const char *theme)
       for (i = 3; i < n; i += 4)
         p[i] = p[i] * 2 / 5;
     }
+  return pb;
+}
+
+GdkPixbuf *
+riscos_claws_stock_pixbuf (const char *name, const char *theme)
+{
+  return compose_stock (name, theme, 1);
+}
+
+/* For stock_pixmap.c at GDK scale 2 (an EX0 EY0, 180 dpi, desktop): the
+   RISC OS icon drawn at twice the pixels (its @2.png, or the folder made
+   from the desktop's 180 dpi or doubled sprites), tagged
+   "riscos-gtk-scale" 2 so that GTK (riscos-gtk's GtkImage and
+   GtkCellRendererPixbuf) and Claws Mail's lists (riscos-pixbuf-scale.h)
+   show it at its usual size and the screen's resolution. NULL at scale
+   1, for other themes, and where there's no such picture. */
+GdkPixbuf *
+riscos_claws_stock_hires (const char *name, const char *theme)
+{
+  GdkPixbuf *pb;
+
+  if (gdk_riscos_scale_factor () != 2 || !theme || !g_str_has_suffix (theme, "/RISCOS") || !name)
+    return NULL;
+  pb = compose_stock (name, theme, 2);
+  if (pb == NULL)
+    {
+      char *f = g_strdup_printf ("%s/%s@2.png", theme, name);
+      pb = gdk_pixbuf_new_from_file (f, NULL);
+      g_free (f);
+    }
+  if (pb)
+    g_object_set_data (G_OBJECT (pb), "riscos-gtk-scale", GINT_TO_POINTER (2));
   return pb;
 }
 
@@ -403,6 +446,18 @@ riscos_claws_priv_pixbuf (const char *name)
 
   if (!name || !g_str_has_prefix (name, "claws_mail_"))
     return NULL;
+  if (gdk_riscos_scale_factor () == 2)
+    {
+      /* twice the pixels, for the 180 dpi screen (riscos_claws_stock_hires) */
+      f = g_strdup_printf ("%s/%s@2.png", theme, name);
+      pb = gdk_pixbuf_new_from_file (f, NULL);
+      g_free (f);
+      if (pb)
+        {
+          g_object_set_data (G_OBJECT (pb), "riscos-gtk-scale", GINT_TO_POINTER (2));
+          return pb;
+        }
+    }
   f = g_strdup_printf ("%s/%s.png", theme, name);
   pb = gdk_pixbuf_new_from_file (f, NULL);
   g_free (f);

@@ -612,7 +612,7 @@ finish (void)
     close_hides = !gtk_widget_get_visible (closed_window);
   check (theme_chosen == 1 && defaults_marker == 1,
          "the RISC OS icons are chosen at the first start (RISCOSDefaults written)");
-  check (theme_icons == 1, "Get Mail's toolbar icon comes from the RISC OS icon theme");
+  check (theme_icons == 1, "Get Mail's toolbar icon comes from the RISC OS icon theme (at GDK scale 2, its @2 picture)");
   check (folder_from_desktop == 1,
          "the inbox's icon is the desktop's directory sprite with the theme's inbox emblem");
   check (promote_html == 1, "the HTML part of multipart/alternative is shown by default");
@@ -734,19 +734,25 @@ same_pixbuf (GdkPixbuf *a, const char *file)
 }
 
 /* the inbox's icon: the desktop's directory sprite with the theme's
-   inbox emblem bottom right (riscos-claws.c), not the theme's PNG */
+   inbox emblem bottom right (riscos-claws.c), not the theme's PNG. At
+   GDK scale 2 (FAKE_EIG=0) both at twice the pixels (the @2 files),
+   the pixbuf tagged "riscos-gtk-scale" 2. */
 static int
 desktop_folder (GdkPixbuf *pb, const char *theme)
 {
-  char *f = g_build_filename (theme, "emblem_inbox.png", NULL), *png = g_build_filename (theme, "inbox_close.png", NULL);
+  int sc = gdk_riscos_scale_factor ();
+  const char *at = sc == 2 ? "@2" : "";
+  char *f = g_strdup_printf ("%s/emblem_inbox%s.png", theme, at), *png = g_strdup_printf ("%s/inbox_close%s.png", theme, at);
   GdkPixbuf *e = gdk_pixbuf_new_from_file (f, NULL);
-  int ok = pb && e && gdk_pixbuf_get_n_channels (pb) == 4 && !same_pixbuf (pb, png), x, y, opaque = 0;
+  int ok = pb && e && gdk_pixbuf_get_n_channels (pb) == 4 && !same_pixbuf (pb, png) &&
+           GPOINTER_TO_INT (g_object_get_data (G_OBJECT (pb), "riscos-gtk-scale")) == (sc == 2 ? 2 : 0);
+  int x, y, opaque = 0, n = 9 * sc, o = 7 * sc;
 
-  for (y = 0; ok && y < 9; y++)
-    for (x = 0; ok && x < 9; x++)
+  for (y = 0; ok && y < n; y++)
+    for (x = 0; ok && x < n; x++)
       {
         const guchar *a = gdk_pixbuf_get_pixels (e) + y * gdk_pixbuf_get_rowstride (e) + x * 4;
-        const guchar *b = gdk_pixbuf_get_pixels (pb) + (y + 7) * gdk_pixbuf_get_rowstride (pb) + (x + 7) * 4;
+        const guchar *b = gdk_pixbuf_get_pixels (pb) + (y + o) * gdk_pixbuf_get_rowstride (pb) + (x + o) * 4;
         if (a[3] == 255)
           {
             opaque++;
@@ -768,8 +774,11 @@ check_theme (void)
   char *f1, *marker;
 
   theme_chosen = want && fake_claws_theme () && strcmp (fake_claws_theme (), want) == 0;
-  f1 = g_build_filename (want ? want : ".", "mail_receive.png", NULL);
-  theme_icons = same_pixbuf (fake_claws_stock (0), f1);
+  /* at GDK scale 2, the @2 picture, tagged to be shown at scale 2 */
+  f1 = g_build_filename (want ? want : ".", gdk_riscos_scale_factor () == 2 ? "mail_receive@2.png" : "mail_receive.png", NULL);
+  theme_icons = same_pixbuf (fake_claws_stock (0), f1) &&
+                GPOINTER_TO_INT (g_object_get_data (G_OBJECT (fake_claws_stock (0)), "riscos-gtk-scale")) ==
+                (gdk_riscos_scale_factor () == 2 ? 2 : 0);
   folder_from_desktop = want && desktop_folder (fake_claws_stock (1), want);
   marker = g_build_filename (home, ".claws-mail", "RISCOSDefaults", NULL);
   defaults_marker = g_file_test (marker, G_FILE_TEST_EXISTS);
@@ -874,7 +883,7 @@ about_look (GtkWidget *ab)
 {
   GString *t = g_string_new (NULL);
   const char *want = getenv ("CLAWS_RISCOS_THEME");
-  char *logo = g_build_filename (want ? want : ".", "claws_mail_logo.png", NULL);
+  char *logo = g_build_filename (want ? want : ".", gdk_riscos_scale_factor () == 2 ? "claws_mail_logo@2.png" : "claws_mail_logo.png", NULL);
 
   all_text (ab, t);
   about_acornssl = strstr (t->str, " AcornSSL ") != NULL && strstr (t->str, "GnuTLS") == NULL;

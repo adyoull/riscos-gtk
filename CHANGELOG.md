@@ -31,6 +31,32 @@
   hellotest and themetest-fake at EIG 0. The fake's `OS_ReadModeVariable`
   returns a numbered mode's own eigen factors.
 - !L3afpad 0.20, !ClawsMail 0.9, GTKThemeTest 0.44.
+- **High-resolution icons for 180 dpi modes** (0.20 and 0.9 ran on the
+  Pi):
+  - **GTK:** a GdkPixbuf tagged `riscos-gtk-scale` 2 is shown by GtkImage
+    and GtkCellRendererPixbuf at half its pixel size, so a picture with
+    twice the pixels fills the screen's pixels at GDK scale 2. This is a
+    small change to `gtkiconhelper.c` and `gtkcellrendererpixbuf.c`, under
+    GDK_WINDOWING_RISCOS.
+  - **ClawsMail:**
+    - `tools/mkclawsicons.py` also draws every RISC OS icon at twice the
+      size (`NAME@2.png`), and the logo at 272 pixels.
+    - At scale 2, `riscos_claws_stock_hires` gives Claws Mail those
+      pictures, tagged: the toolbar and the message list's marks. The
+      folder icons are made from the desktop's 180 dpi or doubled
+      sprites with `@2` emblems.
+    - Claws Mail's own lists and icon overlays read a tagged pixbuf's
+      size and paint it at scale (`riscos-pixbuf-scale.h`, included in
+      gtkcmclist.c, gtkcmctree.c and stock_pixmap.c).
+    - The About box's logo is sharp too.
+  - **Application icons:** `!Sprites11` files (180 dpi: 68 x 68 and
+    34 x 34, PRMs "Icon Sets") for !ClawsMail (drawn by mkclawsicons.py)
+    and !L3afpad (from L3afpad's own SVG drawing, by
+    `tools/mkl3afpadsprites.py`). `tools/png2sprite.py --dpi 180` makes
+    180 dpi sprites.
+  - claws-fake's icon checks expect the `@2` pictures, tagged, at GDK
+    scale 2.
+- !L3afpad 0.21, !ClawsMail 0.10, GTKThemeTest 0.45.
 
 ## 3.24.41-riscos1.0-rc3 — public beta (2026-10-09)
 ClawsMail 0.8's functionality confirmed on the Pi, links opening in Iris

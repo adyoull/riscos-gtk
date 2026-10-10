@@ -21,7 +21,9 @@ or adapted from other projects keep their original licence, listed below.
 | Claws Mail's litehtml viewer plug-in and the litehtml library in it (in Claws Mail's tarball; built by `build/build-claws.sh`, linked into !ClawsMail) | Claws Mail team; [litehtml](http://www.litehtml.com/), Yuri Kobets | Plug-in GPL 3 or later; litehtml BSD-style (its LICENSE, shipped as LicenceLiteHTML) |
 | `apps/claws/litehtml/http.h`, `http.cpp` (the viewer's image loader, replacing its libcurl one) | Written for riscos-gtk, from the plug-in's http.cpp interface | GPL version 3 or later, as Claws Mail |
 | gumbo 0.12.0 (built by `build/build-claws.sh`, linked into !ClawsMail; not in this repository) | [gumbo-parser](https://codeberg.org/gumbo-parser/gumbo-parser), Google and contributors | Apache License 2.0 (its COPYING, shipped as LicenceGumbo) |
-| `tools/mkclawsicons.py` and the icons it draws (`apps/claws/app/share/claws-mail/themes/RISCOS`, `apps/claws/app/!Sprites`) | Written for riscos-gtk: original icons in the style of the RISC OS desktop | MIT |
+| `tools/mkclawsicons.py` and the icons it draws (`apps/claws/app/share/claws-mail/themes/RISCOS`, including the `@2` pictures, `apps/claws/app/!Sprites` and `!Sprites11`) | Written for riscos-gtk: original icons in the style of the RISC OS desktop | MIT |
+| `tools/mkl3afpadsprites.py` | Written for riscos-gtk | MIT |
+| `apps/l3afpad/app/!Sprites11` (made by mkl3afpadsprites.py) | L3afpad's icon, `data/l3afpad_original.svg` (Tarot Osuji, Steven Honeyman) | GPL version 2 or later, as L3afpad |
 | `riscos/licences/LGPL-2.1.txt` | The GNU LGPL 2.1 text (Free Software Foundation), copied into every package as LicenceLGPL | Verbatim copying permitted |
 | `tests/claws/mailserver.py`, `tests/gtk/claws-fake.c`, `tests/gtk/claws-fake-claws.c` | Written for riscos-gtk | MIT |
 | The AcornSSL section of `tests/fake/mesa-egl/fake_riscos.c` (test code, not in any package) | Adapted from [riscos-ffmpeg](https://github.com/adyoull/riscos-ffmpeg)'s `tests/host/fake_acornssl.c` | GPL version 2 or later, as riscos-ffmpeg |
