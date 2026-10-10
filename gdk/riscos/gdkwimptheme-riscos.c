@@ -112,6 +112,31 @@ screen_eig (int var)
   return val;
 }
 
+/* GDK's scale factor: 2 in an EX0 EY0 (180 dpi) mode, else 1;
+   RISCOS_GTK_SCALE=1 or 2 overrides (gdkriscos-server.c's read_screen) */
+int
+_gdk_riscos_scale_factor (void)
+{
+  const char *e = g_getenv ("RISCOS_GTK_SCALE");
+
+  if (e && (e[0] == '1' || e[0] == '2') && e[1] == 0)
+    return e[0] - '0';
+  return screen_eig (4) == 0 && screen_eig (5) == 0 ? 2 : 1;
+}
+
+/* OS units per GDK pixel, as an eigen factor: the screen's, plus one at
+   GDK scale 2. Sprites are made this size for GTK, which draws in GDK
+   pixels. */
+/* set while making a sprite at GDK scale 2's own resolution (the
+   screen's pixels): gdk_riscos_wimp_sprite_scaled */
+static int hires;
+
+static int
+gdk_eig (int var)
+{
+  return screen_eig (var) + (_gdk_riscos_server_get_scale () == 2) - hires;
+}
+
 static int
 mode_var (int mode, int var, int fallback)
 {
@@ -287,7 +312,8 @@ decode (const int *spr, int *xeig, int *yeig)
   return pb;
 }
 
-/* A decoded sprite scaled to screen pixels */
+/* A decoded sprite scaled to GDK pixels (screen pixels, or 90 dpi pixels
+   at GDK scale 2) */
 static GdkPixbuf *
 to_screen (const int *spr)
 {
@@ -297,15 +323,17 @@ to_screen (const int *spr)
   pb = decode (spr, &xeig, &yeig);
   if (pb == NULL)
     return NULL;
-  sx = xeig - screen_eig (4);
-  sy = yeig - screen_eig (5);
+  sx = xeig - gdk_eig (4);
+  sy = yeig - gdk_eig (5);
   if (sx == 0 && sy == 0)
     return pb;
   w = gdk_pixbuf_get_width (pb);
   h = gdk_pixbuf_get_height (pb);
   w = sx >= 0 ? w << sx : MAX (1, w >> -sx);
   h = sy >= 0 ? h << sy : MAX (1, h >> -sy);
-  scaled = gdk_pixbuf_scale_simple (pb, w, h, GDK_INTERP_NEAREST);
+  /* enlarged: pixel for pixel; reduced (a 180 dpi sprite at GDK scale 2):
+     averaged */
+  scaled = gdk_pixbuf_scale_simple (pb, w, h, sx < 0 || sy < 0 ? GDK_INTERP_BILINEAR : GDK_INTERP_NEAREST);
   g_object_unref (pb);
   return scaled;
 }
@@ -726,8 +754,8 @@ gdk_riscos_wimp_tool_sprite (const char *name)
   /* A Tools file holds a set per resolution, named with the screen's
      sprite suffix: "uicon22" for 90 x 90 dpi (EIG 1 x 1), "uicon11" for
      180 dpi; the plain name is the 90 x 45 dpi set, or the only one. */
-  suffix = screen_eig (4) == 1 && screen_eig (5) == 1 ? "22" :
-           screen_eig (4) == 0 && screen_eig (5) == 0 ? "11" : "";
+  suffix = gdk_eig (4) == 1 && gdk_eig (5) == 1 ? "22" :
+           gdk_eig (4) == 0 && gdk_eig (5) == 0 ? "11" : "";
   if (*suffix)
     {
       g_snprintf (full, sizeof full, "%s%s", name, suffix);
@@ -752,4 +780,57 @@ gdk_riscos_wimp_tool_sprite (const char *name)
     tool_table = NULL;
     return pb;
   }
+}
+
+/**
+ * gdk_riscos_scale_factor:
+ *
+ * GDK's scale factor on this desktop: 2 in an EX0 EY0 (180 dpi) mode,
+ * where GTK lays out in 90 dpi pixels and draws at the screen's
+ * resolution; otherwise 1.
+ */
+int
+gdk_riscos_scale_factor (void)
+{
+  return _gdk_riscos_server_get_scale ();
+}
+
+/**
+ * gdk_riscos_wimp_sprite_scaled:
+ * @name: a sprite in the Wimp's pool
+ * @scale: 1, or 2 for GDK scale 2's resolution
+ *
+ * As gdk_riscos_wimp_sprite(), but @scale times as many pixels each way
+ * when @scale is GDK's scale factor: a 180 dpi sprite at its own size, a
+ * 90 dpi one doubled pixel for pixel (as the Wimp shows it). For a CSS
+ * -gtk-scaled() image's second picture.
+ */
+GdkPixbuf *
+gdk_riscos_wimp_sprite_scaled (const char *name, int scale)
+{
+  GdkPixbuf *pb;
+  int old = hires;
+
+  hires = scale == 2 && _gdk_riscos_server_get_scale () == 2;
+  pb = gdk_riscos_wimp_sprite (name);
+  hires = old;
+  return pb;
+}
+
+/**
+ * gdk_riscos_wimp_tool_sprite_scaled:
+ *
+ * As gdk_riscos_wimp_sprite_scaled() for a window border (tool) sprite:
+ * at scale 2 the Tools file's 180 dpi set ("uicon11") if it has one.
+ */
+GdkPixbuf *
+gdk_riscos_wimp_tool_sprite_scaled (const char *name, int scale)
+{
+  GdkPixbuf *pb;
+  int old = hires;
+
+  hires = scale == 2 && _gdk_riscos_server_get_scale () == 2;
+  pb = gdk_riscos_wimp_tool_sprite (name);
+  hires = old;
+  return pb;
 }

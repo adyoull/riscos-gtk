@@ -64,6 +64,7 @@ gdk_riscos_display_init (GdkRiscosDisplay *display)
                                    NULL);
   gdk_monitor_set_manufacturer (display->monitor, "browser");
   gdk_monitor_set_model (display->monitor, "0");
+  gdk_monitor_set_scale_factor (display->monitor, _gdk_riscos_server_get_scale ());
 }
 
 static void

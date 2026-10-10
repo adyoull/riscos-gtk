@@ -124,7 +124,10 @@ struct _GdkRiscosServer {
 
   guint32 next_serial;
   int task;                   /* Wimp task handle */
-  int xeig, yeig, log2bpp, mode_flags;
+  /* xeig, yeig: OS units per GDK pixel, as eigen factors. GDK pixels are
+     the screen's pixels times scale (1, or 2 in an EX0 EY0 mode: see
+     read_screen); dev_xeig, dev_yeig are the screen's own. */
+  int xeig, yeig, dev_xeig, dev_yeig, scale, log2bpp, mode_flags;
   gboolean sprite_logged;
   /* the open Wimp menu (riscos-gtk's GtkMenu replacement, gtkmenu-riscos.c) */
   int *menu_block;
@@ -223,11 +226,39 @@ read_screen (GdkRiscosServer *server)
   r.r[1] = (int) vals;
   swi (OS_ReadVduVariables, &r);
   server->mode_flags = vals[0];
-  server->xeig = vals[1];
-  server->yeig = vals[2];
+  server->dev_xeig = vals[1];
+  server->dev_yeig = vals[2];
   server->log2bpp = vals[3];
-  server->screen_w = vals[4] + 1;
-  server->screen_h = vals[5] + 1;
+  /* An EX0 EY0 mode (180 dpi: one OS unit a pixel) gets GDK scale 2, so
+     GTK lays its windows out in 90 dpi pixels, as on the usual EX1 EY1
+     desktop, and draws them at the screen's resolution: text and widgets
+     are their usual size, and sharp. Decided once, when the program
+     starts (GTK's layout follows it); a later mode change keeps it, and
+     windows stay the right size because GDK pixels are converted to OS
+     units with xeig and yeig. RISCOS_GTK_SCALE=1 or 2 overrides. */
+  if (server->scale == 0)
+    server->scale = _gdk_riscos_scale_factor ();
+  server->xeig = server->dev_xeig + (server->scale == 2);
+  server->yeig = server->dev_yeig + (server->scale == 2);
+  server->screen_w = (vals[4] + 1) / server->scale;
+  server->screen_h = (vals[5] + 1) / server->scale;
+}
+
+/* A backing surface's size in GDK pixels (its device scale undone) */
+static int
+surface_w (cairo_surface_t *s)
+{
+  double sx = 1, sy = 1;
+  cairo_surface_get_device_scale (s, &sx, &sy);
+  return (int) (cairo_image_surface_get_width (s) / sx + 0.5);
+}
+
+static int
+surface_h (cairo_surface_t *s)
+{
+  double sx = 1, sy = 1;
+  cairo_surface_get_device_scale (s, &sx, &sy);
+  return (int) (cairo_image_surface_get_height (s) / sy + 0.5);
 }
 
 static int
@@ -713,7 +744,7 @@ paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface)
 static void
 paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x)
 {
-  int sw = cairo_image_surface_get_width (surface), sh = cairo_image_surface_get_height (surface);
+  int sw = surface_w (surface), sh = surface_h (surface);
   int gw = grip_width (server, w), gh = server->grip_h;
   int y = MIN (grip_top (server, w), sh - gh);
   cairo_t *cr;
@@ -851,9 +882,10 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
 {
   _kernel_swi_regs r;
   void *area = w->surface ? cairo_surface_get_user_data (w->surface, &_gdk_riscos_sprite_key) : NULL;
-  int sw = w->surface ? cairo_image_surface_get_width (w->surface) << server->xeig : 0;
-  int sh = w->surface ? cairo_image_surface_get_height (w->surface) << server->yeig : 0;
-  int pxw = 1 << server->xeig, pxh = 1 << server->yeig;
+  /* the sprite's size on screen (OS units), and one screen pixel */
+  int sw = w->surface ? cairo_image_surface_get_width (w->surface) << server->dev_xeig : 0;
+  int sh = w->surface ? cairo_image_surface_get_height (w->surface) << server->dev_yeig : 0;
+  int pxw = 1 << server->dev_xeig, pxh = 1 << server->dev_yeig;
 
   while (more)
     {
@@ -887,7 +919,7 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
               r.r[1] = (int) a;
               r.r[2] = (int) ((char *) a + a[2]);
               r.r[3] = ox + (w->width << server->xeig);
-              r.r[4] = oy - (cairo_image_surface_get_height (w->strip_surface) << server->yeig);
+              r.r[4] = oy - (cairo_image_surface_get_height (w->strip_surface) << server->dev_yeig);
               r.r[5] = 0;
               swi (OS_SpriteOp, &r);
             }
@@ -1260,7 +1292,10 @@ _gdk_riscos_server_new (const char *display, GError **error)
   g_printerr ("riscos-gtk: task \"%s\", screen %dx%d, %d bpp %s, eig %d,%d\n",
               name, server->screen_w, server->screen_h, 1 << server->log2bpp,
               (server->mode_flags & MODEFLAG_TRGB) ? "TRGB" : "TBGR",
-              server->xeig, server->yeig);
+              server->dev_xeig, server->dev_yeig);
+  if (server->scale != 1)
+    g_printerr ("riscos-gtk: GDK scale %d (%d dpi screen: GTK lays out in 90 dpi pixels)\n",
+                server->scale, 180 >> server->dev_xeig);
   if (server->log2bpp < 4)
     g_warning ("riscos-gtk: the desktop is %d bpp; GTK windows need a 16 or 32 bpp mode",
                1 << server->log2bpp);
@@ -1633,8 +1668,8 @@ trgb_selector[] = {
   -1
 };
 
-cairo_surface_t *
-_gdk_riscos_server_create_surface (int width, int height)
+static cairo_surface_t *
+create_surface_dev (int width, int height)
 {
   GdkRiscosServer *server = the_server;
   int bytes = 16 + 44 + width * height * 4;
@@ -1662,8 +1697,8 @@ _gdk_riscos_server_create_surface (int width, int height)
   trgb_selector[6] = swap ? 0 : MODEFLAG_TRGB;
   trgb_selector[1] = width;
   trgb_selector[2] = height;
-  trgb_selector[10] = server ? server->xeig : 1;
-  trgb_selector[12] = server ? server->yeig : 1;
+  trgb_selector[10] = server ? server->dev_xeig : 1;
+  trgb_selector[12] = server ? server->dev_yeig : 1;
   r.r[0] = 256 + 15;               /* create sprite */
   r.r[1] = (int) area;
   r.r[2] = (int) "gtk";
@@ -1704,6 +1739,27 @@ _gdk_riscos_server_create_surface (int width, int height)
   return surface;
 }
 
+/* A backing surface for a width x height (GDK pixels) window: a sprite at
+   the screen's resolution, width x scale by height x scale pixels, with
+   cairo's device scale set so that GTK draws in GDK pixels */
+cairo_surface_t *
+_gdk_riscos_server_create_surface (int width, int height)
+{
+  int scale = the_server ? the_server->scale : 1;
+  cairo_surface_t *surface = create_surface_dev (MAX (width, 1) * scale, MAX (height, 1) * scale);
+
+  if (scale != 1)
+    cairo_surface_set_device_scale (surface, scale, scale);
+  return surface;
+}
+
+/* GDK's scale factor for windows (gdkwindow-riscos.c, gdkscreen-riscos.c) */
+int
+_gdk_riscos_server_get_scale (void)
+{
+  return the_server && the_server->scale ? the_server->scale : _gdk_riscos_scale_factor ();
+}
+
 void
 _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
                                   cairo_surface_t *surface)
@@ -1727,8 +1783,8 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
   cairo_surface_flush (surface);
   if (has_grip (server, w) && w->strip == 0)
     paint_grip (server, w, surface);
-  width = cairo_image_surface_get_width (surface);
-  height = cairo_image_surface_get_height (surface);
+  width = surface_w (surface);
+  height = surface_h (surface);
   sync_sprite (surface);
   block[0] = w->handle;
   block[1] = 0;
@@ -1781,7 +1837,7 @@ void
 _gdk_riscos_server_window_set_strip (GdkRiscosServer *server, gint id, cairo_surface_t *image)
 {
   RiscosWindow *w = window_by_id (server, id);
-  int width = image ? cairo_image_surface_get_width (image) : 0, old;
+  int width = image ? surface_w (image) : 0, old;
   _kernel_swi_regs r;
 
   if (w == NULL || w->is_temp)

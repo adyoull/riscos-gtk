@@ -76,43 +76,78 @@ remove_files (void)
     g_rmdir (dir);
 }
 
-/* Write pb (taken) as file.png; its file URI (and size), or NULL */
+/* Write pb (taken) as name.png, and pb2 (taken, or NULL) as name@2.png:
+   the picture for GDK scale 2 (an EX0 EY0, 180 dpi, mode), twice the
+   pixels. Returns the CSS image (url("...") or, with pb2,
+   -gtk-scaled(url("..."), url("...@2"))) and pb's size, or NULL. */
 static char *
-pixbuf_uri (GdkPixbuf *pb, const char *name, int *w, int *h)
+save_png (GdkPixbuf *pb, const char *name)
 {
   char *file, *uri;
 
-  if (pb == NULL)
-    return NULL;
   if (dir == NULL)
     {
       dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
       if (dir == NULL)
-        {
-          write_failed++;
-          g_object_unref (pb);
-          return NULL;
-        }
+        return NULL;
       files = g_ptr_array_new_with_free_func (g_free);
       atexit (remove_files);
     }
   file = g_strdup_printf ("%s/%s.png", dir, name);
   if (!gdk_pixbuf_save (pb, file, "png", NULL, NULL))
     {
-      write_failed++;
       g_free (file);
-      g_object_unref (pb);
       return NULL;
     }
-  *w = gdk_pixbuf_get_width (pb);
-  *h = gdk_pixbuf_get_height (pb);
-  g_object_unref (pb);
   g_ptr_array_add (files, file);
   uri = g_filename_to_uri (file, NULL, NULL);
   return uri;
 }
 
-/* A sprite from the Wimp's sprite pool as a PNG */
+static char *
+pixbuf_uri (GdkPixbuf *pb, GdkPixbuf *pb2, const char *name, int *w, int *h)
+{
+  char *u1, *u2 = NULL, *css;
+
+  if (pb == NULL)
+    {
+      if (pb2)
+        g_object_unref (pb2);
+      return NULL;
+    }
+  u1 = save_png (pb, name);
+  if (u1 == NULL)
+    write_failed++;
+  if (u1 && pb2)
+    {
+      char *n2 = g_strconcat (name, "@2", NULL);
+      u2 = save_png (pb2, n2);
+      g_free (n2);
+    }
+  *w = gdk_pixbuf_get_width (pb);
+  *h = gdk_pixbuf_get_height (pb);
+  g_object_unref (pb);
+  if (pb2)
+    g_object_unref (pb2);
+  if (u1 == NULL)
+    return NULL;
+  css = u2 ? g_strdup_printf ("-gtk-scaled(url(\"%s\"), url(\"%s\"))", u1, u2)
+           : g_strdup_printf ("url(\"%s\")", u1);
+  g_free (u1);
+  g_free (u2);
+  return css;
+}
+
+/* The second picture for GDK scale 2, or NULL at scale 1 */
+static GdkPixbuf *
+hires_sprite (const char *name, gboolean tool)
+{
+  if (gdk_riscos_scale_factor () != 2)
+    return NULL;
+  return tool ? gdk_riscos_wimp_tool_sprite_scaled (name, 2) : gdk_riscos_wimp_sprite_scaled (name, 2);
+}
+
+/* A sprite from the Wimp's sprite pool as a CSS image */
 static char *
 sprite_uri (const char *name, int *w, int *h)
 {
@@ -120,10 +155,10 @@ sprite_uri (const char *name, int *w, int *h)
   pool_asked++;
   if (pb)
     pool_found++;
-  return pixbuf_uri (pb, name, w, h);
+  return pixbuf_uri (pb, pb ? hires_sprite (name, FALSE) : NULL, name, w, h);
 }
 
-/* A window border (tool) sprite as a PNG (files t_NAME.png) */
+/* A window border (tool) sprite as a CSS image (files t_NAME.png) */
 static char *
 tool_uri (const char *name, int *w, int *h)
 {
@@ -133,7 +168,7 @@ tool_uri (const char *name, int *w, int *h)
   tool_asked++;
   if (pb)
     tool_found++;
-  uri = pixbuf_uri (pb, file, w, h);
+  uri = pixbuf_uri (pb, pb ? hires_sprite (name, TRUE) : NULL, file, w, h);
   g_free (file);
   return uri;
 }
@@ -182,25 +217,25 @@ scrollbar_rules (GString *css, gboolean vertical)
     "scrollbar.%s button { min-width: %dpx; min-height: %dpx; padding: 0; border: none;"
     " background-color: transparent; background-repeat: no-repeat; background-position: center;"
     " -gtk-icon-source: none; }\n"
-    "scrollbar.%s button.up { background-image: url(\"%s\"); }\n"
-    "scrollbar.%s button.down { background-image: url(\"%s\"); }\n",
+    "scrollbar.%s button.up { background-image: %s; }\n"
+    "scrollbar.%s button.down { background-image: %s; }\n",
     o, w[UP], h[UP], o, u[UP], o, u[DOWN]);
   if (u[PUP] && u[PDOWN])
     g_string_append_printf (css,
-      "scrollbar.%s button.up:active { background-image: url(\"%s\"); }\n"
-      "scrollbar.%s button.down:active { background-image: url(\"%s\"); }\n",
+      "scrollbar.%s button.up:active { background-image: %s; }\n"
+      "scrollbar.%s button.down:active { background-image: %s; }\n",
       o, u[PUP], o, u[PDOWN]);
 
   /* the well (the trough): its end caps over a repeated section */
   g_string_append_printf (css, "scrollbar.%s trough { background-color: transparent;"
                           " background-image: ", o);
   if (u[CAP1] && u[CAP2])
-    g_string_append_printf (css, "url(\"%s\"), url(\"%s\"), url(\"%s\");"
+    g_string_append_printf (css, "%s, %s, %s;"
                             " background-repeat: no-repeat, no-repeat, %s;"
                             " background-position: %s, %s, %s; }\n",
                             u[CAP1], u[CAP2], u[WELL], rep, start, end, start);
   else
-    g_string_append_printf (css, "url(\"%s\"); background-repeat: %s; }\n", u[WELL], rep);
+    g_string_append_printf (css, "%s; background-repeat: %s; }\n", u[WELL], rep);
 
   /* the slider: its end caps over a repeated middle; pressed while dragged */
   g_string_append_printf (css,
@@ -210,15 +245,15 @@ scrollbar_rules (GString *css, gboolean vertical)
     vertical ? "min-height" : "min-width",
     MAX (2 * across, (vertical ? h[BAR1] + h[BAR2] : w[BAR1] + w[BAR2]) + 2));
   if (u[BAR1] && u[BAR2])
-    g_string_append_printf (css, "url(\"%s\"), url(\"%s\"), url(\"%s\");"
+    g_string_append_printf (css, "%s, %s, %s;"
                             " background-repeat: no-repeat, no-repeat, %s;"
                             " background-position: %s, %s, %s; }\n",
                             u[BAR1], u[BAR2], u[BARMID], rep, start, end, start);
   else
-    g_string_append_printf (css, "url(\"%s\"); background-repeat: %s; }\n", u[BARMID], rep);
+    g_string_append_printf (css, "%s; background-repeat: %s; }\n", u[BARMID], rep);
   if (u[PBAR1] && u[PBAR2] && u[PBARMID] && u[BAR1] && u[BAR2])
     g_string_append_printf (css,
-      "scrollbar.%s slider:active { background-image: url(\"%s\"), url(\"%s\"), url(\"%s\"); }\n",
+      "scrollbar.%s slider:active { background-image: %s, %s, %s; }\n",
       o, u[PBAR1], u[PBAR2], u[PBARMID]);
 
 out:
@@ -240,10 +275,10 @@ toggle_rules (GString *css, const char *node, const char *off, const char *on)
          rules must not match it) */
       g_string_append_printf (css,
         "%s { min-width: %dpx; min-height: %dpx; }\n"
-        "%s:not(:indeterminate) { -gtk-icon-source: url(\"%s\"); }\n"
-        "%s:checked:not(:indeterminate) { -gtk-icon-source: url(\"%s\"); }\n"
-        "%s:disabled:not(:indeterminate) { -gtk-icon-source: url(\"%s\"); -gtk-icon-effect: dim; }\n"
-        "%s:checked:disabled:not(:indeterminate) { -gtk-icon-source: url(\"%s\"); -gtk-icon-effect: dim; }\n",
+        "%s:not(:indeterminate) { -gtk-icon-source: %s; }\n"
+        "%s:checked:not(:indeterminate) { -gtk-icon-source: %s; }\n"
+        "%s:disabled:not(:indeterminate) { -gtk-icon-source: %s; -gtk-icon-effect: dim; }\n"
+        "%s:checked:disabled:not(:indeterminate) { -gtk-icon-source: %s; -gtk-icon-effect: dim; }\n",
         node, MAX (w0, w1), MAX (h0, h1), node, u0, node, u1, node, u0, node, u1);
     }
   g_free (u0);
@@ -270,9 +305,9 @@ make_css (void)
     {
       g_string_append_printf (css,
         "combobox arrow { min-width: %dpx; min-height: %dpx; padding: 0; border: none;"
-        " background: none; -gtk-icon-source: url(\"%s\"); }\n"
+        " background: none; -gtk-icon-source: %s; }\n"
         "combobox button.combo:checked arrow { background: none; }\n"
-        "combobox:disabled arrow { -gtk-icon-source: url(\"%s\"); -gtk-icon-effect: dim; }\n",
+        "combobox:disabled arrow { -gtk-icon-source: %s; -gtk-icon-effect: dim; }\n",
         w, h, u, u);
       g_free (u);
     }
@@ -283,14 +318,14 @@ make_css (void)
     {
       g_string_append_printf (css,
         "spinbutton:not(.vertical) button.down, spinbutton:not(.vertical) button:disabled.down"
-        " { background-image: url(\"%s\"); }\n", u);
+        " { background-image: %s; }\n", u);
       g_free (u);
     }
   if ((u = sprite_uri ("right", &w, &h)))
     {
       g_string_append_printf (css,
         "spinbutton:not(.vertical) button.up, spinbutton:not(.vertical) button:disabled.up"
-        " { background-image: url(\"%s\"); }\n", u);
+        " { background-image: %s; }\n", u);
       g_free (u);
     }
 
@@ -299,7 +334,7 @@ make_css (void)
   scrollbar_rules (css, FALSE);
   if ((u = tool_uri ("blicon", &w, &h)))
     {
-      g_string_append_printf (css, "scrolledwindow junction { background-image: url(\"%s\");"
+      g_string_append_printf (css, "scrolledwindow junction { background-image: %s;"
                               " background-repeat: no-repeat; background-position: left top; }\n", u);
       g_free (u);
     }
@@ -691,8 +726,13 @@ render_node (GtkStyleContext *parent, GtkWidgetPath *path, const char *name, con
 static cairo_surface_t *
 strip_image (GtkWidget *top, int sw, int h)
 {
-  cairo_surface_t *image = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, sw, h);
-  cairo_t *cr = cairo_create (image);
+  /* at the window's scale (2 in a 180 dpi mode), as GTK draws the window */
+  int sc = MAX (gtk_widget_get_scale_factor (top), 1);
+  cairo_surface_t *image = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, sw * sc, h * sc);
+  cairo_t *cr;
+
+  cairo_surface_set_device_scale (image, sc, sc);
+  cr = cairo_create (image);
   GtkStyleContext *bar;
   GtkWidgetPath *path, *p;
   GtkBorder border;

@@ -58,6 +58,10 @@ release.
 - **Windows:** each GTK window is a Wimp window. GTK draws into a 32bpp
   sprite and the backend plots it.
 - **Colours:** right on both TRGB and TBGR screens.
+- **High resolution (EX0 EY0, 180 dpi) modes:** windows, text and
+  widgets are their usual size and drawn at the screen's resolution
+  (GDK scale 2). Desktop sprites are shown at 180 dpi where the desktop
+  has them, otherwise doubled.
 - **Placement:** new windows open centred on the screen; a program's
   next window opens 48 OS units down and to the right of the last.
 - **Toggle size:** works, and the window is laid out again at the new
@@ -184,6 +188,11 @@ release.
     wizard, the window opens by itself);
   - closing the main window quit it: it now hides the window and stays
     on the icon bar; Quit is on the icon bar menu and in File.
+- **Changing between a 180 dpi mode and an ordinary one** while a
+  program runs keeps its windows the right size, but it keeps the
+  sharpness it started with until it's restarted. The pointer shapes
+  riscos-gtk draws itself (resize arrows and the like) are half size in
+  a 180 dpi mode.
 - **RISC OS theme changes** take effect at the next start of a program
   (RISC OS themes only change on a reboot anyway).
 - **GTK's Page Setup dialogue** isn't replaced: the paper size comes from

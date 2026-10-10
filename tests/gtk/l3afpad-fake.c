@@ -827,9 +827,10 @@ next_step (void)
         for (i = 0; i < FAKE_MAX_WINDOWS; i++)
           if (fake_windows[i].handle == main_handle)
             {
-              int px = (fake_windows[i].x1 >> fake_screen.xeig) - 3;
-              int py = fake_screen.h - 1 - (fake_windows[i].y0 >> fake_screen.yeig) - 2;
-              grip_pixel = fake_screen.mem[py * fake_screen.w + px] & 0xFFFFFF;
+              /* GDK pixels: two OS units each (fake_screen_pixel) */
+              int px = fake_windows[i].x1 / 2 - 3;
+              int py = (fake_screen.h << fake_screen.yeig) / 2 - 1 - fake_windows[i].y0 / 2 - 2;
+              grip_pixel = fake_screen_pixel (px, py) & 0xFFFFFF;
             }
         grip_presses_before = presses;
         fake_dragbox_type = -1;
@@ -861,9 +862,10 @@ next_step (void)
           for (i = 0; i < FAKE_MAX_WINDOWS; i++)
             if (fake_windows[i].handle == main_handle && bar_left >= 0)
               {
-                int px = (fake_windows[i].x0 >> fake_screen.xeig) + bar_left + 1;
-                int py = fake_screen.h - 1 - (fake_windows[i].y0 >> fake_screen.yeig) - 2;
-                grip_under_bar = fake_screen.mem[py * fake_screen.w + px] & 0xFFFFFF;
+                /* GDK pixels: two OS units each (fake_screen_pixel) */
+                int px = fake_windows[i].x0 / 2 + bar_left + 1;
+                int py = (fake_screen.h << fake_screen.yeig) / 2 - 1 - fake_windows[i].y0 / 2 - 2;
+                grip_under_bar = fake_screen_pixel (px, py) & 0xFFFFFF;
               }
         }
       }

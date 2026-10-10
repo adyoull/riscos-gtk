@@ -61,6 +61,7 @@ gboolean           _gdk_riscos_server_window_translate         (GdkRiscosServer 
 								  cairo_region_t     *area,
 								  gint                dx,
 								  gint                dy);
+int                _gdk_riscos_server_get_scale                (void);
 cairo_surface_t   *_gdk_riscos_server_create_surface           (int                 width,
 								  int                 height);
 void               _gdk_riscos_server_window_update            (GdkRiscosServer  *server,

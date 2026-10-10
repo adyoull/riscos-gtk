@@ -335,6 +335,14 @@ ref_surface_destroyed (void *data)
   impl->ref_surface = NULL;
 }
 
+/* 2 in an EX0 EY0 (180 dpi) mode: GTK lays out in 90 dpi pixels and
+   draws at the screen's resolution (gdkriscos-server.c read_screen) */
+static gint
+gdk_window_riscos_get_scale_factor (GdkWindow *window)
+{
+  return _gdk_riscos_server_get_scale ();
+}
+
 static cairo_surface_t *
 gdk_window_riscos_ref_cairo_surface (GdkWindow *window)
 {
@@ -1801,6 +1809,7 @@ gdk_window_impl_riscos_class_init (GdkWindowImplRiscosClass *klass)
   object_class->finalize = gdk_window_impl_riscos_finalize;
 
   impl_class->ref_cairo_surface = gdk_window_riscos_ref_cairo_surface;
+  impl_class->get_scale_factor = gdk_window_riscos_get_scale_factor;
   impl_class->show = gdk_window_riscos_show;
   impl_class->hide = gdk_window_riscos_hide;
   impl_class->withdraw = gdk_window_riscos_withdraw;

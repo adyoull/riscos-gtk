@@ -110,7 +110,9 @@ _gdk_riscos_screen_size_changed (GdkScreen                       *screen,
   monitor = GDK_RISCOS_DISPLAY (riscos_screen->display)->monitor;
 
   gdk_monitor_set_size (monitor, msg->width, msg->height);
-  gdk_monitor_set_physical_size (monitor, msg->width * 25.4 / 96, msg->height * 25.4 / 96);
+  /* GDK pixels are 90 dpi (one per two OS units) */
+  gdk_monitor_set_physical_size (monitor, msg->width * 25.4 / 90, msg->height * 25.4 / 90);
+  gdk_monitor_set_scale_factor (monitor, _gdk_riscos_server_get_scale ());
 
   g_signal_emit_by_name (screen, "size-changed");
   toplevels = gdk_screen_get_toplevel_windows (screen);

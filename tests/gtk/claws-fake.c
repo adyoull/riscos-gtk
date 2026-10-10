@@ -222,18 +222,21 @@ dump_shot (const char *name)
 {
   char path[700];
   FILE *f;
-  int x, y;
+  int x, y, sc;
 
   if (!getenv ("CLAWS_SHOTS"))
     return;
   g_snprintf (path, sizeof path, "%s/shot-%s.ppm", outdir, name);
   if (!(f = fopen (path, "wb")))
     return;
-  fprintf (f, "P6\n1280 1024\n255\n");
-  for (y = 0; y < 1024; y++)
-    for (x = 0; x < 1280; x++)
+  /* the screen's own pixels: in an EX0 EY0 mode (FAKE_EIG=0) twice
+     as many each way as GDK's */
+  sc = getenv ("FAKE_EIG") && atoi (getenv ("FAKE_EIG")) == 0 ? 2 : 1;
+  fprintf (f, "P6\n%d %d\n255\n", 1280 * sc, 1024 * sc);
+  for (y = 0; y < 1024 * sc; y++)
+    for (x = 0; x < 1280 * sc; x++)
       {
-        unsigned int p = fake_screen_pixel (x, y);
+        unsigned int p = fake_bank_pixel (1, x, y);
         fputc (p & 0xFF, f);
         fputc ((p >> 8) & 0xFF, f);
         fputc ((p >> 16) & 0xFF, f);

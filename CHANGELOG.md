@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (2026-10-10)
+- **EX0 EY0 (180 dpi) screen modes.** GTK laid windows out in the
+  screen's pixels, so in a 180 dpi mode (one OS unit a pixel) everything
+  came out half its usual size. Now:
+  - In an EX0 EY0 mode GDK's scale factor is 2. GTK lays out in 90 dpi
+    pixels (two OS units each, as on the usual EX1 EY1 desktop) and draws
+    at the screen's resolution, so text and widgets are their usual size
+    and sharp. `RISCOS_GTK_SCALE=1` or `2` overrides; the Log says
+    "GDK scale 2".
+  - The server keeps the screen's own eigen factors for the backing
+    sprites (`dev_xeig`, `dev_yeig`) apart from GDK's (`xeig`, `yeig`).
+    Backing sprites are twice the pixels each way with cairo's device
+    scale set. The scale is decided when the program starts; a later
+    mode change keeps it, and windows stay the right size.
+  - The desktop's sprites are made at GDK pixel size (the "22" tool
+    sprites in a 180 dpi mode). The theme's CSS gives each a second
+    picture at the screen's resolution through `-gtk-scaled()`: the
+    180 dpi sprite where the desktop has one, otherwise the 90 dpi one
+    doubled pixel for pixel, as the Wimp shows it. New
+    `gdk_riscos_scale_factor`, `gdk_riscos_wimp_sprite_scaled` and
+    `gdk_riscos_wimp_tool_sprite_scaled`.
+  - The scroll bar strip's image is drawn at the window's scale; the
+    monitor reports its scale and a 90 dpi physical size.
+  - Not changed: the pointer shapes riscos-gtk draws itself (up to
+    32 pixels) are half size in a 180 dpi mode.
+- Tests: the fake screen at `FAKE_EIG=0` has twice the pixels each way,
+  and the test coordinates and `fake_screen_pixel` are in GDK pixels. The
+  whole suite passes at EIG 1 and at EIG 0. `make check` now also runs
+  hellotest and themetest-fake at EIG 0. The fake's `OS_ReadModeVariable`
+  returns a numbered mode's own eigen factors.
+- !L3afpad 0.20, !ClawsMail 0.9, GTKThemeTest 0.44.
+
 ## 3.24.41-riscos1.0-rc3 — public beta (2026-10-09)
 ClawsMail 0.8's functionality confirmed on the Pi, links opening in Iris
 included; this release is the public beta RC3.

@@ -18,7 +18,8 @@ GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_wimp_palette (guint32 rgb[16]);
 
 /* A sprite from the Wimp's sprite pool (e.g. "optoff") as an RGBA pixbuf
- * at screen pixel size, or NULL. */
+ * at GDK pixel size (screen pixels; 90 dpi pixels at GDK scale 2), or
+ * NULL. */
 GDK_AVAILABLE_IN_ALL
 GdkPixbuf *gdk_riscos_wimp_sprite  (const char *name);
 
@@ -26,6 +27,15 @@ GdkPixbuf *gdk_riscos_wimp_sprite  (const char *name);
  * "vbarmid"; names as in the PRMs) as an RGBA pixbuf, or NULL. */
 GDK_AVAILABLE_IN_ALL
 GdkPixbuf *gdk_riscos_wimp_tool_sprite (const char *name);
+
+/* GDK's scale factor (2 in an EX0 EY0, 180 dpi, mode), and the sprites
+   at scale times the pixels for that scale (CSS -gtk-scaled images) */
+GDK_AVAILABLE_IN_ALL
+int        gdk_riscos_scale_factor (void);
+GDK_AVAILABLE_IN_ALL
+GdkPixbuf *gdk_riscos_wimp_sprite_scaled      (const char *name, int scale);
+GDK_AVAILABLE_IN_ALL
+GdkPixbuf *gdk_riscos_wimp_tool_sprite_scaled (const char *name, int scale);
 
 /* M4: RISC OS file transfer (Save boxes, files dropped on windows).
  * Paths: RISC OS form "ADFS::HD4.$.Docs.Report/txt" <-> UnixLib form

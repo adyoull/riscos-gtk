@@ -246,4 +246,7 @@ void _gdk_riscos_cursor_display_finalize (GdkDisplay *display);
 
 #define GDK_WINDOW_IS_RISCOS(win)   (GDK_IS_WINDOW_IMPL_RISCOS (((GdkWindow *)win)->impl))
 
+/* gdkwimptheme-riscos.c: GDK scale (2 in an EX0 EY0 mode) */
+int _gdk_riscos_scale_factor (void);
+
 #endif /* __GDK_PRIVATE_RISCOS_H__ */

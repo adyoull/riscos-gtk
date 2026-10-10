@@ -149,6 +149,12 @@ GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 run themetest-fake "$HA" "$TT"
+# again in an EX0 EY0 (180 dpi) mode: GDK scale 2 (FAKE_EIG=0 doubles the
+# fake screen's pixels; tests work in GDK pixels)
+echo; echo "(EX0 EY0, 180 dpi: GDK scale 2)"
+FAKE_EIG=0 run hellotest "$HA" "$REPO_DIR/out/hellotest-eig0.ppm"
+TT0=$REPO_DIR/out/themetest-eig0; rm -rf "$TT0"; mkdir -p "$TT0"
+FAKE_EIG=0 run themetest-fake "$HA" "$TT0"
 run edittest-fake "$HA" "$ET"
 run toolsprites-fake
 run printvec-fake

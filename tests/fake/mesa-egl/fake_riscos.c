@@ -110,6 +110,18 @@ void fake_set_screen(int w, int h, int trgb, int log2bpp)
     fake_screen.w = w;
     fake_screen.h = h;
     fake_screen.xeig = fake_screen.yeig = 1;
+    /* FAKE_EIG=0: an EX0 EY0 (180 dpi) mode, 1 OS unit a pixel. The screen
+       is made twice as many pixels each way, so it's the same size (in OS
+       units, and in GDK pixels at GDK scale 2) as the test asked for, and
+       its coordinates and fake_screen_pixel stay in GDK pixels. */
+    if (getenv("FAKE_EIG"))
+        fake_screen.xeig = fake_screen.yeig = atoi(getenv("FAKE_EIG"));
+    if (fake_screen.xeig == 0 && fake_screen.yeig == 0) {
+        w *= 2;
+        h *= 2;
+        fake_screen.w = w;
+        fake_screen.h = h;
+    }
     fake_screen.log2bpp = log2bpp;
     fake_screen.flags = trgb ? 0x4000 : 0;
     fake_screen.line_length = w * 4;
@@ -151,8 +163,14 @@ unsigned int fake_bank_pixel(int bank, int x, int y_from_top)
                            (size_t) y_from_top * (fake_screen.line_length / 4) + x];
 }
 
+/* The pixel at GDK pixel x, y: the screen's pixel, or in an EX0 EY0 mode
+   (GDK scale 2) the top left one of the four */
 unsigned int fake_screen_pixel(int x, int y_from_top)
 {
+    if (fake_screen.xeig == 0 && fake_screen.yeig == 0) {
+        x *= 2;
+        y_from_top *= 2;
+    }
     return fake_screen.mem[(size_t) y_from_top * (fake_screen.line_length / 4) + x];
 }
 
@@ -613,13 +631,15 @@ static int start_redraw(int *block, fake_window_t *w, const int *wa)
     return 1;
 }
 
-/* Put the pointer at pixel x, y of the newest window's visible area. */
+/* Put the pointer at GDK pixel x, y of the newest window's visible area:
+   two OS units a pixel (the screen's pixels in the usual EX1 EY1 mode;
+   in an EX0 EY0 mode GDK's pixels are two screen pixels, at scale 2) */
 static void pointer_to(int x, int y)
 {
     fake_window_t *w = find_window(TARGET_WINDOW);
     if (!w) return;
-    fake_pointer[0] = w->x0 + (x << fake_screen.xeig);
-    fake_pointer[1] = w->y1 - (y << fake_screen.yeig) - 1;
+    fake_pointer[0] = w->x0 + x * 2;
+    fake_pointer[1] = w->y1 - y * 2 - 1;
 }
 
 /* The window under the pointer: the frontmost one there (the last
@@ -867,8 +887,12 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         switch (r.r[1]) {
         case 0:  r.r[2] = flags; break;
         case 9:  r.r[2] = log2bpp; break;
-        case 4:  r.r[2] = fake_screen.xeig; break;      /* the current mode's */
-        case 5:  r.r[2] = fake_screen.yeig; break;
+        /* the current mode's (-1), or a numbered mode's: modes below 256
+           are the old fixed modes, 2 OS units a pixel across (EX1), and
+           EY2 for the rectangular-pixel ones (0-2, 8-17, 24) */
+        case 4:  r.r[2] = r.r[0] == -1 || (unsigned) r.r[0] >= 256 ? fake_screen.xeig : 1; break;
+        case 5:  r.r[2] = r.r[0] == -1 || (unsigned) r.r[0] >= 256 ? fake_screen.yeig :
+                          (r.r[0] <= 2 || (r.r[0] >= 8 && r.r[0] <= 17) || r.r[0] == 24) ? 2 : 1; break;
         case 11: r.r[2] = fake_screen.w - 1; break;
         case 12: r.r[2] = fake_screen.h - 1; break;
         default: r.r[2] = 0;
