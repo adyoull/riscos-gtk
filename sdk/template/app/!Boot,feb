@@ -1,0 +1,6 @@
+| !Boot for !@NAME@: its icons, and the file types it loads
+Set @NAME@$Dir <Obey$Dir>
+IconSprites <Obey$Dir>.!Sprites
+| Double-clicking a Text file runs Edit; to make it start this program
+| instead, uncomment the next line (and claim the type in hello.c)
+| Set Alias$@RunType_FFF /<@NAME@$Dir>.!Run %%*0

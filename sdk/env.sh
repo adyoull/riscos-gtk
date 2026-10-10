@@ -1,0 +1,57 @@
+# riscos-gtk devkit: source this from bash to build GTK 3 programs for
+# RISC OS with riscos-crossdev.
+#
+#   export RCD_DIR=/path/to/riscos-crossdev-ul5033
+#   . /path/to/riscos-gtk-sdk/env.sh
+#
+# RCD_DIR is riscos-crossdev v1.3 with UnixLib 5.0.3.3 added (the
+# devkit's libraries are built against 5.0.3.3; see docs/README.md).
+# Afterwards:
+#   $CC $RISCOS_GTK_CFLAGS app.c -o app $RISCOS_GTK_LIBS
+#   pkg-config --cflags --libs gtk+-3.0       (the devkit's, not the host's)
+#   ./configure --host=arm-riscos-gnueabihf   (autotools: CC and
+#                                              PKG_CONFIG_* are set)
+#   meson setup build --cross-file "$(riscos-gtk-meson-cross)"
+#   cmake -DCMAKE_TOOLCHAIN_FILE=$RISCOS_GTK_SDK/share/riscos-gtk/riscos-gtk.cmake
+# MIT licence.
+RISCOS_GTK_SDK=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+case $RISCOS_GTK_SDK in *" "*)
+  echo "riscos-gtk env.sh: the devkit's path must not contain spaces" >&2
+  return 1 2>/dev/null || exit 1;;
+esac
+[ -n "${RCD_DIR:-}" ] && [ -f "$RCD_DIR/env.sh" ] || {
+  echo "riscos-gtk env.sh: set RCD_DIR to riscos-crossdev v1.3 (with UnixLib 5.0.3.3) first" >&2
+  return 1 2>/dev/null || exit 1; }
+. "$RCD_DIR/env.sh"
+[ -x "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-gcc" ] || {
+  echo "riscos-gtk env.sh: no toolchain in $RISCOS_TOOLCHAIN: run 'make prebuilt' in $RCD_DIR" >&2
+  return 1 2>/dev/null || exit 1; }
+
+case $(sha256sum "$RISCOS_TOOLCHAIN/arm-riscos-gnueabihf/lib/libunixlib.a" 2>/dev/null | cut -c1-64) in
+  e24f16c3f4612aae3871ceff521ab86b0d3ac4cc689d734e0e4085d02c774adf) RISCOS_GTK_UNIXLIB=5.0.3.3 ;;
+  *) RISCOS_GTK_UNIXLIB=other
+     echo "riscos-gtk env.sh: warning: this toolchain's UnixLib isn't 5.0.3.3; the devkit's" >&2
+     echo "  libraries need it (riscos-gtk's build/unixlib-overlay.sh adds it to crossdev 1.3)" >&2 ;;
+esac
+
+RISCOS_GTK_SYSROOT=$RISCOS_GTK_SDK/sysroot
+RISCOS_GTK_PREFIX=$RISCOS_GTK_SYSROOT/riscos-gtk
+export RISCOS_GTK_SDK RISCOS_GTK_SYSROOT RISCOS_GTK_PREFIX RISCOS_GTK_UNIXLIB
+
+# The devkit's bin first: compiler wrappers (they drop -pthread, which
+# GCCSDK doesn't take; UnixLib's threads need no flag) and pkg-config
+export PATH="$RISCOS_GTK_SDK/bin:$PATH"
+export CC=arm-riscos-gnueabihf-gcc CXX=arm-riscos-gnueabihf-g++
+export AR=arm-riscos-gnueabihf-ar RANLIB=arm-riscos-gnueabihf-ranlib STRIP=arm-riscos-gnueabihf-strip
+export PKG_CONFIG=pkg-config
+export PKG_CONFIG_LIBDIR="$RISCOS_GTK_PREFIX/lib/pkgconfig:$RISCOS_GTK_PREFIX/share/pkgconfig"
+export PKG_CONFIG_SYSROOT_DIR=$RISCOS_GTK_SYSROOT
+unset PKG_CONFIG_PATH
+
+export CFLAGS="${CFLAGS:-$RISCOS_CFLAGS}" CXXFLAGS="${CXXFLAGS:-$RISCOS_CFLAGS}"
+export LDFLAGS="${LDFLAGS:--static}"
+export RISCOS_GTK_CFLAGS="$RISCOS_CFLAGS $(pkg-config --cflags gtk+-3.0)"
+# (pkg-config repeats -L and -lz -lm many times over: keep one -L, and
+# drop a library named twice running)
+export RISCOS_GTK_LIBS="-static $(pkg-config --libs --static gtk+-3.0 | tr ' ' '\n' |
+  awk 'NF && !($1 ~ /^-L/ && seenL[$1]++) && $1 != last { printf "%s ", $1; last = $1 }')"

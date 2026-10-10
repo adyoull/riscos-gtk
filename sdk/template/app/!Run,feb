@@ -1,0 +1,18 @@
+| !Run for !@NAME@ - built with the riscos-gtk devkit
+| A UnixLib program converted to Absolute (AIF), statically linked with
+| GTK 3: it needs SharedUnixLibrary and ARMEABISupport (PackMan).
+| riscos-gtk-package fills in @NAME@, @PROGRAM@ and @SLOT@.
+Set @NAME@$Dir <Obey$Dir>
+IconSprites <@NAME@$Dir>.!Sprites
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error @NAME@ needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error @NAME@ needs the ARMEABISupport module. Install it with PackMan.
+RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System:Modules.PThrTicker
+RMEnsure PThreadTicker 0.01 RMLoad <@NAME@$Dir>.PThrTicker
+| The Log and the font cache go in the scrap directory
+CDir <Wimp$ScrapDir>.@NAME@
+| The WimpSlot holds the program; the C heap goes in a dynamic area
+WimpSlot -min @SLOT@K -max @SLOT@K
+| %*0: a file double-clicked in the Filer (riscos_gtk_app_init converts it)
+Run <@NAME@$Dir>.@PROGRAM@ %*0

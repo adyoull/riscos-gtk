@@ -289,3 +289,33 @@ no scroll bar at their right edge.
 Changed again (a scroll bar must run to the bottom right edge to
 claim the grip): only a vertical bar running into the bottom
 right corner takes the grip; otherwise the window has the outside bar.
+
+## The devkit (M5, 2026-10-10)
+The devkit is for cross-compiling only: riscos-crossdev 1.3 with the
+UnixLib 5.0.3.3 overlay, the toolchain the releases use. A native GCC
+on RISC OS has its own versions and memory limits, and would need its
+own build and tests.
+
+- **Contents:** the first devkit has the SDK, the API reference and
+  porting guide, and a template program.
+- **Packaging:** the template needs packaging, so `riscos-gtk-package`
+  is a small script and not a separate tool. It does what
+  `build/build-app.sh` does for riscos-gtk's own programs.
+- **Layout:** the libraries keep their built prefix, `/riscos-gtk`,
+  under `sysroot/`, and pkg-config adds the devkit's path back
+  (`PKG_CONFIG_SYSROOT_DIR`). So the .pc files are used unchanged and no
+  path has to be rewritten when the devkit is unpacked.
+- **Size:** the libraries are stripped of debug information, which
+  takes the devkit from 83 MB to 18 MB compressed.
+- **`app.h`:** the start-up helper is header-only (static inline), not
+  part of libgtk. A program can read and change it, and it needs
+  nothing new in GTK.
+- **GSettings:** GLib registers its memory and keyfile backends at the
+  same priority and picks memory. Without D-Bus there is no dconf, so a
+  program's GSettings would be forgotten. `app.h` sets
+  `GSETTINGS_BACKEND=keyfile` and points the XDG user directories at
+  `<Choices$Write>.Name`.
+- **Licences:** the libraries are LGPL and statically linked. A devkit
+  is published only with a release, beside that release's source
+  archive. Packaged programs carry `LicenceLGPL` and a `Source` file
+  naming it.

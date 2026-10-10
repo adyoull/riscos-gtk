@@ -7,10 +7,12 @@
 #   make l3afpad    out/L3afpad-<v>.zip       (the programs; versions in
 #   make themetest  out/GTKThemeTest-<v>.zip   build/build-<program>.sh)
 #   make claws      out/ClawsMail-<v>.zip
+#   make sdk        out/sdk/riscos-gtk-sdk-<RELEASE or dev-commit>.tar.gz:
+#                   the devkit for other developers (build/make-sdk.sh)
 #   make check      the same tests as ARM Linux code under qemu-arm-aligntrap
 #   make release RELEASE=3.24.41-riscos1.0-rc4
-#                   out/release/<RELEASE>/: the programs, the complete
-#                   source and MANIFEST.txt (build/make-release.sh)
+#                   out/release/<RELEASE>/: the programs, the devkit, the
+#                   complete source and MANIFEST.txt (build/make-release.sh)
 #   make clean      remove the build products (not the downloads)
 export RCD_DIR ?= $(abspath ../riscos-crossdev)
 
@@ -41,7 +43,10 @@ check:
 release: deps
 	build/make-release.sh $(RELEASE)
 
+sdk: deps
+	build/make-sdk.sh $(RELEASE)
+
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps tests hello l3afpad themetest claws check release clean
+.PHONY: all deps tests hello l3afpad themetest claws check release sdk clean

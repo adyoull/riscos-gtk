@@ -32,7 +32,7 @@ AcornSSL; HTML mail; links open in Iris or NetSurf). **!GTKThemeTest** shows eve
 | M2 | `gdk/riscos/`: windows, redraw through a sprite, the Wimp_PollIdle main loop | done; tested on the Pi (GTKHello) |
 | M3 | Keyboard, Wimp menus, pointer shapes, clipboard, drag and drop, scroll wheel | done; tested on the Pi (GTKThemeTest) |
 | M4 | Save/Open boxes, the icon bar, printing, packaging; real programs | done: !L3afpad and !ClawsMail, both tested on the Pi |
-| M5 | Next: a devkit for other developers' GTK programs; AbiWord or Gnumeric | — |
+| M5 | The devkit for other developers' GTK programs (`sdk/`, `make sdk`): headers, static libraries, pkg-config, packaging, a template program, API reference and porting guide; then AbiWord or Gnumeric | devkit built; tested by building the template from the devkit alone (make, meson, CMake) and on the fake desktop |
 
 Design decisions and why: [docs/DECISIONS.md](docs/DECISIONS.md). What
 UnixLib does and doesn't do that matters here:
@@ -59,7 +59,7 @@ The full version, with the host packages and the UnixLib overlay, is in
 
 | Path | What |
 |---|---|
-| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-app.sh` (packaging), `build-l3afpad.sh`, `build-claws.sh`, `build-themetest.sh`, `make-release.sh`, `build-linuxarm.sh` (the QEMU tests) |
+| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-app.sh` (packaging), `build-l3afpad.sh`, `build-claws.sh`, `build-themetest.sh`, `make-release.sh`, `make-sdk.sh` (the devkit), `build-linuxarm.sh` (the QEMU tests) |
 | `apps/` | The programs' RISC OS parts: `l3afpad/`, `claws/` (start-up, icon bar, app files) |
 | `cairo/` | riscos-gtk's addition to cairo (printing as Draw paths) |
 | `gtk/riscos/` | riscos-gtk's GTK sources: Wimp menus, the theme from the desktop, Save/Open and Print boxes, the icon bar |
@@ -69,8 +69,9 @@ The full version, with the host packages and the UnixLib overlay, is in
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
 | `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
-| `tests/gtk/` | hello.c (!GTKHello) and hellotest.c; themetest.c (!GTKThemeTest) with its fake-Wimp tests; l3afpad-fake.c, claws-fake.c (with `tests/claws/mailserver.py`) |
+| `tests/gtk/` | hello.c (!GTKHello) and hellotest.c; themetest.c (!GTKThemeTest) with its fake-Wimp tests; l3afpad-fake.c, claws-fake.c (with `tests/claws/mailserver.py`), template-fake.c (the devkit's template) |
 | `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |
+| `sdk/` | The devkit's own files: `env.sh`, `bin/` (compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross`), `include/riscos-gtk/app.h`, `docs/` (README, API, PORTING), `template/` (a small program to start from); `build/make-sdk.sh` puts them with the libraries |
 
 ## Licence
 

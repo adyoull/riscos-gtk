@@ -75,9 +75,27 @@ The packaging script (`build/build-app.sh`) adds these to every package:
    Set `SOURCE_URL` to the release page, so every package's `Source`
    names it: the GitHub release of adyoull/riscos-gtk,
    `https://github.com/adyoull/riscos-gtk/releases/tag/v<release>`.
-2. **Publish together, on one page:** the three zips, the source tar and
+2. **Publish together, on one page:** the three zips, the devkit
+   (`riscos-gtk-sdk-<release>.tar.gz`), the source tar and
    `MANIFEST.txt`.
 3. **Tag the commit** as `v<release>`. It is the commit `MANIFEST.txt`
    names.
 4. **Keep the source tar available for at least three years,** as the
    `Source` file promises.
+
+## The devkit
+
+The devkit (`build/make-sdk.sh`, made by `make release` too) gives other
+developers the libraries as static libraries, so it is under the same
+terms as the programs:
+
+- **It points to the source.** Its `VERSION` file and the `Source` file
+  it puts in each program name riscos-gtk's source archive for the same
+  release.
+- **Developers must pass the terms on.** Programs packaged with its
+  `riscos-gtk-package` carry `LicenceLGPL` and a `Source` file. The
+  devkit's README tells developers to make their own program's source,
+  or its object files, available for relinking.
+- **Development builds are different.** One made outside a release
+  (`dev-<commit>`) points to the commit on GitHub instead. Only publish
+  devkits made by `make release`.

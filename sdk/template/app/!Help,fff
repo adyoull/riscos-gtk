@@ -1,0 +1,18 @@
+@NAME@ @VERSION@
+================
+
+A small GTK 3 program for RISC OS, made from the riscos-gtk devkit's
+template.
+
+Click Select on its icon bar icon for a window. Click Menu over the
+window for its menu: File (Open, Save as, Quit) and Help (the riscos-gtk
+web site). Drop a Text file on the icon to load it.
+
+It needs RISC OS 5, a 16 or 32 bpp screen mode, and SharedUnixLibrary
+1.16 or later, ARMEABISupport and Iconv from PackMan.
+
+Problems are written to its Log, <Wimp$ScrapDir>.@NAME@.Log.
+
+Licences: this program's own code is under the MIT licence (Licence).
+GTK and its libraries are linked into it, under the LGPL (LicenceLGPL);
+Source says where their source is.

@@ -23,6 +23,7 @@ or adapted from other projects keep their original licence, listed below.
 | gumbo 0.12.0 (built by `build/build-claws.sh`, linked into !ClawsMail; not in this repository) | [gumbo-parser](https://codeberg.org/gumbo-parser/gumbo-parser), Google and contributors | Apache License 2.0 (its COPYING, shipped as LicenceGumbo) |
 | `tools/mkclawsicons.py` and the icons it draws (`apps/claws/app/share/claws-mail/themes/RISCOS`, including the `@2` pictures, `apps/claws/app/!Sprites` and `!Sprites11`) | Written for riscos-gtk: original icons in the style of the RISC OS desktop | MIT |
 | `tools/mkl3afpadsprites.py` | Written for riscos-gtk | MIT |
+| `sdk/*` (the devkit's `env.sh`, `bin/` scripts, `riscos-gtk/app.h`, CMake toolchain file, `Source` template, documentation and the template program with its app files), `build/make-sdk.sh`, `tools/mktemplatesprites.py` and the template's sprites | Written for riscos-gtk | MIT |
 | `apps/l3afpad/app/!Sprites11` (made by mkl3afpadsprites.py) | L3afpad's icon, `data/l3afpad_original.svg` (Tarot Osuji, Steven Honeyman) | GPL version 2 or later, as L3afpad |
 | `riscos/licences/LGPL-2.1.txt` | The GNU LGPL 2.1 text (Free Software Foundation), copied into every package as LicenceLGPL | Verbatim copying permitted |
 | `tests/claws/mailserver.py`, `tests/gtk/claws-fake.c`, `tests/gtk/claws-fake-claws.c` | Written for riscos-gtk | MIT |
@@ -36,6 +37,25 @@ or adapted from other projects keep their original licence, listed below.
 The build scripts' licence covers the scripts only. Programs and libraries
 built with them are not affected by it: their licences come from their
 own sources and the libraries they link (below).
+
+## The devkit
+
+`riscos-gtk-sdk-<release>.tar.gz` (build/make-sdk.sh) holds:
+
+- **The libraries below,** as static libraries with their headers. It
+  leaves out the ones only ClawsMail uses: libetpan, Nettle and gumbo.
+- **riscos-gtk's own devkit files,** under MIT.
+- **What an application is packaged with:**
+  - the RISCOS theme (MIT);
+  - Adwaita's icons (LGPL 3 or CC-BY-SA 3.0);
+  - the DejaVu fonts, with their licence;
+  - the LGPL text.
+
+PThreadTicker is copied into applications from riscos-crossdev's
+toolchain, with its own licence file. The libraries are LGPL and
+statically linked, so the devkit is published with riscos-gtk's source
+archive for the same release (docs/SOURCE-AND-LICENCES.md). The devkit's
+`docs/README.md` says what a developer must ship with a program.
 
 ## Libraries the build uses
 

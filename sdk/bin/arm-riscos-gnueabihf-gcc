@@ -1,0 +1,10 @@
+#!/bin/sh
+# riscos-gtk devkit: GCCSDK's gcc without -pthread (GCCSDK rejects it;
+# UnixLib's threads need no flag). Build systems add it for GLib's threads.
+# Needs RISCOS_TOOLCHAIN (set by the devkit's env.sh). MIT licence.
+[ -n "$RISCOS_TOOLCHAIN" ] || { echo "$0: source the riscos-gtk devkit's env.sh first" >&2; exit 1; }
+for a; do
+  shift
+  [ "$a" = -pthread ] || set -- "$@" "$a"
+done
+exec "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-gcc" "$@"

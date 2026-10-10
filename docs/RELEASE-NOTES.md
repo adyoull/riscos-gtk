@@ -260,6 +260,7 @@ code against a fake RISC OS and Wimp:
 | printvec-fake | 7 |
 | l3afpad-fake | 44 |
 | claws-fake | 36 |
+| template-fake (the devkit's template; at EIG 1 and EIG 0) | 9 + 9 |
 
 All pass at the RC commit.
 

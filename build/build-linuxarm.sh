@@ -70,6 +70,15 @@ python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.
 mkdir -p "$HA/share/glib-2.0/schemas"
 glib-compile-schemas --strict --targetdir="$HA/share/glib-2.0/schemas" "$STAGE/share/glib-2.0/schemas"
 
+# The devkit's template program (sdk/template/hello.c) on the fake Wimp
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -I"$REPO_DIR/sdk/include" \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/template-fake.c" \
+  -o "$REPO_DIR/out/template-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+TPL=$REPO_DIR/out/template-linuxarm
+rm -rf "$TPL"; mkdir -p "$TPL"
+
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/themetest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
@@ -156,6 +165,8 @@ FAKE_EIG=0 run hellotest "$HA" "$REPO_DIR/out/hellotest-eig0.ppm"
 TT0=$REPO_DIR/out/themetest-eig0; rm -rf "$TT0"; mkdir -p "$TT0"
 FAKE_EIG=0 run themetest-fake "$HA" "$TT0"
 run edittest-fake "$HA" "$ET"
+run template-fake "$HA" "$TPL"
+FAKE_EIG=0 run template-fake "$HA" "$TPL"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"

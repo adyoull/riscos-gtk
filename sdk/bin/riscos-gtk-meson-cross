@@ -1,0 +1,37 @@
+#!/bin/sh
+# riscos-gtk devkit: write a meson cross file for this devkit and toolchain
+# and print its name:
+#   meson setup build --cross-file "$(riscos-gtk-meson-cross)"
+# Needs the devkit's env.sh sourced. MIT licence.
+[ -n "$RISCOS_GTK_SDK" ] || { echo "$0: source the riscos-gtk devkit's env.sh first" >&2; exit 1; }
+F=${1:-$PWD/riscos-gtk-cross.txt}
+q() { printf "'%s'" "$1"; }
+args=$(for f in $RISCOS_CFLAGS; do printf "'%s', " "$f"; done)
+cat > "$F" <<EOT
+[binaries]
+c = $(q "$RISCOS_GTK_SDK/bin/arm-riscos-gnueabihf-gcc")
+cpp = $(q "$RISCOS_GTK_SDK/bin/arm-riscos-gnueabihf-g++")
+ar = $(q "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-ar")
+strip = $(q "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-strip")
+pkg-config = 'pkg-config'
+
+[properties]
+pkg_config_libdir = $(q "$PKG_CONFIG_LIBDIR")
+sys_root = $(q "$RISCOS_GTK_SYSROOT")
+needs_exe_wrapper = true
+
+[built-in options]
+c_args = [${args%, }]
+cpp_args = [${args%, }]
+c_link_args = ['-static']
+cpp_link_args = ['-static']
+default_library = 'static'
+prefer_static = true
+
+[host_machine]
+system = 'riscos'
+cpu_family = 'arm'
+cpu = 'cortex-a8'
+endian = 'little'
+EOT
+echo "$F"

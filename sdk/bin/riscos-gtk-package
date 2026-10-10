@@ -1,0 +1,88 @@
+#!/bin/bash -e
+# riscos-gtk devkit: turn a linked GTK program into a RISC OS application
+# and a zip that keeps the file types.
+#
+#   riscos-gtk-package NAME PROGRAM.elf VERSION APPFILES [OUTDIR]
+#
+# NAME      the application, !NAME, with NAME$Dir (e.g. Hello)
+# PROGRAM   the linked, unstripped ELF from $CC ... $RISCOS_GTK_LIBS
+# VERSION   goes into !Help (@VERSION@) and the zip's name
+# APPFILES  a folder with !Run,feb and anything else the application has:
+#           !Boot,feb, !Help,fff, !Sprites,ff9, !Sprites11,ff9, Licence,fff...
+#           In its ,feb and ,fff files @NAME@, @PROGRAM@ (the program's
+#           file name), @VERSION@ and @SLOT@ (the WimpSlot, KB) are filled in.
+# OUTDIR    default: the current directory. Writes OUTDIR/!NAME and
+#           OUTDIR/NAME-VERSION.zip.
+#
+# The application gets the program (as Absolute, AIF, named after the
+# ELF without .elf), DejaVu Sans with a fonts.conf, the RISCOS GTK theme,
+# the icons GTK uses, GTK's GSettings schemas, PThreadTicker, the LGPL
+# and a Source file. Environment:
+#   EXTRA_FONTS          more DejaVu faces (e.g. "DejaVuSansMono.ttf")
+#   PROGRAM_SOURCE_URL   where your program's source is (for Source,fff)
+#   SCHEMAS              the program's own GSettings schemas (.gschema.xml
+#                        files), compiled in with GTK's
+#   NO_CHECKS=1          skip riscos-crossdev's checks
+# Needs the devkit's env.sh sourced. MIT licence.
+[ -n "$RISCOS_GTK_SDK" ] || { echo "riscos-gtk-package: source the riscos-gtk devkit's env.sh first" >&2; exit 1; }
+[ $# -ge 4 ] || { sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+NAME=$1 ELF=$2 VERSION=$3 FILES=$4 OUT=${5:-.}
+D=$RISCOS_GTK_SDK/share/riscos-gtk
+[ -f "$ELF" ] || { echo "riscos-gtk-package: no program $ELF" >&2; exit 1; }
+[ -f "$FILES/!Run,feb" ] || { echo "riscos-gtk-package: no !Run,feb in $FILES" >&2; exit 1; }
+PROG=$(basename "$ELF" .elf)
+mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
+A=$OUT/!$NAME
+rm -rf "$A"; mkdir -p "$A/fonts" "$A/share/themes/RISCOS" "$A/share/glib-2.0/schemas"
+
+[ -n "${NO_CHECKS:-}" ] || "$RCD_DIR/checks/check-all.sh" "$ELF"
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+"$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-strip" -o "$T/prog" "$ELF"
+"$RISCOS_TOOLCHAIN/bin/elf2aif" -e "$T/prog" "$A/$PROG,ff8" > /dev/null
+
+# WimpSlot: the program plus 4 MB (the C heap goes in a dynamic area)
+size=$(stat -c %s "$A/$PROG,ff8")
+slot=$(( (size + 4 * 1024 * 1024 + 1023) / 1024 ))
+# Obey and Text files at the top (!Run, !Boot, !Help...) get @NAME@,
+# @PROGRAM@, @VERSION@ and @SLOT@ filled in; the rest is copied
+for f in "$FILES"/*; do
+  case "$f" in
+    *,feb|*,fff) sed -e "s/@SLOT@/$slot/g" -e "s/@NAME@/$NAME/g" -e "s/@PROGRAM@/$PROG/g" \
+                     -e "s/@VERSION@/$VERSION/g" "$f" > "$A/$(basename "$f")" ;;
+    *) cp -r "$f" "$A/" ;;
+  esac
+done
+
+# The libraries' licence and where their source is
+cp "$D/licences/LGPL-2.1.txt" "$A/LicenceLGPL,fff"
+SRCURL=${PROGRAM_SOURCE_URL:-"ask the program's author"}
+sed -e "s|@NAME@|$NAME|g" -e "s|@VERSION@|$VERSION|g" -e "s|@PROGRAM_SOURCE_URL@|$SRCURL|g" \
+    "$D/licences/Source.txt" > "$A/Source,fff"
+cp "$RISCOS_TOOLCHAIN"/riscos/PThrTicker,ffa "$RISCOS_TOOLCHAIN"/riscos/PThreadTicker-ReadMe,fff \
+   "$RISCOS_TOOLCHAIN"/riscos/PThreadTicker-Licence,fff "$A/"
+
+# Fonts: DejaVu Sans (GTK's default face) and any EXTRA_FONTS
+for f in DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf ${EXTRA_FONTS:-}; do
+  [ -f "$D/fonts/$f" ] || { echo "riscos-gtk-package: no font $f in the devkit" >&2; exit 1; }
+  cp "$D/fonts/$f" "$A/fonts/"
+done
+cp "$D/fonts/Licence,fff" "$A/fonts/"
+"$D/mkfontsconf.sh" "/<$NAME\$Dir>/fonts" "/<Wimp\$ScrapDir>/$NAME/fontcache" > "$A/fonts/fonts.conf"
+
+# The theme, icons and GSettings schemas (found through XDG_DATA_DIRS =
+# the application's share directory; see riscos-gtk/app.h)
+cp -r "$D/theme/gtk-3.0" "$A/share/themes/RISCOS/"
+cp -r "$D/icons" "$A/share/"
+if [ -n "${SCHEMAS:-}" ]; then
+  # the program's own GSettings schemas, compiled with GTK's (needs the
+  # host's glib-compile-schemas)
+  T2=$T/schemas; mkdir -p "$T2"
+  cp "$RISCOS_GTK_PREFIX"/share/glib-2.0/schemas/*.xml $SCHEMAS "$T2/"
+  glib-compile-schemas --strict --targetdir="$A/share/glib-2.0/schemas" "$T2"
+else
+  cp "$D/schemas/gschemas.compiled" "$A/share/glib-2.0/schemas/"
+fi
+
+rm -f "$OUT/$NAME-$VERSION.zip"
+python3 "$RCD_DIR/package/rozip.py" "$OUT/$NAME-$VERSION.zip" -C "$OUT" "!$NAME"
+echo "riscos-gtk-package: $OUT/$NAME-$VERSION.zip (WimpSlot ${slot}K)"

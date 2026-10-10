@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased (2026-10-10)
+- **M5: the riscos-gtk devkit** (`sdk/`, `build/make-sdk.sh`,
+  `make sdk`; `make release` now includes it). It lets other developers
+  build GTK 3 programs for RISC OS with riscos-crossdev 1.3 (plus
+  UnixLib 5.0.3.3) without building riscos-gtk:
+  - **Libraries:** `sysroot/riscos-gtk`, with headers, static libraries
+    (without debug information) and pkg-config files. It leaves out the
+    libraries only ClawsMail uses.
+  - **`env.sh`:** sets the compiler, pkg-config, `RISCOS_GTK_CFLAGS` and
+    `RISCOS_GTK_LIBS`.
+  - **Other build systems:** compiler wrappers that drop `-pthread`, a
+    meson cross file generator and a CMake toolchain file.
+  - **`riscos-gtk-package`:** makes the !App and its zip. It adds the
+    theme, icons, schemas (with the program's own), fonts,
+    PThreadTicker, the LGPL and a Source file, and runs crossdev's
+    checks.
+  - **`<riscos-gtk/app.h>`:**
+    - start-up: fonts, theme and settings directories, GSettings kept
+      in `<Choices$Write>`, the Log, and files from the Filer;
+    - `riscos_gtk_open_uri()`: a web address through URI_Dispatch,
+      starting Iris or NetSurf first.
+  - **`template/`:** a small GtkApplication program, with a menu bar,
+    Save and Open boxes, icon bar, unsaved-work question and a web link.
+    It has 90 and 180 dpi sprites (`tools/mktemplatesprites.py`) and a
+    Makefile.
+  - **`docs/`:** README (setup, building, what a program must ship),
+    API (every RISC OS function and environment variable), PORTING
+    (UnixLib's limits, alignment, files, fonts, menus).
+- **Tests:**
+  - `template-fake` runs the template on the fake desktop at EIG 1 and
+    EIG 0. It checks the file is loaded, the title, the icon bar sprite,
+    the Say hello button, the Menu, and that the "quit" action ends the
+    program. This is the first test of `GtkApplication` on riscos-gtk.
+  - Built from the devkit alone in a clean directory, the template
+    passes crossdev's checks with make, meson and CMake.
+
 ## 3.24.41-riscos1.0-rc4 — public beta (2026-10-10)
 Support for EX0 EY0 (180 dpi) screen modes, with high-resolution icons;
 this release is the public beta RC4.

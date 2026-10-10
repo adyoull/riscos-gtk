@@ -5,6 +5,7 @@
 # Needs the libraries already built (make deps) with the same toolchain.
 # Writes out/release/<RELEASE>/:
 #   L3afpad-<v>.zip, ClawsMail-<v>.zip, GTKThemeTest-<v>.zip
+#   riscos-gtk-sdk-<RELEASE>.tar.gz   the devkit (build/make-sdk.sh)
 #   riscos-gtk-<RELEASE>-src.tar   this repository at the release commit
 #                                  (git archive) and every upstream tarball
 #                                  in build/SHA256SUMS.txt (dl/): the source
@@ -40,6 +41,9 @@ VERSION=$CMV build/build-claws.sh
 R=$REPO_DIR/out/release/$RELEASE
 rm -rf "$R"; mkdir -p "$R"
 cp "out/L3afpad-$L3V.zip" "out/GTKThemeTest-$TTV.zip" "out/ClawsMail-$CMV.zip" "$R/"
+# the devkit, for other developers' programs (build/make-sdk.sh)
+SOURCE_URL=$SOURCE_URL "$HERE/make-sdk.sh" "$RELEASE"
+cp "out/sdk/riscos-gtk-sdk-$RELEASE.tar.gz" "$R/"
 
 # the corresponding source: the repository and the upstream tarballs
 S=$(mktemp -d); trap 'rm -rf "$S"' EXIT
@@ -56,6 +60,6 @@ tar -rf "$R/riscos-gtk-$RELEASE-src.tar" -C "$S" "riscos-gtk-$RELEASE/dl"
   echo "UnixLib ${UNIXLIB_VERSION:-unknown}"
   echo "built $(date -u +%Y-%m-%dT%H:%MZ)"
   echo
-  (cd "$R" && sha256sum *.zip *.tar)
+  (cd "$R" && sha256sum *.zip *.tar *.tar.gz)
 } > "$R/MANIFEST.txt"
 cat "$R/MANIFEST.txt"
