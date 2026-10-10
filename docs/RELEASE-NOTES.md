@@ -1,7 +1,7 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 3)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 4)
 
-**Status: public beta.** RC3 is the first build offered to everyone to
-try. It has been tested on a Raspberry Pi 4, but not yet widely: please
+**Status: public beta.** RC4 is the second public beta build. It adds
+support for high-resolution (EX0 EY0, 180 dpi) screen modes. It has been tested on a Raspberry Pi 4, but not yet widely: please
 report anything that goes wrong (see "Reporting problems" below). The
 final 3.24.41-riscos1.0 will be this build with whatever the beta turns
 up fixed. Items marked *[Pi]* still need a check on real hardware
@@ -26,14 +26,14 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC3
+## What's in RC4
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.19.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.19 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-0.8.zip` | Claws Mail 4.4.0, RISC OS port 0.8 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `GTKThemeTest-0.43.zip` | 0.43 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `riscos-gtk-3.24.41-riscos1.0-rc3-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.21.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.21 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-0.10.zip` | Claws Mail 4.4.0, RISC OS port 0.10 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `GTKThemeTest-0.45.zip` | 0.45 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `riscos-gtk-3.24.41-riscos1.0-rc4-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -160,15 +160,18 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC3
+## Known issues and limits in RC4
 
-- **Tested on the Pi so far (2026-10-09):**
+- **Tested on the Pi so far (2026-10-10):**
   - RC1 (L3afpad 0.18, GTKThemeTest 0.42, ClawsMail 0.5) signed off: the
     size icon in all three; ClawsMail fetching over IMAP and sending
     over SMTP, both with TLS 1.2 through AcornSSL; ClawsMail starting on
     the icon bar and staying there when its window closes.
   - ClawsMail 0.8: functionality confirmed: one menu per window, HTML
     mail, the RISC OS icons, the About box, and links opening in Iris.
+  - ClawsMail 0.9 and L3afpad 0.20: functionality confirmed in a
+    180 dpi mode. The high-resolution icons added in ClawsMail 0.10 and
+    L3afpad 0.21 haven't been seen on the Pi yet *[Pi]*.
   - Not yet reported on the Pi: L3afpad 0.19 and GTKThemeTest 0.43
     (RC2's one-menu-per-window change: test plan 2.2a) *[Pi]*.
   - POP3 hasn't been tried against a real server.
@@ -180,6 +183,11 @@ release.
     icons and the About box above. GTK itself is unchanged since RC2,
     so L3afpad 0.19 and GTKThemeTest 0.43 are the same versions as in
     RC2 (rebuilt to name this release).
+  - RC4: high-resolution (EX0 EY0, 180 dpi) screen modes. GTK lays
+    windows out at their usual size and draws them at the screen's
+    resolution; ClawsMail's icons and both programs' application icons
+    have 180 dpi versions. In GTK, so all three programs were rebuilt:
+    ClawsMail 0.10, L3afpad 0.21 and GTKThemeTest 0.45.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -233,7 +241,7 @@ release.
   `build/unixlib-overlay.sh`, because no crossdev release carries 5.0.3.3
   yet. The overlay is documented rather than waiting for crossdev 1.4.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc3` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc4` builds the packages, the
   source archive and the manifest.
 
 ## Tests

@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc3 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc4 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -27,8 +27,11 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.2 | Each program starts from a fresh boot with SharedUnixLibrary, ARMEABISupport and Iconv loaded only by its !Run | yes | |
 | 1.3 | Each program's Log ends with no warnings at start-up (Claws Mail: only the known start-up GTK warnings) | yes (L3afpad, ThemeTest) / new (Claws) | |
 | 1.4 | Start each under the RISC OS 5 default theme and under the Raspberry theme | yes | |
+| 1.5 | In an EX0 EY0 (180 dpi) mode, each program's windows, text and widgets are their usual size and sharp; option buttons, radio buttons and scroll bars are full size; the Log says "GDK scale 2" | yes (ClawsMail 0.9, L3afpad 0.20) | |
+| 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
+| 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 0.43 (the backend and theme)
+## 2. GTKThemeTest 0.45 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -47,7 +50,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.19
+## 3. L3afpad 0.21
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -62,7 +65,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 0.8
+## 4. ClawsMail 0.10
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the

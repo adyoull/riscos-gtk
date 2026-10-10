@@ -4,7 +4,7 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: public beta (3.24.41-riscos1.0-rc3).** GTK
+**Status: public beta (3.24.41-riscos1.0-rc4).** GTK
 programs run on RISC OS as ordinary Wimp tasks:
 - **Windows:** Wimp windows with the Wimp's own furniture.
 - **Menus:** Wimp menus, opened with Menu anywhere in a window.
@@ -18,7 +18,7 @@ Two real programs come with it: **!L3afpad**, a text editor, and
 **!ClawsMail**, an email client (POP3, IMAP and SMTP, with TLS through
 AcornSSL; HTML mail; links open in Iris or NetSurf). **!GTKThemeTest** shows every common widget.
 
-- What RC3 contains, requirements, known issues and how to report problems:
+- What RC4 contains, requirements, known issues and how to report problems:
   [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md)
 - The Pi sign-off list: [docs/RC-TEST-PLAN.md](docs/RC-TEST-PLAN.md)
 - Building: [docs/BUILDING.md](docs/BUILDING.md)
@@ -48,7 +48,7 @@ cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev-ul5033
 make deps                                   # the libraries
 make l3afpad claws themetest                # the programs, in out/
-make release RELEASE=3.24.41-riscos1.0-rc3    # programs + complete source + MANIFEST
+make release RELEASE=3.24.41-riscos1.0-rc4    # programs + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 

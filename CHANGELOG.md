@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased (2026-10-10)
+## 3.24.41-riscos1.0-rc4 — public beta (2026-10-10)
+Support for EX0 EY0 (180 dpi) screen modes, with high-resolution icons;
+this release is the public beta RC4.
+- Release notes, README and RC test plan updated for RC4; test plan
+  lines 1.5 to 1.7 for 180 dpi modes.
 - **EX0 EY0 (180 dpi) screen modes.** GTK laid windows out in the
   screen's pixels, so in a 180 dpi mode (one OS unit a pixel) everything
   came out half its usual size. Now:

@@ -87,7 +87,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.41-riscos1.0-rc3     # out/release/3.24.41-riscos1.0-rc3/
+make release RELEASE=3.24.41-riscos1.0-rc4     # out/release/3.24.41-riscos1.0-rc4/
 ```
 
 `make release` runs `build/make-release.sh`:
