@@ -8,6 +8,7 @@ gdk_riscos_sources = files(
   'gdkdisplay-riscos.c',
   'gdkdnd-riscos.c',
   'gdkeventsource.c',
+  'gdkglcontext-riscos.c',
   'gdkglobals-riscos.c',
   'gdkiconbar-riscos.c',
   'gdkkeys-riscos.c',

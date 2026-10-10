@@ -13,6 +13,10 @@
 #                                              PKG_CONFIG_* are set)
 #   meson setup build --cross-file "$(riscos-gtk-meson-cross)"
 #   cmake -DCMAKE_TOOLCHAIN_FILE=$RISCOS_GTK_SDK/share/riscos-gtk/riscos-gtk.cmake
+# OpenGL (GtkGLArea) needs riscos-mesa's devkit (20.3.5-16 or later) in
+# RISCOS_MESA_DEVKIT (default: crossdev's RISCOS_DEVKIT, where its
+# devkit/install.sh puts it). Then RISCOS_GTK_GL_LIBS, and pkg-config's
+# riscos-gtk-gl, add it to a program's link (docs/API.md, "OpenGL").
 # MIT licence.
 RISCOS_GTK_SDK=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 case $RISCOS_GTK_SDK in *" "*)
@@ -55,3 +59,26 @@ export RISCOS_GTK_CFLAGS="$RISCOS_CFLAGS $(pkg-config --cflags gtk+-3.0)"
 # drop a library named twice running)
 export RISCOS_GTK_LIBS="-static $(pkg-config --libs --static gtk+-3.0 | tr ' ' '\n' |
   awk 'NF && !($1 ~ /^-L/ && seenL[$1]++) && $1 != last { printf "%s ", $1; last = $1 }')"
+
+# OpenGL for GtkGLArea: riscos-mesa's EGL and OSMesa, linked only into
+# programs that ask (GDK refers to EGL weakly; -u pulls libEGL in). Full
+# paths, not -L: pkg-config would put the sysroot in front of a -L.
+: "${RISCOS_MESA_DEVKIT:=${RISCOS_DEVKIT:-}}"
+if [ -n "$RISCOS_MESA_DEVKIT" ] && [ -f "$RISCOS_MESA_DEVKIT/lib/libEGL.a" ] &&
+   [ -f "$RISCOS_MESA_DEVKIT/lib/libOSMesa.a" ]; then
+  RISCOS_MESA_DEVKIT=$(cd "$RISCOS_MESA_DEVKIT" && pwd)
+  export RISCOS_MESA_DEVKIT
+  export RISCOS_GTK_GL_LIBS="-Wl,-u,eglGetProcAddress $RISCOS_MESA_DEVKIT/lib/libEGL.a $RISCOS_MESA_DEVKIT/lib/libOSMesa.a -lstdc++"
+  cat > "$RISCOS_GTK_PREFIX/lib/pkgconfig/riscos-gtk-gl.pc" <<EOT
+# Written by the riscos-gtk devkit's env.sh: OpenGL for GtkGLArea
+mesa=$RISCOS_MESA_DEVKIT
+Name: riscos-gtk-gl
+Description: OpenGL for GtkGLArea on RISC OS (riscos-mesa's EGL and OSMesa)
+Version: $(sed -n 's/^riscos-mesa devkit //p' "$RISCOS_MESA_DEVKIT/VERSION" 2>/dev/null)
+Requires: gtk+-3.0 epoxy
+Libs: -Wl,-u,eglGetProcAddress \${mesa}/lib/libEGL.a \${mesa}/lib/libOSMesa.a -lstdc++
+EOT
+else
+  unset RISCOS_GTK_GL_LIBS
+  rm -f "$RISCOS_GTK_PREFIX/lib/pkgconfig/riscos-gtk-gl.pc"
+fi

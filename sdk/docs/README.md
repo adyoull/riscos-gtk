@@ -17,6 +17,7 @@ Programs built with it run as ordinary Wimp tasks:
 - drag and drop and the global clipboard;
 - an icon on the icon bar;
 - printing through !Printers;
+- OpenGL in a `GtkGLArea`, through riscos-mesa;
 - the desktop's own colours and sprites;
 - 180 dpi (EX0 EY0) screen modes.
 
@@ -97,6 +98,12 @@ are kept. Double-click !Hello, then click Select on its icon bar icon.
   `${GTK_STATIC_CFLAGS_OTHER}`, `${GTK_STATIC_LIBRARY_DIRS}` and
   `${GTK_STATIC_LIBRARIES}`.
 
+- **OpenGL (GtkGLArea):** install riscos-mesa's devkit (20.3.5-16 or
+  later) and set `RISCOS_MESA_DEVKIT` before sourcing `env.sh`. Then add
+  `$RISCOS_GTK_GL_LIBS` to the link, before `$RISCOS_GTK_LIBS`, or use
+  pkg-config's `riscos-gtk-gl`. `examples/glarea/` shows how; API.md
+  has the details.
+
 Then run riscos-crossdev's checks on the linked ELF:
 `$RCD_DIR/checks/check-all.sh myprog.elf`. These check static linking,
 stack probes, the FPU and UnixLib. `riscos-gtk-package` runs them for
@@ -111,6 +118,7 @@ you.
 | `sysroot/riscos-gtk/` | Headers, static libraries, pkg-config files, aclocal macros |
 | `share/riscos-gtk/` | What packaging puts in an application: theme, icons, schemas, fonts, licences |
 | `template/` | The template program |
+| `examples/glarea/` | OpenGL in a GtkGLArea (needs riscos-mesa's devkit) |
 | `docs/API.md` | riscos-gtk's RISC OS functions: the icon bar, files, printing, the desktop |
 | `docs/PORTING.md` | Porting an existing GTK program: what works, what doesn't, and why |
 | `docs/LICENCES.md` | The licences of everything in the devkit |
@@ -127,6 +135,9 @@ links them statically. So with any program you distribute you must:
   publish your program's source, or make its object files available.
   Set `PROGRAM_SOURCE_URL` when packaging, and `Source` will say where
   they are.
+
+A program with OpenGL also carries riscos-mesa's licences
+(`LicenceMesa`, MIT-style), which `riscos-gtk-package` adds.
 
 Your own code can be under any licence that allows this. The template
 is MIT. Fonts, icons and PThreadTicker carry their own licences, which

@@ -1,0 +1,3 @@
+| !Boot for !@NAME@: its icons
+Set @NAME@$Dir <Obey$Dir>
+IconSprites <Obey$Dir>.!Sprites

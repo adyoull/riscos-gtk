@@ -1,0 +1,26 @@
+GTKGLTest @VERSION@ - riscos-gtk OpenGL test
+
+A GtkGLArea drawing with OpenGL through riscos-gtk's RISC OS backend and
+riscos-mesa (EGL and OSMesa, rendering on the processor: OpenGL 2.1).
+
+The window shows a spinning triangle on a blue background, and a white
+square in its top left corner. The line underneath gives the renderer
+and, once a second, the frame rate. Untick Spin to stop it.
+
+Please check:
+  - the triangle spins smoothly, and the white square is at the top
+    left, not the bottom left;
+  - resizing the window (toggle size, the size icon) keeps the picture
+    filling the area;
+  - another window dragged over it, or a menu opened over it, leaves no
+    marks;
+  - the frame rate at the window's starting size and when bigger;
+  - in an EX0 EY0 (180 dpi) mode it is the same size and sharp.
+Then send back the Log, <Wimp$ScrapDir>.GTKGLTest.Log, and a photo.
+
+It needs RISC OS 5 in a 16 or 32 bpp mode, SharedUnixLibrary 1.16 or
+later, ARMEABISupport and Iconv (PackMan).
+
+Licences: this program is MIT (Licence). GTK and its libraries are LGPL
+(LicenceLGPL; Source says where the source is). Mesa and riscos-mesa's
+EGL are MIT-style (LicenceMesa).

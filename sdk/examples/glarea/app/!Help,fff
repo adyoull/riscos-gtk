@@ -1,0 +1,18 @@
+@NAME@ @VERSION@
+================
+
+OpenGL in a GTK program on RISC OS: an example from the riscos-gtk
+devkit. A spinning triangle, drawn with a vertex buffer and GLSL
+shaders by riscos-mesa (Mesa's software renderer, OpenGL 2.1). The frame
+rate is shown underneath; untick Spin to stop it.
+
+Click Select on its icon bar icon for the window.
+
+It needs RISC OS 5, a 16 or 32 bpp screen mode, and SharedUnixLibrary
+1.16 or later, ARMEABISupport and Iconv from PackMan.
+
+Problems are written to its Log, <Wimp$ScrapDir>.@NAME@.Log.
+
+Licences: this program's own code is MIT (Licence). GTK and its
+libraries are LGPL (LicenceLGPL; Source says where their source is).
+Mesa and riscos-mesa's EGL are MIT-style (LicenceMesa).

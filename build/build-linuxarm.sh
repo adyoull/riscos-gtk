@@ -79,6 +79,36 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -I"$REPO_DIR/sdk/inclu
 TPL=$REPO_DIR/out/template-linuxarm
 rm -rf "$TPL"; mkdir -p "$TPL"
 
+# GtkGLArea (tests/gtk/gltest.c): with riscos-mesa's real RISC OS libEGL
+# and libOSMesa linked in (their UnixLib symbols through
+# tests/fake/mesa-shim.c, as riscos-mesa's own ARM checks do), and without
+# them. Needs riscos-mesa's devkit in MESA_DEVKIT (default
+# $RCD_DIR/devkit/env); without it the GL test is skipped.
+: "${MESA_DEVKIT:=$RCD_DIR/devkit/env}"
+GLLIBS=
+if [ -f "$MESA_DEVKIT/lib/libEGL.a" ] && [ -f "$MESA_DEVKIT/lib/libOSMesa.a" ]; then
+  ML=$REPO_DIR/out/mesa-linuxarm
+  mkdir -p "$ML"
+  for l in libEGL libOSMesa; do
+    cp "$MESA_DEVKIT/lib/$l.a" "$ML/$l.a"
+    # errno is thread-local in glibc; UnixLib's mutexes are laid out differently
+    $HOST-objcopy --redefine-sym errno=ro_errno_shim \
+      $(for f in mutex_init mutex_lock mutex_unlock mutex_destroy mutexattr_init mutexattr_settype \
+                 mutexattr_destroy; do echo "--redefine-sym pthread_$f=ro_pthread_${f}_shim"; done) "$ML/$l.a"
+  done
+  GLLIBS="$REPO_DIR/tests/fake/mesa-shim.c -Wl,-u,eglGetProcAddress $ML/libEGL.a $ML/libOSMesa.a"
+fi
+for v in gltest-fake gltest-nogl; do
+  [ $v = gltest-fake ] && [ -z "$GLLIBS" ] && continue
+  $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DGLTEST_NO_MAIN \
+    $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/gltest-fake.c" "$REPO_DIR/tests/gtk/gltest.c" \
+    $( [ $v = gltest-fake ] && echo "$GLLIBS") -o "$REPO_DIR/out/$v-linuxarm" \
+    -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+done
+GLT=$REPO_DIR/out/gltest-linuxarm
+rm -rf "$GLT"; mkdir -p "$GLT"
+
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/themetest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
@@ -167,6 +197,13 @@ FAKE_EIG=0 run themetest-fake "$HA" "$TT0"
 run edittest-fake "$HA" "$ET"
 run template-fake "$HA" "$TPL"
 FAKE_EIG=0 run template-fake "$HA" "$TPL"
+if [ -n "$GLLIBS" ]; then
+  run gltest-fake "$HA" "$GLT"
+  FAKE_EIG=0 run gltest-fake "$HA" "$GLT"
+else
+  echo; echo "=== linux-arm: gltest-fake skipped: no riscos-mesa devkit in MESA_DEVKIT=$MESA_DEVKIT"
+fi
+GLTEST_NO_MESA=1 run gltest-nogl "$HA" "$GLT"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"

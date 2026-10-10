@@ -90,6 +90,11 @@ make l3afpad themetest claws                 # out/<Program>-<version>.zip
 make release RELEASE=3.24.41-riscos1.0-rc4     # out/release/3.24.41-riscos1.0-rc4/
 ```
 
+`make gltest` builds !GTKGLTest, a GtkGLArea test, with riscos-mesa
+linked in. It needs riscos-mesa's devkit (20.3.5-16 or later) in
+`MESA_DEVKIT`. The default is `$RCD_DIR/devkit/env`, where crossdev's
+`devkit/install.sh` puts it.
+
 `make release` runs `build/make-release.sh`:
 - **It refuses a tree with uncommitted changes.**
 - **It builds the three programs.** Their versions are set in
@@ -114,6 +119,10 @@ This builds the same libraries and programs as ARM Linux code (in
 `src-linuxarm/` and `sysroot-linuxarm/`), linked against a fake RISC OS
 and Wimp (`tests/fake/`). It runs each test under riscos-crossdev's
 `qemu-arm-aligntrap`, which also stops on any unaligned access.
+
+The OpenGL test (`gltest-fake`) links riscos-mesa's RISC OS libraries
+into the ARM Linux test, so it needs their devkit in `MESA_DEVKIT`, as
+for `make gltest`. Without it, that one test is skipped.
 
 The Claws Mail test starts `tests/claws/mailserver.py`, a local POP3,
 SMTP and IMAP server. Every suite must pass before a release.

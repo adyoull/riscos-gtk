@@ -15,7 +15,8 @@ folder.
    - CMake: the devkit's toolchain file
 
    Switch off what can't work: D-Bus, plug-ins and spell checkers that
-   load modules, and anything that runs helper programs.
+   load modules, and anything that runs helper programs. A program
+   with OpenGL needs riscos-mesa's devkit too (API.md, "OpenGL").
 2. **Add the start-up call:** `riscos_gtk_app_init ("Name", &argc, &argv)`
    at the top of `main()` (see API.md). If the program uses
    `GtkApplication`, give it `G_APPLICATION_NON_UNIQUE`.
@@ -145,7 +146,12 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   `GtkHeaderBar` as its own title bar hasn't been tried with riscos-gtk.
   Prefer `gtk_window_set_title()`, with the header bar's buttons in a
   toolbar.
-- **OpenGL:** `GtkGLArea` has no backend yet.
+- **OpenGL:** `GtkGLArea` works through riscos-mesa (OpenGL 2.1, GLSL
+  1.20, rendered on the processor) when the program is linked with
+  `$RISCOS_GTK_GL_LIBS`. See "OpenGL" in API.md. Code written for GL
+  3.2 core needs GLSL 1.20 shaders, and must check
+  (`epoxy_has_gl_extension`) for anything newer than 2.1 it uses. A program that renders a lot is better served by riscos-mesa's
+  SDL2 or EGL directly.
 - **Translations:** messages are in English only. riscos-gtk's libintl
   is a stand-in that returns the original strings.
 

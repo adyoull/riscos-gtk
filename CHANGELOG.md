@@ -1,6 +1,49 @@
 # Changelog
 
-## Unreleased (2026-10-10)
+## Unreleased (2026-10-11)
+- **OpenGL: GtkGLArea through riscos-mesa.**
+  - **What it uses:** riscos-mesa's EGL and OSMesa (devkit 20.3.5-16):
+    OpenGL 2.1 with GLSL 1.20, or ES 2.0 with `GDK_GL=gles`.
+  - **`gdk/riscos/gdkglcontext-riscos.c`:** each GdkGLContext is an
+    EGL context on a shared 1x1 pbuffer, and contexts share with the
+    window's paint context. GTK's request for 3.2 core becomes a 2.1
+    "legacy" context, as GTK does elsewhere without core profiles. EGL
+    is declared here and referenced weakly, so GTK builds without
+    riscos-mesa's headers.
+  - **GTK patch (`gdkwindow.c`):** RISC OS windows are never painted
+    with GL. `gdk_cairo_draw_from_gl()` takes GTK's software path,
+    reading the area's pixels back into the backing sprite: one copy of
+    the area a frame.
+  - **libepoxy patch:** GL functions come from a weak
+    `eglGetProcAddress` instead of dlopen.
+  - **Linking:** a program that doesn't link
+    `-Wl,-u,eglGetProcAddress -lEGL -lOSMesa` has no Mesa in it, and
+    GtkGLArea reports "OpenGL is not available: this program wasn't
+    linked with riscos-mesa's EGL and OSMesa".
+  - **New program:** !GTKGLTest 0.1 (`tests/gtk/gltest.c`,
+    `build/build-gltest.sh`, `make gltest`). `build-app.sh` takes
+    EXTRA_CFLAGS and EXTRA_LIBS.
+  - **Devkit:**
+    - `env.sh` sets `RISCOS_GTK_GL_LIBS` and writes pkg-config's
+      `riscos-gtk-gl` when `RISCOS_MESA_DEVKIT` (default crossdev's
+      RISCOS_DEVKIT) has riscos-mesa's devkit.
+    - `riscos-gtk-package` adds `LicenceMesa` to programs with Mesa
+      linked in.
+    - New `examples/glarea/`: a GLSL triangle with a vertex buffer.
+    - API and PORTING have an OpenGL section; `mktemplatesprites.py`
+      takes a name and draws a GL icon.
+  - **Tests:**
+    - `gltest-fake` links riscos-mesa's real RISC OS libEGL.a and
+      libOSMesa.a into the ARM Linux test, through
+      `tests/fake/mesa-shim.c` (adapted from riscos-mesa's ARM checks)
+      and objcopy-renamed errno and mutex symbols. The fake answers
+      VFPSupport_Features.
+    - It checks the context, the renderer, the background, the
+      triangle, the way up (a white square top left) and a resize, at
+      EIG 1 and EIG 0.
+    - `gltest-nogl` checks a program without Mesa reports it and runs
+      on.
+    - Both run in `make check`; the Mesa one only with MESA_DEVKIT.
 - **M5: the riscos-gtk devkit** (`sdk/`, `build/make-sdk.sh`,
   `make sdk`; `make release` now includes it). It lets other developers
   build GTK 3 programs for RISC OS with riscos-crossdev 1.3 (plus

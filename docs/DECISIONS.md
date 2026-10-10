@@ -319,3 +319,40 @@ own build and tests.
   is published only with a release, beside that release's source
   archive. Packaged programs carry `LicenceLGPL` and a `Source` file
   naming it.
+
+## OpenGL for GtkGLArea (2026-10-11)
+GtkGLArea draws with riscos-mesa's EGL and OSMesa: the software OpenGL
+that SDL2, freeglut and the games already use.
+
+- **Contexts on a pbuffer, not window surfaces.**
+  - Each GdkGLContext is an EGL context made current on one shared 1x1
+    pbuffer. GtkGLArea renders into its own framebuffer object.
+  - GDK's GL painting of whole windows is switched off (the gdkwindow.c
+    patch). GTK's software path reads back just the area's pixels and
+    paints them into the backing sprite.
+  - Painting windows with GL would upload the whole cairo surface as a
+    texture and read the whole window back, every frame, on the
+    processor. It would also need EGL window surfaces to cooperate with
+    riscos-gtk's own window plotting.
+- **Weak references, linked on request.**
+  - Mesa is about 9 MB, so linking it into every GTK program isn't
+    acceptable.
+  - GDK and libepoxy refer to EGL weakly. A program asks for GL with
+    `-Wl,-u,eglGetProcAddress` and riscos-mesa's libraries; the `-u`
+    makes the linker take libEGL, which then resolves the weak
+    references.
+  - Without it, GtkGLArea gets GTK's normal "not available" error.
+- **EGL declared locally:** GTK builds without riscos-mesa's headers.
+  Only programs that use GL need its devkit.
+- **Versions:**
+  - OpenGL 2.1 compatibility, reported to GTK as legacy, which is what
+    GTK 3 does wherever core profiles are missing.
+  - ES 2.0 with GDK_GL=gles, as in GTK's other backends. A GtkGLArea's
+    own use-es can't change it, because its context shares with the
+    window's paint context.
+- **Testing:**
+  - The ARM Linux test links riscos-mesa's actual RISC OS libraries, as
+    riscos-mesa's own ARM checks do.
+  - Its UnixLib symbols go through a shim: errno, mutexes, the stdio and
+    ctype names, and the JIT memory.
+  - So the test exercises the same EGL and Mesa code as the Pi.

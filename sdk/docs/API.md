@@ -29,6 +29,7 @@ defines it, so the same source still builds elsewhere. The template
 | `GtkApplication` | Select on the icon is "activate". Files double-clicked or dropped on the icon are "open". Quit on the icon bar menu is the "quit" action, and Choices... is "preferences". Closing the last window leaves the program on the icon bar. Use `G_APPLICATION_NON_UNIQUE`: there's no D-Bus. |
 | The theme | The RISCOS theme: the desktop's Wimp colours, option, radio and icon sprites, and window border sprites for scroll bars. |
 | Fonts | DejaVu Sans 12 at 90 dpi, from the application's `fonts` folder. |
+| `GtkGLArea` | OpenGL 2.1 (or ES 2.0) through riscos-mesa, when the program links it in (see "OpenGL"). Without it, the area shows "OpenGL is not available". |
 | EX0 EY0 (180 dpi) modes | GDK scale 2: GTK lays out at the usual size and draws at the screen's resolution. Pictures at twice the size are used where given (see "High-resolution pictures"). |
 | Keys | GTK's accelerators, written in menus as RISC OS writes them (^O, F3). |
 
@@ -254,6 +255,68 @@ up is the right size but soft. To make one sharp:
 - **Application icons:** add a `!Sprites11` file with 68 x 68 and
   34 x 34 sprites at 180 dpi (the template has one).
 
+## OpenGL (GtkGLArea)
+
+`GtkGLArea` draws with riscos-mesa: Mesa's software renderer, which
+does OpenGL 2.1 with GLSL 1.20, or OpenGL ES 2.0. It is linked into
+the program, and only into programs that ask for it, because Mesa adds
+about 9 MB. To have OpenGL:
+
+1. **Install riscos-mesa's devkit,** 20.3.5-16 or later, and set
+   `RISCOS_MESA_DEVKIT` to it before sourcing `env.sh`. riscos-crossdev's
+   `devkit/install.sh` puts it in its `devkit/env`, which is the
+   default.
+2. **Link with `$RISCOS_GTK_GL_LIBS`** before `$RISCOS_GTK_LIBS`, or
+   with `pkg-config --libs --static riscos-gtk-gl`:
+
+   ```sh
+   $CC $RISCOS_GTK_CFLAGS prog.c -o prog.elf $RISCOS_GTK_GL_LIBS $RISCOS_GTK_LIBS
+   ```
+
+   This is `-Wl,-u,eglGetProcAddress` plus riscos-mesa's `libEGL.a`,
+   `libOSMesa.a` and `-lstdc++`. GTK refers to EGL weakly; the `-u`
+   pulls libEGL in.
+3. **Package it as usual.** `riscos-gtk-package` adds riscos-mesa's
+   licences (`LicenceMesa`) when it finds Mesa in the program.
+
+`examples/glarea/` is a complete program: a GLSL triangle with the
+frame rate shown.
+
+What to know:
+
+- **The version:**
+  - GTK asks for OpenGL 3.2 core. riscos-mesa has no core profiles, so
+    you get a 2.1 compatibility context, which GTK calls "legacy":
+    `gdk_gl_context_is_legacy()` returns TRUE.
+  - Write GLSL 1.20 (`#version 120`), or `#version 100` ES shaders,
+    which riscos-mesa also takes in a desktop context.
+  - Fixed-function GL (`glBegin`, matrices) works too.
+- **OpenGL ES:** `*Set GDK_GL gles` gives ES 2.0 contexts instead.
+  - As in GTK 3 everywhere, a `GtkGLArea`'s own `use-es` property
+    doesn't change this, because its context shares with the window's.
+- **GL functions:** call them through libepoxy (`<epoxy/gl.h>`), as any
+  GTK program does. Epoxy finds them with riscos-mesa's
+  `eglGetProcAddress`.
+- **Speed:**
+  - Rendering is on the processor, so the cost grows with the area's
+    size and what each pixel does. GTKGLTest and `examples/glarea` show
+    the frame rate, so you can measure.
+  - After each frame, GDK copies the area's pixels into the window, and
+    only the area's.
+  - Use `gtk_gl_area_queue_render()` from a tick callback for
+    animation, and stop when nothing moves.
+- **180 dpi modes:** the area renders at twice the pixels, so it's
+  sharp. The default "resize" handler sets the viewport in those pixels.
+- **How it's made:**
+  - Each GL context is an EGL context on a small pbuffer, and GtkGLArea
+    draws into its own framebuffer object.
+  - GDK reads the finished frame back into the window's backing sprite.
+  - Windows themselves are never painted with GL.
+- **Not supported:** rendering into the window directly (EGL window
+  surfaces), full screen, and GL 3 features. For a game that wants the
+  whole screen or every frame per second, use riscos-mesa's SDL2 or
+  EGL directly instead of GTK.
+
 ## Size icon placement
 
 ```c
@@ -306,6 +369,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |
 | `RISCOS_GTK_PRINT_BITMAP` (any value) | Print everything as bitmaps, not Draw paths |
 | `RISCOS_GTK_DEBUG` (any value) | More detail in the Log: Wimp events, the theme's CSS |
+| `GDK_GL` = `gles` | OpenGL ES 2.0 contexts for GtkGLArea instead of OpenGL 2.1 |
 | `RISCOS_GTK_NO_LOG` (any value) | `riscos_gtk_app_init` leaves stdout and stderr alone |
 
 Each program's Log starts with lines giving the task name, the screen

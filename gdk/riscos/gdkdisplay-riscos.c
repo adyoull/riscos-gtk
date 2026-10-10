@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include "gdkdisplay-riscos.h"
+#include "gdkglcontext-riscos.h"
 
 #include "gdkdisplay.h"
 #include "gdkeventsource.h"
@@ -392,5 +393,8 @@ gdk_riscos_display_class_init (GdkRiscosDisplayClass * class)
   display_class->get_n_monitors = gdk_riscos_display_get_n_monitors;
   display_class->get_monitor = gdk_riscos_display_get_monitor;
   display_class->get_primary_monitor = gdk_riscos_display_get_primary_monitor;
+
+  /* OpenGL (GtkGLArea) through riscos-mesa's EGL: gdkglcontext-riscos.c */
+  display_class->make_gl_context_current = _gdk_riscos_display_make_gl_context_current;
 }
 

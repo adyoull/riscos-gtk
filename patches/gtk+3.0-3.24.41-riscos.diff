@@ -812,3 +812,20 @@ diff -ruN a/gtk/gtkiconhelper.c b/gtk/gtkiconhelper.c
  }
  
  void 
+diff -ruN a/gdk/gdkwindow.c b/gdk/gdkwindow.c
+--- a/gdk/gdkwindow.c
++++ b/gdk/gdkwindow.c
+@@ -2963,6 +2963,13 @@
+   surface_content = gdk_window_get_content (window);
+ 
+   window->current_paint.use_gl = window->impl_window->gl_paint_context != NULL;
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: windows are always painted with cairo into their backing
++     sprite. A GL paint context exists only so that gdk_cairo_draw_from_gl()
++     can read a GtkGLArea's pixels back (its software path): there's no GL
++     window surface to paint into (gdk/riscos/gdkglcontext-riscos.c). */
++  window->current_paint.use_gl = FALSE;
++#endif
+ 
+   if (window->current_paint.use_gl)
+     {

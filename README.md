@@ -12,6 +12,8 @@ programs run on RISC OS as ordinary Wimp tasks:
   clipboard.
 - **The icon bar:** an icon for every program.
 - **Printing:** through !Printers.
+- **OpenGL:** `GtkGLArea` draws with riscos-mesa (OpenGL 2.1 or ES 2.0,
+  rendered on the processor) in programs linked with it.
 - **Look:** taken from the running desktop's colours and sprites.
 
 Two real programs come with it: **!L3afpad**, a text editor, and
@@ -59,7 +61,7 @@ The full version, with the host packages and the UnixLib overlay, is in
 
 | Path | What |
 |---|---|
-| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-app.sh` (packaging), `build-l3afpad.sh`, `build-claws.sh`, `build-themetest.sh`, `make-release.sh`, `make-sdk.sh` (the devkit), `build-linuxarm.sh` (the QEMU tests) |
+| `build/` | `env.sh` (settings; `TARGET=riscos` or `linuxarm`), `fetch-sources.sh` + `SHA256SUMS.txt`, `build-deps.sh`, `build-app.sh` (packaging), `build-l3afpad.sh`, `build-claws.sh`, `build-themetest.sh`, `build-gltest.sh`, `make-release.sh`, `make-sdk.sh` (the devkit), `build-linuxarm.sh` (the QEMU tests) |
 | `apps/` | The programs' RISC OS parts: `l3afpad/`, `claws/` (start-up, icon bar, app files) |
 | `cairo/` | riscos-gtk's addition to cairo (printing as Draw paths) |
 | `gtk/riscos/` | riscos-gtk's GTK sources: Wimp menus, the theme from the desktop, Save/Open and Print boxes, the icon bar |
@@ -69,8 +71,8 @@ The full version, with the host packages and the UnixLib overlay, is in
 | `riscos/intl/`, `riscos/dl/` | A minimal libintl (no translations yet) and a libdl whose dlopen fails |
 | `theme/` | The RISCOS GTK 3 theme (see its README) |
 | `tests/glib/`, `tests/render/`, `tests/app/` | The M1 tests (GLib; fonts, text and drawing) and the !GTKTest app files |
-| `tests/gtk/` | hello.c (!GTKHello) and hellotest.c; themetest.c (!GTKThemeTest) with its fake-Wimp tests; l3afpad-fake.c, claws-fake.c (with `tests/claws/mailserver.py`), template-fake.c (the devkit's template) |
-| `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests |
+| `tests/gtk/` | hello.c (!GTKHello) and hellotest.c; themetest.c (!GTKThemeTest) with its fake-Wimp tests; l3afpad-fake.c, claws-fake.c (with `tests/claws/mailserver.py`), template-fake.c (the devkit's template); gltest.c (!GTKGLTest) and gltest-fake.c, with riscos-mesa's libraries |
+| `tests/fake/` | Fake RISC OS harnesses for the GDK backend's host tests; `mesa-shim.c` lets riscos-mesa's RISC OS libraries run in them |
 | `sdk/` | The devkit's own files: `env.sh`, `bin/` (compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross`), `include/riscos-gtk/app.h`, `docs/` (README, API, PORTING), `template/` (a small program to start from); `build/make-sdk.sh` puts them with the libraries |
 
 ## Licence

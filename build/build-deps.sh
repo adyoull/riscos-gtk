@@ -302,8 +302,10 @@ mesonlib gdk-pixbuf_2.42.10+dfsg.orig.tar.xz gdk-pixbuf-2.42.10 libgdk_pixbuf-2.
 mesonlib atk1.0_2.36.0.orig.tar.xz atk-2.36.0 libatk-1.0.a \
   -Ddocs=false -Dintrospection=false
 
-# libepoxy: a build dependency of GTK; without GLX/EGL nothing in it is
-# used until GtkGLArea gets a backend (riscos-mesa EGL, later).
+# libepoxy: GTK's GL function loader. Built without GLX/EGL; the patch
+# makes it find every GL function with riscos-mesa's eglGetProcAddress,
+# referenced weakly, so only programs linked with -lEGL -lOSMesa have GL
+# (gdk/riscos/gdkglcontext-riscos.c).
 mesonlib libepoxy_1.5.10.orig.tar.gz libepoxy-1.5.10 libepoxy.a \
   -Ddocs=false -Dglx=no -Degl=no -Dx11=false -Dtests=false
 

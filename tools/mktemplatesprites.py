@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""mktemplatesprites.py OUTDIR - the riscos-gtk devkit template's
-application icon: a small window with a speech bubble saying hello, at
-90 dpi (34 and 17 pixels) and 180 dpi (68 and 34). Writes OUTDIR/!hello.png,
-sm!hello.png, !hello11.png and sm!hello11.png for png2sprite.py. MIT licence.
+"""mktemplatesprites.py OUTDIR [NAME [gl]] - the riscos-gtk devkit's
+example icons: a small window with a speech bubble saying hello (or, with
+"gl", a coloured triangle), at 90 dpi (34 and 17 pixels) and 180 dpi (68
+and 34). Writes OUTDIR/!NAME.png, sm!NAME.png, !NAME11.png and
+sm!NAME11.png (NAME default "hello") for png2sprite.py. MIT licence.
 """
 import os
 import sys
@@ -11,7 +12,7 @@ from PIL import Image, ImageDraw
 S = 8   # supersampling
 
 
-def icon(size):
+def icon(size, gl=False):
     n = size * S
     im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -23,6 +24,13 @@ def icon(size):
     r(2, 5, 31, 11, (153, 187, 238, 255), (0, 0, 0, 255), 1.2)
     r(4, 7, 7, 9.5, (221, 221, 221, 255), (0, 0, 0, 255), 0.8)
     r(26, 7, 29, 9.5, (221, 221, 221, 255), (0, 0, 0, 255), 0.8)
+    if gl:
+        # a triangle in red, green and blue on dark blue, as GTKGLTest draws
+        r(4, 13, 29, 29, (26, 51, 102, 255))
+        d.polygon([(16.5 * u, 14.5 * u), (6 * u, 28 * u), (27 * u, 28 * u)], fill=(255, 60, 60, 255))
+        d.polygon([(16.5 * u, 19 * u), (9 * u, 28 * u), (24 * u, 28 * u)], fill=(60, 220, 60, 255))
+        d.polygon([(16.5 * u, 23.5 * u), (12 * u, 28 * u), (21 * u, 28 * u)], fill=(80, 100, 255, 255))
+        return im.resize((size, size), Image.LANCZOS)
     # a speech bubble
     d.ellipse([7 * u, 14 * u, 27 * u, 26 * u], fill=(255, 255, 255, 255), outline=(0, 0, 0, 255), width=max(1, int(1.1 * u)))
     d.polygon([(11 * u, 24 * u), (9 * u, 29.5 * u), (15 * u, 25.3 * u)], fill=(255, 255, 255, 255))
@@ -39,9 +47,11 @@ def icon(size):
 
 def main():
     out = sys.argv[1]
+    base = sys.argv[2] if len(sys.argv) > 2 else "hello"
+    gl = len(sys.argv) > 3 and sys.argv[3] == "gl"
     os.makedirs(out, exist_ok=True)
-    for name, size in (("!hello", 34), ("sm!hello", 17), ("!hello11", 68), ("sm!hello11", 34)):
-        icon(size).save(os.path.join(out, name + ".png"))
+    for name, size in (("!" + base, 34), ("sm!" + base, 17), ("!" + base + "11", 68), ("sm!" + base + "11", 34)):
+        icon(size, gl).save(os.path.join(out, name + ".png"))
 
 
 if __name__ == "__main__":

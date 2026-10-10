@@ -14,8 +14,10 @@ A=$OUT/!$NAME
 mkdir -p "$OUT"
 rm -rf "$A"; mkdir -p "$A/fonts" "$A/share/themes/RISCOS"
 
-$CC $RO_CFLAGS -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
-  "$@" -o "$OUT/$PROG" -static $(pkg-config --libs --static gtk+-3.0)
+# EXTRA_CFLAGS, EXTRA_LIBS: more for the compile and link lines (e.g. GL:
+# riscos-mesa's devkit, build-gltest.sh)
+$CC $RO_CFLAGS -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) ${EXTRA_CFLAGS:-} \
+  "$@" -o "$OUT/$PROG" -static ${EXTRA_LIBS:-} $(pkg-config --libs --static gtk+-3.0)
 "$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
 "$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags gtk+-3.0) "$@"
 $STRIP -o "$OUT/$PROG.stripped" "$OUT/$PROG"

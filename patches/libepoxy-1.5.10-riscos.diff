@@ -1,7 +1,7 @@
 diff -ruN a/src/dispatch_common.c b/src/dispatch_common.c
 --- a/src/dispatch_common.c	2022-02-17 12:56:12.000000000 +0000
-+++ b/src/dispatch_common.c	2026-10-03 22:40:03.959002915 +0100
-@@ -164,6 +164,11 @@
++++ b/src/dispatch_common.c	2026-10-10 23:50:29.442587940 +0100
+@@ -164,11 +164,30 @@
  #include <windows.h>
  #else
  #include <dlfcn.h>
@@ -13,3 +13,64 @@ diff -ruN a/src/dispatch_common.c b/src/dispatch_common.c
  #include <err.h>
  #include <pthread.h>
  #endif
+ #include <string.h>
+ #include <ctype.h>
++
++/* riscos-gtk: there's no dynamic loading on RISC OS. GL comes from
++   riscos-mesa's EGL and OSMesa, linked into the program, and every GL
++   function is found with its eglGetProcAddress (it implements
++   EGL_KHR_get_all_proc_addresses). The reference is weak, so a program
++   that doesn't use GL links no Mesa: it links -lEGL -lOSMesa with
++   -Wl,-u,eglGetProcAddress to have GL (riscos-gtk's GDK GL context). */
++extern void *eglGetProcAddress(const char *name) __attribute__((weak));
++
++static void *
++riscos_gl_proc(const char *name)
++{
++    return eglGetProcAddress ? eglGetProcAddress(name) : NULL;
++}
+ #include <stdio.h>
+ 
+ #include "dispatch_common.h"
+@@ -295,6 +314,12 @@
+     if (*handle)
+         return true;
+ 
++    if (eglGetProcAddress) {
++        /* riscos-gtk: the GL library is in the program */
++        *handle = (void *) riscos_gl_proc;
++        return true;
++    }
++
+     if (!library_initialized) {
+         fputs("Attempting to dlopen() while in the dynamic linker.\n", stderr);
+         abort();
+@@ -334,9 +359,15 @@
+ #ifdef _WIN32
+     result = GetProcAddress(*handle, name);
+ #else
+-    result = dlsym(*handle, name);
+-    if (!result)
+-        error = dlerror();
++    if (*handle == (void *) riscos_gl_proc) {
++        result = riscos_gl_proc(name);
++        if (!result)
++            error = "not in riscos-mesa's EGL";
++    } else {
++        result = dlsym(*handle, name);
++        if (!result)
++            error = dlerror();
++    }
+ #endif
+     if (!result && exit_on_fail) {
+         fprintf(stderr, "%s() not found: %s\n", name, error);
+@@ -847,6 +878,9 @@
+ void *
+ epoxy_get_proc_address(const char *name)
+ {
++    if (eglGetProcAddress)
++        return riscos_gl_proc(name);    /* riscos-gtk */
++
+ #if PLATFORM_HAS_EGL
+     GLenum egl_api = EGL_NONE;
+ 

@@ -28,6 +28,7 @@
 #include "config.h"
 
 #include "gdkwindow-riscos.h"
+#include "gdkglcontext-riscos.h"
 #include "gdkscreen-riscos.h"
 
 #include "gdkriscosdisplay.h"
@@ -1878,6 +1879,7 @@ gdk_window_impl_riscos_class_init (GdkWindowImplRiscosClass *klass)
   impl_class->sync_rendering = _gdk_riscos_window_sync_rendering;
   impl_class->simulate_key = _gdk_riscos_window_simulate_key;
   impl_class->simulate_button = _gdk_riscos_window_simulate_button;
+  impl_class->create_gl_context = _gdk_riscos_window_create_gl_context;
   impl_class->get_property = _gdk_riscos_window_get_property;
   impl_class->change_property = _gdk_riscos_window_change_property;
   impl_class->delete_property = _gdk_riscos_window_delete_property;

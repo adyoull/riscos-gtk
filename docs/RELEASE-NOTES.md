@@ -153,6 +153,16 @@ release.
   own icons can be chosen in Choices... > Display > Themes.
 - **The About box** names AcornSSL and shows the RISC OS port's logo.
 
+**OpenGL**
+- **GtkGLArea** draws with riscos-mesa: Mesa's software renderer, OpenGL
+  2.1 with GLSL 1.20, or OpenGL ES 2.0 with `*Set GDK_GL gles`.
+- **Only programs that ask** have it linked in, since Mesa adds about
+  9 MB. A program without it shows GTK's "OpenGL is not available".
+- **How it works:** GDK reads each frame back into the window, and only
+  the GL area. At 180 dpi the area renders at the screen's resolution.
+- **To try it,** !GTKGLTest (`make gltest`) spins a triangle and shows
+  the frame rate *[Pi]*.
+
 **Network** (ClawsMail)
 - **TLS:** all of it goes through AcornSSL: pop3s, imaps, smtps and
   STARTTLS. AcornSSL checks server certificates and asks the user about
@@ -261,6 +271,8 @@ code against a fake RISC OS and Wimp:
 | l3afpad-fake | 44 |
 | claws-fake | 36 |
 | template-fake (the devkit's template; at EIG 1 and EIG 0) | 9 + 9 |
+| gltest-fake (GtkGLArea on riscos-mesa's RISC OS libraries; at EIG 1 and EIG 0) | 9 + 9 |
+| gltest-nogl (GtkGLArea without riscos-mesa linked in) | 2 |
 
 All pass at the RC commit.
 

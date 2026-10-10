@@ -17,7 +17,8 @@
 # The application gets the program (as Absolute, AIF, named after the
 # ELF without .elf), DejaVu Sans with a fonts.conf, the RISCOS GTK theme,
 # the icons GTK uses, GTK's GSettings schemas, PThreadTicker, the LGPL
-# and a Source file. Environment:
+# and a Source file; and riscos-mesa's licences (LicenceMesa) if the
+# program has OpenGL linked in. Environment:
 #   EXTRA_FONTS          more DejaVu faces (e.g. "DejaVuSansMono.ttf")
 #   PROGRAM_SOURCE_URL   where your program's source is (for Source,fff)
 #   SCHEMAS              the program's own GSettings schemas (.gschema.xml
@@ -60,6 +61,15 @@ sed -e "s|@NAME@|$NAME|g" -e "s|@VERSION@|$VERSION|g" -e "s|@PROGRAM_SOURCE_URL@
     "$D/licences/Source.txt" > "$A/Source,fff"
 cp "$RISCOS_TOOLCHAIN"/riscos/PThrTicker,ffa "$RISCOS_TOOLCHAIN"/riscos/PThreadTicker-ReadMe,fff \
    "$RISCOS_TOOLCHAIN"/riscos/PThreadTicker-Licence,fff "$A/"
+
+# OpenGL programs (riscos-mesa linked in): Mesa's and riscos-mesa's licences
+if "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-nm" "$ELF" 2>/dev/null | grep -q ' T OSMesaCreateContextExt$'; then
+  if [ -f "${RISCOS_MESA_DEVKIT:-}/LICENCES.txt" ]; then
+    cp "$RISCOS_MESA_DEVKIT/LICENCES.txt" "$A/LicenceMesa,fff"
+  else
+    echo "riscos-gtk-package: warning: $PROG has Mesa linked in, but no RISCOS_MESA_DEVKIT for its LICENCES.txt" >&2
+  fi
+fi
 
 # Fonts: DejaVu Sans (GTK's default face) and any EXTRA_FONTS
 for f in DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf ${EXTRA_FONTS:-}; do

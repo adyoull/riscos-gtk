@@ -23,7 +23,10 @@ or adapted from other projects keep their original licence, listed below.
 | gumbo 0.12.0 (built by `build/build-claws.sh`, linked into !ClawsMail; not in this repository) | [gumbo-parser](https://codeberg.org/gumbo-parser/gumbo-parser), Google and contributors | Apache License 2.0 (its COPYING, shipped as LicenceGumbo) |
 | `tools/mkclawsicons.py` and the icons it draws (`apps/claws/app/share/claws-mail/themes/RISCOS`, including the `@2` pictures, `apps/claws/app/!Sprites` and `!Sprites11`) | Written for riscos-gtk: original icons in the style of the RISC OS desktop | MIT |
 | `tools/mkl3afpadsprites.py` | Written for riscos-gtk | MIT |
-| `sdk/*` (the devkit's `env.sh`, `bin/` scripts, `riscos-gtk/app.h`, CMake toolchain file, `Source` template, documentation and the template program with its app files), `build/make-sdk.sh`, `tools/mktemplatesprites.py` and the template's sprites | Written for riscos-gtk | MIT |
+| `gdk/riscos/gdkglcontext-riscos.c`, `.h` | Written for riscos-gtk, based on GTK's `gdk/wayland/gdkglcontext-wayland.c`; part of GTK's backend | LGPL version 2.1 or later |
+| `tests/fake/mesa-shim.c` | Adapted from [riscos-mesa](https://github.com/adyoull/riscos-mesa)'s `tests/host-harness/mesa/arm/shim.c` | MIT |
+| `tests/gtk/gltest.c`, `gltest.h`, `gltest-fake.c`, `tests/gtk/gltest-app/*`, `build/build-gltest.sh` | Written for riscos-gtk | MIT |
+| `sdk/*` (the devkit's `env.sh`, `bin/` scripts, `riscos-gtk/app.h`, CMake toolchain file, `Source` template, documentation, the template program and `examples/glarea`, with their app files), `build/make-sdk.sh`, `tools/mktemplatesprites.py` and the template's sprites | Written for riscos-gtk | MIT |
 | `apps/l3afpad/app/!Sprites11` (made by mkl3afpadsprites.py) | L3afpad's icon, `data/l3afpad_original.svg` (Tarot Osuji, Steven Honeyman) | GPL version 2 or later, as L3afpad |
 | `riscos/licences/LGPL-2.1.txt` | The GNU LGPL 2.1 text (Free Software Foundation), copied into every package as LicenceLGPL | Verbatim copying permitted |
 | `tests/claws/mailserver.py`, `tests/gtk/claws-fake.c`, `tests/gtk/claws-fake-claws.c` | Written for riscos-gtk | MIT |
@@ -77,6 +80,7 @@ checksum. A RISC OS program built here links them statically.
 | cairo 1.18.0 | LGPL version 2.1 or MPL 1.1 |
 | pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.41 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
+| riscos-mesa (Mesa 20.3.5's OSMesa and riscos-mesa's EGL; its devkit), only in programs that link it for OpenGL (!GTKGLTest) | MIT-style: riscos-mesa's LICENCES.txt, shipped in the program as LicenceMesa |
 | UnixLib 5.0.3.3 (riscos-unixlib release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 
 **Static linking and the LGPL.** GLib, pango, GTK, ATK, gdk-pixbuf,

@@ -853,6 +853,13 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     fake_window_t *w;
     int *block;
 
+    if ((no & ~0x20000) == 0x58EC8 && in->r[0] == 0) {
+        /* VFPSupport_Features 0, asked by riscos-mesa's shader code
+           (gltest-fake): a Cortex-A8 with NEON, as riscos-mesa's own
+           ARM checks answer */
+        if (out) { out->r[0] = 0x410330C3; out->r[1] = 0x11110222; out->r[2] = 0x00011111; }
+        return NULL;
+    }
     switch (no) {
     case 0x68:      /* OS_Memory: 24 (check memory access) only */
         if (r.r[0] != 24) { e = error("OS_Memory: not faked"); break; }
