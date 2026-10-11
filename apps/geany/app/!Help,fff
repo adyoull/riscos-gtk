@@ -18,9 +18,9 @@ Using it
 - File > Save As: a RISC OS Save box. Drag its icon to a Filer window, or
   give a full name and click Save. Names without an extension are saved
   as Text (&FFF). File > Open: an Open box; drag a file to it.
-  Click Menu over either box for the directory browser (a Filer window
-  with a sidebar of discs and places), or *Set RISCOS_GTK_CHOOSER filer
-  to have it every time.
+  Click Browse... in either box for the directory browser (a Filer-like
+  window with a sidebar of discs and places), or *Set RISCOS_GTK_CHOOSER
+  filer to have it every time.
 - Quit (or a desktop shutdown) with unsaved documents asks: Cancel or
   Discard.
 - Geany's settings are kept in <Choices$Write>.geany.

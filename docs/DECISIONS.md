@@ -412,9 +412,11 @@ that SDL2, freeglut and the games already use.
   A Filer-like window in the chooser covers them without replacing the
   boxes.
 - **Choosing it:** per program or per user (`RISCOS_GTK_CHOOSER=filer`,
-  usually in `!Run`), and at any time with Menu over a box ("Directory
-  browser..."), which keeps the box's name and folder. The boxes stay the
-  default.
+  usually in `!Run`), and at any time with the box's Browse... button (or
+  Menu over the box), which keeps the box's name and folder. The boxes
+  stay the default. The Save box's Browse... sits on the Selection line,
+  which the Toolbox's box leaves half empty; the box grows a little wider
+  for it.
 - **Look:** a Filer window's content (the desktop's sprites, large and
   small icons, full info, the Filer's sort orders and its Menu > Display)
   plus a sidebar like the Finder's: Discs, Places, Recent. The Save box's

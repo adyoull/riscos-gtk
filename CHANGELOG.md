@@ -3,9 +3,11 @@
 ## 3.24.41-riscos1.0-rc5 (2026-10-11)
 - **A directory browser for Save and Open, like a Filer window.**
   - `*Set RISCOS_GTK_CHOOSER filer` shows it instead of the Save and Open
-    boxes, for one program (in its !Run) or every program. A Menu click
-    over a Save or Open box also offers "Directory browser...", and its
-    own menu offers the box back.
+    boxes, for one program (in its !Run) or every program. The Save and
+    Open boxes have a Browse... button that switches to it (Menu over a
+    box offers "Directory browser..." too), and its own menu offers the
+    box back. The Save box is a little wider for the button, on the
+    Selection line.
   - The window: the folder's objects with their Wimp sprites, as large
     icons, small icons or full info (type names, sizes, dates), sorted
     by name, type, size or date (Menu > Display, as the Filer's). Parent
@@ -25,7 +27,7 @@
     `gdk_riscos_read_dir` (OS_GBPB 12), `gdk_riscos_filing_systems`
     (OS_FSControl 33), `gdk_riscos_canonicalise` (37) and
     `gdk_riscos_filetype_name` (18).
-  - Test: `browser-fake` (25 checks). The fake RISC OS answers OS_GBPB 12
+  - Test: `browser-fake` (27 checks). The fake RISC OS answers OS_GBPB 12
     and OS_FSControl 33 and 18.
 - **A program's file dialogue gets its folder.** GTK's hidden file
   chooser widget sets the folder a program gives it only once it has read

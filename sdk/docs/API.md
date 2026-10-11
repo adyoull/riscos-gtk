@@ -202,8 +202,8 @@ Use `gtk_widget_get_window (toplevel)` once the window is realised.
 Pass NULL `func` to stop.
 
 **The directory browser:** `GtkFileChooserDialog` and
-`GtkFileChooserNative` show the Save or Open box; a Menu click over the
-box offers "Directory browser...", a Filer-like window with a sidebar of
+`GtkFileChooserNative` show the Save or Open box; its Browse... button
+(or Menu over it) gives the directory browser, a Filer-like window with a sidebar of
 discs, places and recent folders. `*Set RISCOS_GTK_CHOOSER filer` (in a
 program's `!Run`, or by the user for every program) shows the browser
 first. It uses the program's filters, current folder, current name and
@@ -421,7 +421,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_CENTRE` = 0 | Don't centre new windows |
 | `RISCOS_GTK_MENUBAR` (any value) | Draw the menu bar in the window as well |
 | `RISCOS_GTK_MENUS` (any value) | GTK's own menus instead of Wimp menus (for testing) |
-| `RISCOS_GTK_CHOOSER` = `filer` | The directory browser instead of the Save and Open boxes (Menu over a box also offers it) |
+| `RISCOS_GTK_CHOOSER` = `filer` | The directory browser instead of the Save and Open boxes (their Browse... button also gives it) |
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |

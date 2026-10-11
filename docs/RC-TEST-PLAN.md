@@ -101,7 +101,7 @@ provider offers them.
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 5.1 | L3afpad: File > Open, then Menu over the Open box > Directory browser...: a window of the folder's files with their sprites, a sidebar of discs and places | new | |
+| 5.1 | L3afpad: File > Open, then the Open box's Browse... button (and, another time, Menu over the box > Directory browser...): a window of the folder's files with their sprites, a sidebar of discs and places | new | |
 | 5.2 | In the browser: double-click a directory, Parent, a disc in the sidebar, Menu > Display > Small icons / Full info; double-click a file opens it | new | |
 | 5.3 | `*Set RISCOS_GTK_CHOOSER filer`, then L3afpad File > Save As: the browser; type a name, Save: saved in the folder shown, typed Text; drag its file icon to a Filer window also saves | new | |
 | 5.4 | Drag a directory from the Filer onto the browser: it's shown | new | |

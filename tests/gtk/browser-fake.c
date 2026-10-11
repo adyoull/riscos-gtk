@@ -657,8 +657,9 @@ hook (int reason)
       if (!w || !(handle = handle_of (w)))
         break;
       fake_target_window = handle;
-      check (!gtk_window_get_resizable (GTK_WINDOW (w)) && !find_type (w, GTK_TYPE_ICON_VIEW),
-             "without RISCOS_GTK_CHOOSER: the Save box");
+      check (!gtk_window_get_resizable (GTK_WINDOW (w)) && !find_type (w, GTK_TYPE_ICON_VIEW)
+             && button_labelled (w, "Browse...") != NULL,
+             "without RISCOS_GTK_CHOOSER: the Save box, with Browse...");
       settle ();
       stage = 120;
       return;
@@ -683,6 +684,27 @@ hook (int reason)
       return;
     case 14:
       check (response == GTK_RESPONSE_CANCEL && !window_titled ("Save File"), "Cancel");
+      g_clear_object (&native);
+      g_idle_add (show_open, NULL);
+      stage = 140;
+      nulls (6);
+      return;
+    case 140:                   /* an Open box, then its Browse... button */
+      w = window_titled ("Open File");
+      if (!w || !(handle = handle_of (w)))
+        break;
+      b = button_labelled (w, "Browse...");
+      check (b && !find_type (w, GTK_TYPE_ICON_VIEW), "the Open box has Browse...");
+      if (b)
+        gtk_button_clicked (GTK_BUTTON (b));
+      stage = 141;
+      nulls (6);
+      return;
+    case 141:
+      w = window_titled ("Open File");
+      check (w && find_type (w, GTK_TYPE_ICON_VIEW) && n_objects (w) == 10,
+             "Browse...: the directory browser, in the program's folder");
+      gtk_button_clicked (GTK_BUTTON (button_labelled (w, "Cancel")));
       g_clear_object (&native);
       g_setenv ("RISCOS_GTK_CHOOSER", "filer", TRUE);
       g_idle_add (show_folder, NULL);

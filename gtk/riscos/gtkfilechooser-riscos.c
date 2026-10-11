@@ -625,6 +625,14 @@ keep_menu (GtkWidget *window, GtkWidget *menu, GtkWidget *attach)
 }
 
 static void
+on_browse (GtkWidget *button, RiscosBox *box)
+{
+  box_close_window (box);
+  box->browser = TRUE;
+  box_show (box);
+}
+
+static void
 on_use_browser (GtkMenuItem *item, RiscosBox *box)
 {
   box_close_window (box);
@@ -748,9 +756,20 @@ box_build (RiscosBox *box)
       gtk_widget_set_sensitive (sel, FALSE);
       gtk_widget_set_can_focus (sel, FALSE);
       gtk_widget_set_halign (sel, GTK_ALIGN_START);
-      gtk_widget_set_margin_top (sel, 7);
-      gtk_widget_set_margin_start (sel, 6);
-      gtk_box_pack_start (GTK_BOX (col), sel, FALSE, FALSE, 0);
+      {
+        /* Selection, and Browse... on its right: the directory browser
+           (the Toolbox's box has the line's right half empty) */
+        GtkWidget *line = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+        GtkWidget *browse = action_button (_("Browse..."));
+        gtk_widget_set_tooltip_text (browse, _("Save from a directory browser instead"));
+        g_signal_connect (browse, "clicked", G_CALLBACK (on_browse), box);
+        gtk_widget_set_margin_top (line, 7);
+        gtk_widget_set_margin_start (line, 6);
+        gtk_widget_set_margin_end (line, 11);
+        gtk_box_pack_start (GTK_BOX (line), sel, FALSE, FALSE, 0);
+        gtk_box_pack_end (GTK_BOX (line), browse, FALSE, FALSE, 0);
+        gtk_box_pack_start (GTK_BOX (col), line, FALSE, FALSE, 0);
+      }
 
       cancel = action_button (box->cancel_label ? box->cancel_label : _("Cancel"));
       okb = action_button (box->accept_label ? box->accept_label : _("Save"));
@@ -789,8 +808,16 @@ box_build (RiscosBox *box)
           g_free (text);
         }
       gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
-      gtk_box_pack_start (GTK_BOX (vb), buttons (box, G_CALLBACK (on_open_ok), _("Open")),
-                          FALSE, FALSE, 0);
+      {
+        /* Browse..., Cancel, Open: Browse... gives the directory browser */
+        GtkWidget *row = buttons (box, G_CALLBACK (on_open_ok), _("Open"));
+        GtkWidget *browse = action_button (_("Browse..."));
+        gtk_widget_set_tooltip_text (browse, _("Choose in a directory browser instead"));
+        g_signal_connect (browse, "clicked", G_CALLBACK (on_browse), box);
+        gtk_box_pack_start (GTK_BOX (row), browse, TRUE, TRUE, 0);
+        gtk_box_reorder_child (GTK_BOX (row), browse, 0);
+        gtk_box_pack_start (GTK_BOX (vb), row, FALSE, FALSE, 0);
+      }
       g_signal_connect (box->window, "realize", G_CALLBACK (on_open_realize), box);
       g_free (name);
     }

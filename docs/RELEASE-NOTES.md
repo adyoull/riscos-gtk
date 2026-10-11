@@ -107,9 +107,9 @@ release.
 - **Save:** a Toolbox-style Save box. Drag its icon to a Filer window or
   another program, or type a full path.
 - **Open:** a RISC OS Open box that takes a file dragged to it.
-- **The directory browser:** Menu over a Save or Open box gives
-  "Directory browser...", or `*Set RISCOS_GTK_CHOOSER filer` uses it
-  every time. A Filer-like window: large icons, small icons or full info
+- **The directory browser:** the Browse... button on a Save or Open box
+  (or Menu over it), or `*Set RISCOS_GTK_CHOOSER filer` to use it every
+  time. A Filer-like window: large icons, small icons or full info
   with the desktop's file sprites, sorted as the Filer sorts, Parent and
   the folder's name along the top, and a sidebar of discs (every filing
   system), places (the program's folder, Boot, Choices, Scrap) and
@@ -308,7 +308,7 @@ code against a fake RISC OS and Wimp:
 | gltest-nogl (GtkGLArea without riscos-mesa linked in) | 2 |
 | schemas-fake (GTK's schemas for a program that ships none) | 3 + 3 |
 | fontconfig-fake (UnixFC, own, forced) | 5 + 4 + 4 |
-| browser-fake (the directory browser) | 25 |
+| browser-fake (the directory browser) | 27 |
 | geany-fake (Geany 2.1: with the box and with the browser) | 6 + 6 |
 
 All pass at the RC commit.
