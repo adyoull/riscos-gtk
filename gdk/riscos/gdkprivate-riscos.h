@@ -249,4 +249,8 @@ void _gdk_riscos_cursor_display_finalize (GdkDisplay *display);
 /* gdkwimptheme-riscos.c: GDK scale (2 in an EX0 EY0 mode) */
 int _gdk_riscos_scale_factor (void);
 
+/* gdkfontconfig-riscos.c: fontconfig, UnixFC's set-up if installed plus
+   the program's own fonts, else the program's own */
+void _gdk_riscos_fontconfig_init (void);
+
 #endif /* __GDK_PRIVATE_RISCOS_H__ */

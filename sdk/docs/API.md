@@ -28,7 +28,7 @@ defines it, so the same source still builds elsewhere. The template
 | The icon bar | Every program gets an icon (see "The icon bar"). |
 | `GtkApplication` | Select on the icon is "activate". Files double-clicked or dropped on the icon are "open". Quit on the icon bar menu is the "quit" action, and Choices... is "preferences". Closing the last window leaves the program on the icon bar. Use `G_APPLICATION_NON_UNIQUE`: there's no D-Bus. |
 | The theme | The RISCOS theme: the desktop's Wimp colours, option, radio and icon sprites, and window border sprites for scroll bars. |
-| Fonts | DejaVu Sans 12 at 90 dpi, from the application's `fonts` folder. |
+| Fonts | DejaVu Sans 12 at 90 dpi. With PackMan's FontConfig (UnixFC) installed, programs use the system's fonts, mapping and font cache, with their own `fonts` folder added; otherwise only their own fonts (see "Fonts"). |
 | `GtkGLArea` | OpenGL 2.1 (or ES 2.0) through riscos-mesa, when the program links it in (see "OpenGL"). Without it, the area shows "OpenGL is not available". |
 | EX0 EY0 (180 dpi) modes | GDK scale 2: GTK lays out at the usual size and draws at the screen's resolution. Pictures at twice the size are used where given (see "High-resolution pictures"). |
 | Keys | GTK's accelerators, written in menus as RISC OS writes them (^O, F3). |
@@ -51,9 +51,6 @@ It:
   `XDG_CACHE_HOME` is `<Wimp$ScrapDir>.name.cache`. So
   `g_get_user_config_dir()`, GKeyFile settings files and GTK's
   recently-used list go there;
-- sets `GSETTINGS_BACKEND` to `keyfile`, so GSettings are saved in
-  `<Choices$Write>.name` too. Without D-Bus, GLib would otherwise use
-  its memory backend and forget them;
 - sends stdout and stderr to `<Wimp$ScrapDir>.name.Log`, unless
   `RISCOS_GTK_NO_LOG` is set;
 - calls `g_set_prgname (name)`;
@@ -77,6 +74,35 @@ running. GTK's `gtk_show_uri_on_window()` can't do this on RISC OS.
 Returns FALSE, after an error box, if nothing took the address.
 
 `app.h` is header-only: include it in one source file.
+
+## Fonts
+
+GTK draws text with pango, which finds fonts through fontconfig.
+riscos-gtk picks the set-up when the display opens:
+
+- **With PackMan's FontConfig installed** (UnixFC: `UnixFC$Dir` is set,
+  and it has `fonts/fonts.conf`), the program uses the system's set-up,
+  as other fontconfig programs do:
+  - its fonts, in `UnixFont:`;
+  - its font mapping;
+  - its font cache, built once and shared by every program.
+
+  The program's own `fonts` folder is added on top, so DejaVu Sans, GTK's
+  default, is always there. riscos-gtk's fontconfig is 2.14.1, the
+  version PackMan has, so they read the same configuration and cache.
+- **Without it**, or if the system's set-up doesn't load, the program
+  uses its own `fonts.conf` (`FONTCONFIG_FILE`, which
+  `riscos_gtk_app_init` sets): its own fonts, with a cache in
+  `<Wimp$ScrapDir>.name.fontcache`.
+- **`*Set RISCOS_GTK_FONTS own`** forces the program's own set-up.
+
+The Log says which set-up was used ("riscos-gtk: fonts: ..."). RISC OS's
+own outline fonts (Homerton, Trinity...) can't be used: FreeType can't
+read their format.
+
+GSettings stay in memory: GLib's keyfile backend needs a file monitor
+that RISC OS hasn't got. Keep settings in a GKeyFile under
+`g_get_user_config_dir()`, which is `<Choices$Write>.name`.
 
 ## The icon bar
 
@@ -371,6 +397,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_PRINT_BITMAP` (any value) | Print everything as bitmaps, not Draw paths |
 | `RISCOS_GTK_DEBUG` (any value) | More detail in the Log: Wimp events, the theme's CSS |
 | `GDK_GL` = `gles` | OpenGL ES 2.0 contexts for GtkGLArea instead of OpenGL 2.1 |
+| `RISCOS_GTK_FONTS` = `own` | Only the program's own fonts and font cache, even with UnixFC installed |
 | `RISCOS_GTK_NO_LOG` (any value) | `riscos_gtk_app_init` leaves stdout and stderr alone |
 
 Each program's Log starts with lines giving the task name, the screen

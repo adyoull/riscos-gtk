@@ -117,7 +117,9 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   `RISCOS_GTK_DEFAULT_FILETYPE`.
 - **Settings and data:** `riscos_gtk_app_init` points GLib's user
   directories at `<Choices$Write>.Name`, so `g_get_user_config_dir()`
-  and GSettings work as expected. A program with its own `~/.prog`
+  and GKeyFile settings files go there. GSettings are kept in memory
+  only (no file monitor for GLib's keyfile backend), so keep anything
+  that must last in a GKeyFile. A program with its own `~/.prog`
   directory should use `g_get_user_config_dir()` instead of `$HOME`.
 - **GSettings schemas:** pass your `.gschema.xml` files to
   `riscos-gtk-package` in `SCHEMAS`. Without its schema, GLib stops the
@@ -133,11 +135,16 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   be PNG. riscos-gtk ships Adwaita's PNG icons for the names GTK uses.
   Give your program's own icons as PNGs, plus `@2` versions for 180 dpi
   modes.
-- **Fonts:** fontconfig sees only the fonts in the application's `fonts`
-  folder: DejaVu Sans by default. Add faces with `EXTRA_FONTS` when
-  packaging (`DejaVuSansMono.ttf` for a monospaced view), or put other
-  TrueType or OpenType files in `fonts`. RISC OS's own fonts aren't
-  used.
+- **Fonts:**
+  - **With PackMan's FontConfig (UnixFC) installed,** programs get the
+    system's fonts and shared font cache, plus their own `fonts`
+    folder.
+  - **Without it,** they get only their own `fonts` folder, which has
+    DejaVu Sans by default.
+  - **More faces:** add them with `EXTRA_FONTS` when packaging
+    (`DejaVuSansMono.ttf` for a monospaced view), or put other TrueType
+    or OpenType files in `fonts`.
+  - **RISC OS's own outline fonts** can't be used (API.md, "Fonts").
 - **The theme** is riscos-gtk's RISCOS theme. A program's own CSS works,
   but CSS that names Adwaita's colours, or hard-codes sizes for a
   different theme, may look out of place.

@@ -109,6 +109,17 @@ done
 GLT=$REPO_DIR/out/gltest-linuxarm
 rm -rf "$GLT"; mkdir -p "$GLT"
 
+# Which fontconfig set-up a program gets (gdkfontconfig-riscos.c): with a
+# stand-in for PackMan's FontConfig, without, and opted out
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/fontconfig-fake.c" \
+  -o "$REPO_DIR/out/fontconfig-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+FCT=$REPO_DIR/out/fontconfig-linuxarm
+rm -rf "$FCT"; mkdir -p "$FCT/mono"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf' -d "$FCT/mono"
+
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/themetest-fake.c" "$REPO_DIR/tests/gtk/themetest.c" "$REPO_DIR/tests/gtk/riscos-freopen.c" \
@@ -204,6 +215,10 @@ else
   echo; echo "=== linux-arm: gltest-fake skipped: no riscos-mesa devkit in MESA_DEVKIT=$MESA_DEVKIT"
 fi
 GLTEST_NO_MESA=1 run gltest-nogl "$HA" "$GLT"
+for m in unixfc own forced; do
+  rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
+  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/mono/DejaVuSansMono.ttf"
+done
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"

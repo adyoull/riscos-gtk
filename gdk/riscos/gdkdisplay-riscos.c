@@ -91,6 +91,11 @@ _gdk_riscos_display_open (const gchar *display_name)
      with GSETTINGS_BACKEND. */
   g_setenv ("GSETTINGS_BACKEND", "memory", FALSE);
 
+  /* fontconfig: the system's set-up (PackMan's UnixFC) if installed, with
+     the program's own fonts on top; else the program's own
+     (gdkfontconfig-riscos.c). Before pango's first font. */
+  _gdk_riscos_fontconfig_init ();
+
   display = g_object_new (GDK_TYPE_RISCOS_DISPLAY, NULL);
   riscos_display = GDK_RISCOS_DISPLAY (display);
 

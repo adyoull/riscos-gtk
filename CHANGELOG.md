@@ -1,6 +1,22 @@
 # Changelog
 
 ## Unreleased (2026-10-11)
+- !L3afpad 0.23, !ClawsMail 0.12, GTKThemeTest 0.47 and !GTKGLTest 0.3, with the system fontconfig set-up.
+- **Fonts: the system's fontconfig set-up when it's installed.**
+  - With PackMan's FontConfig (UnixFC) installed, GTK programs use its
+    fonts.conf: the system's fonts in UnixFont:, its mapping and its
+    shared font cache. Their own fonts folder is added as application
+    fonts.
+  - Otherwise, or if it doesn't load, they use their own fonts.conf and
+    a cache in scrap, as before.
+  - `gdk/riscos/gdkfontconfig-riscos.c` does this when the display
+    opens, after riscos-warzone2100's `riscos_fontconfig.c`.
+  - `RISCOS_GTK_FONTS=own` opts out. The Log says which set-up was
+    used.
+  - New test `fontconfig-fake` covers both cases.
+- **Devkit `app.h`:** it no longer sets `GSETTINGS_BACKEND=keyfile`.
+  GLib's keyfile backend needs a file monitor RISC OS hasn't got (seen
+  on the Pi in October). That is why the backend uses memory.
 - !L3afpad 0.22, !ClawsMail 0.11, GTKThemeTest 0.46 and !GTKGLTest
   0.2. These are built with riscos-crossdev 1.5, and their !Run files
   now make the font cache folder.
@@ -88,8 +104,8 @@
     PThreadTicker, the LGPL and a Source file, and runs crossdev's
     checks.
   - **`<riscos-gtk/app.h>`:**
-    - start-up: fonts, theme and settings directories, GSettings kept
-      in `<Choices$Write>`, the Log, and files from the Filer;
+    - start-up: fonts, theme and settings directories, the Log, and
+      files from the Filer;
     - `riscos_gtk_open_uri()`: a web address through URI_Dispatch,
       starting Iris or NetSurf first.
   - **`template/`:** a small GtkApplication program, with a menu bar,

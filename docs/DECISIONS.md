@@ -311,11 +311,12 @@ own build and tests.
 - **`app.h`:** the start-up helper is header-only (static inline), not
   part of libgtk. A program can read and change it, and it needs
   nothing new in GTK.
-- **GSettings:** GLib registers its memory and keyfile backends at the
-  same priority and picks memory. Without D-Bus there is no dconf, so a
-  program's GSettings would be forgotten. `app.h` sets
-  `GSETTINGS_BACKEND=keyfile` and points the XDG user directories at
-  `<Choices$Write>.Name`.
+- **GSettings:** `app.h` first set `GSETTINGS_BACKEND=keyfile`, so that
+  GSettings would be kept. That was withdrawn on 2026-10-11: the
+  keyfile backend needs a file monitor RISC OS hasn't got, which was
+  seen on the Pi in October and is why the backend sets `memory`.
+  `app.h` points the XDG user directories at `<Choices$Write>.Name` for
+  GKeyFile settings.
 - **Licences:** the libraries are LGPL and statically linked. A devkit
   is published only with a release, beside that release's source
   archive. Packaged programs carry `LicenceLGPL` and a `Source` file
@@ -371,3 +372,19 @@ that SDL2, freeglut and the games already use.
   OS build without it.
 - **`-pthread`:** crossdev's driver still rejects it, so riscos-gtk
   keeps its compiler wrapper.
+
+## Fonts: the system's fontconfig when it's there (2026-10-11)
+- **The system's set-up first:** with PackMan's FontConfig (UnixFC)
+  installed, every GTK program uses the system's fontconfig set-up. That
+  means its fonts, its mapping and its shared cache. The program's own
+  fonts are added with `FcConfigAppFontAddDir`.
+- **Fallback:** the program's own fonts.conf, as before.
+- **Where:** `gdk/riscos/gdkfontconfig-riscos.c`, called when the display
+  opens, before pango. It follows riscos-warzone2100's
+  `riscos_fontconfig.c`; the version is the same, fontconfig 2.14.1.
+- **Why:** a shared cache is built once for the machine, not per
+  program in scrap. Programs see the user's installed fonts. A missing
+  or unwritable scrap cache folder no longer matters when UnixFC is
+  installed.
+- **Opting out:** `RISCOS_GTK_FONTS=own` keeps a program to its own
+  fonts.

@@ -17,11 +17,13 @@
  *     /<NAME$Dir>/share: the theme, icons and GSettings schemas that
  *     riscos-gtk-package puts there), unless already set;
  *   - puts the program's own settings and data where RISC OS keeps them:
- *     XDG_CONFIG_HOME and XDG_DATA_HOME = <Choices$Write>.NAME (GSettings'
- *     keyfile, GKeyFile files under g_get_user_config_dir(), GTK's
+ *     XDG_CONFIG_HOME and XDG_DATA_HOME = <Choices$Write>.NAME (GKeyFile
+ *     files under g_get_user_config_dir(), GTK's
  *     recently-used list), XDG_CACHE_HOME = <Wimp$ScrapDir>.NAME.cache,
- *     and GSETTINGS_BACKEND = keyfile so that GSettings are kept there,
- *     unless already set;
+ *     unless already set. (GSettings stay in memory, riscos-gtk's default:
+ *     GLib's keyfile backend wants a file monitor RISC OS hasn't got, as
+ *     the Pi showed. Keep settings with GKeyFile in
+ *     g_get_user_config_dir().)
  *   - sends stdout and stderr to <Wimp$ScrapDir>.NAME.Log (unless
  *     RISCOS_GTK_NO_LOG is set), opening the file once: RISC OS allows only
  *     one write-open of a file, so freopen()ing it twice fails;
@@ -88,9 +90,6 @@ riscos_gtk_app_init (const char *name, int *argc, char ***argv)
   s = g_strdup_printf ("/<Wimp$ScrapDir>/%s/cache", name);
   g_setenv ("XDG_CACHE_HOME", s, FALSE);
   g_free (s);
-  /* GSettings: kept in a file there (GLib would otherwise pick its
-     memory backend, with no D-Bus for dconf, and forget them) */
-  g_setenv ("GSETTINGS_BACKEND", "keyfile", FALSE);
 
   /* the scrap folder, and fontconfig's cache in it (fonts.conf names
      <Wimp$ScrapDir>.NAME.fontcache; !Run makes it too) */
