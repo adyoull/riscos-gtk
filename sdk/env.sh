@@ -41,6 +41,20 @@ else
   echo "  libraries need: use riscos-crossdev v1.5 (or v1.4)" >&2
 fi
 
+# The toolchain's .la files name the machine crossdev was built on
+# (/opt/b14/... in 1.4 and 1.5). libtool reads them when it links C++
+# (autotools programs with C++ in them, Geany for one) and stops:
+# "cannot find the library '/opt/b14/.../libm.la'".
+for la in "$RISCOS_TOOLCHAIN"/arm-riscos-gnueabihf/lib/*.la; do
+  d=$(sed -n "s/^libdir='\(.*\)'/\1/p" "$la" 2>/dev/null)
+  if [ -n "$d" ] && [ ! -d "$d" ]; then
+    echo "riscos-gtk env.sh: note: the toolchain's .la files name $d, which isn't here, so" >&2
+    echo "  libtool's C++ links will fail. To fix them (only the paths change):" >&2
+    echo "  sed -i 's|${d%/arm-riscos-gnueabihf/lib}|$RISCOS_TOOLCHAIN|g' $RISCOS_TOOLCHAIN/arm-riscos-gnueabihf/lib/*.la" >&2
+    break
+  fi
+done
+
 RISCOS_GTK_SYSROOT=$RISCOS_GTK_SDK/sysroot
 RISCOS_GTK_PREFIX=$RISCOS_GTK_SYSROOT/riscos-gtk
 export RISCOS_GTK_SDK RISCOS_GTK_SYSROOT RISCOS_GTK_PREFIX RISCOS_GTK_UNIXLIB
@@ -50,7 +64,9 @@ export RISCOS_GTK_SDK RISCOS_GTK_SYSROOT RISCOS_GTK_PREFIX RISCOS_GTK_UNIXLIB
 export PATH="$RISCOS_GTK_SDK/bin:$PATH"
 export CC=arm-riscos-gnueabihf-gcc CXX=arm-riscos-gnueabihf-g++
 export AR=arm-riscos-gnueabihf-ar RANLIB=arm-riscos-gnueabihf-ranlib STRIP=arm-riscos-gnueabihf-strip
-export PKG_CONFIG=pkg-config
+# pkg-config with --static (bin/arm-riscos-gnueabihf-pkg-config): every
+# link is static, so autotools must get the libraries' own dependencies
+export PKG_CONFIG="$RISCOS_GTK_SDK/bin/arm-riscos-gnueabihf-pkg-config"
 export PKG_CONFIG_LIBDIR="$RISCOS_GTK_PREFIX/lib/pkgconfig:$RISCOS_GTK_PREFIX/share/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR=$RISCOS_GTK_SYSROOT
 unset PKG_CONFIG_PATH

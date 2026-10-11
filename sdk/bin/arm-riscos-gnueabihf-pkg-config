@@ -1,0 +1,7 @@
+#!/bin/sh
+# riscos-gtk devkit: pkg-config for RISC OS programs. Everything is linked
+# statically, so --libs must include the libraries' own dependencies
+# (--static): autoconf's PKG_CHECK_MODULES otherwise links GTK without
+# expat, epoxy and the rest. env.sh points PKG_CONFIG here and sets
+# PKG_CONFIG_LIBDIR and PKG_CONFIG_SYSROOT_DIR to the devkit's. MIT licence.
+exec pkg-config --static "$@"

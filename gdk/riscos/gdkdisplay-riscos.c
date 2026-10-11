@@ -91,6 +91,10 @@ _gdk_riscos_display_open (const gchar *display_name)
      with GSETTINGS_BACKEND. */
   g_setenv ("GSETTINGS_BACKEND", "memory", FALSE);
 
+  /* GTK's GSettings schemas, if the program ships none (else every file
+     chooser stops it): gdkschemas-riscos.c */
+  _gdk_riscos_schemas_init ();
+
   /* fontconfig: the system's set-up (PackMan's UnixFC) if installed, with
      the program's own fonts on top; else the program's own
      (gdkfontconfig-riscos.c). Before pango's first font. */

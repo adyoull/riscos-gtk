@@ -253,4 +253,8 @@ int _gdk_riscos_scale_factor (void);
    the program's own fonts, else the program's own */
 void _gdk_riscos_fontconfig_init (void);
 
+/* gdkschemas-riscos.c: GTK's own GSettings schemas, written to scrap for
+   a program that ships none */
+void _gdk_riscos_schemas_init (void);
+
 #endif /* __GDK_PRIVATE_RISCOS_H__ */
