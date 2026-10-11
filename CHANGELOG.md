@@ -1,6 +1,32 @@
 # Changelog
 
 ## Unreleased (2026-10-11)
+- **GTK's GSettings schemas for programs that ship none.**
+  - **The report:** Geany, built by GCCSDK's autobuilder against
+    riscos-gtk, crashed on every Open and Save
+    (Crossdev-public/handoffs/2026-10-11-gtk-geany-load-save-crash.md).
+  - **The cause:** the package had no GSettings schemas. GTK's file
+    chooser asks for org.gtk.Settings.FileChooser when it's made, and
+    GLib stops the program when no schema is installed. riscos-gtk's own
+    packages ship them, so they never hit it.
+  - **The fix:** riscos-gtk carries GTK's compiled schemas
+    (`gdk/riscos/gdkschemas-riscos.h`, made by
+    `tools/mkgtkschemas.sh`). `gdkschemas-riscos.c` checks at start-up
+    whether GLib will find GTK's schema. If not, it writes the copy to
+    `<Wimp$ScrapDir>.riscos-gtk-schemas` and puts that folder first in
+    GSETTINGS_SCHEMA_DIR. The Log says so.
+  - **Test:** new `schemas-fake` covers both cases.
+  - **Geany 2.0 on the fake desktop:** built for ARM Linux against the
+    fake RISC OS, by hand, not in `make check`. Starting with a file,
+    saving it, Open... with a file dropped on the Open box, and Save
+    as... with the Save box's icon dragged to a Filer all work. Without
+    schemas it stopped at Open before the fix, and it works after.
+- **Devkit:**
+  - pkg-config is a wrapper that adds `--static`, so autotools programs
+    link GTK's dependencies.
+  - `env.sh` prints a `sed` fix when the toolchain's `.la` files name a
+    missing build path, which libtool's C++ links trip on.
+  - PORTING.md has notes from Geany: `-DHAVE_SCANDIR` for its ctags.
 - !L3afpad 0.23, !ClawsMail 0.12, GTKThemeTest 0.47 and !GTKGLTest 0.3, with the system fontconfig set-up.
 - **Fonts: the system's fontconfig set-up when it's installed.**
   - With PackMan's FontConfig (UnixFC) installed, GTK programs use its

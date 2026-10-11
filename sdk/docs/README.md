@@ -76,10 +76,14 @@ are kept. Double-click !Hello, then click Select on its icon bar icon.
 - **autotools:**
 
   ```sh
-  ./configure --host=arm-riscos-gnueabihf --disable-shared
+  ./configure --host=arm-riscos-gnueabihf --disable-shared --enable-static
   ```
 
-  CC, CFLAGS, LDFLAGS and pkg-config's variables are already set.
+  CC, CFLAGS and LDFLAGS are already set, and so is pkg-config, which
+  gives static libraries. A program with C++ goes through libtool's C++
+  link, which needs the toolchain's `.la` files corrected first:
+  `env.sh` prints the command. PORTING.md has notes from the Geany
+  port.
 - **meson:**
 
   ```sh

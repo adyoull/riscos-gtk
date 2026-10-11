@@ -388,3 +388,19 @@ that SDL2, freeglut and the games already use.
   installed.
 - **Opting out:** `RISCOS_GTK_FONTS=own` keeps a program to its own
   fonts.
+
+## GTK's schemas built in (2026-10-11)
+- **Why:** a GTK program packaged without GSettings schemas stops at its
+  first file chooser. Geany built by the autobuilder did. riscos-gtk
+  can't make every packager ship them.
+- **What:** it carries GTK's own compiled schemas (2.3 KB) and writes
+  them to scrap only when GLib wouldn't find them. They go in
+  `<Wimp$ScrapDir>.riscos-gtk-schemas`, at the front of
+  GSETTINGS_SCHEMA_DIR.
+- **What's left alone:** a program's own schemas in its share folder
+  are still found, and a program that ships GTK's schemas is untouched.
+- **Alternatives rejected:**
+  - Patching GTK's choosers not to use GSettings would mean three
+    patches.
+  - Compiling a GSettingsSchemaSource from memory isn't possible: GLib
+    only reads schemas from files.

@@ -14,6 +14,8 @@ folder.
    - meson: `--cross-file "$(riscos-gtk-meson-cross)"`
    - CMake: the devkit's toolchain file
 
+   With autotools, `--disable-shared --enable-static` too. pkg-config
+   is already set to give static libraries (`--static`).
    Switch off what can't work: D-Bus, plug-ins and spell checkers that
    load modules, and anything that runs helper programs. A program
    with OpenGL needs riscos-mesa's devkit too (API.md, "OpenGL").
@@ -121,9 +123,15 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   only (no file monitor for GLib's keyfile backend), so keep anything
   that must last in a GKeyFile. A program with its own `~/.prog`
   directory should use `g_get_user_config_dir()` instead of `$HOME`.
-- **GSettings schemas:** pass your `.gschema.xml` files to
-  `riscos-gtk-package` in `SCHEMAS`. Without its schema, GLib stops the
-  program when it asks for it.
+- **GSettings schemas:**
+  - **Your own:** pass your `.gschema.xml` files to
+    `riscos-gtk-package` in `SCHEMAS`. Without its schema, GLib stops
+    the program when it asks for it.
+  - **GTK's own** (its file, colour and emoji choosers) are always
+    there. If a program ships none, riscos-gtk writes its built-in copy
+    to `<Wimp$ScrapDir>.riscos-gtk-schemas` at start-up and tells GLib.
+    Before that, a program packaged without schemas stopped on every
+    Open and Save.
 - **Writing a file twice:** RISC OS allows one write-open of a file at a
   time. Don't `freopen()` one file for both stdout and stderr: open it
   once and `dup2()`, as `riscos_gtk_app_init` does.
@@ -174,6 +182,31 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
 - **Quit:** RISC OS programs quit from the icon bar menu.
   riscos-gtk's icon bar finds a menu item labelled Quit, or the
   application's "quit" action.
+
+## Notes from ports
+
+**Geany 2.0** builds with autotools from the devkit:
+
+```sh
+./configure --host=arm-riscos-gnueabihf --disable-shared --enable-static \
+  --disable-plugins --disable-nls --disable-vte --disable-socket \
+  CPPFLAGS=-DHAVE_SCANDIR
+make
+```
+
+It also passes riscos-crossdev's checks. Things that came up:
+
+- **scandir:** ctags' fallback `scandir` copies `d_reclen`, which
+  UnixLib's `struct dirent` hasn't got. UnixLib has a real `scandir`, so
+  `-DHAVE_SCANDIR` uses that.
+- **libtool and the toolchain's `.la` files:** they name the machine
+  riscos-crossdev was built on, so libtool's C++ link stops with
+  "cannot find the library '/opt/b14/.../libm.la'". `env.sh` prints a
+  `sed` command that corrects the paths.
+- **Static pkg-config:** without `--static`, the link misses expat,
+  epoxy and the rest. The devkit's pkg-config now adds it.
+- **The result:** opening, saving and Save as all work on the fake
+  desktop (riscos-gtk's `tests`, run by hand).
 
 ## Licences
 
