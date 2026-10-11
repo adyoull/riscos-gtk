@@ -30,6 +30,22 @@
  * gdk_riscos_spawn_kill() ends a task: TaskWindow_Morite, or Message_Quit
  * for a task of its own.
  *
+ * Throwback: while a TaskWindow of ours runs, this task is registered
+ * with the DDEUtils module (DDEUtils_ThrowbackRegister), so the DDE's
+ * tools given -throwback (cc, objasm, link, amu...) send their errors here
+ * as Wimp messages. Each is written to the newest running task's output
+ * as a compiler line, "FILE:LINE: error: TEXT" (warning, fatal error,
+ * note), with FILE as a Unix name (c.hello is hello.c, as UnixLib names
+ * it), so a program that reads compiler messages (Geany's Compiler tab)
+ * finds the file and line. Registration ends when the last one ends, so
+ * an editor such as StrongED gets throwback again.
+ *   Message_ThrowbackStart &42580, _ProcessingFile &42581 (+20 file name),
+ *   _ErrorsIn &42582 (+20 file name), _ErrorDetails &42583 (+20 line,
+ *   +24 severity: 0 warning, 1 error, 2 serious error, +28 text),
+ *   _ThrowbackEnd &42584, _InfoForFile &42585 (+20 file name),
+ *   _InfoDetails &42586 (+20 line, +24 -1, +28 text);
+ *   DDEUtils_ThrowbackRegister &42585, _UnRegister &42586 (R0 = task).
+ *
  * Messages as in the RISC OS PRMs (TaskWindow): TaskWindow_Output &808C1
  * (+20 size, +24 data; sent as a plain user message, not acknowledged),
  * TaskWindow_Ego &808C2 (sender = child task, +20 = our txt handle),
@@ -69,6 +85,15 @@
 /* the Obey file's last line prints this and Sys$ReturnCode */
 #define EXIT_MARK "##riscos-gtk-exit "
 
+#define DDEUtils_ThrowbackRegister   0x42585
+#define DDEUtils_ThrowbackUnRegister 0x42586
+#define MESSAGE_THROWBACK_FIRST   0x42580
+#define MESSAGE_ERRORS_IN         0x42582
+#define MESSAGE_ERROR_DETAILS     0x42583
+#define MESSAGE_INFO_FOR_FILE     0x42585
+#define MESSAGE_INFO_DETAILS      0x42586
+#define MESSAGE_THROWBACK_LAST    0x42586
+
 typedef struct
 {
   GPid pid;                  /* also the txt handle given to *TaskWindow */
@@ -86,6 +111,20 @@ typedef struct
 
 static GHashTable *tasks;    /* pid -> Task */
 static int our_task, next_pid = 1;
+static gboolean throwback_registered;
+static char *throwback_file;      /* Unix name of the file errors are in */
+
+static void
+throwback_register (gboolean on)
+{
+  _kernel_swi_regs r;
+
+  if (on == throwback_registered || g_strcmp0 (g_getenv ("RISCOS_GTK_THROWBACK"), "0") == 0)
+    return;
+  r.r[0] = our_task;
+  if (_kernel_swi (on ? DDEUtils_ThrowbackRegister : DDEUtils_ThrowbackUnRegister, &r, &r) == NULL || !on)
+    throwback_registered = on;   /* no DDEUtils: nothing to do */
+}
 
 static void
 task_free (gpointer p)
@@ -292,6 +331,8 @@ spawn (const gchar *working_directory, const gchar * const *argv,
     }
   if (child_pid)
     *child_pid = t->pid;
+  if (t->captured)
+    throwback_register (TRUE);
   if (t->done && t->reap)
     task_free (t);
   else
@@ -390,6 +431,117 @@ task_ended (Task *t)
   t->done = TRUE;
   if (t->reap)
     g_hash_table_remove (tasks, GINT_TO_POINTER (t->pid));
+  if (throwback_registered)
+    {
+      GHashTableIter it;
+      gpointer k, v;
+      gboolean running = FALSE;
+
+      g_hash_table_iter_init (&it, tasks);
+      while (g_hash_table_iter_next (&it, &k, &v))
+        if (((Task *) v)->captured && !((Task *) v)->done)
+          running = TRUE;
+      if (!running)
+        throwback_register (FALSE);
+    }
+}
+
+/* The newest TaskWindow still running (throwback goes to its output) */
+static Task *
+newest_running (void)
+{
+  GHashTableIter it;
+  gpointer k, v;
+  Task *best = NULL;
+
+  g_hash_table_iter_init (&it, tasks);
+  while (g_hash_table_iter_next (&it, &k, &v))
+    {
+      Task *t = v;
+      if (t->captured && !t->done && (best == NULL || t->pid > best->pid))
+        best = t;
+    }
+  return best;
+}
+
+/* A RISC OS file name as UnixLib gives it: "Disc.$.src.c.hello" is
+   "/Disc/$/src/hello.c" when "c" is one of UnixLib's suffix directories
+   (UnixLib$sfix, or its own list) */
+static char *
+throwback_unix_name (const char *riscos)
+{
+  char *unix_name = gdk_riscos_path_to_unix (riscos), *leaf, *dir;
+  const char *sfix = g_getenv ("UnixLib$sfix");
+  char **list;
+  int i;
+  gboolean swap = FALSE;
+
+  leaf = strrchr (unix_name, '/');
+  if (leaf == NULL || leaf == unix_name)
+    return unix_name;
+  *leaf = '\0';
+  dir = strrchr (unix_name, '/');
+  *leaf = '/';
+  if (dir == NULL)
+    return unix_name;
+  list = g_strsplit (sfix && *sfix ? sfix : "a:c:cc:c++:cpp:f:h:hh:i:l:m:o:p:pl:s:y", ":", -1);
+  for (i = 0; list[i] && !swap; i++)
+    swap = (int) strlen (list[i]) == leaf - dir - 1 && g_ascii_strncasecmp (dir + 1, list[i], leaf - dir - 1) == 0;
+  if (swap)
+    {
+      char *base = g_strndup (unix_name, dir - unix_name), *ext = g_strndup (dir + 1, leaf - dir - 1);
+      char *swapped = g_strdup_printf ("%s/%s.%s", base, leaf + 1, ext);
+      g_free (base);
+      g_free (ext);
+      g_free (unix_name);
+      unix_name = swapped;
+    }
+  g_strfreev (list);
+  return unix_name;
+}
+
+static gboolean
+throwback_message (int reason, int *block)
+{
+  Task *t = newest_running ();
+  int len = MIN (block[0], 256) - 28;
+
+  if (t == NULL)
+    return FALSE;
+  if (reason == 18)
+    {
+      /* acknowledge, so it isn't returned to the sender */
+      int ack[64];
+      _kernel_swi_regs r;
+      memcpy (ack, block, 20);
+      ack[3] = block[2];
+      r.r[0] = 19;
+      r.r[1] = (int) (long) ack;
+      r.r[2] = block[1];
+      _kernel_swi (Wimp_SendMessage, &r, &r);
+    }
+  switch (block[4])
+    {
+    case MESSAGE_ERRORS_IN:
+    case MESSAGE_INFO_FOR_FILE:
+      g_free (throwback_file);
+      throwback_file = throwback_unix_name ((const char *) &block[5]);
+      break;
+    case MESSAGE_ERROR_DETAILS:
+    case MESSAGE_INFO_DETAILS:
+      {
+        const char *kind = block[4] == MESSAGE_INFO_DETAILS ? "note"
+                           : block[6] == 0 ? "warning" : block[6] == 1 ? "error" : "fatal error";
+        char *text = g_strndup ((const char *) &block[7], MAX (len, 0));
+        char *line = g_strdup_printf ("%s:%d: %s: %s\n", throwback_file ? throwback_file : "?",
+                                      block[5], kind, g_strchomp (text));
+        task_output (t, line, strlen (line));
+        g_free (line);
+        g_free (text);
+      }
+      break;
+    }
+  return TRUE;
 }
 
 static Task *
@@ -417,6 +569,8 @@ _gdk_riscos_spawn_message (int reason, int *block)
 
   if (tasks == NULL || reason < 17 || reason > 18)
     return FALSE;
+  if (block[4] >= MESSAGE_THROWBACK_FIRST && block[4] <= MESSAGE_THROWBACK_LAST)
+    return throwback_registered && throwback_message (reason, block);
   switch (block[4])
     {
     case MESSAGE_TASKWINDOW_EGO:

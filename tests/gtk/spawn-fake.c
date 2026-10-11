@@ -13,7 +13,11 @@
  *   - no output wanted (g_spawn_async, g_spawn_command_line_async):
  *     Wimp_StartTask with the command; the child watch fires at its
  *     Message_TaskCloseDown;
- *   - gdk_riscos_spawn_kill: TaskWindow_Morite to the child.
+ *   - gdk_riscos_spawn_kill: TaskWindow_Morite to the child;
+ *   - throwback (the DDE's tools with -throwback): registered with
+ *     DDEUtils while the TaskWindow runs; its errors become compiler
+ *     lines with Unix names (c.hello is hello.c) in the output; a recorded
+ *     message is acknowledged.
  *   spawn-fake APPDIR
  * Prints TAP; exit status = failures. MIT licence.
  */
@@ -31,7 +35,7 @@ static int n_tests, n_failed, stage, next_child = 0x5100, starts;
 static char last_cmd[1024], obey_text[2048];
 static GString *got;
 static gboolean got_eof, watched;
-static int got_status, morite_to;
+static int got_status, morite_to, tb_registered, tb_unregistered, tb_acked;
 static GPid pid;
 
 static void
@@ -107,7 +111,7 @@ start_task (const char *command)
         }
     }
   message (0x808C2, child, t ? (int) strtoul (t + 6, NULL, 16) : 0, NULL, 0);
-  if (strstr (obey_text, "\ncc "))
+  if (strstr (obey_text, "\ncc /") || strstr (obey_text, "\ncc home"))
     {
       /* output longer than a message; the marker split over two */
       char text[1024];
@@ -125,6 +129,29 @@ start_task (const char *command)
       output (child, "fine\n##riscos-gtk-exit 0\n", 0);
       message (0x808C3, child, 0, NULL, 0);
     }
+  else if (strstr (obey_text, "\ncc -throwback"))
+    {
+      int b[64];
+      output (child, "Norcroft RISC OS ARM C\n", 0);
+      message (0x42580, 0x5900, 0, NULL, 0);                    /* ThrowbackStart */
+      memset (b, 0, sizeof b);                                   /* ProcessingFile, ErrorsIn: +20 name */
+      b[0] = 20 + 20; b[1] = 0x5900; b[4] = 0x42581;
+      strcpy ((char *) &b[5], "home.me.src.c.hello");
+      fake_queue_message (17, b);
+      b[4] = 0x42582;
+      fake_queue_message (17, b);
+      memset (b, 0, sizeof b);                                   /* ErrorDetails, recorded */
+      b[0] = 28 + 16; b[1] = 0x5900; b[2] = 777; b[4] = 0x42583; b[5] = 3; b[6] = 1;
+      strcpy ((char *) &b[7], "Missing ';'");
+      fake_queue_message (18, b);
+      memset (b, 0, sizeof b);
+      b[0] = 28 + 16; b[1] = 0x5900; b[4] = 0x42583; b[5] = 7; b[6] = 0;
+      strcpy ((char *) &b[7], "x unused");
+      fake_queue_message (17, b);
+      message (0x42584, 0x5900, 0, NULL, 0);                    /* ThrowbackEnd */
+      output (child, "##riscos-gtk-exit 1\n", 0);
+      message (0x808C3, child, 0, NULL, 0);
+    }
   /* "loop": runs until it is killed */
   return 0x5200;
 }
@@ -132,11 +159,24 @@ start_task (const char *command)
 static void
 on_message (int reason, int *block, int dest, int icon)
 {
+  if (reason == 19 && block[4] == 0x42583 && block[3] == 777 && dest == 0x5900)
+    tb_acked++;
   if (block[4] == 0x808C4)
     {
       morite_to = dest;
       message (0x808C3, dest, 0, NULL, 0);
     }
+}
+
+static int
+swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
+{
+  switch (no & ~0x20000)
+    {
+    case 0x42585: if (r->r[0] == 0x4A00) tb_registered++; return 1;    /* DDEUtils_ThrowbackRegister */
+    case 0x42586: if (r->r[0] == 0x4A00) tb_unregistered++; return 1;  /* _UnRegister */
+    }
+  return 0;
 }
 
 static gboolean
@@ -281,6 +321,21 @@ step (gpointer d)
         break;
       check (morite_to >= 0x5100 && WEXITSTATUS (got_status) == 1,
              "TaskWindow_Morite to the child; it ends (status 1)");
+      tb_registered = tb_unregistered = 0;
+      start_captured ("cc -throwback -c c.hello");
+      check (tb_registered == 1, "a TaskWindow: registered with DDEUtils for throwback");
+      stage = 7;
+      waits = 0;
+      break;
+    case 7:
+      if (!watched || !got_eof)
+        break;
+      check (g_str_equal (got->str, "Norcroft RISC OS ARM C\n"
+                                    "/home/me/src/hello.c:3: error: Missing ';'\n"
+                                    "/home/me/src/hello.c:7: warning: x unused\n"),
+             "throwback errors become compiler lines (c.hello as hello.c)");
+      check (tb_acked == 1, "a recorded throwback message is acknowledged");
+      check (tb_unregistered == 1, "unregistered when the TaskWindow ends");
       printf ("1..%d\n", n_tests);
       fflush (stdout);
       _exit (n_failed);
@@ -311,6 +366,7 @@ main (int argc, char **argv)
   fake_wimp_hook = hook;
   fake_starttask_hook = start_task;
   fake_message_hook = on_message;
+  fake_swi_hook = swi_hook;
   gtk_init (&argc, &argv);
   g_timeout_add (20, step, NULL);
   gtk_main ();

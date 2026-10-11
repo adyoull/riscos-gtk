@@ -525,3 +525,19 @@ that SDL2, freeglut and the games already use.
 - **Programs:** Geany's patch only changes what is RISC OS specific
   (Execute's Obey file and task window, `kill()`, the terminal setting);
   the spawning itself is GTK's.
+
+## Throwback into the build's output (2026-10-11)
+- **Why:** the DDE's tools report errors as `"c.hello", line 3: Error:`,
+  which GCC-style parsers (Geany's) don't read, and the RISC OS file name
+  isn't the name the program has the file under. Throwback gives the file,
+  line and severity exactly.
+- **How:** GDK registers with DDEUtils (ThrowbackRegister) only while a
+  spawned TaskWindow runs, and unregisters after, so StrongED or Zap get
+  throwback the rest of the time. Each ErrorDetails/InfoDetails becomes
+  `FILE:LINE: error: TEXT` in the newest running task's output. FILE is
+  the UnixLib name: a parent directory in UnixLib$sfix (c, h, s, o...) is
+  turned back into an extension, as UnixLib does when a program opens
+  `hello.c`. Programs need nothing new: anything that parses compiler
+  output gets it.
+- **Limits:** with several builds running, throwback goes to the newest.
+  The tool's own text messages still appear too.

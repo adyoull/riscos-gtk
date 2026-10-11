@@ -1307,11 +1307,13 @@ _gdk_riscos_server_new (const char *display, GError **error)
      DataSave, DataSaveAck, DataLoad, DataLoadAck, DataOpen (the icon bar),
      RAMFetch, RAMTransmit, ClaimEntity, DataRequest; printing: PrintFile,
      PrintError, PrintTypeOdd, SetPrinter; programs started with g_spawn
-     (gdkspawn-riscos.c): TaskCloseDown, TaskWindow_Output, _Ego, _Morio */
+     (gdkspawn-riscos.c): TaskCloseDown, TaskWindow_Output, _Ego, _Morio,
+     the DDE's throwback messages */
   static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED,
                                   1, 2, 3, 4, 5, 6, 7, 0xF, 0x10,
                                   0x80140, 0x80144, 0x80145, 0x80147,
-                                  0x400C3, 0x808C1, 0x808C2, 0x808C3, 0 };
+                                  0x400C3, 0x808C1, 0x808C2, 0x808C3,
+                                  0x42580, 0x42581, 0x42582, 0x42583, 0x42584, 0x42585, 0x42586, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;

@@ -418,6 +418,15 @@ place of yours until it ends):
 - **`gdk_riscos_spawn_kill (pid)`** ends one (TaskWindow_Morite, or
   Message_Quit to a task of its own); its child watch then fires. Use it
   where Unix code calls `kill()`.
+- **Throwback:** while a TaskWindow started this way runs, the program is
+  registered with the DDEUtils module, so the DDE's tools given
+  `-throwback` (`cc`, `objasm`, `link`, `amu`...) send it their errors.
+  Each one is written to the task's output as a compiler line,
+  `FILE:LINE: error: TEXT` (or `warning`, `fatal error`, `note`), with
+  FILE as a Unix name (`c.hello` as `hello.c`), so code that reads
+  GCC-style messages finds the file and line. It unregisters when the
+  last one ends, so an editor such as StrongED gets throwback again.
+  `*Set RISCOS_GTK_THROWBACK 0` turns it off.
 - `g_child_watch_add()` and `g_spawn_check_wait_status()` work on the pid
   as on Unix. `g_spawn_sync()` isn't changed: it runs the program in
   place. `*Set RISCOS_GTK_SPAWN exec` turns all of this off.
@@ -455,6 +464,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
 | `RISCOS_GTK_SPAWN` = `exec` | `g_spawn_async*()` runs programs in place (UnixLib), not as tasks |
+| `RISCOS_GTK_THROWBACK` = 0 | Don't take the DDE's throwback while a spawned TaskWindow runs |
 | `RISCOS_GTK_TASK_WIMPSLOT` = KB | Memory for a TaskWindow started by `g_spawn_async*()` (16384) |
 | `RISCOS_GTK_PLAIN_POPUPS` (any value) | Pop-up windows with a title stay plain (no title bar or close icon) |
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |

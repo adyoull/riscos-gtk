@@ -25,7 +25,14 @@
     off; `RISCOS_GTK_TASK_WIMPSLOT` sets a TaskWindow's memory.
   - `gdk/riscos/gdkspawn-riscos.c`; GLib: spawn and child watch hooks
     (`patches/glib-2.80.0-riscos.diff`); test `spawn-fake` (13 checks).
-- **!Geany 2.1-riscos2: Build and Execute work.** Compile, Build, Make and
+- **The DDE's throwback for spawned builds.** While a TaskWindow started
+  by `g_spawn_async*()` runs, the program is registered with DDEUtils,
+  so `cc`, `objasm`, `link` and `amu` given `-throwback` send it their
+  errors. They are written to the task's output as GCC-style lines with
+  Unix file names (`c.hello` as `hello.c`), so Geany's Compiler tab lists
+  them and goes to the line. `RISCOS_GTK_THROWBACK=0` turns it off. Test
+  `spawn-fake` (17 checks).
+- **!Geany 2.1-riscos3 (riscos2 was a test build): Build and Execute work.** Compile, Build, Make and
   the other Build commands run in a TaskWindow, with their messages
   (errors linked to the lines) in Geany's Compiler tab; Stop ends them.
   Execute runs the program in a task window of its own, from an Obey file

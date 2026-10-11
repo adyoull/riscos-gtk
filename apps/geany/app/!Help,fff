@@ -30,6 +30,11 @@ Using it
   program in a task window of its own and shows its return code. The
   commands must be ones RISC OS has: for C, GCC and make (PackMan), or
   change them with Build > Set Build Commands.
+- Acorn C/C++ (the DDE): run its !SetPaths, then set Build > Set Build
+  Commands for C to, for example, Compile "cc -throwback -c c.%e -o o.%e",
+  Build "cc -throwback c.%e -o %e" and Make "amu -throwback" (sources in
+  c and o directories: Geany's hello.c is c.hello). With -throwback, the
+  errors appear in the Compiler tab and go to their lines.
 - Not in this build: plugins and the built-in terminal (VTE).
 
 Messages

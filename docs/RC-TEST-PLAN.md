@@ -112,8 +112,9 @@ provider offers them.
 | 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
 | 5.10 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | |
 | 5.11 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | |
-| 5.12 | Geany 2.1-riscos2 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
+| 5.12 | Geany 2.1-riscos3 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
 | 5.13 | Geany: Build > Make on a long build, then Build > Stop: it ends | new | |
+| 5.14 | Geany with the DDE (!SetPaths run): a folder with c.hello containing an error, open hello.c, Set Build Commands Compile to `cc -throwback -c c.%e -o o.%e`, Compile: the error in the Compiler tab, clicking goes to the line; StrongED gets throwback again afterwards | new | |
 
 ## 6. Packaging and licences
 
