@@ -7,8 +7,10 @@ Menu gives a window's menu wherever it's clicked; pop-up windows with a
 title get a title bar; title bars stay on the screen; the directory
 browser lists the icon bar's discs and mounts (network mounts such as
 LanMan98 open). There's a second port: mtPaint, a painting program.
-RC4 has been tested on a Raspberry Pi 4; RC5's and RC6's new parts
-haven't been on real hardware yet: please
+RC4 has been tested on a Raspberry Pi 4, and RC6's Menu, title bar,
+browser and mtPaint changes on a Pi (functionality confirmed); Geany's
+Build and Execute and RC5's new parts haven't been on real hardware yet:
+please
 report anything that goes wrong (see "Reporting problems" below). The
 final 3.24.41-riscos1.0 will be this build with whatever the beta turns
 up fixed. Items marked *[Pi]* still need a check on real hardware
@@ -79,10 +81,12 @@ release.
 - **Toggle size:** works, and the window is laid out again at the new
   size. A maximised window fills the screen below its title bar.
 - **Title bars stay on the screen:** a window a program puts at the top
-  of the screen is moved down so its title bar shows. *[Pi]*
+  of the screen is moved down so its title bar shows. Functionality
+  confirmed on the Pi.
 - **Pop-up windows with a title** (tool windows some programs open
   without a frame, such as mtPaint's Pan Window) get a title bar and a
-  close icon; the close icon closes them as Escape does. *[Pi]*
+  close icon; the close icon closes them as Escape does. Functionality
+  confirmed on the Pi.
 - **The size grip:** a window has the desktop's own Adjust Size sprite,
   following RISC OS:
   - if a GTK scroll bar runs into the window's bottom right corner, the
@@ -106,7 +110,7 @@ release.
 - **One menu per window:** Menu anywhere in a window gives the same menu,
   even over things that use the mouse buttons themselves (a paint
   program's canvas, toolbars); tool windows without a menu give their
-  main window's. *[Pi]*
+  main window's. Functionality confirmed on the Pi.
   Over something with its own context menu, such as a list, that menu is
   the first entry. In ClawsMail it is "Message >" over the message list
   and "Folder >" over the folder list; elsewhere it is "Selection >".
@@ -124,8 +128,9 @@ release.
   time. A Filer-like window: large icons, small icons or full info
   with the desktop's file sprites, sorted as the Filer sorts, Parent and
   the folder's name along the top, and a sidebar of discs (those on the
-  icon bar, with their names and sprites: discs, RAM disc, Apps, network
-  mounts such as LanMan98's *[Pi]*), places (the program's folder, Boot, Choices, Scrap) and
+  icon bar, with their names and sprites: discs, RAM disc, Apps;
+  functionality confirmed on the Pi; LanMan98 mounts don't work yet),
+  places (the program's folder, Boot, Choices, Scrap) and
   recent folders. Double-click to go into a directory or open a file;
   directories dragged in from the Filer are shown. Save keeps its
   draggable file icon. *[Pi]*
@@ -216,10 +221,12 @@ release.
 ## Known issues and limits in RC6
 
 - **New in RC6, not yet on the Pi** *[Pi]*: programs started as tasks
-  (Geany's Build and Execute with GCC or the DDE, throwback); Menu over
-  a canvas or toolbar; title bars on titled pop-ups and kept on the
-  screen; the browser's discs from the icon bar; mtPaint. All are tested
-  on the fake desktop.
+  (Geany's Build and Execute with GCC or the DDE, throwback), tested on
+  the fake desktop.
+- **Tested on the Pi (RC6, 2026-10-11):** functionality confirmed: Menu
+  over a canvas or toolbar, title bars on titled pop-ups and kept on the
+  screen, the browser's discs from the icon bar, mtPaint.
+- **LanMan98:** its mounts don't work in the directory browser yet.
 - **New in RC5, not yet on the Pi** *[Pi]*: the directory browser; the
   UnixFC font set-up; GtkGLArea (GTKGLTest); Geany. GTK's settings
   schemas built in (for programs that ship none: Geany's crash on Open
