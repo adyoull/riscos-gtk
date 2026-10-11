@@ -15,6 +15,9 @@
  * A pop-up window (GTK_WINDOW_POPUP) with a title gets a title bar and a
  * close icon (gdk/riscos/gdkwindow-riscos.c); its close icon sends Escape,
  * then closes it if it is still open; a pop-up with no title stays plain.
+ * A window the program moves to the top of the screen (gtk_window_move
+ * (w, 0, 0), as mtPaint's main window), or maximises, keeps its title bar
+ * on the screen.
  *   menuclick-fake APPDIR
  * Prints TAP; exit status = failures. MIT licence.
  */
@@ -29,6 +32,7 @@
 static int n_tests, n_failed, stage, area_presses[4], area_releases[4], list_presses;
 static GtkWidget *mainw, *toolw, *dialog, *area, *button, *list, *popup, *plain;
 static int popup_deleted, popup_escapes;
+static GtkWidget *topw;
 static int h_main, h_tool, h_dialog, h_popup, h_plain;
 
 static void
@@ -124,6 +128,17 @@ on_popup_delete (GtkWidget *w, GdkEvent *ev, gpointer d)
   popup_deleted++;
   gtk_widget_hide (w);
   return TRUE;
+}
+
+/* the top of the window's title bar, in OS units, or -1 */
+static int
+title_top (GtkWidget *top)
+{
+  int i, h = handle_of (top);
+  for (i = 0; h && i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle == h)
+      return fake_windows[i].y1 + 40;     /* the fake's title bar is 40 units */
+  return -1;
 }
 
 static int menus_before, last_menu_items;
@@ -249,6 +264,34 @@ hook (int reason)
       check (popup_escapes == 1, "its close icon sends it Escape");
       check (popup_deleted == 1 && !gtk_widget_get_visible (popup),
              "and, not closed by Escape, it is closed (delete-event)");
+      gtk_window_move (GTK_WINDOW (topw), 0, 0);
+      gtk_widget_show_all (topw);
+      nulls (8);
+      stage = 10;
+      return;
+    case 10:
+      if (!gtk_widget_get_mapped (topw) || title_top (topw) < 0)
+        {
+          nulls (4);
+          return;
+        }
+      {
+        int t = title_top (topw), x, y;
+        gtk_window_get_position (GTK_WINDOW (topw), &x, &y);
+        check (t <= 2048 && t >= 2040, "a window moved to the top of the screen: its title bar is on it");
+        check (y == 20, "and GTK is told where it went");
+      }
+      gtk_window_maximize (GTK_WINDOW (topw));
+      nulls (8);
+      stage = 11;
+      return;
+    case 11:
+      {
+        int t = title_top (topw), w, h;
+        gtk_window_get_size (GTK_WINDOW (topw), &w, &h);
+        check (t <= 2048 && w == 1280 && h == 1024 - 20,
+               "maximised: the whole screen below its title bar");
+      }
       printf ("1..%d\n", n_tests);
       fflush (stdout);
       _exit (n_failed);
@@ -330,6 +373,11 @@ main (int argc, char **argv)
   gtk_window_set_default_size (GTK_WINDOW (plain), 120, 80);
   gtk_container_add (GTK_CONTAINER (plain), gtk_label_new ("Plain"));
   gtk_window_move (GTK_WINDOW (plain), 400, 600);
+
+  topw = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_title (GTK_WINDOW (topw), "Top");
+  gtk_window_set_default_size (GTK_WINDOW (topw), 300, 200);
+  gtk_container_add (GTK_CONTAINER (topw), gtk_label_new ("At the top"));
 
   gtk_main ();
   return 1;

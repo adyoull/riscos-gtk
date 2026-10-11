@@ -93,6 +93,8 @@ void               _gdk_riscos_server_window_set_pointer       (GdkRiscosServer 
 #define RISCOS_FURNITURE_BACK   4u
 #define RISCOS_FURNITURE_RESIZE 8u     /* toggle size and adjust size */
 #define RISCOS_FURNITURE_ALL    15u
+int                _gdk_riscos_server_window_title_height      (GdkRiscosServer    *server,
+                                                                gint                id);
 void               _gdk_riscos_server_window_set_furniture     (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 unsigned            furniture);

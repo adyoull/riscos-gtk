@@ -1172,9 +1172,14 @@ gdk_riscos_window_maximize (GdkWindow *window)
 
   screen = gdk_window_get_screen (window);
 
-  gdk_window_move_resize (window, 0, 0,
-			  gdk_screen_get_width (screen),
-			  gdk_screen_get_height (screen));
+  /* riscos-gtk: the screen below the title bar */
+  {
+    int th = _gdk_riscos_server_window_title_height (GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server,
+                                                     impl->id);
+    gdk_window_move_resize (window, 0, th,
+                            gdk_screen_get_width (screen),
+                            MAX (1, gdk_screen_get_height (screen) - th));
+  }
 }
 
 static void

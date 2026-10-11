@@ -53,6 +53,9 @@
 #ifndef Wimp_ForceRedraw
 #define Wimp_ForceRedraw 0x400D1
 #endif
+#ifndef Wimp_GetWindowOutline
+#define Wimp_GetWindowOutline 0x400E0
+#endif
 #ifndef Wimp_DragBox
 #define Wimp_DragBox 0x400D0
 #endif
@@ -108,6 +111,7 @@ typedef struct {
   int pointer_shape;          /* RISCOS_POINTER_* while the pointer is over it */
   unsigned furniture;         /* RISCOS_FURNITURE_* the Wimp window was made with */
   unsigned furniture_wanted;  /* ... and what GDK asks for (applied when hidden) */
+  int title_h;                /* its title bar's height (pixels; 0 = not known yet) */
   gboolean as_menu;           /* opened as a transient dialogue (Wimp_CreateMenu) */
   gboolean menu_open;
   int grip_x, grip_w;         /* the grip's column (GTK's vertical scroll bar), if set: w > 0 */
@@ -330,7 +334,8 @@ visible_area (GdkRiscosServer *s, int x, int y, int w, int h, int box[4])
 static gboolean create_wimp_window (GdkRiscosServer *server, RiscosWindow *w);
 static void utf8_to_latin1 (const char *utf8, char *out, int size);
 
-static void
+/* TRUE if it was moved to show its title bar (GDK is to be told) */
+static gboolean
 open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
 {
   int block[8];
@@ -361,6 +366,48 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
   r.r[1] = (int) block;
   if (swi (Wimp_OpenWindow, &r) == NULL)
     w->visible = TRUE;
+  else
+    return FALSE;
+  /* GTK places a window by its frame (gtk_window_move (w, 0, 0) is the
+     top-left corner of the screen, title bar and all), GDK here by its
+     work area: a window the program puts at the top of the screen would
+     have its title bar off the top, where it can't be moved or closed.
+     It is moved down to show the title bar. */
+  if ((w->furniture & RISCOS_FURNITURE_TITLE) && !w->is_temp && !w->as_menu)
+    {
+      int outline[5], screen_top = s->screen_h << s->yeig;
+      outline[0] = w->handle;
+      r.r[1] = (int) outline;
+      if (swi (Wimp_GetWindowOutline, &r) == NULL)
+        {
+          w->title_h = (outline[4] - block[4] + (1 << s->yeig) - 1) >> s->yeig;
+          if (outline[4] > screen_top)
+            {
+              w->y += (outline[4] - screen_top + (1 << s->yeig) - 1) >> s->yeig;
+              block[0] = w->handle;
+              visible_area (s, w->x, w->y, MAX (w->width, 1) + w->strip, MAX (w->height, 1), &block[1]);
+              block[5] = 0;
+              block[6] = 0;
+              block[7] = behind;
+              r.r[1] = (int) block;
+              swi (Wimp_OpenWindow, &r);
+              return TRUE;
+            }
+        }
+    }
+  return FALSE;
+}
+
+int
+_gdk_riscos_server_window_title_height (GdkRiscosServer *server, gint id)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL || !(w->furniture_wanted & RISCOS_FURNITURE_TITLE))
+    return 0;
+  if (w->title_h > 0)
+    return w->title_h;
+  return 44 >> server->yeig;   /* the usual title bar, before it has opened */
 }
 
 /* ---- input messages to GDK ------------------------------------------- */
@@ -797,8 +844,8 @@ start_size_drag (GdkRiscosServer *server, RiscosWindow *w, gboolean to_front)
   int block[10];
   _kernel_swi_regs r;
 
-  if (to_front)
-    open_window (server, w, -1);
+  if (to_front && open_window (server, w, -1))
+    send_configure (server, w);
   memset (block, 0, sizeof block);
   block[0] = w->handle;
   block[1] = 2;                      /* drag window size: the Wimp does it */
@@ -1560,7 +1607,8 @@ _gdk_riscos_server_window_show (GdkRiscosServer *server, gint id)
         utf8_to_latin1 (name, w->title, TITLE_MAX);
     }
   apply_furniture (server, w);
-  open_window (server, w, -1);
+  if (open_window (server, w, -1))
+    send_configure (server, w);
   if (!w->is_temp)
     take_caret (w);
   return TRUE;
@@ -1883,7 +1931,8 @@ _gdk_riscos_server_window_set_strip (GdkRiscosServer *server, gint id, cairo_sur
       int state[9];
       state[0] = w->handle;
       r.r[1] = (int) state;
-      open_window (server, w, swi (Wimp_GetWindowState, &r) == NULL ? state[7] : -1);
+      if (open_window (server, w, swi (Wimp_GetWindowState, &r) == NULL ? state[7] : -1))
+        send_configure (server, w);
     }
   if (width > 0)
     {

@@ -12,6 +12,14 @@
     menu of the window they belong to, or of the program's only window
     with a menu.
   - `gtk/riscos/gtkmenu-riscos.c`; test `menuclick-fake` (7 checks).
+- **Windows keep their title bar on the screen.** A program that puts its
+  window at the top of the screen (`gtk_window_move (w, 0, 0)`: GTK means
+  the frame's corner) had the title bar off the top, so the window
+  couldn't be moved or closed (mtPaint's main window). The window is now
+  moved down to show it, and GTK is told; maximised windows fill the
+  screen below their title bar.
+  - `gdk/riscos/gdkriscos-server.c` (Wimp_GetWindowOutline after opening),
+    `gdk/riscos/gdkwindow-riscos.c`; test `menuclick-fake` (14 checks).
 - **Pop-up windows with a title get a title bar and a close icon.**
   Programs open some windows as GTK pop-ups (no frame), which on RISC OS
   could only be closed with Escape or a click elsewhere (mtPaint's Pan
@@ -23,8 +31,8 @@
     still open a moment later, it is sent delete-event.
   - `*Set RISCOS_GTK_PLAIN_POPUPS 1` keeps them plain.
   - `gdk/riscos/gdkwindow-riscos.c`, `gdk/riscos/gdkeventsource.c`;
-    tests `menuclick-fake` (11 checks), `mtpaint-fake` (12 checks).
-- **!mtPaint 3.50.14-riscos2, a new port** (riscos1 was a test build): mtPaint, the painting
+    tests `menuclick-fake`, `mtpaint-fake` (12 checks).
+- **!mtPaint 3.50.14-riscos3, a new port** (riscos1 and riscos2 were test builds): mtPaint, the painting
   program (`build/build-mtpaint.sh`, `apps/mtpaint`,
   `patches/mtpaint-3.50.14-riscos.diff`).
   - Its own file picker becomes a RISC OS one: a draggable file icon for

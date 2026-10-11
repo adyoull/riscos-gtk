@@ -491,3 +491,15 @@ that SDL2, freeglut and the games already use.
   delete destroyed it). If the window is still open 250 ms later, it is
   sent delete-event.
 - `RISCOS_GTK_PLAIN_POPUPS` turns it off.
+
+## Title bars stay on the screen (2026-10-11)
+- **Why:** GTK positions a toplevel by its frame (X window managers put
+  the frame's corner where `gtk_window_move` says); riscos-gtk's GDK
+  positions the work area, and frame extents are the work area. A window
+  moved to (0, 0) had its title bar above the screen.
+- **How:** after Wimp_OpenWindow, a window with a title bar reads its
+  outline (Wimp_GetWindowOutline); if the outline's top is above the
+  screen, the window is opened again lower down and GDK gets a configure
+  event. Positions a program saves and restores (`gdk_window_get_root_origin`,
+  `gtk_window_move`) stay in work-area terms, so they don't drift.
+  Maximise uses the screen below the title bar.
