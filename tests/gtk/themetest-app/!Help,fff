@@ -1,4 +1,4 @@
-GTKThemeTest 0.25 - riscos-gtk theme test
+GTKThemeTest @VERSION@ - riscos-gtk theme test
 
 Every common GTK 3 widget in the RISCOS theme, in one window, through
 riscos-gtk's RISC OS backend. Everything you do is shown in the status

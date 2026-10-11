@@ -185,7 +185,8 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
 
 ## Notes from ports
 
-**Geany 2.0** builds with autotools from the devkit:
+**Geany** (2.0, and 2.1: riscos-gtk's `!Geany` demo, `build/build-geany.sh`)
+builds with autotools from the devkit:
 
 ```sh
 ./configure --host=arm-riscos-gnueabihf --disable-shared --enable-static \
@@ -200,13 +201,21 @@ It also passes riscos-crossdev's checks. Things that came up:
   UnixLib's `struct dirent` hasn't got. UnixLib has a real `scandir`, so
   `-DHAVE_SCANDIR` uses that.
 - **libtool and the toolchain's `.la` files:** they name the machine
-  riscos-crossdev was built on, so libtool's C++ link stops with
+  riscos-crossdev was built on, so libtool's link stops with
   "cannot find the library '/opt/b14/.../libm.la'". `env.sh` prints a
-  `sed` command that corrects the paths.
+  `sed` command that corrects the paths. Or link without libtool:
+  `build-geany.sh` lets make compile libgeany's objects, archives them
+  with `ar` and links them with its own `main()`.
 - **Static pkg-config:** without `--static`, the link misses expat,
-  epoxy and the rest. The devkit's pkg-config now adds it.
-- **The result:** opening, saving and Save as all work on the fake
-  desktop (riscos-gtk's `tests`, run by hand).
+  epoxy and the rest. The devkit's pkg-config adds it.
+- **Its data:** Geany looks for its data (filetypes, colour schemes,
+  templates) in the configured prefix. On RISC OS it belongs in the
+  application: a one-hunk patch makes it `/<Geany$Dir>/share`
+  (UnixLib reads the system variable in the name).
+- **Its icons:** a program's own icons in `share/icons/hicolor` need the
+  folders listed in hicolor's `index.theme`, or GTK won't look there.
+- **The result:** saving, the Open box, the Save box and the directory
+  browser all work on the fake desktop (riscos-gtk's `geany-fake`).
 
 ## Licences
 

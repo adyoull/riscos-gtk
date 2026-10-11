@@ -45,6 +45,37 @@ char      *gdk_riscos_path_to_unix   (const char *riscos_path);
 GDK_AVAILABLE_IN_ALL
 char      *gdk_riscos_path_from_unix (const char *unix_path);
 
+/* ---- Directories (gdkfiles-riscos.c), for the Filer-style chooser ----
+ * An object in a directory, as OS_GBPB 12 gives it: leaf name (RISC OS
+ * form), object type (1 file, 2 directory, 3 image file), file type
+ * (0-&FFF; &1000 directory, &2000 application, -1 untyped), length,
+ * attributes, and the date stamp (centiseconds since 1900, -1 none). */
+typedef struct
+{
+  char   *name;
+  int     object_type;
+  int     filetype;
+  guint32 length;
+  guint32 attributes;
+  gint64  date;
+} GdkRiscosDirEntry;
+
+/* The objects in directory riscos_dir (RISC OS form), as a GPtrArray of
+ * GdkRiscosDirEntry (freed with the array), or NULL and error set to the
+ * filing system's message. */
+GDK_AVAILABLE_IN_ALL
+GPtrArray *gdk_riscos_read_dir (const char *riscos_dir, GError **error);
+/* The filing systems FileSwitch knows (OS_FSControl 33), NULL-terminated */
+GDK_AVAILABLE_IN_ALL
+char     **gdk_riscos_filing_systems (void);
+/* name as a full path (OS_FSControl 37), or a copy of name */
+GDK_AVAILABLE_IN_ALL
+char      *gdk_riscos_canonicalise (const char *name);
+/* A file type's name (OS_FSControl 18; "Text", "Sprite", or "&ABC"),
+ * trailing spaces removed */
+GDK_AVAILABLE_IN_ALL
+char      *gdk_riscos_filetype_name (int filetype);
+
 /* Called once the receiver of a save drag has replied (DataSaveAck): path
  * is where to save, in RISC OS form; safe is FALSE for <Wimp$Scrap> (on
  * its way to another program). Call gdk_riscos_save_done() after saving. */

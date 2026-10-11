@@ -12,4 +12,4 @@ F=$(mktemp -d); trap 'rm -rf "$F"' EXIT
 cp "$HERE"/../tests/gtk/gltest-app/* "$F/"
 cp "$MESA_DEVKIT/LICENCES.txt" "$F/LicenceMesa,fff"
 export EXTRA_LIBS="-Wl,-u,eglGetProcAddress -L$MESA_DEVKIT/lib -lEGL -lOSMesa -lstdc++ -lz -lm"
-exec "$HERE/build-app.sh" GTKGLTest gltest "${VERSION:-0.3}" "$F" "$HERE/../tests/gtk/gltest.c"
+exec "$HERE/build-app.sh" GTKGLTest gltest "${VERSION:-3.24.41-riscos1.0-rc5}" "$F" "$HERE/../tests/gtk/gltest.c"

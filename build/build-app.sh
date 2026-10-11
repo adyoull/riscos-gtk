@@ -4,6 +4,7 @@
 # the program, DejaVu Sans with a fonts.conf, the RISCOS theme and
 # PThreadTicker.
 #   build/build-app.sh NAME PROGRAM VERSION APPFILES SOURCE...
+#   PREBUILT=program build/build-app.sh NAME PROGRAM VERSION APPFILES
 # NAME (e.g. GTKHello) is the application (!NAME, NAME$Dir); APPFILES is a
 # folder with !Run,feb (WimpSlot as @SLOT@) and !Help,fff.
 . "$(dirname "$0")/env.sh"
@@ -16,10 +17,17 @@ rm -rf "$A"; mkdir -p "$A/fonts" "$A/share/themes/RISCOS"
 
 # EXTRA_CFLAGS, EXTRA_LIBS: more for the compile and link lines (e.g. GL:
 # riscos-mesa's devkit, build-gltest.sh)
-$CC $RO_CFLAGS -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) ${EXTRA_CFLAGS:-} \
-  "$@" -o "$OUT/$PROG" -static ${EXTRA_LIBS:-} $(pkg-config --libs --static gtk+-3.0)
-"$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
-"$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags gtk+-3.0) "$@"
+# PREBUILT: a program already linked (e.g. Geany, by its own build:
+# build-geany.sh), packaged as it is
+if [ -n "${PREBUILT:-}" ]; then
+  cp "$PREBUILT" "$OUT/$PROG"
+  "$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
+else
+  $CC $RO_CFLAGS -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) ${EXTRA_CFLAGS:-} \
+    "$@" -o "$OUT/$PROG" -static ${EXTRA_LIBS:-} $(pkg-config --libs --static gtk+-3.0)
+  "$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
+  "$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags gtk+-3.0) "$@"
+fi
 $STRIP -o "$OUT/$PROG.stripped" "$OUT/$PROG"
 "$GCCSDK_ENV/bin/elf2aif" -e "$OUT/$PROG.stripped" "$A/$PROG,ff8" > /dev/null
 if strings "$A/$PROG,ff8" | grep -q -e "$REPO_DIR" -e "$(cd "$RCD_DIR" && pwd -P)" -e "$SYSROOT" -i -e claude; then

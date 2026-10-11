@@ -7,13 +7,14 @@
 #   make l3afpad    out/L3afpad-<v>.zip       (the programs; versions in
 #   make themetest  out/GTKThemeTest-<v>.zip   build/build-<program>.sh)
 #   make claws      out/ClawsMail-<v>.zip
+#   make geany      out/Geany-<v>.zip: the Geany 2.1 demo
 #   make gltest     out/GTKGLTest-<v>.zip: GtkGLArea with riscos-mesa (needs
 #                   its devkit in MESA_DEVKIT, default $RCD_DIR/devkit/env)
 #   make sdk        out/sdk/riscos-gtk-sdk-<RELEASE or dev-commit>.tar.gz:
 #                   the devkit for other developers (build/make-sdk.sh)
 #   make check      the same tests as ARM Linux code under qemu-arm-aligntrap
 #                   (the GL test needs riscos-mesa's devkit in MESA_DEVKIT)
-#   make release RELEASE=3.24.41-riscos1.0-rc4
+#   make release RELEASE=3.24.41-riscos1.0-rc5
 #                   out/release/<RELEASE>/: the programs, the devkit, the
 #                   complete source and MANIFEST.txt (build/make-release.sh)
 #   make clean      remove the build products (not the downloads)
@@ -43,6 +44,9 @@ claws: deps
 gltest: deps
 	build/build-gltest.sh
 
+geany: deps
+	build/build-geany.sh
+
 check:
 	build/build-linuxarm.sh
 
@@ -55,4 +59,4 @@ sdk: deps
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps tests hello l3afpad themetest claws gltest check release sdk clean
+.PHONY: all deps tests hello l3afpad themetest claws gltest geany check release sdk clean

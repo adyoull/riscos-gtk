@@ -208,7 +208,7 @@ riscos_claws_init (int *argc, char ***argv)
   gdk_riscos_iconbar_set_sprite ("!clawsmail");
   gdk_riscos_iconbar_set_info ("Claws Mail", "Email client",
                                "\xc2\xa9 the Claws Mail team and others; RISC OS port Andrew Youll",
-                               VERSION " (RISC OS " RISCOS_PORT_VERSION ")");
+                               RISCOS_PORT_VERSION);
 
   if (!g_getenv ("CLAWS_NO_LOG"))
     {

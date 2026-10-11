@@ -539,7 +539,7 @@ riscos_l3afpad_init (gint *argc, gchar ***argv)
   gdk_riscos_iconbar_set_handlers (&handlers, NULL);
   gdk_riscos_iconbar_set_info ("L3afpad", "Text editor",
                                "\xc2\xa9 Tarot Osuji and others; RISC OS port Andrew Youll",
-                               PACKAGE_VERSION " (RISC OS " RISCOS_PORT_VERSION ")");
+                               RISCOS_PORT_VERSION);
   gdk_riscos_iconbar_add_filetype (0xFFF);
 
   if (!g_getenv ("L3AFPAD_NO_LOG"))

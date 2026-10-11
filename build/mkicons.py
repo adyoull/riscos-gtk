@@ -99,8 +99,21 @@ def main():
             shutil.copy(src, os.path.join(theme, lic))
     hic = os.path.join(out, "hicolor")
     os.makedirs(hic, exist_ok=True)
+    # the program's own icons already there (e.g. Geany's,
+    # hicolor/16x16/apps/*.png): their folders listed, so GTK finds them
+    own = []
+    for root, _dirs, files in os.walk(hic):
+        if any(n.endswith(".png") for n in files):
+            rel = os.path.relpath(root, hic)
+            size = rel.split("/")[0].split("x")[0]
+            if size.isdigit():
+                own.append((rel, int(size)))
+    own.sort()
     with open(os.path.join(hic, "index.theme"), "w") as f:
-        f.write("[Icon Theme]\nName=Hicolor\nComment=Fallback icon theme\nHidden=true\nDirectories=\n")
+        f.write("[Icon Theme]\nName=Hicolor\nComment=Fallback icon theme\nHidden=true\nDirectories=%s\n\n"
+                % ",".join(r for r, _ in own))
+        for rel, size in own:
+            f.write("[%s]\nSize=%d\nContext=Applications\nType=Fixed\n\n" % (rel, size))
     print("mkicons: %d of %d names, %d directories%s" % (
         found, len(names), len(dirs), ("; not in Adwaita: " + " ".join(missing)) if missing else ""))
     if "image-missing" in missing:

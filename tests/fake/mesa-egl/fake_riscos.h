@@ -154,4 +154,8 @@ extern int fake_wimp_sprites;   /* Wimp_DragBox: type now (-1 none), calls */
 extern int fake_acornssl_sessions, fake_acornssl_closes, fake_acornssl_closed_open, fake_acornssl_handshake_steps;
 extern char fake_acornssl_host[256];
 
+/* The fake filing systems (OS_FSControl 33) and type names (18) */
+const char *fake_fs_name(int no);
+void fake_type_name(int type, int *r2, int *r3);
+
 #endif

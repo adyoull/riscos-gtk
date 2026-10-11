@@ -201,6 +201,36 @@ gets the RISC OS name and the file type; return TRUE to take the file.
 Use `gtk_widget_get_window (toplevel)` once the window is realised.
 Pass NULL `func` to stop.
 
+**The directory browser:** `GtkFileChooserDialog` and
+`GtkFileChooserNative` show the Save or Open box; a Menu click over the
+box offers "Directory browser...", a Filer-like window with a sidebar of
+discs, places and recent folders. `*Set RISCOS_GTK_CHOOSER filer` (in a
+program's `!Run`, or by the user for every program) shows the browser
+first. It uses the program's filters, current folder, current name and
+select-multiple setting; nothing else is needed.
+
+**Directories as the Filer sees them** (used by the browser):
+
+```c
+typedef struct {
+  char   *name;          /* leaf, RISC OS form */
+  int     object_type;   /* 1 file, 2 directory, 3 image file */
+  int     filetype;      /* 0-&FFF; &1000 directory, &2000 application, -1 untyped */
+  guint32 length, attributes;
+  gint64  date;          /* centiseconds since 1900, or -1 */
+} GdkRiscosDirEntry;
+GPtrArray *gdk_riscos_read_dir       (const char *riscos_dir, GError **error);
+char     **gdk_riscos_filing_systems (void);
+char      *gdk_riscos_canonicalise   (const char *name);
+char      *gdk_riscos_filetype_name  (int filetype);
+```
+
+`read_dir` lists a directory (OS_GBPB 12) as a `GPtrArray` of entries,
+freed with the array. `filing_systems` gives the names FileSwitch knows
+(OS_FSControl 33; free with `g_strfreev`). `canonicalise` gives a full
+name (OS_FSControl 37), `filetype_name` "Text", "Sprite" and so on
+(OS_FSControl 18).
+
 **Your own Save drag** (most programs use `GtkFileChooserDialog`
 instead):
 
@@ -391,6 +421,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_CENTRE` = 0 | Don't centre new windows |
 | `RISCOS_GTK_MENUBAR` (any value) | Draw the menu bar in the window as well |
 | `RISCOS_GTK_MENUS` (any value) | GTK's own menus instead of Wimp menus (for testing) |
+| `RISCOS_GTK_CHOOSER` = `filer` | The directory browser instead of the Save and Open boxes (Menu over a box also offers it) |
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |

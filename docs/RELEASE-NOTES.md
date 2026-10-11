@@ -1,7 +1,11 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 4)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 5)
 
-**Status: public beta.** RC4 is the second public beta build. It adds
-support for high-resolution (EX0 EY0, 180 dpi) screen modes. It has been tested on a Raspberry Pi 4, but not yet widely: please
+**Status: public beta.** RC5 is the third public beta build. It adds a
+directory browser for Save and Open (a Filer-like window with a sidebar
+of discs and places), uses PackMan's FontConfig set-up when it's
+installed, draws GtkGLArea with riscos-mesa, and has a demo: Geany 2.1,
+the programmer's editor. RC4 has been tested on a Raspberry Pi 4; RC5's
+new parts haven't been on real hardware yet: please
 report anything that goes wrong (see "Reporting problems" below). The
 final 3.24.41-riscos1.0 will be this build with whatever the beta turns
 up fixed. Items marked *[Pi]* still need a check on real hardware
@@ -21,19 +25,22 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1.0`: the GTK release it's built from
+**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos1): the GTK release it's built from
 (3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC4
+## What's in RC5
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.21.zip` | L3afpad 0.8.18.1.11, RISC OS port 0.21 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-0.10.zip` | Claws Mail 4.4.0, RISC OS port 0.10 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `GTKThemeTest-0.45.zip` | 0.45 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `riscos-gtk-3.24.41-riscos1.0-rc4-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.8.18.1.11-riscos24.zip` | 0.8.18.1.11-riscos24 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos13.zip` | 4.4.0-riscos13 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos1.zip` | 2.1-riscos1 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. No plugins, terminal or Execute |
+| `GTKThemeTest-3.24.41-riscos1.0-rc5.zip` | 3.24.41-riscos1.0-rc5 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc5.zip` | 3.24.41-riscos1.0-rc5 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc5.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc5-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -100,6 +107,15 @@ release.
 - **Save:** a Toolbox-style Save box. Drag its icon to a Filer window or
   another program, or type a full path.
 - **Open:** a RISC OS Open box that takes a file dragged to it.
+- **The directory browser:** Menu over a Save or Open box gives
+  "Directory browser...", or `*Set RISCOS_GTK_CHOOSER filer` uses it
+  every time. A Filer-like window: large icons, small icons or full info
+  with the desktop's file sprites, sorted as the Filer sorts, Parent and
+  the folder's name along the top, and a sidebar of discs (every filing
+  system), places (the program's folder, Boot, Choices, Scrap) and
+  recent folders. Double-click to go into a directory or open a file;
+  directories dragged in from the Filer are shown. Save keeps its
+  draggable file icon. *[Pi]*
 - **Drag and drop:** files dropped on windows and fields are loaded.
   Text dragged out of a field becomes a Text file, or goes to another
   program by RAM transfer.
@@ -133,7 +149,11 @@ release.
   sprites with their colour tables.
 - **File and folder icons** come from the desktop's sprites, with GNOME
   Adwaita's icons for everything else.
-- **Fonts:** DejaVu Sans, shipped in each package.
+- **Fonts:** with PackMan's FontConfig (UnixFC) installed, the
+  system's fonts.conf, fonts and shared cache, with the program's own
+  DejaVu fonts added; otherwise DejaVu Sans, shipped in each package,
+  with a cache in scrap. `*Set RISCOS_GTK_FONTS own` keeps to the
+  program's own. *[Pi]*
 
 **ClawsMail**
 - **HTML mail:** shown laid out, with its fonts, colours, tables and
@@ -170,8 +190,12 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC4
+## Known issues and limits in RC5
 
+- **New in RC5, not yet on the Pi** *[Pi]*: the directory browser; the
+  UnixFC font set-up; GtkGLArea (GTKGLTest); Geany. GTK's settings
+  schemas built in (for programs that ship none: Geany's crash on Open
+  and Save with GCCSDK's autobuilder) are tested on the fake desktop.
 - **Tested on the Pi so far (2026-10-10):**
   - RC1 (L3afpad 0.18, GTKThemeTest 0.42, ClawsMail 0.5) signed off: the
     size icon in all three; ClawsMail fetching over IMAP and sending
@@ -198,6 +222,12 @@ release.
     resolution; ClawsMail's icons and both programs' application icons
     have 180 dpi versions. In GTK, so all three programs were rebuilt:
     ClawsMail 0.10, L3afpad 0.21 and GTKThemeTest 0.45.
+  - RC5: the directory browser and the folder a program's file
+    dialogue starts in; UnixFC fonts; built with riscos-crossdev 1.5
+    (UnixLib 5.0.3.3 as released); GtkGLArea (GTKGLTest); the devkit;
+    Geany. Versions are now the program's own and `-riscosN` (L3afpad
+    0.8.18.1.11-riscos24, ClawsMail 4.4.0-riscos13, Geany 2.1-riscos1);
+    the test programs take the release's.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -218,6 +248,8 @@ release.
   the printer driver.
 - **No translations:** messages are in English only.
 - **Each program carries its own copy of the libraries,** about 20 MB.
+- **Geany:** no plugins, no terminal (VTE), and Build > Execute won't
+  run RISC OS programs. Its settings are in `<Choices$Write>.geany`.
 - **ClawsMail:**
   - no spell checking, other plug-ins or Claws Mail certificate manager;
   - news (NNTP) is built but untested;
@@ -252,8 +284,8 @@ release.
   crossdev 1.4 there was no release with 5.0.3.3, so RC1–RC4 used
   crossdev 1.3 with the 5.0.3.3 library swapped in.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc4` builds the packages, the
-  source archive and the manifest.
+  `make release RELEASE=3.24.41-riscos1.0-rc5` builds the packages, the
+  devkit, the source archive and the manifest.
 
 ## Tests
 
@@ -274,6 +306,10 @@ code against a fake RISC OS and Wimp:
 | template-fake (the devkit's template; at EIG 1 and EIG 0) | 9 + 9 |
 | gltest-fake (GtkGLArea on riscos-mesa's RISC OS libraries; at EIG 1 and EIG 0) | 9 + 9 |
 | gltest-nogl (GtkGLArea without riscos-mesa linked in) | 2 |
+| schemas-fake (GTK's schemas for a program that ships none) | 3 + 3 |
+| fontconfig-fake (UnixFC, own, forced) | 5 + 4 + 4 |
+| browser-fake (the directory browser) | 25 |
+| geany-fake (Geany 2.1: with the box and with the browser) | 6 + 6 |
 
 All pass at the RC commit.
 
@@ -284,6 +320,8 @@ On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 - **GTK, GLib, pango, cairo and their libraries:** LGPL and MIT-style.
 - **L3afpad:** GPL 2, by Tarot Osuji and Steven Honeyman.
 - **Claws Mail:** GPL 3, by the Claws Mail team.
+- **Geany:** GPL 2, by the Geany contributors.
+- **Mesa** (GTKGLTest, through riscos-mesa): MIT.
 - **libetpan:** BSD-style, by DINH Viet Hoa.
 - **litehtml:** BSD-style, by Yuri Kobets (in Claws Mail's LiteHTML
   viewer, GPL 3).

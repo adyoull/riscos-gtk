@@ -1,6 +1,65 @@
 # Changelog
 
-## Unreleased (2026-10-11)
+## 3.24.41-riscos1.0-rc5 (2026-10-11)
+- **A directory browser for Save and Open, like a Filer window.**
+  - `*Set RISCOS_GTK_CHOOSER filer` shows it instead of the Save and Open
+    boxes, for one program (in its !Run) or every program. A Menu click
+    over a Save or Open box also offers "Directory browser...", and its
+    own menu offers the box back.
+  - The window: the folder's objects with their Wimp sprites, as large
+    icons, small icons or full info (type names, sizes, dates), sorted
+    by name, type, size or date (Menu > Display, as the Filer's). Parent
+    and the folder's full name along the top (type one and Return).
+  - A sidebar like the Finder's: Discs (every filing system that holds
+    directories, with its icon bar sprite), Places (the program's
+    folder, Boot, Choices, Scrap) and Recent (the last ten folders used).
+  - Double-click a directory to go in, a file to open it. A directory
+    dragged in from the Filer is shown; a file dragged in is chosen. The
+    program's file filters are offered (file types matched to MIME
+    types). Save keeps the file icon, which can still be dragged to a
+    Filer window. Choosing a folder and choosing several files work.
+    New directory... in Save.
+  - The view, sort and recent folders are kept in
+    `<Choices$Write>.GTK.Browser`.
+  - New GDK calls for it (`gdk/riscos/gdkfiles-riscos.c`):
+    `gdk_riscos_read_dir` (OS_GBPB 12), `gdk_riscos_filing_systems`
+    (OS_FSControl 33), `gdk_riscos_canonicalise` (37) and
+    `gdk_riscos_filetype_name` (18).
+  - Test: `browser-fake` (25 checks). The fake RISC OS answers OS_GBPB 12
+    and OS_FSControl 33 and 18.
+- **A program's file dialogue gets its folder.** GTK's hidden file
+  chooser widget sets the folder a program gives it only once it has read
+  it, so a dialogue shown at once (Geany's Open) started nowhere.
+  `gtk_file_chooser_set_current_folder_file` now keeps the folder for
+  the box and the browser (patches/gtk+3.0-3.24.41-riscos.diff).
+- **Stock button labels:** a program's dialogue buttons made from stock
+  items (Geany's) gave the box "gtk-open" and "gtk-cancel". The stock
+  labels are used.
+- **!Geany 2.1-riscos1, a demo:** Geany 2.1, the programmer's editor, built with
+  its own autotools build against riscos-gtk (`build/build-geany.sh`).
+  - Changed only where it finds its data (`/<Geany$Dir>/share`,
+    patches/geany-2.1-riscos.diff); `apps/geany/riscos-geany.c` adds the
+    icon bar (Info, Choices... for its Preferences, Quit; text, HTML,
+    XML, CSS, JavaScript, JSON and CSV files), the Log and RISC OS names.
+  - Settings in `<Choices$Write>.geany`. No plugins, terminal or
+    Execute.
+  - Test: `geany-fake` runs Geany 2.1 on the fake desktop, with the box
+    and with the browser (6 checks each), when a Geany build for the
+    test target is given (GEANY_LA).
+- **Packaging:** a program's own icons in `share/icons/hicolor` are
+  listed in hicolor's index.theme, so GTK finds them (Geany's toolbar
+  and symbol icons). `build-app.sh` packages a program built by its own
+  build (PREBUILT).
+- **Versions: the program's own version and `-riscosN`,** as riscos-gtk's
+  other ports number theirs, with N carrying on from the old 0.x count:
+  !L3afpad 0.8.18.1.11-riscos24 and !ClawsMail 4.4.0-riscos13 (their Save
+  and Open dialogues get the folder fix and the directory browser),
+  !Geany 2.1-riscos1 (new). The test programs, with no upstream version,
+  take the release's: GTKThemeTest and !GTKGLTest 3.24.41-riscos1.0-rc5.
+  The Info box shows the version as it is. The release now has GTKGLTest
+  and Geany.
+
+## Since RC4 (2026-10-11)
 - **GTK's GSettings schemas for programs that ship none.**
   - **The report:** Geany, built by GCCSDK's autobuilder against
     riscos-gtk, crashed on every Open and Save

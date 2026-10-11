@@ -1,0 +1,41 @@
+Geany @VERSION@ - the programmer's editor (GTK 3) for RISC OS
+
+Geany 2.1 by the Geany contributors (GPL version 2), on GTK 3 through
+riscos-gtk's RISC OS backend. A demonstration of a large program built
+for RISC OS with riscos-gtk's devkit: it isn't changed for RISC OS beyond
+where it finds its data.
+
+Using it
+- Run it: Geany opens its window and puts its icon on the icon bar. Or
+  drop a file on !Geany in a Filer window.
+- The icon bar icon: Select brings Geany's window to the front; Menu
+  gives Info, Choices... (Geany's Preferences) and Quit.
+- Text, HTML, XML, CSS, JavaScript, JSON and CSV files double-clicked in
+  the Filer while Geany is loaded, dropped on its icon or window, or saved
+  to it from another program, open in a tab of their own.
+- Click Menu over the window for Geany's menus, or use its menu bar.
+  Keyboard short-cuts are shown in the menus (^S save, ^O open...).
+- File > Save As: a RISC OS Save box. Drag its icon to a Filer window, or
+  give a full name and click Save. Names without an extension are saved
+  as Text (&FFF). File > Open: an Open box; drag a file to it.
+  Click Menu over either box for the directory browser (a Filer window
+  with a sidebar of discs and places), or *Set RISCOS_GTK_CHOOSER filer
+  to have it every time.
+- Quit (or a desktop shutdown) with unsaved documents asks: Cancel or
+  Discard.
+- Geany's settings are kept in <Choices$Write>.geany.
+- Not in this build: plugins, the terminal (VTE), and Build > Execute
+  (programs Geany would start aren't RISC OS programs).
+
+Messages
+Geany's messages go to <Wimp$ScrapDir>.Geany.Log.
+
+Needs
+RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
+Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
+(PackMan). PThreadTicker is included.
+
+Licences
+Geany: GPL version 2 or later (Licence). GTK, GLib and the other
+libraries: LGPL version 2.1 or later (LicenceLGPL). DejaVu fonts: their
+own licence (fonts.Licence). Source: see Source.

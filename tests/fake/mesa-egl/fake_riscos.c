@@ -16,6 +16,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <strings.h>
 #include <pthread.h>
 #include <cairo.h>
 #include <kernel.h>
@@ -350,6 +353,116 @@ static const int *build_tool_area(void)
     tool_area[4] = tool_area[5] = (int) (long) table;
     tool_area[6] = 0x234; tool_area[7] = 0x20;
     return tool_area;
+}
+
+
+/* ---- the filing system: OS_GBPB 12, OS_FSControl 33 / 18 ----
+   A RISC OS directory name is the host's path with '/' and '.' swapped
+   (as gdk_riscos_path_to_unix); "FS:$..." / "FS::disc.$..." names are
+   under $FAKE_FS_ROOT (default "/"). Types: directories &1000 ("!" names
+   &2000), a ",xxx" suffix, else by extension. */
+static const struct { int no; const char *name; } fake_fs[] = {
+    { 23, "RAM" }, { 46, "Resources" }, { 50, "null" }, { 89, "SDFS" }, { 99, "HostFS" },
+};
+const char *fake_fs_name(int no)
+{
+    unsigned i;
+    for (i = 0; i < sizeof fake_fs / sizeof fake_fs[0]; i++)
+        if (fake_fs[i].no == no) return fake_fs[i].name;
+    return NULL;
+}
+static const struct { int type; const char *name; } fake_types[] = {
+    { 0xFFF, "Text" }, { 0xFFD, "Data" }, { 0xFAF, "HTML" }, { 0xB60, "PNG" },
+    { 0xC85, "JPEG" }, { 0xDFE, "CSV" }, { 0xADF, "PDF" }, { 0xFF9, "Sprite" },
+    { 0xFEB, "Obey" }, { 0xFFB, "BASIC" }, { 0xAFF, "DrawFile" }, { 0xA91, "Archive" },
+};
+void fake_type_name(int type, int *r2, int *r3)
+{
+    char text[16];
+    unsigned i;
+    snprintf(text, sizeof text, "&%03X        ", type);
+    for (i = 0; i < sizeof fake_types / sizeof fake_types[0]; i++)
+        if (fake_types[i].type == type) snprintf(text, sizeof text, "%-8s", fake_types[i].name);
+    memcpy(r2, text, 4); memcpy(r3, text + 4, 4);
+}
+static int fake_ext_type(const char *leaf)
+{
+    static const struct { const char *ext; int type; } t[] = {
+        { "txt", 0xFFF }, { "c", 0xFFF }, { "h", 0xFFF }, { "md", 0xFFF }, { "html", 0xFAF },
+        { "png", 0xB60 }, { "jpg", 0xC85 }, { "csv", 0xDFE }, { "pdf", 0xADF }, { "zip", 0xA91 },
+    };
+    const char *dot = strrchr(leaf, '.');
+    unsigned i;
+    if (!dot) return 0xFFD;
+    for (i = 0; i < sizeof t / sizeof t[0]; i++)
+        if (strcasecmp(dot + 1, t[i].ext) == 0) return t[i].type;
+    return 0xFFD;
+}
+static void fake_host_path(const char *ro, char *out, size_t size)
+{
+    const char *dollar = strstr(ro, ":$") ? strchr(ro, '$') : NULL;
+    const char *root = getenv("FAKE_FS_ROOT");
+    size_t n;
+    char *q;
+    if (strstr(ro, "::") && strchr(ro, '$')) dollar = strchr(ro, '$');
+    if (dollar) {
+        snprintf(out, size, "%s", root ? root : "/");
+        ro = dollar + 1;
+        if (*ro == '.') ro++;
+    } else
+        snprintf(out, size, "/");
+    n = strlen(out);
+    if (*ro && n > 1 && out[n - 1] != '/' && n + 1 < size) { out[n++] = '/'; out[n] = '\0'; }
+    for (q = out + n; *ro && (size_t) (q - out) + 1 < size; ro++)
+        *q++ = *ro == '.' ? '/' : *ro == '/' ? '.' : *ro;
+    *q = '\0';
+}
+static _kernel_oserror *fake_gbpb12(_kernel_swi_regs *r)
+{
+    static _kernel_oserror notfound = { 0xD6, "Not found" };
+    char host[1024], full[1300];
+    struct dirent *de;
+    DIR *d;
+    int index = 0, start = r->r[4], want = r->r[3], got = 0, more = 0;
+    char *buf = (char *) (long) r->r[2], *end = buf + r->r[5], *p = buf;
+
+    fake_host_path((const char *) (long) r->r[1], host, sizeof host);
+    if (!(d = opendir(host))) return &notfound;
+    while ((de = readdir(d))) {
+        struct stat st;
+        char leaf[256], *comma;
+        int type, i, *w;
+        size_t len;
+        unsigned long long cs;
+        if (de->d_name[0] == '.') continue;
+        if (index++ < start) continue;
+        if (got >= want) { more = 1; break; }
+        snprintf(full, sizeof full, "%s/%s", host, de->d_name);
+        if (stat(full, &st) != 0) continue;
+        snprintf(leaf, sizeof leaf, "%s", de->d_name);
+        comma = strrchr(leaf, ',');
+        if (S_ISDIR(st.st_mode)) type = leaf[0] == '!' ? 0x2000 : 0x1000;
+        else if (comma && strlen(comma) == 4) { type = (int) strtol(comma + 1, NULL, 16); *comma = '\0'; }
+        else type = fake_ext_type(leaf);
+        for (i = 0; leaf[i]; i++) if (leaf[i] == '.') leaf[i] = '/';
+        len = strlen(leaf);
+        if (p + ((24 + len + 1 + 3) & ~3) > end) { more = 1; index--; break; }
+        w = (int *) p;
+        cs = ((unsigned long long) st.st_mtime + 2208988800ULL) * 100ULL;
+        w[0] = (int) (0xFFF00000u | ((unsigned) (type & 0xFFF) << 8) | (unsigned) ((cs >> 32) & 0xFF));
+        w[1] = (int) (unsigned) (cs & 0xFFFFFFFFu);
+        w[2] = S_ISDIR(st.st_mode) ? 0 : (int) st.st_size;
+        w[3] = 3;
+        w[4] = S_ISDIR(st.st_mode) ? 2 : 1;
+        w[5] = type;
+        memcpy(p + 24, leaf, len + 1);
+        p += (24 + len + 1 + 3) & ~3;
+        got++;
+    }
+    closedir(d);
+    r->r[3] = got;
+    r->r[4] = more ? start + got : -1;
+    return NULL;
 }
 
 int *fake_tool_area_override;
@@ -1063,9 +1176,22 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         if (r.r[0] != 0) { e = error("ReadSysInfo reason not faked"); break; }
         r.r[0] = fake_wimp_desktop ? 1 + fake_wimp_tasks : 0;
         break;
-    case 0x29:      /* OS_FSControl 37: canonicalise path (returned as given) */
+    case 0x29:      /* OS_FSControl 37: canonicalise path (returned as given);
+                       33: filing system names; 18: file type names */
+        if (r.r[0] == 33) {
+            const char *n = fake_fs_name(r.r[1]);
+            snprintf((char *) (long) r.r[2], r.r[3], "%s", n ? n : "");
+            break;
+        }
+        if (r.r[0] == 18) { fake_type_name(r.r[2] & 0xFFF, &r.r[2], &r.r[3]); break; }
         if (r.r[0] != 37) { e = error("FSControl reason not faked"); break; }
+        if (r.r[2] == 0 || r.r[5] == 0) { r.r[5] = -(int) strlen((const char *) (long) r.r[1]); break; }
         snprintf((char *) (long) r.r[2], r.r[5], "%s", (const char *) (long) r.r[1]);
+        r.r[5] -= (int) strlen((const char *) (long) r.r[1]) + 1;
+        break;
+    case 0x0C:      /* OS_GBPB 12: a host directory's entries */
+        if (r.r[0] != 12) { e = error("GBPB reason not faked"); break; }
+        e = fake_gbpb12(&r);
         break;
     case 0x23: {    /* OS_ReadVarVal (r4 = 3, string): from the host's environment */
         const char *v = getenv((const char *) (long) r.r[0]);

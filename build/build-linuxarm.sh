@@ -117,6 +117,15 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# The Filer-style directory browser (RISCOS_GTK_CHOOSER=filer)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/browser-fake.c" \
+  -o "$REPO_DIR/out/browser-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+BRT=$REPO_DIR/out/browser-linuxarm
+rm -rf "$BRT"; mkdir -p "$BRT"
+
 # Which fontconfig set-up a program gets (gdkfontconfig-riscos.c): with a
 # stand-in for PackMan's FontConfig, without, and opted out
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
@@ -225,6 +234,25 @@ fi
 GLTEST_NO_MESA=1 run gltest-nogl "$HA" "$GLT"
 run schemas-fake "$HA" none
 run schemas-fake "$HA" installed
+run browser-fake "$HA" "$BRT"
+# Geany 2.1 (the demo) on the fake desktop: Save, Open box, Save box, quit;
+# again with the directory browser. Needs Geany built as libgeany.a for
+# this target in GEANY_LA (see tests/gtk/geany-fake.c)
+if [ -n "${GEANY_LA:-}" ] && [ -f "$GEANY_LA/src/.libs/libgeany.a" ]; then
+  $CXX $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+    -x c "$REPO_DIR/tests/gtk/geany-fake.c" -x none "$GEANY_LA/src/.libs/libgeany.a" \
+    -o "$REPO_DIR/out/geany-fake-linuxarm" \
+    -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 gmodule-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+  for chooser in box filer; do
+    GYT=$REPO_DIR/out/geany-linuxarm-$chooser; rm -rf "$GYT"; mkdir -p "$GYT/out" "$GYT/config"
+    echo "hello from a file" > "$GYT/note.txt"
+    FONTCONFIG_FILE=$HA/fonts/fonts.conf XDG_DATA_DIRS=$HA/share XDG_CONFIG_HOME=$GYT/xdg \
+      RISCOS_GTK_CHOOSER=$chooser run geany-fake "$GYT/out" -c "$GYT/config" "$GYT/note.txt"
+  done
+else
+  echo; echo "=== linux-arm: geany-fake skipped: no Geany build in GEANY_LA=${GEANY_LA:-}"
+fi
 for m in unixfc own forced; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
   run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/mono/DejaVuSansMono.ttf"

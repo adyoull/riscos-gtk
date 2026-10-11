@@ -256,7 +256,20 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
    GList *tmp_list;
 --- a/gtk/gtkfilechooser.c	2026-10-06 16:20:39.101510857 +0100
 +++ b/gtk/gtkfilechooser.c	2026-10-06 16:20:52.321315128 +0100
-@@ -1407,6 +1407,15 @@
+@@ -1319,6 +1319,12 @@
+   g_return_val_if_fail (G_IS_FILE (file), FALSE);
+   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: kept for a RISC OS Save or Open box, or the directory
++     browser (gtkfilechooser-riscos.c): a hidden GtkFileChooserWidget sets
++     its folder only once it has been read, asynchronously */
++  g_object_set_data_full (G_OBJECT (chooser), "riscos-gtk-folder", g_object_ref (file), g_object_unref);
++#endif
+   return GTK_FILE_CHOOSER_GET_IFACE (chooser)->set_current_folder (chooser, file, error);
+ }
+ 
+@@ -1407,6 +1413,15 @@
  {
    g_return_val_if_fail (GTK_IS_FILE_CHOOSER (chooser), NULL);
  

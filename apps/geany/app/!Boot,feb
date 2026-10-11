@@ -1,0 +1,3 @@
+| !Boot for !Geany
+IconSprites <Obey$Dir>.!Sprites
+Set Geany$Dir <Obey$Dir>

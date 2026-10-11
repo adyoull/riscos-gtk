@@ -594,6 +594,13 @@ flowbox flowboxchild:selected {
 
 list row { padding: 2px 6px; min-height: 18px; }
 
+/* the directory browser's sidebar (gtkfilechooser-riscos.c), as the
+   Finder's: on the window's grey, headings small and dark grey */
+list.riscos-sidebar, list.riscos-sidebar row { background-color: @wimp1; }
+list.riscos-sidebar row { padding: 0; min-height: 0; }
+list.riscos-sidebar row:selected { background-color: @wimp7; color: @wimp0; }
+.riscos-sidebar-heading { color: @wimp4; font-weight: bold; font-size: smaller; }
+
 treeview.view.expander {
   -gtk-icon-source: -gtk-scaled(url("assets/arrow-right.png"), url("assets/arrow-right@2.png"));
 }

@@ -1,0 +1,33 @@
+diff -ruN a/src/utils.c b/src/utils.c
+--- a/src/utils.c	2026-10-11 13:28:39.253689896 +0100
++++ b/src/utils.c	2026-10-11 13:28:39.331604387 +0100
+@@ -2351,6 +2351,21 @@
+ 			g_free(prefix);
+ # endif
+ 		}
++#ifdef __riscos__
++		else
++		{
++			/* RISC OS: the data is in the application directory, found
++			 * through UnixLib's <Geany$Dir> (riscos-gtk's !Geany) */
++			const gchar *prefix = "/<Geany$Dir>/share";
++
++			resdirs[RESOURCE_DIR_DATA] = g_build_filename(prefix, "geany", NULL);
++			resdirs[RESOURCE_DIR_ICON] = g_build_filename(prefix, "icons", NULL);
++			resdirs[RESOURCE_DIR_DOC] = g_build_filename(prefix, "doc", "geany", "html", NULL);
++			resdirs[RESOURCE_DIR_LOCALE] = g_build_filename(prefix, "locale", NULL);
++			resdirs[RESOURCE_DIR_PLUGIN] = g_build_filename(prefix, "lib", "geany", NULL);
++			resdirs[RESOURCE_DIR_LIBEXEC] = g_build_filename(prefix, "libexec", "geany", NULL);
++		}
++#else
+ 		else
+ 		{
+ 			resdirs[RESOURCE_DIR_DATA] = g_build_filename(GEANY_DATADIR, "geany", NULL);
+@@ -2361,6 +2376,7 @@
+ 			resdirs[RESOURCE_DIR_LIBEXEC] = g_build_filename(GEANY_LIBEXECDIR, "geany", NULL);
+ 		}
+ #endif
++#endif
+ 	}
+ 
+ 	return resdirs[type];

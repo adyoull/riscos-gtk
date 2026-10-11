@@ -404,3 +404,53 @@ that SDL2, freeglut and the games already use.
     patches.
   - Compiling a GSettingsSchemaSource from memory isn't possible: GLib
     only reads schemas from files.
+
+## The directory browser (2026-10-11)
+- **Why:** the Save and Open boxes are RISC OS's own way, but some cases
+  are awkward with a drag: a program in full screen, choosing several
+  files, a folder the Filer hasn't open, or users used to other desktops.
+  A Filer-like window in the chooser covers them without replacing the
+  boxes.
+- **Choosing it:** per program or per user (`RISCOS_GTK_CHOOSER=filer`,
+  usually in `!Run`), and at any time with Menu over a box ("Directory
+  browser..."), which keeps the box's name and folder. The boxes stay the
+  default.
+- **Look:** a Filer window's content (the desktop's sprites, large and
+  small icons, full info, the Filer's sort orders and its Menu > Display)
+  plus a sidebar like the Finder's: Discs, Places, Recent. The Save box's
+  draggable icon stays in Save, so drag-to-save still works from it.
+- **How:** the same `RiscosBox` the boxes use (gtk/riscos/
+  gtkfilechooser-riscos.c), so the program sees no difference; GDK reads
+  directories with OS_GBPB 12 (file types without a stat per file) and
+  lists filing systems with OS_FSControl 33. Filters get MIME types from
+  RISC OS file types, as a RISC OS program rarely ships GLib's MIME
+  database.
+- **The dialogue's folder:** GTK's hidden file chooser widget sets a
+  folder only after reading it, asynchronously; the box shows straight
+  away. `gtk_file_chooser_set_current_folder_file` keeps the folder for
+  it (a GTK patch hunk).
+
+## Geany as the demo (2026-10-11)
+- **Why Geany:** a large, well-known GTK 3 program with its own autotools
+  build, so it shows the devkit and porting notes working on something
+  not written for riscos-gtk; it also exercises the file choosers
+  (Geany's crash report came from them).
+- **Changed as little as possible:** one patch hunk for where its data
+  is (`/<Geany$Dir>/share`); the rest is a main() of our own around
+  libgeany (icon bar, Log, RISC OS names), as L3afpad's start-up.
+- **Linked from libgeany's objects,** not by libtool: crossdev's `.la`
+  files can name the machine crossdev was built on and libtool stops on
+  them.
+- **Left out:** plugins (no shared objects on RISC OS), VTE, the socket
+  (riscos-gtk's icon bar hands files to the running copy instead).
+
+## Program versions (2026-10-11)
+- **The program's own version and `-riscosN`** (L3afpad
+  0.8.18.1.11-riscos24, Geany 2.1-riscos1), as riscos-gtk's other ports
+  number theirs (TORCS 1.3.7-riscos3): the name says which upstream
+  release it is. N carries on from the old 0.x count.
+- **Only when it changes for that program:** a release doesn't raise a
+  program's N unless something in it, or in the GTK it uses, changes
+  what it does.
+- **Test programs** (GTKThemeTest, GTKGLTest) have no upstream version
+  and take the release's.

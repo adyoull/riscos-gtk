@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc4 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc5 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 0.45 (the backend and theme)
+## 2. GTKThemeTest 3.24.41-riscos1.0-rc5 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -50,7 +50,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.21
+## 3. L3afpad 0.8.18.1.11-riscos24
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 0.10
+## 4. ClawsMail 4.4.0-riscos13
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -97,12 +97,26 @@ provider offers them.
 | 4.19 | RISC OS icons: the !ClawsMail icon; the toolbar; the folders as the Filer's directory icons with signs on Inbox, Sent, Queue, Drafts; Choices... > Display > Themes switches to Claws Mail's own icons and back | yes (0.8) | |
 | 4.20 | Help > About (or icon bar Menu > Info): AcornSSL (not GnuTLS) and the RISC OS logo | yes (0.8) | |
 
-## 5. Packaging and licences
+## 5. New in RC5
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 5.1 | Each !Help has the right version, requirements and licences | — | |
-| 5.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
-| 5.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
+| 5.1 | L3afpad: File > Open, then Menu over the Open box > Directory browser...: a window of the folder's files with their sprites, a sidebar of discs and places | new | |
+| 5.2 | In the browser: double-click a directory, Parent, a disc in the sidebar, Menu > Display > Small icons / Full info; double-click a file opens it | new | |
+| 5.3 | `*Set RISCOS_GTK_CHOOSER filer`, then L3afpad File > Save As: the browser; type a name, Save: saved in the folder shown, typed Text; drag its file icon to a Filer window also saves | new | |
+| 5.4 | Drag a directory from the Filer onto the browser: it's shown | new | |
+| 5.5 | With PackMan's FontConfig installed: the Log says "fonts: the system's (UnixFC)"; text looks as before; a second start is quick | new | |
+| 5.6 | GTKGLTest: the triangle spins; the frame rate shows; `*Set GDK_GL gles` also works | new | |
+| 5.7 | Geany 2.1-riscos1: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
+| 5.8 | Geany: File > Open (box and browser), File > Save As (box), Edit > Preferences, Quit with an unsaved document asks | new | |
+| 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
+
+## 6. Packaging and licences
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 6.1 | Each !Help has the right version, requirements and licences | — | |
+| 6.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
+| 6.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
 
 Signed off by: ____________  Date: ____________

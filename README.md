@@ -4,12 +4,13 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: public beta (3.24.41-riscos1.0-rc4).** GTK
+**Status: public beta (3.24.41-riscos1.0-rc5).** GTK
 programs run on RISC OS as ordinary Wimp tasks:
 - **Windows:** Wimp windows with the Wimp's own furniture.
 - **Menus:** Wimp menus, opened with Menu anywhere in a window.
-- **Files:** the RISC OS Save and Open boxes, drag and drop, and the global
-  clipboard.
+- **Files:** the RISC OS Save and Open boxes, or a Filer-like directory
+  browser with a sidebar of discs and places; drag and drop, and the
+  global clipboard.
 - **The icon bar:** an icon for every program.
 - **Printing:** through !Printers.
 - **OpenGL:** `GtkGLArea` draws with riscos-mesa (OpenGL 2.1 or ES 2.0,
@@ -18,9 +19,12 @@ programs run on RISC OS as ordinary Wimp tasks:
 
 Two real programs come with it: **!L3afpad**, a text editor, and
 **!ClawsMail**, an email client (POP3, IMAP and SMTP, with TLS through
-AcornSSL; HTML mail; links open in Iris or NetSurf). **!GTKThemeTest** shows every common widget.
+AcornSSL; HTML mail; links open in Iris or NetSurf). **!Geany**, the
+programmer's editor (Geany 2.1), is a demo of a large program built
+against the devkit. **!GTKThemeTest** shows every common widget, and
+**!GTKGLTest** a GtkGLArea.
 
-- What RC4 contains, requirements, known issues and how to report problems:
+- What RC5 contains, requirements, known issues and how to report problems:
   [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md)
 - The Pi sign-off list: [docs/RC-TEST-PLAN.md](docs/RC-TEST-PLAN.md)
 - Building: [docs/BUILDING.md](docs/BUILDING.md)
@@ -48,8 +52,8 @@ git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
 cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
-make l3afpad claws themetest                # the programs, in out/
-make release RELEASE=3.24.41-riscos1.0-rc4    # programs + complete source + MANIFEST
+make l3afpad claws themetest geany          # the programs, in out/
+make release RELEASE=3.24.41-riscos1.0-rc5    # programs + devkit + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 

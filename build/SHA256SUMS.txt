@@ -23,3 +23,4 @@ e498518627044dfd7db7d79a5b3d437848caf1991ef4ef036a2d3a2ac2c1f14d  adwaita-icon-t
 fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5  nettle_3.10.2.orig.tar.gz
 83f9cef33ce76e63544db6ddf4ea0f034b94a6c03b0b88f5a7541e917107dce9  libetpan_1.9.4.orig.tar.xz
 4a20bef3fc3b60067e6eac068205fb4e3071ef4fe8b96fc1315fd8e6a8a81aa9  gumbo-parser_0.12.0+dfsg.orig.tar.xz
+8da944e82f78f3c4c6e6b054b7c562ab64ea37d4a3e7dc8576bed8a8160d3c2a  geany_2.1.orig.tar.gz
