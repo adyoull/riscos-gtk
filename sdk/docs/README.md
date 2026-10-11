@@ -32,16 +32,14 @@ from.
   and pkg-config. A GTK program that uses GResources or GSettings also
   needs GLib's host tools (`glib-compile-resources`,
   `glib-compile-schemas`: Debian/Ubuntu's `libglib2.0-dev-bin`).
-- **riscos-crossdev v1.3**, the GCCSDK cross-compiler, with UnixLib
-  5.0.3.3 added. The devkit's libraries are built against 5.0.3.3, and
-  no crossdev release carries it yet. Take `libunixlib.a` from the
-  riscos-unixlib v5.0.3.3 release, then use the devkit's
-  `bin/unixlib-overlay.sh` to make a copy of the toolchain that links it:
+- **riscos-crossdev v1.5** (or v1.4), the GCCSDK cross-compiler. Its
+  toolchain has UnixLib 5.0.3.3, which the devkit's libraries are built
+  against. `make devkit` adds riscos-mesa's devkit, which you need only
+  for OpenGL:
 
   ```sh
-  git clone -b v1.3 https://github.com/adyoull/riscos-crossdev
-  (cd riscos-crossdev && make prebuilt)
-  riscos-gtk-sdk-<release>/bin/unixlib-overlay.sh riscos-crossdev riscos-crossdev-ul5033 libunixlib.a
+  git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
+  (cd riscos-crossdev && make prebuilt && make devkit)
   ```
 - **On the RISC OS machine:** RISC OS 5, in a 16 or 32 bpp screen mode,
   with SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv from
@@ -51,7 +49,7 @@ from.
 
 ```sh
 tar -xzf riscos-gtk-sdk-<release>.tar.gz
-export RCD_DIR=$PWD/riscos-crossdev-ul5033
+export RCD_DIR=$PWD/riscos-crossdev
 . riscos-gtk-sdk-<release>/env.sh
 cp -r riscos-gtk-sdk-<release>/template hello && cd hello
 make
@@ -98,7 +96,7 @@ are kept. Double-click !Hello, then click Select on its icon bar icon.
   `${GTK_STATIC_CFLAGS_OTHER}`, `${GTK_STATIC_LIBRARY_DIRS}` and
   `${GTK_STATIC_LIBRARIES}`.
 
-- **OpenGL (GtkGLArea):** install riscos-mesa's devkit (20.3.5-16 or
+- **OpenGL (GtkGLArea):** install riscos-mesa's devkit (20.3.5-15 or
   later) and set `RISCOS_MESA_DEVKIT` before sourcing `env.sh`. Then add
   `$RISCOS_GTK_GL_LIBS` to the link, before `$RISCOS_GTK_LIBS`, or use
   pkg-config's `riscos-gtk-gl`. `examples/glarea/` shows how; API.md
@@ -114,7 +112,7 @@ you.
 | Path | What |
 |---|---|
 | `env.sh` | Source it: the compiler, pkg-config, `RISCOS_GTK_CFLAGS`, `RISCOS_GTK_LIBS` |
-| `bin/` | Compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross`, `unixlib-overlay.sh` |
+| `bin/` | Compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross` |
 | `sysroot/riscos-gtk/` | Headers, static libraries, pkg-config files, aclocal macros |
 | `share/riscos-gtk/` | What packaging puts in an application: theme, icons, schemas, fonts, licences |
 | `template/` | The template program |

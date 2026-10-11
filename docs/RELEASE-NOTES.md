@@ -247,9 +247,10 @@ release.
 ## Building
 
 [BUILDING.md](BUILDING.md). In short:
-- **Toolchain:** riscos-crossdev v1.3, with UnixLib 5.0.3.3 added by
-  `build/unixlib-overlay.sh`, because no crossdev release carries 5.0.3.3
-  yet. The overlay is documented rather than waiting for crossdev 1.4.
+- **Toolchain:** riscos-crossdev v1.5: its toolchain (1.4's) has
+  UnixLib 5.0.3.3, and its devkit is riscos-mesa 20.3.5-15. Before
+  crossdev 1.4 there was no release with 5.0.3.3, so RC1–RC4 used
+  crossdev 1.3 with the 5.0.3.3 library swapped in.
 - **Packages:** `make deps` builds the libraries, then
   `make release RELEASE=3.24.41-riscos1.0-rc4` builds the packages, the
   source archive and the manifest.

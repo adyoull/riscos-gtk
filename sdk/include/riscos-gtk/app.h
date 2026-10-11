@@ -92,6 +92,14 @@ riscos_gtk_app_init (const char *name, int *argc, char ***argv)
      memory backend, with no D-Bus for dconf, and forget them) */
   g_setenv ("GSETTINGS_BACKEND", "keyfile", FALSE);
 
+  /* the scrap folder, and fontconfig's cache in it (fonts.conf names
+     <Wimp$ScrapDir>.NAME.fontcache; !Run makes it too) */
+#ifdef __riscos
+  s = g_strdup_printf ("/<Wimp$ScrapDir>/%s/fontcache", name);
+  g_mkdir_with_parents (s, 0755);
+  g_free (s);
+#endif
+
   if (!g_getenv ("RISCOS_GTK_NO_LOG"))
     {
       s = g_strdup_printf ("/<Wimp$ScrapDir>/%s", name);

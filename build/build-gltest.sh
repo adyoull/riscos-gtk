@@ -1,6 +1,6 @@
 #!/bin/bash -e
 # !GTKGLTest (tests/gtk/gltest.c): GtkGLArea with riscos-mesa's EGL and
-# OSMesa linked in. Needs riscos-mesa's devkit (20.3.5-16 or later) in
+# OSMesa linked in. Needs riscos-mesa's devkit (20.3.5-15 or later; crossdev 1.5 has 20.3.5-15) in
 # MESA_DEVKIT (default: $RCD_DIR/devkit/env, where riscos-crossdev's
 # devkit/install.sh puts it). See build-app.sh.
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -12,4 +12,4 @@ F=$(mktemp -d); trap 'rm -rf "$F"' EXIT
 cp "$HERE"/../tests/gtk/gltest-app/* "$F/"
 cp "$MESA_DEVKIT/LICENCES.txt" "$F/LicenceMesa,fff"
 export EXTRA_LIBS="-Wl,-u,eglGetProcAddress -L$MESA_DEVKIT/lib -lEGL -lOSMesa -lstdc++ -lz -lm"
-exec "$HERE/build-app.sh" GTKGLTest gltest "${VERSION:-0.1}" "$F" "$HERE/../tests/gtk/gltest.c"
+exec "$HERE/build-app.sh" GTKGLTest gltest "${VERSION:-0.2}" "$F" "$HERE/../tests/gtk/gltest.c"

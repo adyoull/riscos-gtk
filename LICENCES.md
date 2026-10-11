@@ -81,7 +81,7 @@ checksum. A RISC OS program built here links them statically.
 | pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.41 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
 | riscos-mesa (Mesa 20.3.5's OSMesa and riscos-mesa's EGL; its devkit), only in programs that link it for OpenGL (!GTKGLTest) | MIT-style: riscos-mesa's LICENCES.txt, shipped in the program as LicenceMesa |
-| UnixLib 5.0.3.3 (riscos-unixlib release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
+| UnixLib 5.0.3.3 (riscos-crossdev 1.4/1.5, built from the riscos-unixlib v5.0.3.3 release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 
 **Static linking and the LGPL.** GLib, pango, GTK, ATK, gdk-pixbuf,
 fribidi and cairo are LGPL and are linked statically (UnixLib has no

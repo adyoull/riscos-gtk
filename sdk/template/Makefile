@@ -1,5 +1,5 @@
 # riscos-gtk devkit template. First, once per shell:
-#   export RCD_DIR=/path/to/riscos-crossdev-ul5033
+#   export RCD_DIR=/path/to/riscos-crossdev      (v1.5)
 #   . /path/to/riscos-gtk-sdk/env.sh
 # then:
 #   make            the program (hello.elf), then !Hello and Hello-1.00.zip in out/

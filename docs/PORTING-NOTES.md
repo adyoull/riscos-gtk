@@ -28,6 +28,14 @@ Facts found while building, so nobody has to find them twice.
   monitors poll), pipe2, posix_spawn, statvfs, getmntent, close_range,
   getauxval, futex.
 
+## UnixLib 5.0.3.3 and riscos-crossdev 1.4 / 1.5
+riscos-gtk builds with **riscos-crossdev 1.5**. Its toolchain is 1.4's,
+with UnixLib 5.0.3.3 built from the release's `unixlib-riscos.diff`, and
+it adds riscos-mesa devkit 20.3.5-15. The public headers are the same as
+5.0.3.2's. `__pthread_held_wait` is new, and every GTK program links it.
+The `.la` files still name the build machine (`/opt/b14/...`), so the
+libtool note below still applies.
+
 ## UnixLib 5.0.3.2 and riscos-crossdev 1.3
 riscos-gtk builds with **riscos-crossdev 1.3**: UnixLib 5.0.3.2 and a
 static-only toolchain. Both came out of riscos-gtk's handoffs

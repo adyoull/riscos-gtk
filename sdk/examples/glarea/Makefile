@@ -1,6 +1,6 @@
 # riscos-gtk devkit example: OpenGL in a GtkGLArea. First, once per shell:
-#   export RCD_DIR=/path/to/riscos-crossdev-ul5033
-#   export RISCOS_MESA_DEVKIT=/path/to/riscos-mesa-devkit-20.3.5-16
+#   export RCD_DIR=/path/to/riscos-crossdev      (v1.5)
+#   (riscos-mesa's devkit: crossdev's make devkit, or set RISCOS_MESA_DEVKIT)
 #   . /path/to/riscos-gtk-sdk/env.sh
 # then make: glarea.elf, then !GLArea and GLArea-1.00.zip in out/.
 # (RISCOS_MESA_DEVKIT defaults to crossdev's devkit/env.) MIT licence.

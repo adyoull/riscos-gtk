@@ -291,8 +291,9 @@ claim the grip): only a vertical bar running into the bottom
 right corner takes the grip; otherwise the window has the outside bar.
 
 ## The devkit (M5, 2026-10-10)
-The devkit is for cross-compiling only: riscos-crossdev 1.3 with the
-UnixLib 5.0.3.3 overlay, the toolchain the releases use. A native GCC
+The devkit is for cross-compiling only: riscos-crossdev with UnixLib
+5.0.3.3 (then 1.3 with the overlay, now 1.5), the toolchain the releases
+use. A native GCC
 on RISC OS has its own versions and memory limits, and would need its
 own build and tests.
 
@@ -356,3 +357,17 @@ that SDL2, freeglut and the games already use.
   - Its UnixLib symbols go through a shim: errno, mutexes, the stdio and
     ctype names, and the JIT memory.
   - So the test exercises the same EGL and Mesa code as the Pi.
+
+## riscos-crossdev 1.5 (2026-10-11)
+- **The toolchain:** crossdev 1.4 has UnixLib 5.0.3.3, built from the
+  release's diff, as riscos-gtk asked (handoffs 2026-10-06 and
+  2026-10-08). 1.5 adds riscos-mesa devkit 20.3.5-15 on the same
+  toolchain.
+- **The overlay goes:** riscos-gtk builds with crossdev v1.5, and
+  `build/unixlib-overlay.sh` is gone.
+- **UnixLib check:** the 1.4 library is built from source, so its
+  sha256 isn't the release library's. `env.sh` now recognises 5.0.3.3
+  by `__pthread_held_wait`, which is new in 5.0.3.3. It refuses a RISC
+  OS build without it.
+- **`-pthread`:** crossdev's driver still rejects it, so riscos-gtk
+  keeps its compiler wrapper.

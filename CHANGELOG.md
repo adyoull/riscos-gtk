@@ -1,6 +1,34 @@
 # Changelog
 
 ## Unreleased (2026-10-11)
+- !L3afpad 0.22, !ClawsMail 0.11, GTKThemeTest 0.46 and !GTKGLTest
+  0.2. These are built with riscos-crossdev 1.5, and their !Run files
+  now make the font cache folder.
+- The RISC OS build maps SRC and SYSROOT out of `__FILE__` as well as
+  the repository. A build with them outside the repository leaked
+  `/tmp/...` through GLib's `gobjectnotifyqueue.c`, and build-app.sh's
+  check caught it.
+- **The font cache folder:** each program's fonts.conf keeps
+  fontconfig's cache in `<Wimp$ScrapDir>.<Program>.fontcache`, but only
+  `<Wimp$ScrapDir>.<Program>` was made. That left fontconfig to create
+  the cache folder itself, and a report says L3afpad has trouble there.
+  - Every !Run (L3afpad, ClawsMail, GTKThemeTest, GTKGLTest, and the
+    devkit's template and example) now makes the folder with `CDir`.
+  - The devkit's `riscos_gtk_app_init` makes it as well.
+- **riscos-crossdev 1.5** (toolchain 1.4: UnixLib 5.0.3.3 built from
+  its release's diff; riscos-mesa devkit 20.3.5-15).
+  - riscos-gtk now builds with it, and `build/unixlib-overlay.sh`, the
+    stop-gap that put 5.0.3.3 into crossdev 1.3, is gone.
+  - `env.sh` recognises 5.0.3.3 by `__pthread_held_wait`, since 1.4's
+    library isn't byte for byte the release's. A RISC OS build with an
+    older UnixLib now stops.
+  - The devkit's `env.sh` checks the same way and asks for crossdev
+    1.5.
+  - The GL test and !GTKGLTest use crossdev's own devkit
+    (`make devkit`) by default; 20.3.5-15 is enough.
+  - Docs: BUILDING, README, the devkit README, RELEASE-NOTES, DECISIONS
+    and PORTING-NOTES.
+  - All libraries rebuilt from clean with it; tests below.
 - **OpenGL: GtkGLArea through riscos-mesa.**
   - **What it uses:** riscos-mesa's EGL and OSMesa (devkit 20.3.5-16):
     OpenGL 2.1 with GLSL 1.20, or ES 2.0 with `GDK_GL=gles`.

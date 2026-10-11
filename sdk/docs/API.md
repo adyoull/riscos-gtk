@@ -262,7 +262,7 @@ does OpenGL 2.1 with GLSL 1.20, or OpenGL ES 2.0. It is linked into
 the program, and only into programs that ask for it, because Mesa adds
 about 9 MB. To have OpenGL:
 
-1. **Install riscos-mesa's devkit,** 20.3.5-16 or later, and set
+1. **Install riscos-mesa's devkit,** 20.3.5-15 or later, and set
    `RISCOS_MESA_DEVKIT` to it before sourcing `env.sh`. riscos-crossdev's
    `devkit/install.sh` puts it in its `devkit/env`, which is the
    default.

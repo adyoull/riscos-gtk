@@ -43,18 +43,17 @@ UnixLib does and doesn't do that matters here:
 ## Building (short version)
 
 ```sh
-git clone -b v1.3 https://github.com/adyoull/riscos-crossdev
-(cd riscos-crossdev && make prebuilt)
-riscos-gtk/build/unixlib-overlay.sh riscos-crossdev riscos-crossdev-ul5033 libunixlib.a   # UnixLib 5.0.3.3
+git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
+(cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.3; riscos-mesa for GL
 cd riscos-gtk
-export RCD_DIR=$PWD/../riscos-crossdev-ul5033
+export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
 make l3afpad claws themetest                # the programs, in out/
 make release RELEASE=3.24.41-riscos1.0-rc4    # programs + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 
-The full version, with the host packages and the UnixLib overlay, is in
+The full version, with the host packages, is in
 [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Layout

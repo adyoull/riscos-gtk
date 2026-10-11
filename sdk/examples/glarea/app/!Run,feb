@@ -12,6 +12,9 @@ RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System
 RMEnsure PThreadTicker 0.01 RMLoad <@NAME@$Dir>.PThrTicker
 | The Log and the font cache go in the scrap directory
 CDir <Wimp$ScrapDir>.@NAME@
+| fontconfig keeps its cache here (fonts/fonts.conf names it): make it
+| now, as fontconfig may not manage to on RISC OS
+CDir <Wimp$ScrapDir>.@NAME@.fontcache
 | The WimpSlot holds the program; the C heap goes in a dynamic area
 WimpSlot -min @SLOT@K -max @SLOT@K
 | %*0: a file double-clicked in the Filer (riscos_gtk_app_init converts it)

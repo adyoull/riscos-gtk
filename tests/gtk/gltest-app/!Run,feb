@@ -11,6 +11,9 @@ RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System
 RMEnsure PThreadTicker 0.01 RMLoad <GTKGLTest$Dir>.PThrTicker
 | The font cache goes in the scrap directory.
 CDir <Wimp$ScrapDir>.GTKGLTest
+| fontconfig keeps its cache here (fonts/fonts.conf names it): make it
+| now, as fontconfig may not manage to on RISC OS
+CDir <Wimp$ScrapDir>.GTKGLTest.fontcache
 | The C heap goes in a dynamic area; the WimpSlot holds the program.
 WimpSlot -min @SLOT@K -max @SLOT@K
 | Paths for the program are UnixLib paths, /<Var$Dir>/..., not expanded

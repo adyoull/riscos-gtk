@@ -65,7 +65,6 @@ fi
 # --- the devkit's own files ---
 cp "$REPO_DIR/sdk/env.sh" "$D/"
 cp -r "$REPO_DIR/sdk/bin" "$REPO_DIR/sdk/template" "$REPO_DIR/sdk/examples" "$D/"
-cp "$REPO_DIR/build/unixlib-overlay.sh" "$D/bin/"
 chmod +x "$D"/bin/*
 mkdir -p "$D/docs"
 cp "$REPO_DIR"/sdk/docs/*.md "$D/docs/"

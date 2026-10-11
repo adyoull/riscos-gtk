@@ -11,6 +11,9 @@ RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System
 RMEnsure PThreadTicker 0.01 RMLoad <L3afpad$Dir>.PThrTicker
 | The font cache and the Log go in the scrap directory.
 CDir <Wimp$ScrapDir>.L3afpad
+| fontconfig keeps its cache here (fonts/fonts.conf names it): make it
+| now, as fontconfig may not manage to on RISC OS
+CDir <Wimp$ScrapDir>.L3afpad.fontcache
 | The C heap goes in a dynamic area; the WimpSlot holds the program.
 WimpSlot -min @SLOT@K -max @SLOT@K
 | A file dropped on the application (or given here) is opened.

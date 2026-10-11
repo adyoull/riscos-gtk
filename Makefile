@@ -1,4 +1,4 @@
-# riscos-gtk. Needs a riscos-crossdev v1.3 checkout with its toolchain
+# riscos-gtk. Needs a riscos-crossdev v1.5 checkout with its toolchain
 # installed (make prebuilt) in RCD_DIR (default ../riscos-crossdev).
 #
 #   make deps       download the sources and cross-build the libraries

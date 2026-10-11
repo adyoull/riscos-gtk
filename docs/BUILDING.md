@@ -21,30 +21,27 @@ sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
   icons.
 - The `arm-linux-gnueabihf` compilers are only needed for `make check`.
 
-## 2. The toolchain: riscos-crossdev 1.3, with UnixLib 5.0.3.3
+## 2. The toolchain: riscos-crossdev 1.5 (UnixLib 5.0.3.3)
 
 ```sh
-git clone -b v1.3 https://github.com/adyoull/riscos-crossdev
-(cd riscos-crossdev && make prebuilt)
+git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
+(cd riscos-crossdev && make prebuilt && make devkit)
+export RCD_DIR=$PWD/riscos-crossdev
 ```
 
-The release links **UnixLib 5.0.3.3**, which no riscos-crossdev release
-carries yet (1.3 has 5.0.3.2). The public headers are unchanged, so only
-the library is swapped:
-1. Take `libunixlib.a` from the riscos-unixlib v5.0.3.3 release; its
-   sha256 is `e24f16c3…`.
-2. Make an overlay copy of the toolchain with it:
-
-```sh
-riscos-gtk/build/unixlib-overlay.sh riscos-crossdev riscos-crossdev-ul5033 libunixlib.a
-export RCD_DIR=$PWD/riscos-crossdev-ul5033
-```
-
-`build/env.sh` reports which UnixLib a build links, and `make-release.sh`
-records it.
-
-When a riscos-crossdev release with 5.0.3.3 exists, use it directly and
-drop the overlay.
+- **`make prebuilt`:** riscos-crossdev 1.5's toolchain is 1.4's: GCCSDK
+  GCC 10.2 with **UnixLib 5.0.3.3**, built from the riscos-unixlib
+  v5.0.3.3 release's `unixlib-riscos.diff`. It is static only, with
+  PThreadTicker 0.03.
+- **`make devkit`:** riscos-mesa's devkit (20.3.5-15 in crossdev 1.5),
+  in `riscos-crossdev/devkit/env`. Only !GTKGLTest and the OpenGL test
+  need it.
+- **UnixLib check:** `build/env.sh` stops a RISC OS build whose
+  toolchain doesn't link UnixLib 5.0.3.3 (crossdev 1.3 and older), and
+  `make-release.sh` records the UnixLib in the manifest.
+- **History:** before crossdev 1.4, riscos-gtk built with crossdev 1.3
+  and the 5.0.3.3 library swapped in by `build/unixlib-overlay.sh`. That
+  script is gone.
 
 ## 3. The sources and libraries
 
@@ -91,7 +88,7 @@ make release RELEASE=3.24.41-riscos1.0-rc4     # out/release/3.24.41-riscos1.0-r
 ```
 
 `make gltest` builds !GTKGLTest, a GtkGLArea test, with riscos-mesa
-linked in. It needs riscos-mesa's devkit (20.3.5-16 or later) in
+linked in. It needs riscos-mesa's devkit (20.3.5-15 or later) in
 `MESA_DEVKIT`. The default is `$RCD_DIR/devkit/env`, where crossdev's
 `devkit/install.sh` puts it.
 
@@ -129,10 +126,11 @@ SMTP and IMAP server. Every suite must pass before a release.
 
 ## Known build issues
 
-- **The toolchain's `.la` files:** riscos-crossdev 1.3's `.la` files
+- **The toolchain's `.la` files:** riscos-crossdev's `.la` files
   (libm, libstdc++, libunixlib) name paths from the machine that built
-  them (`/opt/b13/...`). libtool reads them when it links through the
-  C++ driver. `build-claws.sh` links libetpan as C to avoid this. It will
-  be reported to riscos-crossdev for 1.4.
+  them (`/opt/b14/...` in 1.4 and 1.5). libtool reads them when it links
+  through the C++ driver. `build-claws.sh` links libetpan as C to avoid
+  this. Reported to riscos-crossdev (handoff 2026-10-11).
 - **Older toolchains:** `env.sh` stops if the toolchain is older than
-  riscos-crossdev 1.3 (UnixLib 5.0.3.2, static only).
+  riscos-crossdev 1.3 (UnixLib 5.0.3.2, static only), and a RISC OS build
+  if it doesn't link UnixLib 5.0.3.3 (crossdev 1.4 and later).

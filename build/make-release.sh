@@ -26,7 +26,6 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "make-release.sh: uncommitted changes; commit first" >&2; exit 1
 fi
 COMMIT=$(git rev-parse HEAD)
-[ "$UNIXLIB_VERSION" = 5.0.3.3 ] || echo "make-release.sh: note: UnixLib ${UNIXLIB_VERSION:-unknown}, not 5.0.3.3" >&2
 (cd "$DL" && sha256sum -c --quiet "$REPO_DIR/build/SHA256SUMS.txt")
 
 L3V=${L3AFPAD_VERSION:-$(sed -n 's/.*VERSION:-\([0-9.]*\)}.*/\1/p' build/build-l3afpad.sh | head -1)}
