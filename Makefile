@@ -15,7 +15,7 @@
 #                   the devkit for other developers (build/make-sdk.sh)
 #   make check      the same tests as ARM Linux code under qemu-arm-aligntrap
 #                   (the GL test needs riscos-mesa's devkit in MESA_DEVKIT)
-#   make release RELEASE=3.24.41-riscos1.0-rc5
+#   make release RELEASE=3.24.41-riscos1.0-rc6
 #                   out/release/<RELEASE>/: the programs, the devkit, the
 #                   complete source and MANIFEST.txt (build/make-release.sh)
 #   make clean      remove the build products (not the downloads)

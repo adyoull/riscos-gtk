@@ -4,7 +4,7 @@
 #   RCD_DIR=... [SRC=... SYSROOT=...] build/make-release.sh 3.24.41-riscos1.0-rc3
 # Needs the libraries already built (make deps) with the same toolchain.
 # Writes out/release/<RELEASE>/:
-#   L3afpad-<v>.zip, ClawsMail-<v>.zip, Geany-<v>.zip (the demo),
+#   L3afpad-<v>.zip, ClawsMail-<v>.zip, Geany-<v>.zip, mtPaint-<v>.zip,
 #   GTKThemeTest-<v>.zip, GTKGLTest-<v>.zip (needs riscos-mesa's devkit:
 #   MESA_DEVKIT, default $RCD_DIR/devkit/env)
 #   riscos-gtk-sdk-<RELEASE>.tar.gz   the devkit (build/make-sdk.sh)
@@ -16,7 +16,8 @@
 #                                  toolchain and UnixLib it was built with
 # The programs' versions (the upstream version and -riscosN; the test
 # programs take the release's) are in build/build-<app>.sh (or L3AFPAD_VERSION,
-# CLAWS_VERSION, THEMETEST_VERSION, GLTEST_VERSION, GEANY_VERSION). MIT licence.
+# CLAWS_VERSION, THEMETEST_VERSION, GLTEST_VERSION, GEANY_VERSION,
+# MTPAINT_VERSION). MIT licence.
 HERE=$(cd "$(dirname "$0")" && pwd)
 RELEASE=${1:?usage: build/make-release.sh RELEASE (e.g. 3.24.41-riscos1.0-rc3)}
 export TARGET=riscos RELEASE
@@ -36,7 +37,8 @@ TTV=${THEMETEST_VERSION:-$(sed -n 's/.*VERSION:-\([^}]*\)}.*/\1/p' build/build-t
 CMV=${CLAWS_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-claws.sh | head -1)}
 GLV=${GLTEST_VERSION:-$(sed -n 's/.*VERSION:-\([^}]*\)}.*/\1/p' build/build-gltest.sh | head -1)}
 GYV=${GEANY_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-geany.sh | head -1)}
-[ -n "$L3V" ] && [ -n "$TTV" ] && [ -n "$CMV" ] && [ -n "$GLV" ] && [ -n "$GYV" ] \
+MPV=${MTPAINT_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-mtpaint.sh | head -1)}
+[ -n "$L3V" ] && [ -n "$TTV" ] && [ -n "$CMV" ] && [ -n "$GLV" ] && [ -n "$GYV" ] && [ -n "$MPV" ] \
   || { echo "make-release.sh: can't read the programs' versions" >&2; exit 1; }
 
 VERSION=$L3V build/build-l3afpad.sh
@@ -44,11 +46,12 @@ VERSION=$TTV build/build-themetest.sh
 VERSION=$CMV build/build-claws.sh
 VERSION=$GLV build/build-gltest.sh
 VERSION=$GYV build/build-geany.sh
+VERSION=$MPV build/build-mtpaint.sh
 
 R=$REPO_DIR/out/release/$RELEASE
 rm -rf "$R"; mkdir -p "$R"
 cp "out/L3afpad-$L3V.zip" "out/GTKThemeTest-$TTV.zip" "out/ClawsMail-$CMV.zip" \
-   "out/GTKGLTest-$GLV.zip" "out/Geany-$GYV.zip" "$R/"
+   "out/GTKGLTest-$GLV.zip" "out/Geany-$GYV.zip" "out/mtPaint-$MPV.zip" "$R/"
 # the devkit, for other developers' programs (build/make-sdk.sh)
 SOURCE_URL=$SOURCE_URL "$HERE/make-sdk.sh" "$RELEASE"
 cp "out/sdk/riscos-gtk-sdk-$RELEASE.tar.gz" "$R/"

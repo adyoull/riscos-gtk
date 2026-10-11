@@ -1,6 +1,10 @@
 # Changelog
 
-## Since RC5 (2026-10-11)
+## 3.24.41-riscos1.0-rc6 (2026-10-11)
+Programs: L3afpad 0.8.18.1.11-riscos25, ClawsMail 4.4.0-riscos14, Geany
+2.1-riscos4, mtPaint 3.50.14-riscos4 (new), GTKThemeTest and GTKGLTest
+3.24.41-riscos1.0-rc6.
+
 - **Menu gives the program's menu anywhere in its windows.** Before, a
   widget that used button 3 itself (a paint program's canvas, a toolbar,
   an insensitive button) swallowed the click, so Menu only worked over

@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc5 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc6 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.41-riscos1.0-rc5 (the backend and theme)
+## 2. GTKThemeTest 3.24.41-riscos1.0-rc6 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -110,19 +110,25 @@ provider offers them.
 | 5.7 | Geany 2.1-riscos1: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
 | 5.8 | Geany: File > Open (box and browser), File > Save As (box), Edit > Preferences, Quit with an unsaved document asks | new | |
 | 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
-| 5.10 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | |
-| 5.11 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | |
-| 5.12 | Geany 2.1-riscos4 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
-| 5.13 | Geany: Build > Make on a long build, then Build > Stop: it ends | new | |
-| 5.14 | Geany with the DDE (!SetPaths run): a folder with c.hello containing an error, open hello.c, Set Build Commands Compile to `cc -throwback -c c.%e -o o.%e`, Compile: the error in the Compiler tab, clicking goes to the line; StrongED gets throwback again afterwards | new | |
-| 5.15 | The directory browser's Discs: the same discs and mounts as the icon bar (no extra filing systems); with a LanMan98 mount, clicking it shows the share; a USB stick plugged in appears the next time the browser opens | new | |
 
-## 6. Packaging and licences
+## 6. New in RC6
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 6.1 | Each !Help has the right version, requirements and licences | — | |
-| 6.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
-| 6.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
+| 6.1 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | |
+| 6.2 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | |
+| 6.3 | Geany 2.1-riscos4 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
+| 6.4 | Geany: Build > Make on a long build, then Build > Stop: it ends | new | |
+| 6.5 | Geany with the DDE (!SetPaths run): a folder with c.hello containing an error, open hello.c, Set Build Commands Compile to `cc -throwback -c c.%e -o o.%e`, Compile: the error in the Compiler tab, clicking goes to the line; StrongED gets throwback again afterwards | new | |
+| 6.6 | The directory browser's Discs: the same discs and mounts as the icon bar (no extra filing systems); with a LanMan98 mount, clicking it shows the share; a USB stick plugged in appears the next time the browser opens | new | |
+| 6.7 | mtPaint: its main window opens with its title bar on the screen; maximising it leaves the title bar showing | new | |
+
+## 7. Packaging and licences
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 7.1 | Each !Help has the right version, requirements and licences | — | |
+| 7.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
+| 7.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
 
 Signed off by: ____________  Date: ____________

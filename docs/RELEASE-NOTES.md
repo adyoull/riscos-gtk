@@ -1,11 +1,14 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 5)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 6)
 
-**Status: public beta.** RC5 is the third public beta build. It adds a
-directory browser for Save and Open (a Filer-like window with a sidebar
-of discs and places), uses PackMan's FontConfig set-up when it's
-installed, draws GtkGLArea with riscos-mesa, and has a demo: Geany 2.1,
-the programmer's editor. RC4 has been tested on a Raspberry Pi 4; RC5's
-new parts haven't been on real hardware yet: please
+**Status: public beta.** RC6 is the fourth public beta build. Programs
+now start other programs as RISC OS tasks: Geany's Build and Execute
+work, in a TaskWindow, and the DDE's throwback errors go to the line.
+Menu gives a window's menu wherever it's clicked; pop-up windows with a
+title get a title bar; title bars stay on the screen; the directory
+browser lists the icon bar's discs and mounts (network mounts such as
+LanMan98 open). There's a second port: mtPaint, a painting program.
+RC4 has been tested on a Raspberry Pi 4; RC5's and RC6's new parts
+haven't been on real hardware yet: please
 report anything that goes wrong (see "Reporting problems" below). The
 final 3.24.41-riscos1.0 will be this build with whatever the beta turns
 up fixed. Items marked *[Pi]* still need a check on real hardware
@@ -25,22 +28,23 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos1): the GTK release it's built from
+**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos4): the GTK release it's built from
 (3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC5
+## What's in RC6
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos24.zip` | 0.8.18.1.11-riscos24 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos13.zip` | 4.4.0-riscos13 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos1.zip` | 2.1-riscos1 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. No plugins, terminal or Execute |
-| `GTKThemeTest-3.24.41-riscos1.0-rc5.zip` | 3.24.41-riscos1.0-rc5 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc5.zip` | 3.24.41-riscos1.0-rc5 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc5.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc5-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.8.18.1.11-riscos25.zip` | 0.8.18.1.11-riscos25 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos14.zip` | 4.4.0-riscos14 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos4.zip` | 2.1-riscos4 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos4.zip` | 3.50.14-riscos4 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `GTKThemeTest-3.24.41-riscos1.0-rc6.zip` | 3.24.41-riscos1.0-rc6 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc6.zip` | 3.24.41-riscos1.0-rc6 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc6.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc6-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -73,7 +77,12 @@ release.
 - **Placement:** new windows open centred on the screen; a program's
   next window opens 48 OS units down and to the right of the last.
 - **Toggle size:** works, and the window is laid out again at the new
-  size.
+  size. A maximised window fills the screen below its title bar.
+- **Title bars stay on the screen:** a window a program puts at the top
+  of the screen is moved down so its title bar shows. *[Pi]*
+- **Pop-up windows with a title** (tool windows some programs open
+  without a frame, such as mtPaint's Pan Window) get a title bar and a
+  close icon; the close icon closes them as Escape does. *[Pi]*
 - **The size grip:** a window has the desktop's own Adjust Size sprite,
   following RISC OS:
   - if a GTK scroll bar runs into the window's bottom right corner, the
@@ -94,7 +103,10 @@ release.
   dotted separators and a short-cut column.
 - **Menu bar:** a program's menu bar becomes a Menu-click menu, as RISC
   OS programs have, and is not drawn in the window.
-- **One menu per window:** Menu anywhere in a window gives the same menu.
+- **One menu per window:** Menu anywhere in a window gives the same menu,
+  even over things that use the mouse buttons themselves (a paint
+  program's canvas, toolbars); tool windows without a menu give their
+  main window's. *[Pi]*
   Over something with its own context menu, such as a list, that menu is
   the first entry. In ClawsMail it is "Message >" over the message list
   and "Folder >" over the folder list; elsewhere it is "Selection >".
@@ -111,8 +123,9 @@ release.
   (or Menu over it), or `*Set RISCOS_GTK_CHOOSER filer` to use it every
   time. A Filer-like window: large icons, small icons or full info
   with the desktop's file sprites, sorted as the Filer sorts, Parent and
-  the folder's name along the top, and a sidebar of discs (every filing
-  system), places (the program's folder, Boot, Choices, Scrap) and
+  the folder's name along the top, and a sidebar of discs (those on the
+  icon bar, with their names and sprites: discs, RAM disc, Apps, network
+  mounts such as LanMan98's *[Pi]*), places (the program's folder, Boot, Choices, Scrap) and
   recent folders. Double-click to go into a directory or open a file;
   directories dragged in from the Filer are shown. Save keeps its
   draggable file icon. *[Pi]*
@@ -132,6 +145,16 @@ release.
   or saved to it are opened.
 - **Unsaved work:** PreQuit asks about it.
 - **One copy:** starting a second copy hands its file to the first.
+
+**Running other programs**
+- **As RISC OS tasks:** commands a program starts (GLib's
+  `g_spawn_async`) run alongside it. When the program reads their output,
+  they run in a TaskWindow and the output arrives as it's written, with
+  the working directory set and `Sys$ReturnCode` as the exit status;
+  otherwise they're started as tasks of their own. *[Pi]*
+- **Throwback:** while such a TaskWindow runs, the DDE's tools given
+  `-throwback` send their errors to the program, as compiler messages
+  that name the file and line (Geany goes to the line). *[Pi]*
 
 **Printing**
 - **The Print box:** a Toolbox-style box (pages, copies, scale,
@@ -190,8 +213,13 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC5
+## Known issues and limits in RC6
 
+- **New in RC6, not yet on the Pi** *[Pi]*: programs started as tasks
+  (Geany's Build and Execute with GCC or the DDE, throwback); Menu over
+  a canvas or toolbar; title bars on titled pop-ups and kept on the
+  screen; the browser's discs from the icon bar; mtPaint. All are tested
+  on the fake desktop.
 - **New in RC5, not yet on the Pi** *[Pi]*: the directory browser; the
   UnixFC font set-up; GtkGLArea (GTKGLTest); Geany. GTK's settings
   schemas built in (for programs that ship none: Geany's crash on Open
@@ -228,6 +256,12 @@ release.
     Geany. Versions are now the program's own and `-riscosN` (L3afpad
     0.8.18.1.11-riscos24, ClawsMail 4.4.0-riscos13, Geany 2.1-riscos1);
     the test programs take the release's.
+  - RC6: programs started as RISC OS tasks (Geany's Build, Execute and
+    the DDE's throwback); Menu anywhere in a window; title bars for
+    titled pop-ups and kept on the screen; the browser's discs from the
+    icon bar; mtPaint. In GTK, so every program was rebuilt: L3afpad
+    0.8.18.1.11-riscos25, ClawsMail 4.4.0-riscos14, Geany 2.1-riscos4,
+    mtPaint 3.50.14-riscos4.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -248,8 +282,17 @@ release.
   the printer driver.
 - **No translations:** messages are in English only.
 - **Each program carries its own copy of the libraries,** about 20 MB.
-- **Geany:** no plugins, no terminal (VTE), and Build > Execute won't
-  run RISC OS programs. Its settings are in `<Choices$Write>.geany`.
+- **Geany:** no plugins and no built-in terminal (VTE). Build commands
+  must be ones RISC OS has (GCC and make from PackMan, or the DDE's,
+  set in Build > Set Build Commands); a build can't be typed into.
+  Its settings are in `<Choices$Write>.geany`.
+- **Programs started as tasks:** standard input isn't passed on, and the
+  working directory (`*Dir`) is the whole desktop's. A program that waits
+  for one to finish (`g_spawn_sync`) still stops the desktop meanwhile.
+- **mtPaint:** its toolbar icons are XPM pictures, which riscos-gtk
+  loads; builds of mtPaint against a gdk-pixbuf that loads its loaders
+  as modules can't, in a static RISC OS program. Settings are in
+  `<Choices$Write>.mtPaint`.
 - **ClawsMail:**
   - no spell checking, other plug-ins or Claws Mail certificate manager;
   - news (NNTP) is built but untested;
@@ -284,7 +327,7 @@ release.
   crossdev 1.4 there was no release with 5.0.3.3, so RC1–RC4 used
   crossdev 1.3 with the 5.0.3.3 library swapped in.
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc5` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc6` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests
@@ -309,7 +352,10 @@ code against a fake RISC OS and Wimp:
 | schemas-fake (GTK's schemas for a program that ships none) | 3 + 3 |
 | fontconfig-fake (UnixFC, own, forced) | 5 + 4 + 4 |
 | browser-fake (the directory browser) | 27 |
-| geany-fake (Geany 2.1: with the box and with the browser) | 6 + 6 |
+| geany-fake (Geany 2.1: with the box and with the browser; Build and Execute) | 11 + 11 |
+| menuclick-fake (Menu anywhere; titled pop-ups; title bars on the screen) | 14 |
+| spawn-fake (programs started as tasks; throwback) | 17 |
+| mtpaint-fake (mtPaint: Menu, its Save and Open, pop-ups) | 12 |
 
 All pass at the RC commit.
 
@@ -321,6 +367,7 @@ On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 - **L3afpad:** GPL 2, by Tarot Osuji and Steven Honeyman.
 - **Claws Mail:** GPL 3, by the Claws Mail team.
 - **Geany:** GPL 2, by the Geany contributors.
+- **mtPaint:** GPL 3, by Mark Tyler and Dmitry Groshev.
 - **Mesa** (GTKGLTest, through riscos-mesa): MIT.
 - **libetpan:** BSD-style, by DINH Viet Hoa.
 - **litehtml:** BSD-style, by Yuri Kobets (in Claws Mail's LiteHTML
