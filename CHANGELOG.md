@@ -12,6 +12,27 @@
     menu of the window they belong to, or of the program's only window
     with a menu.
   - `gtk/riscos/gtkmenu-riscos.c`; test `menuclick-fake` (7 checks).
+- **Programs started with `g_spawn_async*()` run as RISC OS tasks,**
+  alongside the program. Before, UnixLib ran them in place of the
+  program until they ended, and their output couldn't be read as it came.
+  - With the output read through pipes, the command runs in a TaskWindow
+    with the program as its parent: its output reaches the pipe as it
+    comes, the working directory is set, and `Sys$ReturnCode` is the exit
+    status. Without, it is started with Wimp_StartTask. Child watches see
+    it end.
+  - Unix file names in the command are given as RISC OS names.
+  - `gdk_riscos_spawn_kill()` ends one. `RISCOS_GTK_SPAWN=exec` turns it
+    off; `RISCOS_GTK_TASK_WIMPSLOT` sets a TaskWindow's memory.
+  - `gdk/riscos/gdkspawn-riscos.c`; GLib: spawn and child watch hooks
+    (`patches/glib-2.80.0-riscos.diff`); test `spawn-fake` (13 checks).
+- **!Geany 2.1-riscos2: Build and Execute work.** Compile, Build, Make and
+  the other Build commands run in a TaskWindow, with their messages
+  (errors linked to the lines) in Geany's Compiler tab; Stop ends them.
+  Execute runs the program in a task window of its own, from an Obey file
+  that sets the directory and shows its return code (`./prog` runs
+  `prog`). The commands must be ones RISC OS has (GCC and make from
+  PackMan for C). Settings from older versions that name xterm get the
+  task window instead. Test `geany-fake` (11 checks).
 - **Windows keep their title bar on the screen.** A program that puts its
   window at the top of the screen (`gtk_window_move (w, 0, 0)`: GTK means
   the frame's corner) had the title bar off the top, so the window

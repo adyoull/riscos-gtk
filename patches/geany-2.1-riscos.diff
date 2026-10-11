@@ -1,6 +1,130 @@
+diff -ruN a/src/build.c b/src/build.c
+--- a/src/build.c	2025-07-04 10:31:37.000000000 +0100
++++ b/src/build.c	2026-10-11 17:16:13.320475876 +0100
+@@ -50,6 +50,10 @@
+ #include "vte.h"
+ #include "win32.h"
+ 
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++# include <gdk/gdkriscos.h>   /* gdk_riscos_path_from_unix */
++#endif
++
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+@@ -1089,7 +1093,51 @@
+ /* write a little shellscript to call the executable (similar to anjuta_launcher but "internal")
+  * working_dir and cmd are both in the locale encoding
+  * it returns the full file name (including path) of the created script in the locale encoding */
+-#ifndef G_OS_WIN32
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++/* riscos-gtk: an Obey file for the terminal command (a task window): the
++ * directory, the command ("./prog" or "\"./prog\"" becomes "prog": RISC OS
++ * runs a program in the current directory by its name) and its return code.
++ * The task window stays open afterwards, so there's no "Press return".
++ * Returns the file's Unix name (riscos-gtk gives Unix names in a spawned
++ * command as RISC OS names). */
++static gchar *build_create_shellscript(const gchar *working_dir, const gchar *cmd, gboolean autoclose, GError **error)
++{
++	gint fd;
++	gchar *fname, *dir, *run, *str;
++	const gchar *c = cmd;
++
++	fd = g_file_open_tmp("geany_run_script_XXXXXX", &fname, error);
++	if (fd < 0)
++		return NULL;
++	close(fd);
++	dir = working_dir[0] == '/' ? gdk_riscos_path_from_unix(working_dir) : g_strdup(working_dir);
++	while (*c == ' ')
++		c++;
++	if (c[0] == '"' && c[1] == '.' && c[2] == '/')
++	{
++		const gchar *end = strchr(c + 3, '"');
++		gchar *prog = end ? g_strndup(c + 3, end - c - 3) : g_strdup(c + 3);
++		run = g_strconcat(prog, end ? end + 1 : "", NULL);
++		g_free(prog);
++	}
++	else if (c[0] == '.' && c[1] == '/')
++		run = g_strdup(c + 2);
++	else
++		run = g_strdup(c);
++	str = g_strdup_printf("SetEval Sys$ReturnCode 0\nDir %s\n%s\nEcho\nEcho ------------------\n"
++		"Echo (program exited with code: <Sys$ReturnCode>)\n", dir, run);
++	g_free(dir);
++	g_free(run);
++	if (!g_file_set_contents(fname, str, -1, error))
++	{
++		g_unlink(fname);
++		g_free(fname);
++		fname = NULL;
++	}
++	g_free(str);
++	return fname;
++}
++#elif !defined G_OS_WIN32
+ static gchar *build_create_shellscript(const gchar *working_dir, const gchar *cmd, gboolean autoclose, GError **error)
+ {
+ 	gint fd;
+diff -ruN a/src/keyfile.c b/src/keyfile.c
+--- a/src/keyfile.c	2025-07-04 10:31:37.000000000 +0100
++++ b/src/keyfile.c	2026-10-11 17:15:34.923891290 +0100
+@@ -90,6 +90,13 @@
+ # define GEANY_DEFAULT_FONT_SYMBOL_LIST	"Helvetica Medium 12"
+ # define GEANY_DEFAULT_FONT_MSG_WINDOW	"Menlo Medium 12"
+ # define GEANY_DEFAULT_FONT_EDITOR		"Menlo Medium 12"
++#elif defined(__riscos__) || defined(GEANY_RISCOS_UI)
++/* riscos-gtk: Execute runs an Obey file (build.c) in a task window */
++# define GEANY_DEFAULT_TOOLS_TERMINAL	"TaskWindow \"Obey %c\" -name \"Geany: Execute\" -wimpslot 16384K -display"
++# define GEANY_DEFAULT_USE_NATIVE_DLGS	FALSE
++# define GEANY_DEFAULT_FONT_SYMBOL_LIST	"Sans 9"
++# define GEANY_DEFAULT_FONT_MSG_WINDOW	"Monospace 9"
++# define GEANY_DEFAULT_FONT_EDITOR		"Monospace 10"
+ #else
+ # define GEANY_DEFAULT_TOOLS_TERMINAL	"xterm -e \"/bin/sh %c\""
+ # define GEANY_DEFAULT_USE_NATIVE_DLGS	FALSE
+@@ -1060,6 +1067,11 @@
+ 		else
+ 			SETPTR(cmd, g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL));
+ 	}
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++	/* settings from before the RISC OS default: a Unix terminal */
++	if (strstr(cmd, "xterm") || strstr(cmd, "/bin/sh"))
++		SETPTR(cmd, g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL));
++#endif
+ 	tool_prefs.term_cmd = cmd;
+ 	tool_prefs.browser_cmd = utils_get_setting_string(config, "tools", "browser_cmd", GEANY_DEFAULT_TOOLS_BROWSER);
+ 	tool_prefs.grep_cmd = utils_get_setting_string(config, "tools", "grep_cmd", GEANY_DEFAULT_TOOLS_GREP);
+diff -ruN a/src/spawn.c b/src/spawn.c
+--- a/src/spawn.c	2025-07-04 10:31:37.000000000 +0100
++++ b/src/spawn.c	2026-10-11 17:15:34.923403606 +0100
+@@ -52,6 +52,10 @@
+ 
+ #include "spawn.h"
+ 
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++# include <gdk/gdkriscos.h>   /* gdk_riscos_spawn_kill */
++#endif
++
+ #ifdef G_OS_WIN32
+ # include <ctype.h>    /* isspace() */
+ # include <fcntl.h>    /* _O_RDONLY, _O_WRONLY */
+@@ -293,6 +297,13 @@
+ 		g_free(message);
+ 		return FALSE;
+ 	}
++#elif defined __riscos__ || defined GEANY_RISCOS_UI
++	/* riscos-gtk runs spawned commands as RISC OS tasks */
++	if (!gdk_riscos_spawn_kill(pid))
++	{
++		g_set_error_literal(error, G_SPAWN_ERROR, G_SPAWN_ERROR_FAILED, g_strerror(ESRCH));
++		return FALSE;
++	}
+ #else
+ 	if (kill(pid, SIGTERM))
+ 	{
 diff -ruN a/src/utils.c b/src/utils.c
---- a/src/utils.c	2026-10-11 13:28:39.253689896 +0100
-+++ b/src/utils.c	2026-10-11 13:28:39.331604387 +0100
+--- a/src/utils.c	2025-07-04 10:31:37.000000000 +0100
++++ b/src/utils.c	2026-10-11 14:51:02.604389282 +0100
 @@ -2351,6 +2351,21 @@
  			g_free(prefix);
  # endif

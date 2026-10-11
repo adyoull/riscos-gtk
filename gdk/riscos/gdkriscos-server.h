@@ -137,6 +137,10 @@ void               _gdk_riscos_iconbar_startup                 (int             
                                                                  const char         *task_name);
 
 /* gdkprint-riscos.c: the printing messages (and our PrintSave bouncing) */
+/* gdkspawn-riscos.c: g_spawn_async*() as RISC OS tasks */
+void               _gdk_riscos_spawn_startup                   (int                 task);
+gboolean           _gdk_riscos_spawn_message                   (int                 reason,
+                                                                int                *block);
 gboolean           _gdk_riscos_print_message                   (int                 reason,
                                                                  int                *block);
 

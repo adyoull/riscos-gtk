@@ -133,6 +133,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# g_spawn_async*() as RISC OS tasks (gdk/riscos/gdkspawn-riscos.c)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/spawn-fake.c" \
+  -o "$REPO_DIR/out/spawn-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # Which fontconfig set-up a program gets (gdkfontconfig-riscos.c): with a
 # stand-in for PackMan's FontConfig, without, and opted out
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
@@ -243,8 +250,9 @@ run schemas-fake "$HA" none
 run schemas-fake "$HA" installed
 run browser-fake "$HA" "$BRT"
 # Geany 2.1 (the demo) on the fake desktop: Save, Open box, Save box, quit;
-# again with the directory browser. Needs Geany built as libgeany.a for
-# this target in GEANY_LA (see tests/gtk/geany-fake.c)
+# again with the directory browser; Build > Compile and Execute. Needs
+# Geany (patched, -DGEANY_RISCOS_UI) built as libgeany.a for this target
+# in GEANY_LA (see tests/gtk/geany-fake.c)
 if [ -n "${GEANY_LA:-}" ] && [ -f "$GEANY_LA/src/.libs/libgeany.a" ]; then
   $CXX $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
     -x c "$REPO_DIR/tests/gtk/geany-fake.c" -x none "$GEANY_LA/src/.libs/libgeany.a" \
@@ -261,6 +269,7 @@ else
   echo; echo "=== linux-arm: geany-fake skipped: no Geany build in GEANY_LA=${GEANY_LA:-}"
 fi
 run menuclick-fake "$HA"
+run spawn-fake "$HA"
 # mtPaint (the port) on the fake desktop: Menu everywhere, its RISC OS save
 # and open dialogue. Needs mtPaint's objects built for this target with
 # -DMT_RISCOS_UI in MTPAINT_LA (see tests/gtk/mtpaint-fake.c)

@@ -77,3 +77,126 @@ diff -ruN a/gio/gunixmounts.c b/gio/gunixmounts.c
  /* Common code {{{2 */
  #else
  #error No g_get_mount_table() implementation for system
+diff -ruN a/glib/gmain.c b/glib/gmain.c
+--- a/glib/gmain.c	2024-03-07 21:35:05.000000000 +0000
++++ b/glib/gmain.c	2026-10-11 17:08:24.113442398 +0100
+@@ -5933,6 +5933,9 @@
+  *
+  * Since: 2.4
+  **/
++/* riscos-gtk: gspawn.c (GRiscosSpawnHooks) */
++GSource *_g_riscos_child_watch_source_new (GPid pid);
++
+ GSource *
+ g_child_watch_source_new (GPid pid)
+ {
+@@ -5942,6 +5945,11 @@
+   int errsv;
+ #endif
+ 
++  /* riscos-gtk: a RISC OS task started by g_spawn_async*() */
++  source = _g_riscos_child_watch_source_new (pid);
++  if (source)
++    return source;
++
+ #ifndef G_OS_WIN32
+   g_return_val_if_fail (pid > 0, NULL);
+ #endif
+diff -ruN a/glib/gspawn.c b/glib/gspawn.c
+--- a/glib/gspawn.c	2024-03-07 21:35:05.000000000 +0000
++++ b/glib/gspawn.c	2026-10-11 17:08:24.112251010 +0100
+@@ -202,6 +202,81 @@
+                                    error);
+ }
+ 
++/* riscos-gtk: on RISC OS a program started with exec() runs in place of
++ * this one until it ends, and the desktop waits for it. GDK's RISC OS
++ * backend (gdk/riscos/gdkspawn-riscos.c) sets these hooks: asynchronous
++ * spawns then run as RISC OS tasks (a TaskWindow when the output is
++ * wanted), and child watches on them see the task end. Unset (programs
++ * without GDK), GLib behaves as on Unix. */
++typedef struct
++{
++  gboolean (*spawn)  (const gchar *working_directory, const gchar * const *argv,
++                      const gchar * const *envp, GSpawnFlags flags, GPid *child_pid,
++                      gint *stdin_pipe, gint *stdout_pipe, gint *stderr_pipe,
++                      GError **error);
++  gboolean (*owns)   (GPid pid);
++  gboolean (*exited) (GPid pid, gint *wait_status);
++} GRiscosSpawnHooks;
++
++const GRiscosSpawnHooks *g_riscos_spawn_hooks = NULL;
++
++typedef struct
++{
++  GSource source;
++  GPid pid;
++  gint status;
++  gboolean done;
++} RiscosChildWatch;
++
++static gboolean
++riscos_child_watch_check (GSource *source)
++{
++  RiscosChildWatch *w = (RiscosChildWatch *) source;
++
++  if (!w->done && g_riscos_spawn_hooks)
++    w->done = g_riscos_spawn_hooks->exited (w->pid, &w->status);
++  return w->done;
++}
++
++static gboolean
++riscos_child_watch_prepare (GSource *source, gint *timeout)
++{
++  *timeout = 20;
++  return riscos_child_watch_check (source);
++}
++
++static gboolean
++riscos_child_watch_dispatch (GSource *source, GSourceFunc callback, gpointer user_data)
++{
++  RiscosChildWatch *w = (RiscosChildWatch *) source;
++
++  if (callback)
++    ((GChildWatchFunc) (void (*) (void)) callback) (w->pid, w->status, user_data);
++  return G_SOURCE_REMOVE;
++}
++
++static GSourceFuncs riscos_child_watch_funcs = {
++  riscos_child_watch_prepare, riscos_child_watch_check, riscos_child_watch_dispatch,
++  NULL, NULL, NULL
++};
++
++/* g_child_watch_source_new() (gmain.c): a source for a task the hooks
++   started, else NULL */
++GSource *_g_riscos_child_watch_source_new (GPid pid);
++
++GSource *
++_g_riscos_child_watch_source_new (GPid pid)
++{
++  GSource *source;
++
++  if (g_riscos_spawn_hooks == NULL || !g_riscos_spawn_hooks->owns (pid))
++    return NULL;
++  source = g_source_new (&riscos_child_watch_funcs, sizeof (RiscosChildWatch));
++  g_source_set_static_name (source, "GChildWatchSource (RISC OS task)");
++  ((RiscosChildWatch *) source)->pid = pid;
++  return source;
++}
++
+ /* Some versions of OS X define READ_OK in public headers */
+ #undef READ_OK
+ 
+@@ -816,6 +891,12 @@
+   if ((flags & INHERITS_OR_NULL_STDERR) != 0)
+     stderr_pipe_out = NULL;
+ 
++  /* riscos-gtk: a RISC OS task (see GRiscosSpawnHooks) */
++  if (g_riscos_spawn_hooks && stdin_fd < 0 && stdout_fd < 0 && stderr_fd < 0 && n_fds == 0)
++    return g_riscos_spawn_hooks->spawn (working_directory, argv, envp, flags, child_pid_out,
++                                        stdin_pipe_out, stdout_pipe_out, stderr_pipe_out,
++                                        error);
++
+   return fork_exec (!(flags & G_SPAWN_DO_NOT_REAP_CHILD),
+                     working_directory,
+                     (const gchar * const *) argv,

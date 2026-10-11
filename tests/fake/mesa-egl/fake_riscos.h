@@ -114,6 +114,9 @@ extern int fake_log_menus;              /* print each menu opened to stderr */
    (reason 17/18/19, block) before the next script entry. */
 extern void (*fake_message_hook)(int reason, int *block, int dest, int icon);
 void fake_queue_message(int reason, const int *block);
+/* Wimp_StartTask: the command, and R0 to return (the new task's handle; 0:
+   it has ended). No hook: an error. */
+extern int (*fake_starttask_hook)(const char *command);
 int fake_new_ref(void);                 /* a my_ref for a queued message */
 extern int fake_dragbox_type, fake_dragboxes;
 /* OS_SpriteOp / Wimp_SpriteOp 36: the pointer shape set last (sprite name,

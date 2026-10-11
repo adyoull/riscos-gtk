@@ -24,8 +24,13 @@ Using it
 - Quit (or a desktop shutdown) with unsaved documents asks: Cancel or
   Discard.
 - Geany's settings are kept in <Choices$Write>.geany.
-- Not in this build: plugins, the terminal (VTE), and Build > Execute
-  (programs Geany would start aren't RISC OS programs).
+- Build menu: Compile, Build, Make and the rest run in a task window in
+  the background, and their messages appear in Geany's Compiler tab
+  (click an error to go to its line); Stop ends them. Execute runs the
+  program in a task window of its own and shows its return code. The
+  commands must be ones RISC OS has: for C, GCC and make (PackMan), or
+  change them with Build > Set Build Commands.
+- Not in this build: plugins and the built-in terminal (VTE).
 
 Messages
 Geany's messages go to <Wimp$ScrapDir>.Geany.Log.

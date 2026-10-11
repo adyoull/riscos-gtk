@@ -503,3 +503,25 @@ that SDL2, freeglut and the games already use.
   event. Positions a program saves and restores (`gdk_window_get_root_origin`,
   `gtk_window_move`) stay in work-area terms, so they don't drift.
   Maximise uses the screen below the title bar.
+
+## g_spawn_async runs RISC OS tasks (2026-10-11)
+- **Why:** UnixLib's `fork()` is a vfork and `exec()` replaces the
+  program until the child ends, so a spawned helper stopped the desktop
+  and its output couldn't be read as it came. Geany's Build and Execute
+  were left out of the first build because of it.
+- **How:** GLib gets hooks (`GRiscosSpawnHooks` in gspawn.c; a child
+  watch source in gmain.c for pids the hooks own). GDK sets them when the
+  Wimp task starts, so programs without GDK keep UnixLib's behaviour. A
+  spawn whose output is read becomes `*TaskWindow "Obey <scrap file>"
+  -task &<us> -txt &<pid> -quit`; TaskWindow_Output is written to a
+  UnixLib pipe (file-backed, so it works in one process), Morio closes it.
+  Other spawns are Wimp_StartTask, ended by Message_TaskCloseDown.
+- **Exit status:** TaskWindow doesn't report one, so the Obey file prints
+  a marker and `Sys$ReturnCode` last; GDK strips it from the output. No
+  marker (the Obey file stopped at an error) is status 1.
+- **Not done:** standard input isn't forwarded (TaskWindow_Input could),
+  `envp` is ignored, `g_spawn_sync()` still runs in place. `*Dir` is
+  global on RISC OS, so a working directory changes the desktop's.
+- **Programs:** Geany's patch only changes what is RISC OS specific
+  (Execute's Obey file and task window, `kill()`, the terminal setting);
+  the spawning itself is GTK's.

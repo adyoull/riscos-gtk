@@ -392,6 +392,36 @@ riscos-gtk places the size icon itself:
 
 These functions are for programs that lay out their own scroll bars.
 
+## Running other programs
+
+Once GTK is running, `g_spawn_async()`, `g_spawn_async_with_pipes()`,
+`g_spawn_command_line_async()` and the like start RISC OS tasks, which
+run alongside the program (UnixLib's `exec()` would run the program in
+place of yours until it ends):
+
+- **Output read through pipes** (stdout or stderr asked for): the
+  command runs in a TaskWindow with your program as its parent. Its
+  output is written to the stdout pipe as it comes (stdout and stderr
+  together; a stderr pipe gets nothing), and the pipes end when it has
+  finished. The command runs from an Obey file that first sets the
+  working directory (`*Dir`, which is the whole desktop's) and ends by
+  printing `Sys$ReturnCode`, which becomes the exit status (an error
+  stops an Obey file: status 1). `*Set RISCOS_GTK_TASK_WIMPSLOT 32768`
+  gives it more memory (KB; 16384 normally).
+- **No output wanted:** Wimp_StartTask with the command. The child watch
+  fires when the task closes down (at once if it has already ended, as a
+  `*` command has).
+- **Commands:** `argv` is joined into a RISC OS command line; `sh -c CMD`
+  gives CMD as it is. Absolute Unix file names in it (an argument, or a
+  word in one) are given as RISC OS names. Standard input and `envp`
+  aren't passed on.
+- **`gdk_riscos_spawn_kill (pid)`** ends one (TaskWindow_Morite, or
+  Message_Quit to a task of its own); its child watch then fires. Use it
+  where Unix code calls `kill()`.
+- `g_child_watch_add()` and `g_spawn_check_wait_status()` work on the pid
+  as on Unix. `g_spawn_sync()` isn't changed: it runs the program in
+  place. `*Set RISCOS_GTK_SPAWN exec` turns all of this off.
+
 ## Printing at a lower level
 
 `GtkPrintOperation` is the way to print. GTK's own RISC OS print code
@@ -424,6 +454,8 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_CHOOSER` = `filer` | The directory browser instead of the Save and Open boxes (their Browse... button also gives it) |
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
+| `RISCOS_GTK_SPAWN` = `exec` | `g_spawn_async*()` runs programs in place (UnixLib), not as tasks |
+| `RISCOS_GTK_TASK_WIMPSLOT` = KB | Memory for a TaskWindow started by `g_spawn_async*()` (16384) |
 | `RISCOS_GTK_PLAIN_POPUPS` (any value) | Pop-up windows with a title stay plain (no title bar or close icon) |
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |
 | `RISCOS_GTK_PRINT_BITMAP` (any value) | Print everything as bitmaps, not Draw paths |

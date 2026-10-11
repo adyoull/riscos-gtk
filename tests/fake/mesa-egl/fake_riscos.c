@@ -35,6 +35,7 @@ int fake_pointer[3], fake_wheel, fake_menus_opened, fake_pointer_shape = 1;
 const int *fake_menu;
 int fake_menu_x, fake_menu_y, fake_menus_closed;
 /* Wimp messages: sent by the task (hook), queued for it (fake_queue_message) */
+int (*fake_starttask_hook)(const char *command);
 void (*fake_message_hook)(int reason, int *block, int dest, int icon);
 int fake_dragbox_type = -1, fake_dragboxes;
 const int *fake_ptr_sprite;
@@ -1390,6 +1391,13 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         else
             strncpy(fake_iconbar_sprite, (const char *) &block[6], 12);
         r.r[0] = ++fake_iconbar_icons;
+        break;
+    case 0x400DE:   /* Wimp_StartTask: a test's hook (fake_starttask_hook, or fake_swi_hook) */
+        if (!fake_starttask_hook) {
+            if (fake_swi_hook && fake_swi_hook(no, &r, &e)) break;
+            e = error("Wimp_StartTask not faked"); break;
+        }
+        r.r[0] = fake_starttask_hook((const char *) (long) r.r[0]);
         break;
     case 0x400E7:   /* Wimp_SendMessage: sender and my_ref filled in */
         block = (int *) (long) r.r[1];

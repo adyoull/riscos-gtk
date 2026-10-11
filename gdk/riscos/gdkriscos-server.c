@@ -1034,7 +1034,8 @@ handle_message (GdkRiscosServer *server, int reason, int *block)
 {
   /* printing (!Printers' answers), the icon bar icon: files opened from
      the Filer, PreQuit */
-  if (_gdk_riscos_print_message (reason, block) || _gdk_riscos_iconbar_message (reason, block))
+  if (_gdk_riscos_spawn_message (reason, block) ||
+      _gdk_riscos_print_message (reason, block) || _gdk_riscos_iconbar_message (reason, block))
     return;
   switch (block[4])
     {
@@ -1305,10 +1306,12 @@ _gdk_riscos_server_new (const char *display, GError **error)
   /* PreQuit, ModeChange, MenusDeleted; the data transfer protocol:
      DataSave, DataSaveAck, DataLoad, DataLoadAck, DataOpen (the icon bar),
      RAMFetch, RAMTransmit, ClaimEntity, DataRequest; printing: PrintFile,
-     PrintError, PrintTypeOdd, SetPrinter */
+     PrintError, PrintTypeOdd, SetPrinter; programs started with g_spawn
+     (gdkspawn-riscos.c): TaskCloseDown, TaskWindow_Output, _Ego, _Morio */
   static const int messages[] = { MESSAGE_PREQUIT, MESSAGE_MODECHANGE, MESSAGE_MENUSDELETED,
                                   1, 2, 3, 4, 5, 6, 7, 0xF, 0x10,
-                                  0x80140, 0x80144, 0x80145, 0x80147, 0 };
+                                  0x80140, 0x80144, 0x80145, 0x80147,
+                                  0x400C3, 0x808C1, 0x808C2, 0x808C3, 0 };
   GdkRiscosServer *server;
   _kernel_swi_regs r;
   _kernel_oserror *e;
@@ -1333,6 +1336,7 @@ _gdk_riscos_server_new (const char *display, GError **error)
 
   /* one copy of a program: a second hands its file to the first, and goes */
   _gdk_riscos_iconbar_startup (r.r[1], name);
+  _gdk_riscos_spawn_startup (r.r[1]);
   server = g_object_new (GDK_TYPE_RISCOS_SERVER, NULL);
   server->task = r.r[1];
   read_screen (server);

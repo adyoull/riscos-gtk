@@ -45,8 +45,14 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
 
 - **No concurrent processes.** `fork()` is a vfork, good only for an
   immediate `exec()`, and the parent waits until the child ends.
-  - **`g_spawn_async` doesn't work as on Unix:** a helper can't run
-    alongside the program.
+  - **`g_spawn_async*()` starts a RISC OS task instead** (once GTK is
+    running): with the output read through pipes, the command runs in a
+    TaskWindow and its output comes back as it's written; without, it is
+    started with Wimp_StartTask. Either way it runs alongside the
+    program, and child watches see it end. The command must be one RISC
+    OS understands (a `*` command, a program, an Obey file); Unix file
+    names in it are given as RISC OS names. See API.md, "Running other
+    programs". `g_spawn_sync()` still runs the program in place.
   - **Code that forks a worker** (for a name lookup, say) must do the
     work in place, or in a thread, and hand the answer back from an
     idle.

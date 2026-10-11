@@ -45,6 +45,12 @@ char      *gdk_riscos_path_to_unix   (const char *riscos_path);
 GDK_AVAILABLE_IN_ALL
 char      *gdk_riscos_path_from_unix (const char *unix_path);
 
+/* Programs started with g_spawn_async*() run as RISC OS tasks (a
+ * TaskWindow when their output is read; gdkspawn-riscos.c). This ends one
+ * (the pid g_spawn gave); its child watch then fires. */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_spawn_kill     (GPid pid);
+
 /* ---- Directories (gdkfiles-riscos.c), for the Filer-style chooser ----
  * An object in a directory, as OS_GBPB 12 gives it: leaf name (RISC OS
  * form), object type (1 file, 2 directory, 3 image file), file type
