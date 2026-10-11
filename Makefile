@@ -8,6 +8,7 @@
 #   make themetest  out/GTKThemeTest-<v>.zip   build/build-<program>.sh)
 #   make claws      out/ClawsMail-<v>.zip
 #   make geany      out/Geany-<v>.zip: the Geany 2.1 demo
+#   make mtpaint    out/mtPaint-<v>.zip: mtPaint 3.50.14
 #   make gltest     out/GTKGLTest-<v>.zip: GtkGLArea with riscos-mesa (needs
 #                   its devkit in MESA_DEVKIT, default $RCD_DIR/devkit/env)
 #   make sdk        out/sdk/riscos-gtk-sdk-<RELEASE or dev-commit>.tar.gz:
@@ -47,6 +48,9 @@ gltest: deps
 geany: deps
 	build/build-geany.sh
 
+mtpaint: deps
+	build/build-mtpaint.sh
+
 check:
 	build/build-linuxarm.sh
 
@@ -59,4 +63,4 @@ sdk: deps
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps tests hello l3afpad themetest claws gltest geany check release sdk clean
+.PHONY: all deps tests hello l3afpad themetest claws gltest geany mtpaint check release sdk clean

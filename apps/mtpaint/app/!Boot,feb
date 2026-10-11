@@ -1,0 +1,3 @@
+| !Boot for !mtPaint
+IconSprites <Obey$Dir>.!Sprites
+Set mtPaint$Dir <Obey$Dir>

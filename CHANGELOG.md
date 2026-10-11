@@ -1,5 +1,33 @@
 # Changelog
 
+## Since RC5 (2026-10-11)
+- **Menu gives the program's menu anywhere in its windows.** Before, a
+  widget that used button 3 itself (a paint program's canvas, a toolbar,
+  an insensitive button) swallowed the click, so Menu only worked over
+  parts of a window (reported with mtPaint).
+  - The widget under the pointer still has the click first. If it opens
+    a menu of its own, that menu is the window menu's first entry, as
+    before; if not, the window's menu opens all the same.
+  - Tool windows with no menu of their own (not dialogue boxes) give the
+    menu of the window they belong to, or of the program's only window
+    with a menu.
+  - `gtk/riscos/gtkmenu-riscos.c`; test `menuclick-fake` (7 checks).
+- **!mtPaint 3.50.14-riscos1, a new port:** mtPaint, the painting
+  program (`build/build-mtpaint.sh`, `apps/mtpaint`,
+  `patches/mtpaint-3.50.14-riscos.diff`).
+  - Its own file picker becomes a RISC OS one: a draggable file icon for
+    saving, files dropped on it from the Filer, a full RISC OS name, and
+    Browse... for riscos-gtk's Save and Open boxes and directory browser;
+    mtPaint's format options stay under it.
+  - Adjust does what the right button does elsewhere (colour B; a tool
+    button's settings); Menu is the menu.
+  - The icon bar (Info, Choices... for its Preferences, Quit; PNG, JPEG,
+    GIF and BMP files), the Log, settings in `<Choices$Write>.mtPaint`.
+  - Its toolbar icons (XPM) load: riscos-gtk's gdk-pixbuf has the XPM
+    loader built in. A build against a gdk-pixbuf that loads loaders as
+    modules can't, in a static RISC OS program.
+  - Test `mtpaint-fake` (6 checks; needs MTPAINT_LA).
+
 ## 3.24.41-riscos1.0-rc5 (2026-10-11)
 - **A directory browser for Save and Open, like a Filer window.**
   - `*Set RISCOS_GTK_CHOOSER filer` shows it instead of the Save and Open

@@ -456,3 +456,21 @@ that SDL2, freeglut and the games already use.
   what it does.
 - **Test programs** (GTKThemeTest, GTKGLTest) have no upstream version
   and take the release's.
+
+## Menu always gives a menu (2026-10-11)
+- **Why:** on RISC OS, Menu is never anything but the menu button. GTK
+  programs use button 3 for other things (painting with the second
+  colour, a toolbar's options), and a widget that took the click left
+  the window without its menu: in mtPaint Menu worked only over the
+  menu-bar row.
+- **How:** riscos-gtk's event handler gives the widget the click, then
+  opens the window's menu unless a menu was opened meanwhile. A widget's
+  own context menu stays the window menu's first entry. Taking the click
+  away from widgets first was tried: it lost context menus GTK can't see
+  coming (Claws Mail's attachment buttons and HTML links), so the widget
+  keeps it.
+- **Programs that paint with button 3** should leave it alone on RISC OS
+  and use Adjust (button 2) for it, as the mtPaint port does.
+- **Tool windows:** a window with no menu of its own, which isn't a
+  dialogue box or modal, gives its parent's (transient-for) menu, or the
+  program's only menu.

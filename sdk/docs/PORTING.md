@@ -179,6 +179,11 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   window menu. A program that pops up its own menu on button 3 should
   do it on "button-press-event" with
   `gdk_event_triggers_context_menu()`. Menu is button 3 to GTK.
+- **Menu always gives a menu.** A widget that uses button 3 for
+  something else (a paint program's canvas) still gets the click, and
+  then the window's menu opens. Such a program should leave button 3
+  alone on RISC OS and use Adjust (GDK button 2) for what the right
+  button does elsewhere: Select, Adjust, Menu are buttons 1, 2, 3.
 - **Quit:** RISC OS programs quit from the icon bar menu.
   riscos-gtk's icon bar finds a menu item labelled Quit, or the
   application's "quit" action.
@@ -216,6 +221,24 @@ It also passes riscos-crossdev's checks. Things that came up:
   folders listed in hicolor's `index.theme`, or GTK won't look there.
 - **The result:** saving, the Open box, the Save box and the directory
   browser all work on the fake desktop (riscos-gtk's `geany-fake`).
+
+**mtPaint** (3.50.14: riscos-gtk's `!mtPaint`, `build/build-mtpaint.sh`)
+has its own configure script:
+
+- **pkg-config:** it asks for each library on its own, so give it a
+  wrapper that adds `--static` (`PKG_CONFIG=/path/to/wrapper`), or the
+  link misses libepoxy and the rest.
+- **sysctl:** its memory-size code wants `<sys/sysctl.h>`, which UnixLib
+  hasn't got; on RISC OS it reads OS_ReadMemMapInfo.
+- **Its own file picker:** mtPaint doesn't use GTK's file chooser, so
+  riscos-gtk's Save and Open boxes can't stand in for it. The port gives
+  it a RISC OS one: a draggable file icon (gdk_riscos_save_drag_begin,
+  gdk_riscos_save_drop, gdk_riscos_save_done), files dropped on it from
+  the Filer (gdk_riscos_window_set_load_func), a full RISC OS name, and
+  Browse... for `GtkFileChooserNative`. A program with a picker of its
+  own needs the same.
+- **Buttons:** it paints with the right button; on RISC OS that's Adjust,
+  and it leaves Menu to riscos-gtk.
 
 ## Licences
 

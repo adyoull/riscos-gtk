@@ -1,0 +1,38 @@
+mtPaint @VERSION@ - a painting program (GTK 3) for RISC OS
+
+mtPaint 3.50.14 by Mark Tyler and Dmitry Groshev (GPL version 3), on GTK 3
+through riscos-gtk's RISC OS backend: pixel art, photo retouching, palettes,
+layers, animation frames. It reads and writes PNG, JPEG, GIF and BMP, and its own formats.
+
+Using it
+- Run it: mtPaint opens its window and puts its icon on the icon bar. Or
+  drop a picture on !mtPaint in a Filer window.
+- The icon bar icon: Select brings mtPaint's window to the front; Menu
+  gives Info, Choices... (mtPaint's Preferences) and Quit.
+- PNG, JPEG, GIF and BMP files double-clicked in the Filer while mtPaint
+  is loaded, dropped on its icon, or saved to it from another program are
+  loaded (it asks first if the picture has unsaved changes).
+- Menu anywhere in mtPaint's windows (the picture, the toolbars, the
+  palette) gives its menu.
+- Mouse: Select paints with colour A; Adjust paints with colour B (the
+  right button elsewhere), and Adjust on a tool button opens its
+  settings.
+- File > Save As: a Save box with mtPaint's options (format, compression)
+  under it. Drag its file icon to a Filer window, or give a full name and
+  click Save, or click Browse... for riscos-gtk's Save box or its
+  directory browser. File > Open: drag a picture to the box from a Filer
+  window, or click Browse...
+- mtPaint's settings are kept in <Choices$Write>.mtPaint.
+
+Messages
+mtPaint's messages go to <Wimp$ScrapDir>.mtPaint.Log.
+
+Needs
+RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
+Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
+(PackMan). PThreadTicker is included.
+
+Licences
+mtPaint: GPL version 3 or later (Licence). GTK, GLib and the other
+libraries: LGPL version 2.1 or later (LicenceLGPL). DejaVu fonts: their
+own licence (fonts.Licence). Source: see Source.

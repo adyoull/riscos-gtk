@@ -126,6 +126,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
 BRT=$REPO_DIR/out/browser-linuxarm
 rm -rf "$BRT"; mkdir -p "$BRT"
 
+# Menu gives a menu anywhere in a window (gtk/riscos/gtkmenu-riscos.c)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/menuclick-fake.c" \
+  -o "$REPO_DIR/out/menuclick-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # Which fontconfig set-up a program gets (gdkfontconfig-riscos.c): with a
 # stand-in for PackMan's FontConfig, without, and opted out
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
@@ -252,6 +259,26 @@ if [ -n "${GEANY_LA:-}" ] && [ -f "$GEANY_LA/src/.libs/libgeany.a" ]; then
   done
 else
   echo; echo "=== linux-arm: geany-fake skipped: no Geany build in GEANY_LA=${GEANY_LA:-}"
+fi
+run menuclick-fake "$HA"
+# mtPaint (the port) on the fake desktop: Menu everywhere, its RISC OS save
+# and open dialogue. Needs mtPaint's objects built for this target with
+# -DMT_RISCOS_UI in MTPAINT_LA (see tests/gtk/mtpaint-fake.c)
+if [ -n "${MTPAINT_LA:-}" ] && [ -f "$MTPAINT_LA/src/main.o" ]; then
+  MTO=$(mktemp -d)
+  arm-linux-gnueabihf-objcopy --redefine-sym main=mtpaint_main "$MTPAINT_LA/src/main.o" "$MTO/main.o"
+  $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gtk+-3.0) -c "$REPO_DIR/tests/gtk/mtpaint-fake.c" -o "$MTO/test.o"
+  $CC -no-pie "$MTO/test.o" "$MTO/main.o" $(ls "$MTPAINT_LA"/src/*.o | grep -v '/main\.o$') \
+    -o "$REPO_DIR/out/mtpaint-fake-linuxarm" \
+    -Wl,-Bstatic -ljpeg -lfreetype $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+  MTT=$REPO_DIR/out/mtpaint-linuxarm; rm -rf "$MTT"; mkdir -p "$MTT/home"
+  python3 "$REPO_DIR/tests/gtk/mkpng.py" "$MTT/drop.png"
+  FONTCONFIG_FILE=$HA/fonts/fonts.conf XDG_DATA_DIRS=$HA/share HOME=$MTT/home XDG_CONFIG_HOME=$MTT/home/.config \
+    run mtpaint-fake "$MTT"
+  rm -rf "$MTO"
+else
+  echo; echo "=== linux-arm: mtpaint-fake skipped: no mtPaint build in MTPAINT_LA=${MTPAINT_LA:-}"
 fi
 for m in unixfc own forced; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"

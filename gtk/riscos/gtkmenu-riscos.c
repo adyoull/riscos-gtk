@@ -41,6 +41,13 @@
 #include "gtktextview.h"
 #include "gtkcellview.h"
 #include "gtkcomboboxtext.h"
+#include "gtkentry.h"
+#include "gtktreeview.h"
+#include "gtkiconview.h"
+#include "gtklistbox.h"
+#include "gtkflowbox.h"
+#include "gtkbutton.h"
+#include "gtkdialog.h"
 #include "gtkmenu-riscos.h"
 
 #include "riscos/gdkriscos.h"
@@ -70,6 +77,7 @@ typedef struct
 } MenuState;
 
 static MenuState *current;
+static guint menus_opened;           /* Wimp menus opened (event_handler) */
 
 /* *Set RISCOS_GTK_MENU_DEBUG 1: trace menus to stderr (the program's log) */
 static void
@@ -728,6 +736,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
               GdkDevice *pointer = gdk_seat_get_pointer (gdk_display_get_default_seat (display));
               gdk_device_get_position (pointer, NULL, &x, &y);
               current = st;
+              menus_opened++;
               trace ("context menu in the window menu", st);
               gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
                                             x - 32, y, menu_event, st);
@@ -749,6 +758,7 @@ _gtk_menu_riscos_popup (GtkMenu             *menu,
     }
   position (st, parent_menu_item, func, data, &x, &y);
   current = st;
+  menus_opened++;
   trace ("popup", st);
   gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
                                 x, y, menu_event, st);
@@ -824,6 +834,7 @@ open_window_menu (GtkMenuShell *bar, GdkEventButton *event)
       return FALSE;
     }
   current = st;
+  menus_opened++;
   trace ("window menu", st);
   /* at the pointer, 64 OS units to its left, as RISC OS programs do */
   gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
@@ -844,29 +855,104 @@ window_button_press (GtkWidget *window, GdkEventButton *event, gpointer data)
   return open_window_menu (GTK_MENU_SHELL (bar), event);
 }
 
-/* Menu over a multi-line text view in a window with a menu: the program's
-   menu, as in a RISC OS editor's document window (Edit, StrongED), not
-   GTK's Cut/Copy/Paste menu for the view (the program's own Edit menu has
-   those). Text fields keep theirs. GTK hands every event to this first
-   (gdk_event_handler_set), so the view never sees the click. */
+static gboolean menu_click_taken;
+
+/* The menu for a Menu click in top: its own menu bar's, else (a tool
+   window, a palette: no menu of its own, not a dialogue box) that of the
+   window it belongs to (transient for), else that of the program's only
+   window with a menu, as a RISC OS program's tool windows give its menu */
+static GtkWidget *
+window_menu_for (GtkWidget *top)
+{
+  GtkWidget *bar = g_object_get_data (G_OBJECT (top), "riscos-gtk-window-menu");
+  GtkWindow *p;
+  GList *tops, *l;
+  int n = 0;
+
+  if (bar || GTK_IS_DIALOG (top) || gtk_window_get_modal (GTK_WINDOW (top)) ||
+      gtk_window_get_window_type (GTK_WINDOW (top)) != GTK_WINDOW_TOPLEVEL)
+    return bar;
+  for (p = gtk_window_get_transient_for (GTK_WINDOW (top)); p && !bar; p = gtk_window_get_transient_for (p))
+    bar = g_object_get_data (G_OBJECT (p), "riscos-gtk-window-menu");
+  if (bar)
+    return bar;
+  tops = gtk_window_list_toplevels ();
+  for (l = tops; l; l = l->next)
+    if (gtk_widget_get_mapped (l->data) && g_object_get_data (l->data, "riscos-gtk-window-menu"))
+      {
+        bar = g_object_get_data (l->data, "riscos-gtk-window-menu");
+        n++;
+      }
+  g_list_free (tops);
+  return n == 1 ? bar : NULL;
+}
+
+/* A Menu click gives a menu, wherever it is, as RISC OS's Menu button
+   always does. GTK hands every event to this first (gdk_event_handler_set):
+   - over a multi-line text view in a window with a menu: the program's
+     menu, as in a RISC OS editor's document window (Edit, StrongED), not
+     GTK's Cut/Copy/Paste (the program's own Edit menu has those); the view
+     never sees the click;
+   - anywhere else the widget under the pointer has the click first. If it
+     opened a menu of its own (a list's, an attachment's, a link's), that
+     menu is shown inside the window's (_gtk_menu_riscos_popup). If it
+     opened none - it ignored the click, or used the right button for
+     something else (a toolbar, a paint program's canvas, an insensitive
+     button) - the window's menu opens all the same. Before, only a click
+     no widget took reached the window, so Menu worked over parts of a
+     window only. A tool window with no menu of its own gives the menu of
+     the window it belongs to (window_menu_for). */
 static void
 event_handler (GdkEvent *event, gpointer data)
 {
-  if (event->type == GDK_BUTTON_PRESS && event->button.button == 3 && event->any.window)
-    {
-      GtkWidget *w = NULL, *top, *bar;
+  GtkWidget *w = NULL, *top = NULL, *bar = NULL;
+  guint before;
 
-      gdk_window_get_user_data (event->any.window, (gpointer *) &w);
-      if (w && GTK_IS_WIDGET (w) && gtk_widget_get_ancestor (w, GTK_TYPE_TEXT_VIEW))
-        {
-          top = gtk_widget_get_toplevel (w);
-          bar = top ? g_object_get_data (G_OBJECT (top), "riscos-gtk-window-menu") : NULL;
-          if (bar && gtk_widget_is_sensitive (bar) &&
-              open_window_menu (GTK_MENU_SHELL (bar), &event->button))
-            return;
-        }
+  if (!event->any.window || event->button.button != 3 ||
+      (event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS &&
+       event->type != GDK_3BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE))
+    {
+      gtk_main_do_event (event);
+      return;
     }
+  if (event->type != GDK_BUTTON_PRESS)
+    {
+      /* the rest of a click a text view didn't get */
+      if (menu_click_taken)
+        {
+          if (event->type == GDK_BUTTON_RELEASE)
+            menu_click_taken = FALSE;
+          return;
+        }
+      gtk_main_do_event (event);
+      return;
+    }
+  menu_click_taken = FALSE;
+  gdk_window_get_user_data (event->any.window, (gpointer *) &w);
+  if (w && GTK_IS_WIDGET (w))
+    {
+      top = gtk_widget_get_toplevel (w);
+      bar = top && GTK_IS_WINDOW (top) ? window_menu_for (top) : NULL;
+      if (bar && (!gtk_widget_get_visible (bar) || !gtk_widget_is_sensitive (bar)))
+        bar = NULL;
+    }
+  if (g_getenv ("RISCOS_GTK_MENU_DEBUG"))
+    g_printerr ("riscos-gtk menu: Menu click over %s, window menu %p\n",
+                w ? G_OBJECT_TYPE_NAME (w) : "nothing", (void *) bar);
+  if (bar && gtk_widget_get_ancestor (w, GTK_TYPE_TEXT_VIEW) &&
+      open_window_menu (GTK_MENU_SHELL (bar), &event->button))
+    {
+      menu_click_taken = TRUE;
+      return;
+    }
+  before = menus_opened;
+  if (bar)
+    g_object_ref (bar);
   gtk_main_do_event (event);
+  if (bar && menus_opened == before && gtk_widget_get_visible (bar) && gtk_widget_is_sensitive (bar))
+    open_window_menu (GTK_MENU_SHELL (bar), &event->button);
+  if (bar)
+    g_object_unref (bar);
 }
 
 void

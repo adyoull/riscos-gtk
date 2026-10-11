@@ -17,7 +17,7 @@ defines it, so the same source still builds elsewhere. The template
 | GTK | On RISC OS |
 |---|---|
 | `GtkWindow` (toplevel) | A Wimp window with title bar, back, close and toggle icons and the desktop's size icon. New windows open centred; later ones step down and right. |
-| `GtkMenuBar` | Not drawn. Its menus open as a Wimp menu on Menu anywhere in the window. |
+| `GtkMenuBar` | Not drawn. Its menus open as a Wimp menu on Menu anywhere in the window, even over a widget that uses button 3 itself (it has the click first), and in tool windows of the program that have no menu of their own (not in dialogue boxes). |
 | `GtkMenu`, context menus, `GtkComboBox` pop-ups | Wimp menus. Over a widget with its own context menu, that menu is the window menu's first entry. |
 | `GtkFileChooserDialog`, `GtkFileChooserNative` (save) | A RISC OS Save box: drag its icon to a Filer window or another program, or type a full name. |
 | `GtkFileChooserDialog`, `GtkFileChooserNative` (open, select folder) | A RISC OS Open box that takes a file dragged to it. |

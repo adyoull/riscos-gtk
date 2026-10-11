@@ -47,6 +47,8 @@ get l3afpad_0.8.18.1.11.orig.tar.gz https://archive.ubuntu.com/ubuntu/pool/unive
 get claws-mail_4.4.0.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/c/claws-mail/claws-mail_4.4.0.orig.tar.xz
 # Geany, the demo programmer's editor (build/build-geany.sh; universe)
 get geany_2.1.orig.tar.gz          https://archive.ubuntu.com/ubuntu/pool/universe/g/geany/geany_2.1.orig.tar.gz
+# mtPaint, the painting program (build/build-mtpaint.sh; universe)
+get mtpaint_3.50.14.orig.tar.gz    https://archive.ubuntu.com/ubuntu/pool/universe/m/mtpaint/mtpaint_3.50.14.orig.tar.gz
 get nettle_3.10.2.orig.tar.gz       $U/n/nettle/nettle_3.10.2.orig.tar.gz
 # libetpan, for Claws Mail's IMAP
 get libetpan_1.9.4.orig.tar.xz      https://archive.ubuntu.com/ubuntu/pool/universe/libe/libetpan/libetpan_1.9.4.orig.tar.xz
