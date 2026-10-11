@@ -890,8 +890,8 @@ box_open (GObject *owner, RiscosBoxDone done, GtkFileChooserAction action,
    icons or full info (Menu > Display, as the Filer's), sorted by name,
    type, size or date. Along the top: Parent and the folder's full name
    (type one and Return to go there). Down the left, as the Finder's
-   sidebar: Discs (the filing systems FileSwitch knows, with their icon
-   bar sprites), Places (the program's folder, Boot, Choices, Scrap) and
+   sidebar: Discs (the discs and mounts on the icon bar, with their
+   sprites: gdk_riscos_discs), Places (the program's folder, Boot, Choices, Scrap) and
    Recent (the last folders used); a click shows one. Along the
    bottom: the file's name (Save: with its icon, which can still be
    dragged to a Filer window or another program), the program's filters,
@@ -1758,22 +1758,6 @@ on_browser_button (GtkWidget *w, GdkEventButton *ev, RiscosBox *box)
 
 /* ---- the sidebar (as the Finder's): Discs, Places, Recent ---- */
 
-/* Filing systems that hold no directories (character devices, streams) */
-static gboolean
-fs_has_dirs (const char *fs)
-{
-  static const char *const no[] = {
-    "null", "vdu", "rawvdu", "kbd", "rawkbd", "printer", "serial", "netprint",
-    "pipe", "devices", "parallel", "fax", "socket", "netfs_stream", "pdumper",
-  };
-  guint i;
-
-  for (i = 0; i < G_N_ELEMENTS (no); i++)
-    if (g_ascii_strcasecmp (fs, no[i]) == 0)
-      return FALSE;
-  return TRUE;
-}
-
 /* The icon bar sprite for a filing system's discs */
 static const char *
 fs_sprite (const char *fs)
@@ -1781,7 +1765,7 @@ fs_sprite (const char *fs)
   static const struct { const char *fs, *sprite; } map[] = {
     { "RAM", "ramfs" }, { "Resources", "romapps" }, { "CDFS", "cddisc" },
     { "Share", "fileserver" }, { "ShareFS", "fileserver" }, { "Net", "fileserver" },
-    { "LanMan", "fileserver" }, { "LanManFS", "fileserver" }, { "Sunfish", "fileserver" },
+    { "LanMan", "fileserver" }, { "LanManFS", "fileserver" }, { "LanMan98", "fileserver" }, { "Sunfish", "fileserver" },
     { "NFS", "fileserver" }, { "OmniClient", "fileserver" },
   };
   guint i;
@@ -1799,7 +1783,7 @@ side_icon (Browser *b, const char *sprite, const char *theme)
   GdkPixbuf *pb = browser_sprite (b, sprite);
 
   if (pb == NULL)
-    return browser_theme_icon (theme, 17);
+    return theme ? browser_theme_icon (theme, 17) : NULL;
   if (gdk_pixbuf_get_height (pb) > 20)
     {
       int h = gdk_pixbuf_get_height (pb), w = gdk_pixbuf_get_width (pb);
@@ -1912,7 +1896,7 @@ browser_sidebar (RiscosBox *box)
 {
   Browser *b = box->b;
   GtkWidget *scroll = gtk_scrolled_window_new (NULL, NULL);
-  char **fss = gdk_riscos_filing_systems ();
+  GPtrArray *discs = gdk_riscos_discs ();
   static const struct { const char *label, *var, *sprite; } vars[] = {
     { N_("Boot"), "Boot$Dir", "sm!boot" }, { N_("Choices"), "Choices$Write", "small_dir" },
     { N_("Scrap"), "Wimp$ScrapDir", "small_dir" },
@@ -1925,14 +1909,15 @@ browser_sidebar (RiscosBox *box)
   gtk_list_box_set_activate_on_single_click (GTK_LIST_BOX (b->side), TRUE);
 
   side_heading (b->side, _("Discs"));
-  for (i = 0; fss[i]; i++)
-    if (fs_has_dirs (fss[i]))
-      {
-        char *root = g_strconcat (fss[i], ":$", NULL);
-        side_item (b, fss[i], root, side_icon (b, fs_sprite (fss[i]), "drive-harddisk"));
-        g_free (root);
-      }
-  g_strfreev (fss);
+  for (i = 0; i < (int) discs->len; i++)
+    {
+      GdkRiscosDisc *d = discs->pdata[i];
+      GdkPixbuf *icon = d->sprite ? side_icon (b, d->sprite, NULL) : NULL;
+      if (icon == NULL)
+        icon = side_icon (b, fs_sprite (d->fs), "drive-harddisk");
+      side_item (b, d->name, d->root, icon);
+    }
+  g_ptr_array_unref (discs);
 
   side_heading (b->side, _("Places"));
   if (box->folder)

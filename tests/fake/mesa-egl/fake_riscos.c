@@ -364,6 +364,7 @@ static const int *build_tool_area(void)
    &2000), a ",xxx" suffix, else by extension. */
 static const struct { int no; const char *name; } fake_fs[] = {
     { 23, "RAM" }, { 46, "Resources" }, { 50, "null" }, { 89, "SDFS" }, { 99, "HostFS" },
+    { 102, "LanMan98" },
 };
 const char *fake_fs_name(int no)
 {
@@ -1399,7 +1400,9 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         }
         r.r[0] = fake_starttask_hook((const char *) (long) r.r[0]);
         break;
-    case 0x400E7:   /* Wimp_SendMessage: sender and my_ref filled in */
+    case 0x400E7:   /* Wimp_SendMessage: sender and my_ref filled in; to an
+                       icon bar icon's creator (R2 = -2): a test's fake_swi_hook */
+        if (r.r[2] == -2 && fake_swi_hook && fake_swi_hook(no, &r, &e)) break;
         block = (int *) (long) r.r[1];
         if (r.r[0] >= 17 && r.r[0] <= 19) {
             block[1] = 0x4A00;

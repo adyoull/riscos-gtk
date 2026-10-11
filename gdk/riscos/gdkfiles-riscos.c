@@ -11,6 +11,16 @@
  *   OS_FSControl 37  canonicalise a path
  *   OS_FSControl 18  file type to its name (8 characters, space padded)
  *
+ * The discs available (gdk_riscos_discs): the icon bar's device icons,
+ * the ones the Filers (SDFS Filer, SCSIFiler, RAMFS Filer, LanMan98...)
+ * put there. Wimp_WhichIcon on the icon bar (-2) lists the icons;
+ * Wimp_GetIconState (-2) gives each one's flags and data; Wimp_SendMessage
+ * with R2 = -2, R3 = icon (an acknowledgement: nothing is delivered) gives
+ * the task that created it; TaskManager_TaskNameFromHandle its name, which
+ * starts with its filing system's ("SDFS Filer"); Wimp_TransferBlock reads
+ * the indirected text and validation string from that task. A Filer's
+ * icon is only there while its disc or mount is.
+ *
  * Copyright (C) 2026 Andrew Youll. LGPL-2.1-or-later, as GTK.
  */
 #include "config.h"
@@ -23,6 +33,12 @@
 
 #define OS_GBPB       0x0C
 #define OS_FSControl  0x29
+#define Wimp_GetIconState  0x400CE
+#define Wimp_WhichIcon     0x400D6
+#define Wimp_SendMessage   0x400E7
+#define Wimp_TransferBlock 0x400F1
+#define Wimp_ReadSysInfo   0x400F2
+#define TaskManager_TaskNameFromHandle 0x42680
 
 static void
 entry_free (gpointer p)
@@ -161,4 +177,270 @@ gdk_riscos_filetype_name (int filetype)
   for (i = 7; i >= 0 && (text[i] == ' ' || text[i] == '\0'); i--)
     text[i] = '\0';
   return text[0] ? g_strdup (text) : g_strdup_printf ("&%03X", filetype & 0xFFF);
+}
+
+/* name as a full path, or NULL if the filing system can't find it */
+static char *
+canonical_or_null (const char *name)
+{
+  _kernel_swi_regs r;
+  char buf[1024];
+
+  r.r[0] = 37;
+  r.r[1] = (int) (long) name;
+  r.r[2] = (int) (long) buf;
+  r.r[3] = 0;
+  r.r[4] = 0;
+  r.r[5] = sizeof buf;
+  if (_kernel_swi (OS_FSControl, &r, &r) != NULL || r.r[5] < 0 || buf[0] == '\0')
+    return NULL;
+  return g_strdup (buf);
+}
+
+static void
+disc_free (gpointer p)
+{
+  GdkRiscosDisc *d = p;
+
+  g_free (d->fs);
+  g_free (d->name);
+  g_free (d->root);
+  g_free (d->sprite);
+  g_free (d);
+}
+
+/* The filing system a Filer task's name belongs to: the longest FS name
+   it starts with, followed by nothing, a space, "-", "FS" or "Filer"
+   ("SDFS Filer", "SCSIFiler", "RAMFS Filer", "LanMan98"; not "NetSurf") */
+static const char *
+fs_of_task (const char *task, char **fss)
+{
+  const char *best = NULL;
+  int i;
+
+  for (i = 0; fss[i]; i++)
+    {
+      size_t n = strlen (fss[i]);
+      const char *rest = task + n;
+      if (g_ascii_strncasecmp (task, fss[i], n) != 0)
+        continue;
+      if (*rest && *rest != ' ' && *rest != '-' && g_ascii_strncasecmp (rest, "FS", 2) != 0 &&
+          g_ascii_strncasecmp (rest, "Filer", 5) != 0)
+        continue;
+      if (best == NULL || n > strlen (best))
+        best = fss[i];
+    }
+  return best;
+}
+
+/* Read a string from another task (control-terminated, at most size - 1) */
+static gboolean
+task_string (int task, int me, guint32 addr, char *buf, int size)
+{
+  _kernel_swi_regs r;
+  int i, len = size - 1;
+
+  /* the string may end near the end of the task's memory: try shorter */
+  for (; len >= 4; len /= 2)
+    {
+      r.r[0] = task;
+      r.r[1] = (int) addr;
+      r.r[2] = me;
+      r.r[3] = (int) (long) buf;
+      r.r[4] = len;
+      if (_kernel_swi (Wimp_TransferBlock, &r, &r) == NULL)
+        {
+          buf[len] = '\0';
+          for (i = 0; i < len; i++)
+            if ((unsigned char) buf[i] < 32)
+              buf[i] = '\0';
+          return TRUE;
+        }
+    }
+  return FALSE;
+}
+
+static void
+add_disc (GPtrArray *list, const char *fs, const char *name, const char *root, const char *sprite)
+{
+  GdkRiscosDisc *d;
+  guint i;
+
+  for (i = 0; i < list->len; i++)
+    if (g_ascii_strcasecmp (((GdkRiscosDisc *) list->pdata[i])->root, root) == 0)
+      return;
+  d = g_new0 (GdkRiscosDisc, 1);
+  d->fs = g_strdup (fs);
+  d->name = g_strdup (name);
+  d->root = g_strdup (root);
+  d->sprite = sprite && *sprite ? g_strdup (sprite) : NULL;
+  g_ptr_array_add (list, d);
+}
+
+static void
+icon_bar_discs (GPtrArray *list, char **fss)
+{
+  int handles[256], me, i, j, order[256], n = 0;
+  int x0[256];
+  _kernel_swi_regs r;
+
+  r.r[0] = 5;
+  if (_kernel_swi (Wimp_ReadSysInfo, &r, &r) != NULL)
+    return;
+  me = r.r[0];
+  handles[0] = -1;
+  r.r[0] = -2;
+  r.r[1] = (int) (long) handles;
+  r.r[2] = 1 << 23;           /* not deleted */
+  r.r[3] = 0;
+  if (_kernel_swi (Wimp_WhichIcon, &r, &r) != NULL)
+    return;
+  /* left to right */
+  for (i = 0; i < 255 && handles[i] != -1; i++)
+    {
+      int st[10];
+      st[0] = -2;
+      st[1] = handles[i];
+      r.r[1] = (int) (long) st;
+      x0[i] = _kernel_swi (Wimp_GetIconState, &r, &r) == NULL ? st[2] : 0;
+      order[n++] = i;
+    }
+  for (i = 1; i < n; i++)
+    for (j = i; j > 0 && x0[order[j]] < x0[order[j - 1]]; j--)
+      {
+        int t = order[j];
+        order[j] = order[j - 1];
+        order[j - 1] = t;
+      }
+  for (j = 0; j < n; j++)
+    {
+      int st[10], msg[6], owner, flags;
+      char text[64], valid[96], sprite[16], *root, *canon, *p;
+      const char *fs, *task;
+
+      st[0] = -2;
+      st[1] = handles[order[j]];
+      r.r[1] = (int) (long) st;
+      if (_kernel_swi (Wimp_GetIconState, &r, &r) != NULL)
+        continue;
+      flags = st[6];
+      if (!(flags & 1))
+        continue;               /* no text: an application's icon */
+      memset (msg, 0, sizeof msg);
+      msg[0] = 20;
+      r.r[0] = 19;
+      r.r[1] = (int) (long) msg;
+      r.r[2] = -2;
+      r.r[3] = handles[order[j]];
+      if (_kernel_swi (Wimp_SendMessage, &r, &r) != NULL)
+        continue;
+      owner = r.r[2];
+      r.r[0] = owner;
+      if (_kernel_swi (TaskManager_TaskNameFromHandle, &r, &r) != NULL || r.r[0] == 0)
+        continue;
+      task = (const char *) (long) r.r[0];
+      text[0] = valid[0] = sprite[0] = '\0';
+      if (flags & 0x100)
+        {
+          int size = st[9] > 0 ? MIN (st[9] + 1, (int) sizeof text) : (int) sizeof text;
+          if (!task_string (owner, me, (guint32) st[7], text, size))
+            continue;
+          if (st[8] != 0 && st[8] != -1)
+            task_string (owner, me, (guint32) st[8], valid, sizeof valid);
+        }
+      else
+        {
+          memcpy (text, &st[7], 12);
+          text[12] = '\0';
+          for (i = 0; i < 12; i++)
+            if ((unsigned char) text[i] < 32)
+              text[i] = '\0';
+        }
+      /* the sprite: the validation string's S command */
+      for (p = valid; *p; p++)
+        if ((p == valid || p[-1] == ';') && (*p == 'S' || *p == 's'))
+          {
+            for (i = 0; p[1 + i] && p[1 + i] != ';' && p[1 + i] != ',' && i < 12; i++)
+              sprite[i] = p[1 + i];
+            sprite[i] = '\0';
+            break;
+          }
+      g_strstrip (text);
+      if (text[0] == '\0')
+        continue;
+      fs = fs_of_task (task, fss);
+      if (fs == NULL)
+        {
+          /* ResourceFS's Apps */
+          if (g_ascii_strcasecmp (text, "Apps") == 0 && g_strstr_len (task, -1, "Resource"))
+            add_disc (list, "Resources", text, "Resources:$.Apps", sprite);
+          continue;
+        }
+      if (text[0] == ':')
+        {
+          /* a drive number (a floppy drive): not read until it's opened */
+          char *name = g_strconcat (fs, ":", text, NULL);
+          root = g_strconcat (fs, ":", text, ".$", NULL);
+          add_disc (list, fs, name, root, sprite);
+          g_free (name);
+          g_free (root);
+          continue;
+        }
+      root = g_strconcat (fs, "::", text, ".$", NULL);
+      canon = canonical_or_null (root);
+      if (canon)
+        add_disc (list, fs, text, canon, sprite);
+      g_free (canon);
+      g_free (root);
+    }
+}
+
+/* Filing systems that are devices, not directories */
+static gboolean
+fs_has_dirs (const char *fs)
+{
+  static const char *const no[] = {
+    "null", "vdu", "rawvdu", "kbd", "rawkbd", "printer", "serial", "netprint",
+    "pipe", "devices", "parallel", "fax", "socket", "netfs_stream", "pdumper",
+  };
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (no); i++)
+    if (g_ascii_strcasecmp (fs, no[i]) == 0)
+      return FALSE;
+  return TRUE;
+}
+
+GPtrArray *
+gdk_riscos_discs (void)
+{
+  GPtrArray *list = g_ptr_array_new_with_free_func (disc_free);
+  char **fss = gdk_riscos_filing_systems ();
+  int i;
+
+  if (g_strcmp0 (g_getenv ("RISCOS_GTK_DISCS"), "all") != 0)
+    icon_bar_discs (list, fss);
+  if (list->len == 0)
+    {
+      /* no icon bar to read: each filing system's current disc */
+      for (i = 0; fss[i]; i++)
+        {
+          char *root, *canon;
+          if (!fs_has_dirs (fss[i]))
+            continue;
+          root = g_strconcat (fss[i], ":$", NULL);
+          canon = canonical_or_null (root);
+          if (canon)
+            {
+              const char *disc = strstr (canon, "::");
+              char *name = disc ? g_strndup (disc + 2, strcspn (disc + 2, ".")) : g_strdup (fss[i]);
+              add_disc (list, fss[i], name, canon, NULL);
+              g_free (name);
+            }
+          g_free (canon);
+          g_free (root);
+        }
+    }
+  g_strfreev (fss);
+  return list;
 }

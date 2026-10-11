@@ -74,6 +74,22 @@ GPtrArray *gdk_riscos_read_dir (const char *riscos_dir, GError **error);
 /* The filing systems FileSwitch knows (OS_FSControl 33), NULL-terminated */
 GDK_AVAILABLE_IN_ALL
 char     **gdk_riscos_filing_systems (void);
+/* A disc or mount as the icon bar shows it (the Filers' icons): its
+ * filing system, its name (as under the icon), its root ("SDFS::RISCOSpi.$",
+ * "LanMan98::Server.$", "ADFS::0.$"; "Resources:$.Apps" for Apps) and its
+ * icon bar sprite (or NULL) */
+typedef struct
+{
+  char *fs;
+  char *name;
+  char *root;
+  char *sprite;
+} GdkRiscosDisc;
+/* The discs and mounts available now, from the icon bar, left to right
+ * (GPtrArray of GdkRiscosDisc, freed with the array). Without an icon bar
+ * to read: each filing system whose current disc can be found (<FS>:$). */
+GDK_AVAILABLE_IN_ALL
+GPtrArray *gdk_riscos_discs (void);
 /* name as a full path (OS_FSControl 37), or a copy of name */
 GDK_AVAILABLE_IN_ALL
 char      *gdk_riscos_canonicalise (const char *name);

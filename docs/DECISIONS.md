@@ -541,3 +541,23 @@ that SDL2, freeglut and the games already use.
   output gets it.
 - **Limits:** with several builds running, throwback goes to the newest.
   The tool's own text messages still appear too.
+
+## The browser's Discs come from the icon bar (2026-10-11)
+- **Why:** OS_FSControl 33 names every filing system, including ones with
+  nothing to show (no drive, nothing mounted, devices), and `<FS>:$` only
+  works for a filing system with a current disc. RISC OS has no call that
+  lists drives or network mounts; the Filers know them, and show them as
+  icon bar icons.
+- **How:** Wimp_WhichIcon on the icon bar (-2) and Wimp_GetIconState for
+  each icon; the icon's creator from Wimp_SendMessage (reason 19, R2 = -2,
+  R3 = icon: nothing is delivered); its task name (TaskManager) gives the
+  filing system ("SDFS Filer", "SCSIFiler", "RAMFS Filer", "LanMan98":
+  the longest filing system name it starts with, followed by nothing, a
+  space, "FS" or "Filer"); the indirected text and validation string are
+  read from that task with Wimp_TransferBlock. Root: `<FS>::<text>.$`,
+  checked with OS_FSControl 37 (so a ShareFS "Discs" icon, which isn't a
+  disc, is left out); a drive number (`:0`) isn't checked, so a floppy
+  drive isn't read until it's opened. ResourceFS's Apps is
+  `Resources:$.Apps`.
+- **Fallback:** no icon bar icons to read: each filing system whose
+  `<FS>:$` canonicalises.

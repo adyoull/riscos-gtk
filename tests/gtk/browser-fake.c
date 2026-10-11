@@ -7,7 +7,7 @@
  *
  * Open: the folder's objects with their types; Menu > Display > Small
  * icons / Full info (Wimp menus); into a directory and Parent; the
- * program's filter; Places (filing systems; SDFS:$); a directory dropped
+ * program's filter; Discs (the icon bar's: SDFS::RISCOSpi.$, a LanMan98 mount); a directory dropped
  * from the Filer; a file chosen. Save: the name and its icon, a new name
  * saved in the folder, recent folders kept. A Save box, then Menu >
  * Directory browser. A folder chosen. Several files chosen.
@@ -33,6 +33,70 @@
 static int n_tests, n_failed;
 static const char *outdir;
 static char testdir[512], testdir_ro[512], root[512];
+
+/* The icon bar: Filers' device icons (indirected text and validation),
+   an application's icon (no text), a printer's (text, not a Filer) */
+static struct { int x; int task; const char *text, *valid; int indirected; } bar[] = {
+  { 600, 0x6004, "Printer", NULL, 0 },          /* !Printers: right side, not a disc */
+  { 20,  0x6001, "RISCOSpi", "Ssdfs", 1 },      /* SDFS Filer */
+  { 300, 0x6003, "Server", "Slanman98", 1 },    /* LanMan98: a mount */
+  { 160, 0x6002, "RAMDisc0", "Sramfs", 1 },     /* RAMFS Filer */
+  { 230, 0x6005, "Apps", NULL, 0 },             /* Resource filer */
+  { 700, 0x6006, NULL, NULL, 0 },               /* an application (sprite only) */
+  { 400, 0x6007, "Web", "Snetsurf", 1 },        /* NetSurf: not a filing system's */
+};
+static const char *bar_tasks[] = { "SDFS Filer", "RAMFS Filer", "LanMan98", "Printer manager",
+                                   "Resource Filer", "Paint", "NetSurf" };
+
+static int
+bar_swi (int no, _kernel_swi_regs *r, _kernel_oserror **e)
+{
+  int i, n = (int) G_N_ELEMENTS (bar);
+  switch (no & ~0x20000)
+    {
+    case 0x400D6:   /* Wimp_WhichIcon -2 */
+      if (r->r[0] != -2)
+        return 0;
+      for (i = 0; i < n; i++)
+        ((int *) (long) r->r[1])[i] = i;
+      ((int *) (long) r->r[1])[n] = -1;
+      return 1;
+    case 0x400CE:   /* Wimp_GetIconState -2 */
+      {
+        int *b = (int *) (long) r->r[1];
+        if (b[0] != -2 || b[1] < 0 || b[1] >= n)
+          return 0;
+        i = b[1];
+        memset (b + 2, 0, 8 * 4);
+        b[2] = bar[i].x; b[4] = bar[i].x + 68;
+        b[6] = (bar[i].text ? 1 : 0) | 2 | (bar[i].indirected ? 0x100 : 0);
+        if (bar[i].indirected)
+          {
+            b[7] = (int) (long) bar[i].text;
+            b[8] = bar[i].valid ? (int) (long) bar[i].valid : -1;
+            b[9] = (int) strlen (bar[i].text) + 1;
+          }
+        else if (bar[i].text)
+          strncpy ((char *) &b[7], bar[i].text, 12);
+        return 1;
+      }
+    case 0x400E7:   /* Wimp_SendMessage to an icon's creator */
+      if (r->r[2] == -2 && r->r[3] >= 0 && r->r[3] < n)
+        {
+          r->r[2] = bar[r->r[3]].task;
+          return 1;
+        }
+      return 0;
+    case 0x42680:   /* TaskManager_TaskNameFromHandle */
+      if (r->r[0] >= 0x6001 && r->r[0] <= 0x6007)
+        {
+          r->r[0] = (int) (long) bar_tasks[r->r[0] - 0x6001];
+          return 1;
+        }
+      return 0;
+    }
+  return 0;
+}
 static int stage, waits, handle;
 static GtkFileChooserNative *native;
 static int response = 99;
@@ -562,14 +626,14 @@ hook (int reason)
           {
             const char *dir = g_object_get_data (l->data, "riscos-gtk-dir");
             g_string_append_printf (names, "%s ", dir ? dir : "-");
-            if (g_strcmp0 (dir, "SDFS:$") == 0)
+            if (g_strcmp0 (dir, "SDFS::RISCOSpi.$") == 0)
               sdfs = l->data;
           }
         printf ("# sidebar: %s\n", names->str);
-        check (strstr (names->str, "RAM:$") && strstr (names->str, "Resources:$") && sdfs
-               && strstr (names->str, "HostFS:$") && !strstr (names->str, "null:$")
+        check (sdfs && strstr (names->str, "- SDFS::RISCOSpi.$ RAM::RAMDisc0.$ Resources:$.Apps LanMan98::Server.$ -")
+               && !strstr (names->str, "HostFS") && !strstr (names->str, "Printer") && !strstr (names->str, "Web")
                && strstr (names->str, testdir_ro),
-               "the sidebar: discs (OS_FSControl 33, those with directories) and the program's folder");
+               "the sidebar: the icon bar's discs and mounts, left to right (not every filing system), and the program's folder");
         check (gtk_list_box_get_selected_row (GTK_LIST_BOX (side)) != NULL,
                "the folder shown is selected in the sidebar");
         if (sdfs)
@@ -582,8 +646,8 @@ hook (int reason)
       return;
     case 7:
       w = window_titled ("Open File");
-      check (g_strcmp0 (gtk_entry_get_text (entry_n (w, 0)), "SDFS:$") == 0 && n_objects (w) == 3,
-             "a click on SDFS in the sidebar: its root");
+      check (g_strcmp0 (gtk_entry_get_text (entry_n (w, 0)), "SDFS::RISCOSpi.$") == 0 && n_objects (w) == 3,
+             "a click on RISCOSpi (SDFS) in the sidebar: its root");
       {
         char *letters = g_strconcat (testdir_ro, ".Letters", NULL);
         drop_dir (handle, letters, 0x1000);
@@ -827,6 +891,7 @@ main (int argc, char **argv)
   g_setenv ("RISCOS_GTK_CHOOSER", "filer", TRUE);
   g_setenv ("TZ", "UTC", TRUE);
   fake_set_screen (1280, 1024, 0, 5);
+  fake_swi_hook = bar_swi;
   fake_sprite_plot_converts = 0;
   fake_wimp_nulls = 10;
   fake_wimp_hook = hook;

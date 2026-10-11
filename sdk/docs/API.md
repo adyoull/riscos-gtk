@@ -221,13 +221,19 @@ typedef struct {
 } GdkRiscosDirEntry;
 GPtrArray *gdk_riscos_read_dir       (const char *riscos_dir, GError **error);
 char     **gdk_riscos_filing_systems (void);
+typedef struct { char *fs, *name, *root, *sprite; } GdkRiscosDisc;
+GPtrArray *gdk_riscos_discs          (void);
 char      *gdk_riscos_canonicalise   (const char *name);
 char      *gdk_riscos_filetype_name  (int filetype);
 ```
 
 `read_dir` lists a directory (OS_GBPB 12) as a `GPtrArray` of entries,
 freed with the array. `filing_systems` gives the names FileSwitch knows
-(OS_FSControl 33; free with `g_strfreev`). `canonicalise` gives a full
+(OS_FSControl 33; free with `g_strfreev`). `discs` gives the discs and
+mounts on the icon bar, left to right, as the Filers show them: filing
+system, name, root (`SDFS::RISCOSpi.$`, `LanMan98::Server.$`,
+`Resources:$.Apps`) and icon bar sprite (freed with the array; the
+browser's Discs). `canonicalise` gives a full
 name (OS_FSControl 37), `filetype_name` "Text", "Sprite" and so on
 (OS_FSControl 18).
 
@@ -464,6 +470,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
 | `RISCOS_GTK_SPAWN` = `exec` | `g_spawn_async*()` runs programs in place (UnixLib), not as tasks |
+| `RISCOS_GTK_DISCS` = `all` | The directory browser lists each filing system's current disc, not the icon bar's discs |
 | `RISCOS_GTK_THROWBACK` = 0 | Don't take the DDE's throwback while a spawned TaskWindow runs |
 | `RISCOS_GTK_TASK_WIMPSLOT` = KB | Memory for a TaskWindow started by `g_spawn_async*()` (16384) |
 | `RISCOS_GTK_PLAIN_POPUPS` (any value) | Pop-up windows with a title stay plain (no title bar or close icon) |

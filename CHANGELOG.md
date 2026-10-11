@@ -25,6 +25,17 @@
     off; `RISCOS_GTK_TASK_WIMPSLOT` sets a TaskWindow's memory.
   - `gdk/riscos/gdkspawn-riscos.c`; GLib: spawn and child watch hooks
     (`patches/glib-2.80.0-riscos.diff`); test `spawn-fake` (13 checks).
+- **The directory browser's Discs are the icon bar's.** It listed every
+  filing system FileSwitch knows (devices without discs, filing systems
+  with nothing mounted) and opened `<FS>:$`, which is no use for network
+  filing systems with several mounts (LanMan98 couldn't be opened).
+  - Now it lists the discs and mounts the Filers have on the icon bar,
+    left to right, with their names and sprites (RISCOSpi, RAMDisc0,
+    Apps, a LanMan98 mount...), and opens each one's own root
+    (`LanMan98::Server.$`; a floppy drive `ADFS::0.$`).
+  - `gdk_riscos_discs()` (`gdk/riscos/gdkfiles-riscos.c`). Without an icon
+    bar to read, each filing system whose current disc can be found.
+    `RISCOS_GTK_DISCS=all` uses that list always. Test `browser-fake`.
 - **The DDE's throwback for spawned builds.** While a TaskWindow started
   by `g_spawn_async*()` runs, the program is registered with DDEUtils,
   so `cc`, `objasm`, `link` and `amu` given `-throwback` send it their
@@ -32,7 +43,7 @@
   Unix file names (`c.hello` as `hello.c`), so Geany's Compiler tab lists
   them and goes to the line. `RISCOS_GTK_THROWBACK=0` turns it off. Test
   `spawn-fake` (17 checks).
-- **!Geany 2.1-riscos3 (riscos2 was a test build): Build and Execute work.** Compile, Build, Make and
+- **!Geany 2.1-riscos4 (riscos2 and riscos3 were test builds): Build and Execute work.** Compile, Build, Make and
   the other Build commands run in a TaskWindow, with their messages
   (errors linked to the lines) in Geany's Compiler tab; Stop ends them.
   Execute runs the program in a task window of its own, from an Obey file
@@ -60,7 +71,7 @@
   - `*Set RISCOS_GTK_PLAIN_POPUPS 1` keeps them plain.
   - `gdk/riscos/gdkwindow-riscos.c`, `gdk/riscos/gdkeventsource.c`;
     tests `menuclick-fake`, `mtpaint-fake` (12 checks).
-- **!mtPaint 3.50.14-riscos3, a new port** (riscos1 and riscos2 were test builds): mtPaint, the painting
+- **!mtPaint 3.50.14-riscos4, a new port** (riscos1 to riscos3 were test builds): mtPaint, the painting
   program (`build/build-mtpaint.sh`, `apps/mtpaint`,
   `patches/mtpaint-3.50.14-riscos.diff`).
   - Its own file picker becomes a RISC OS one: a draggable file icon for
