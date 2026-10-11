@@ -474,3 +474,20 @@ that SDL2, freeglut and the games already use.
 - **Tool windows:** a window with no menu of its own, which isn't a
   dialogue box or modal, gives its parent's (transient-for) menu, or the
   program's only menu.
+
+## Pop-ups with a title get a title bar (2026-10-11)
+- **Why:** GTK programs open some tool windows as pop-ups
+  (`GTK_WINDOW_POPUP`), which have no frame; on RISC OS a user has no
+  sign that Escape or a click elsewhere closes them (mtPaint's Pan Window
+  and Pattern Chooser).
+- **How:** GDK gives a pop-up with a title and the normal type hint a
+  title bar and close icon and makes it an ordinary window rather than a
+  transient one. Menus, tooltips, drop-downs and untitled pop-ups are
+  unchanged. A title is the sign: GTK programs only title pop-ups meant
+  to be seen as windows.
+- **Closing:** the close icon sends the window Escape first, since
+  programs that use pop-ups close them on Escape and keep them for reuse
+  (mtPaint's Pattern Chooser couldn't be reopened after GTK's default
+  delete destroyed it). If the window is still open 250 ms later, it is
+  sent delete-event.
+- `RISCOS_GTK_PLAIN_POPUPS` turns it off.

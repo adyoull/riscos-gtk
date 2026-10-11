@@ -12,7 +12,19 @@
     menu of the window they belong to, or of the program's only window
     with a menu.
   - `gtk/riscos/gtkmenu-riscos.c`; test `menuclick-fake` (7 checks).
-- **!mtPaint 3.50.14-riscos1, a new port:** mtPaint, the painting
+- **Pop-up windows with a title get a title bar and a close icon.**
+  Programs open some windows as GTK pop-ups (no frame), which on RISC OS
+  could only be closed with Escape or a click elsewhere (mtPaint's Pan
+  Window and Pattern Chooser).
+  - A pop-up with a title (`GTK_WINDOW_POPUP`, a normal window, not a
+    menu, tooltip or drop-down) is now an ordinary Wimp window with a
+    title bar and close icon. Pop-ups with no title stay plain.
+  - Its close icon sends it Escape, as the program expects; if it is
+    still open a moment later, it is sent delete-event.
+  - `*Set RISCOS_GTK_PLAIN_POPUPS 1` keeps them plain.
+  - `gdk/riscos/gdkwindow-riscos.c`, `gdk/riscos/gdkeventsource.c`;
+    tests `menuclick-fake` (11 checks), `mtpaint-fake` (12 checks).
+- **!mtPaint 3.50.14-riscos2, a new port** (riscos1 was a test build): mtPaint, the painting
   program (`build/build-mtpaint.sh`, `apps/mtpaint`,
   `patches/mtpaint-3.50.14-riscos.diff`).
   - Its own file picker becomes a RISC OS one: a draggable file icon for
@@ -26,7 +38,7 @@
   - Its toolbar icons (XPM) load: riscos-gtk's gdk-pixbuf has the XPM
     loader built in. A build against a gdk-pixbuf that loads loaders as
     modules can't, in a static RISC OS program.
-  - Test `mtpaint-fake` (6 checks; needs MTPAINT_LA).
+  - Test `mtpaint-fake` (12 checks; needs MTPAINT_LA).
 
 ## 3.24.41-riscos1.0-rc5 (2026-10-11)
 - **A directory browser for Save and Open, like a Filer window.**

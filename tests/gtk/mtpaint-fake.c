@@ -28,6 +28,8 @@
 
 extern int mtpaint_main (int argc, char **argv);
 extern void file_selector (int action);
+extern void pressed_pan (void);
+extern void choose_pattern (int typ);
 #define FOREIGN 0x5551
 #define OTHER_TASK 0x5B00
 static char save_ro[512], save_unix[512], load_ro[512], load_unix[512];
@@ -73,6 +75,10 @@ static GtkWidget *find_type (GtkWidget *w, GType t)
 }
 static gboolean do_save (gpointer d) { file_selector (2); return FALSE; }
 static gboolean do_load (gpointer d) { file_selector (1); return FALSE; }
+static gboolean do_pan (gpointer d) { pressed_pan (); return FALSE; }
+static gboolean do_pattern (gpointer d) { choose_pattern (0); return FALSE; }
+#define WF_CLOSE_ICON (1 << 25)
+#define WF_TITLE_BAR (1 << 26)
 static int stage, waits, main_handle, gx, gy, grid_results[20][20], last_menus;
 static GtkWidget *mainw, *toolw;
 static const char *outdir;
@@ -387,10 +393,60 @@ static void hook (int reason)
         g_list_free (tops);
         list_windows ();
         check (!titled ("Load Image File") && found, "Open: a PNG dropped from the Filer is loaded");
-        printf ("1..%d\n", n_tests);
-        fflush (stdout);
-        _exit (n_failed);
+        g_idle_add (do_pan, NULL);
+        g_main_context_wakeup (NULL);
+        stage = 8;
+        nulls (6);
+        return;
       }
+    case 8:   /* mtPaint's pop-ups: a title bar and a close icon */
+    case 10:
+      {
+        const char *title = stage == 8 ? "Pan Window" : "Pattern Chooser";
+        GtkWidget *w = titled (title);
+        static int tries8;
+        int h, fl;
+        if (!w || !(h = handle_of (w))) { if (++tries8 > 200) { printf ("# no %s\n", title); _exit (1); } nulls (4); return; }
+        tries8 = 0;
+        fl = fake_window_flags[h & 255];
+        printf ("# %s: Wimp window &%X flags &%X\n", title, h, fl);
+        check ((fl & WF_TITLE_BAR) && (fl & WF_CLOSE_ICON),
+               stage == 8 ? "the Pan Window pop-up has a title bar and a close icon"
+                          : "the Pattern Chooser pop-up has a title bar and a close icon");
+        fake_target_window = h;
+        add (3, 0, 0, 0);       /* Close_Window_Request: its close icon */
+        nulls (6);
+        settle ();
+        stage++;
+        return;
+      }
+    case 9:
+    case 11:
+      check (!titled (stage == 9 ? "Pan Window" : "Pattern Chooser"),
+             "its close icon closes it");
+      if (stage == 9)
+        {
+          g_idle_add (do_pattern, NULL);
+          g_main_context_wakeup (NULL);
+          stage = 10;
+          nulls (6);
+          return;
+        }
+      {
+        /* closed with the close icon, it opens again (mtPaint let go of it) */
+        static int again;
+        if (!again++)
+          {
+            g_idle_add (do_pattern, NULL);
+            g_main_context_wakeup (NULL);
+            stage = 10;
+            nulls (6);
+            return;
+          }
+      }
+      printf ("1..%d\n", n_tests);
+      fflush (stdout);
+      _exit (n_failed);
     }
 }
 

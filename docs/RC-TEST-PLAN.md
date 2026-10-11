@@ -110,6 +110,8 @@ provider offers them.
 | 5.7 | Geany 2.1-riscos1: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
 | 5.8 | Geany: File > Open (box and browser), File > Save As (box), Edit > Preferences, Quit with an unsaved document asks | new | |
 | 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
+| 5.10 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | |
+| 5.11 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | |
 
 ## 6. Packaging and licences
 

@@ -424,6 +424,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_CHOOSER` = `filer` | The directory browser instead of the Save and Open boxes (their Browse... button also gives it) |
 | `RISCOS_GTK_NATIVE_CHOOSER` = 0 | GTK's own file chooser instead of the Save and Open boxes |
 | `RISCOS_GTK_SIZE_GRIP` = 0 | No size icon |
+| `RISCOS_GTK_PLAIN_POPUPS` (any value) | Pop-up windows with a title stay plain (no title bar or close icon) |
 | `RISCOS_GTK_WIMP_THEME` = 0 | The RISCOS theme without the desktop's colours and sprites |
 | `RISCOS_GTK_PRINT_BITMAP` (any value) | Print everything as bitmaps, not Draw paths |
 | `RISCOS_GTK_DEBUG` (any value) | More detail in the Log: Wimp events, the theme's CSS |

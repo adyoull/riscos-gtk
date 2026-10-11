@@ -12,6 +12,9 @@
  *     the main window's menu;
  *   - over a dialogue box: nothing of the main window's.
  * Select still reaches the drawing area.
+ * A pop-up window (GTK_WINDOW_POPUP) with a title gets a title bar and a
+ * close icon (gdk/riscos/gdkwindow-riscos.c); its close icon sends Escape,
+ * then closes it if it is still open; a pop-up with no title stays plain.
  *   menuclick-fake APPDIR
  * Prints TAP; exit status = failures. MIT licence.
  */
@@ -24,8 +27,9 @@
 #include <unistd.h>
 
 static int n_tests, n_failed, stage, area_presses[4], area_releases[4], list_presses;
-static GtkWidget *mainw, *toolw, *dialog, *area, *button, *list;
-static int h_main, h_tool, h_dialog;
+static GtkWidget *mainw, *toolw, *dialog, *area, *button, *list, *popup, *plain;
+static int popup_deleted, popup_escapes;
+static int h_main, h_tool, h_dialog, h_popup, h_plain;
 
 static void
 check (int ok, const char *name)
@@ -104,6 +108,22 @@ on_list (GtkWidget *w, GdkEventButton *ev, gpointer d)
       return TRUE;
     }
   return FALSE;
+}
+
+static gboolean
+on_popup_key (GtkWidget *w, GdkEventKey *ev, gpointer d)
+{
+  if (ev->keyval == GDK_KEY_Escape)
+    popup_escapes++;
+  return FALSE;                 /* not handled: the window is to close all the same */
+}
+
+static gboolean
+on_popup_delete (GtkWidget *w, GdkEvent *ev, gpointer d)
+{
+  popup_deleted++;
+  gtk_widget_hide (w);
+  return TRUE;
 }
 
 static int menus_before, last_menu_items;
@@ -202,6 +222,33 @@ hook (int reason)
       return;
     case 7:
       check (!menu_file, "Menu over a dialogue box: not the main window's menu");
+      gtk_widget_hide (dialog);
+      gtk_widget_show_all (popup);
+      gtk_widget_show_all (plain);
+      stage = 8;
+      nulls (8);
+      return;
+    case 8:
+      if (!gtk_widget_get_mapped (popup) || !gtk_widget_get_mapped (plain) ||
+          !(h_popup = handle_of (popup)) || !(h_plain = handle_of (plain)))
+        {
+          nulls (4);
+          return;
+        }
+      check ((fake_window_flags[h_popup & 255] & (1 << 26)) && (fake_window_flags[h_popup & 255] & (1 << 25)),
+             "a pop-up with a title: a title bar and a close icon");
+      check (!(fake_window_flags[h_plain & 255] & ((1 << 26) | (1 << 25))),
+             "a pop-up with no title: no title bar or close icon");
+      fake_target_window = h_popup;
+      add (3, 0, 0, 0);         /* Close_Window_Request */
+      add (FAKE_SLEEP, 400, 0, 0);
+      nulls (8);
+      stage = 9;
+      return;
+    case 9:
+      check (popup_escapes == 1, "its close icon sends it Escape");
+      check (popup_deleted == 1 && !gtk_widget_get_visible (popup),
+             "and, not closed by Escape, it is closed (delete-event)");
       printf ("1..%d\n", n_tests);
       fflush (stdout);
       _exit (n_failed);
@@ -271,6 +318,18 @@ main (int argc, char **argv)
                      gtk_label_new ("Width and height"));
   gtk_window_set_default_size (GTK_WINDOW (dialog), 200, 120);
   gtk_window_move (GTK_WINDOW (dialog), 800, 500);
+
+  popup = gtk_window_new (GTK_WINDOW_POPUP);
+  gtk_window_set_title (GTK_WINDOW (popup), "Palette");
+  gtk_window_set_default_size (GTK_WINDOW (popup), 150, 100);
+  gtk_container_add (GTK_CONTAINER (popup), gtk_label_new ("Colours"));
+  g_signal_connect (popup, "key-press-event", G_CALLBACK (on_popup_key), NULL);
+  g_signal_connect (popup, "delete-event", G_CALLBACK (on_popup_delete), NULL);
+  gtk_window_move (GTK_WINDOW (popup), 100, 600);
+  plain = gtk_window_new (GTK_WINDOW_POPUP);
+  gtk_window_set_default_size (GTK_WINDOW (plain), 120, 80);
+  gtk_container_add (GTK_CONTAINER (plain), gtk_label_new ("Plain"));
+  gtk_window_move (GTK_WINDOW (plain), 400, 600);
 
   gtk_main ();
   return 1;

@@ -63,6 +63,10 @@ struct _GdkWindowImplRiscos
   gboolean visible;
   gboolean maximized;
   GdkWindowTypeHint type_hint;
+  /* A program's own pop-up window with a title (GTK_WINDOW_POPUP, type hint
+     NORMAL: mtPaint's Pan Window): a Wimp window with a title bar and a
+     close icon, so that it can be moved and closed with the mouse */
+  gboolean titled_popup;
   gboolean placed;                 /* riscos-gtk: given its first place on the screen */
   int transient_for;
 

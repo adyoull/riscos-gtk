@@ -27,6 +27,22 @@
 
 #include <stdlib.h>
 
+/* After Escape was sent to a titled pop-up's close icon: still open? */
+static gboolean
+popup_close_check (gpointer data)
+{
+  GdkWindow *window = data;
+
+  if (!GDK_WINDOW_DESTROYED (window) && gdk_window_is_visible (window))
+    {
+      GdkEvent *event = gdk_event_new (GDK_DELETE);
+      event->any.window = g_object_ref (window);
+      gdk_event_put (event);
+      gdk_event_free (event);
+    }
+  return G_SOURCE_REMOVE;
+}
+
 static gboolean gdk_event_source_prepare  (GSource     *source,
                                            gint        *timeout);
 static gboolean gdk_event_source_check    (GSource     *source);
@@ -380,6 +396,30 @@ _gdk_riscos_events_got_input (RiscosInputMsg *message)
 
   case RISCOS_EVENT_DELETE_NOTIFY:
     window = g_hash_table_lookup (display_riscos->id_ht, GINT_TO_POINTER (message->delete_notify.id));
+    if (window && GDK_IS_WINDOW_IMPL_RISCOS (window->impl) &&
+        GDK_WINDOW_IMPL_RISCOS (window->impl)->titled_popup)
+      {
+        /* A program's pop-up given a close icon (gdkwindow-riscos.c):
+           closed as the program closes it elsewhere, with Escape; if it's
+           still there after that, a delete event */
+        int k;
+        for (k = 0; k < 2; k++)
+          {
+            event = gdk_event_new (k ? GDK_KEY_RELEASE : GDK_KEY_PRESS);
+            event->key.window = g_object_ref (window);
+            event->key.time = message->base.time;
+            event->key.keyval = GDK_KEY_Escape;
+            event->key.hardware_keycode = 27;
+            event->key.length = 0;
+            gdk_event_set_device (event, device_manager->core_keyboard);
+            gdk_event_set_seat (event, gdk_device_get_seat (device_manager->core_keyboard));
+            node = _gdk_event_queue_append (display, event);
+            _gdk_windowing_got_event (display, node, event, message->base.serial);
+          }
+        g_timeout_add_full (G_PRIORITY_DEFAULT, 250, popup_close_check,
+                            g_object_ref (window), g_object_unref);
+        break;
+      }
     if (window)
       {
 	event = gdk_event_new (GDK_DELETE);

@@ -14,6 +14,8 @@ Using it
   loaded (it asks first if the picture has unsaved changes).
 - Menu anywhere in mtPaint's windows (the picture, the toolbars, the
   palette) gives its menu.
+- Small windows such as the Pan Window and the Pattern Chooser have a
+  title bar and close icon; Escape also closes them.
 - Mouse: Select paints with colour A; Adjust paints with colour B (the
   right button elsewhere), and Adjust on a tool button opens its
   settings.

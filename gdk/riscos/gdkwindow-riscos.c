@@ -260,6 +260,8 @@ connect_frame_clock (GdkWindow *window)
     }
 }
 
+static void update_furniture (GdkWindow *window);
+
 void
 _gdk_riscos_display_create_window_impl (GdkDisplay    *display,
 					  GdkWindow     *window,
@@ -280,19 +282,31 @@ _gdk_riscos_display_create_window_impl (GdkDisplay    *display,
      gdk_window_set_type_hint (a drag icon: GDK_WINDOW_TYPE_HINT_DND) */
   if (attributes_mask & GDK_WA_TYPE_HINT)
     impl->type_hint = attributes->type_hint;
+  /* A pop-up a program made itself, with a title: menus, tooltips,
+     combo boxes and drag icons have their own type hints and no title.
+     On RISC OS it gets a title bar and close icon: X11 programs close
+     such pop-ups with Escape or a click elsewhere, which a RISC OS user
+     can't know. */
+  impl->titled_popup = window->window_type == GDK_WINDOW_TEMP &&
+                       impl->type_hint == GDK_WINDOW_TYPE_HINT_NORMAL &&
+                       (attributes_mask & GDK_WA_TITLE) && attributes->title &&
+                       attributes->title[0] && !g_getenv ("RISCOS_GTK_PLAIN_POPUPS");
   impl->id = _gdk_riscos_server_new_window (riscos_display->server,
 					      window->x,
 					      window->y,
 					      window->width,
 					      window->height,
-					      window->window_type == GDK_WINDOW_TEMP);
+					      window->window_type == GDK_WINDOW_TEMP &&
+					      !impl->titled_popup);
   g_hash_table_insert (riscos_display->id_ht, GINT_TO_POINTER(impl->id), window);
   /* riscos: the title comes with the attributes (as on X11/win32/quartz) */
-  if (window->window_type == GDK_WINDOW_TOPLEVEL)
+  if (window->window_type == GDK_WINDOW_TOPLEVEL || impl->titled_popup)
     _gdk_riscos_server_window_set_title (riscos_display->server, impl->id,
                                          (attributes_mask & GDK_WA_TITLE) && attributes->title ?
                                          attributes->title : g_get_application_name ());
   impl->wrapper = window;
+  if (impl->titled_popup)
+    update_furniture (window);
 
   impl->screen = screen;
 
@@ -643,7 +657,11 @@ update_furniture (GdkWindow *window)
 
   if (GDK_WINDOW_DESTROYED (window) || !WINDOW_IS_TOPLEVEL (window))
     return;
-  if (!impl->decorations_set || impl->decorations != 0)
+  if (impl->titled_popup)
+    f = RISCOS_FURNITURE_TITLE | RISCOS_FURNITURE_CLOSE;
+  else if (window->window_type == GDK_WINDOW_TEMP)
+    return;
+  else if (!impl->decorations_set || impl->decorations != 0)
     {
       f |= RISCOS_FURNITURE_TITLE;
       if (func_on (impl, GDK_FUNC_CLOSE))
