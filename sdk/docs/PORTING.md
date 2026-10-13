@@ -94,8 +94,16 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   - Decrypted data waits inside AcornSSL, so "is there input?" must ask
     AcornSSL too (a 1-byte `MSG_PEEK`).
 - **iconv** is UnixLib's front end to the Iconv module, from PackMan.
-- **Memory:** the program runs in its WimpSlot, which is its size plus
-  4 MB. The C heap grows in dynamic areas and can go past 128 MB.
+- **Memory:** the program starts in a WimpSlot of its size plus 4 MB,
+  and UnixLib grows the WimpSlot (Wimp_SlotSize) as the C heap needs
+  more, up to the size of application space. riscos-gtk's programs don't
+  set `__dynamic_da_name` (or a `<prog>$Heap` variable), so UnixLib makes
+  no heap dynamic area, and its EABI malloc doesn't use mmap: they
+  reserve no logical address space. If your program does put its heap in
+  a dynamic area, leave `__dynamic_da_max_size` at 128 MB or less: on a
+  machine whose DALimit is 1 GB a larger maximum is reserved in full
+  whether it's used or not, and RISC OS 5 caps an area at 128 MB on most
+  machines anyway (UnixLib 5.0.3.3 adds "<name> Heap 2"... beyond that).
 
 ## Code that RISC OS's processors reject
 

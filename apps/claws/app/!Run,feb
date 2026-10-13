@@ -23,7 +23,8 @@ CDir <Wimp$ScrapDir>.ClawsMail
 | fontconfig keeps its cache here (fonts/fonts.conf names it): make it
 | now, as fontconfig may not manage to on RISC OS
 CDir <Wimp$ScrapDir>.ClawsMail.fontcache
-| The C heap goes in a dynamic area; the WimpSlot holds the program.
+| The WimpSlot holds the program; the C heap grows it as needed (no
+| dynamic area, so no logical address space is reserved).
 WimpSlot -min @SLOT@K -max @SLOT@K
 | A file dropped on the application (or given here) is attached to a new
 | message.

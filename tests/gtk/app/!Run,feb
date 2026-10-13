@@ -11,7 +11,8 @@ RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System
 RMEnsure PThreadTicker 0.01 RMLoad <GTKHello$Dir>.PThrTicker
 | The font cache goes in the scrap directory.
 CDir <Wimp$ScrapDir>.GTKHello
-| The C heap goes in a dynamic area; the WimpSlot holds the program.
+| The WimpSlot holds the program; the C heap grows it as needed (no
+| dynamic area, so no logical address space is reserved).
 WimpSlot -min @SLOT@K -max @SLOT@K
 | Paths for the program are UnixLib paths, /<Var$Dir>/..., not expanded
 | here. Its messages go to <Wimp$ScrapDir>.GTKHello.Log.

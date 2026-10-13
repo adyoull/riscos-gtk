@@ -62,8 +62,9 @@ release.
   ARMEABISupport and Iconv.
 - **PThreadTicker:** each package carries its own copy, so nothing extra
   is needed.
-- **Memory:** each program takes about 20 MB of WimpSlot, plus its heap
-  in a dynamic area.
+- **Memory:** each program starts in a WimpSlot of 21-30 MB (the program
+  plus 4 MB) and grows it as its heap needs more. None makes a dynamic
+  area for its heap, so they reserve no logical address space.
 
 ## Features of the RISC OS backend
 

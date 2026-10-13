@@ -561,3 +561,22 @@ that SDL2, freeglut and the games already use.
   `Resources:$.Apps`.
 - **Fallback:** no icon bar icons to read: each filing system whose
   `<FS>:$` canonicalises.
+
+## The heap stays in the WimpSlot (2026-10-13)
+- **Checked:** none of the programs sets `__dynamic_da_name`,
+  `__dynamic_da_max_size` or `__dynamic_no_da` (nm on each ELF), and
+  `!Run` sets no `<prog>$Heap`, so UnixLib (5.0.3.3, `sys/_syslib.s`)
+  makes no heap dynamic area: `brk_rw` grows the WimpSlot with
+  Wimp_SlotSize. Its EABI dlmalloc has `DEFAULT_MMAP_MAX 0`, so no
+  ARMEABISupport `mmap#N` areas. The only OS_DynamicArea call in the
+  programs is UnixLib's start-up one, skipped. riscos-mesa only grows the
+  screen area, for full-screen surfaces, which GTK doesn't use.
+- **Why keep it:** a heap area would reserve its maximum in logical
+  address space (all of it on a machine with DALimit 1 GB: what ran out
+  on a 4 GB Pi 4 with programs asking 512 MB, found with AddrSpace).
+  In the WimpSlot the heap only uses the memory it grows to, at the cost
+  of being limited to application space.
+- **Earlier text was wrong:** `!Run` comments, PORTING.md and the release
+  notes said the heap was in a dynamic area; corrected.
+- **Spawned TaskWindows** get 16 MB (`RISCOS_GTK_TASK_WIMPSLOT`): memory
+  while the command runs, not address space.
