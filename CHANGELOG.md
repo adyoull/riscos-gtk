@@ -1,6 +1,15 @@
 # Changelog
 
 ## Since RC6
+- **RISC OS-style icons for every program.** The RISCOS icon theme now
+  has riscos-gtk's own icons, drawn in the style of ClawsMail's, for 116
+  of the names programs use for toolbars, menus and dialogue boxes
+  (open, save, print, cut, copy, paste, undo, find, go, zoom, text
+  formatting, media, warning and error...), at 16, 22, 24, 32 and 48
+  pixels, in place of Adwaita's (`tools/mkriscosicons.py`). The drawing
+  is shared with ClawsMail's icons (`tools/riscosdraw.py`, unchanged
+  output for ClawsMail) and comes with the devkit for ports' own icons.
+  Test `themetest-fake`.
 - **The directory browser's Discs: the icon bar's on a real desktop.**
   On the Pi the list showed every filing system, as if there were no icon
   bar. The Filers are module tasks, so their icons' text is in the RMA,
@@ -18,7 +27,7 @@
   boxes now convert RISC OS names to UTF-8 to show them and back to
   Latin-1 to use them, and the program's suggested name (UTF-8) to
   Latin-1 (`gtk/riscos/gtkfilechooser-riscos.c`; `browser-fake`).
-- Gnumeric 1.12.57-riscos3 (test build) has both.
+- Gnumeric 1.12.57-riscos3 (test build) has both; riscos4 adds the icons.
 - **Gnumeric 1.12.57-riscos2 (test build): File > Open works, and
   scrolling past a sheet's controls no longer stops it.** From the first
   Pi run (riscos1):

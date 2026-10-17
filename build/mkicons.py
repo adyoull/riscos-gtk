@@ -9,6 +9,12 @@ toolbars and menus (theme/icons-list.txt). Full-colour PNGs at 16, 22,
 icon, ...) made into GTK's .symbolic.png at 16 and 24 pixels (gdk-pixbuf
 on RISC OS has no SVG loader), with gtk-encode-symbolic-svg.
 
+riscos-gtk's own icons (tools/mkriscosicons.py: original, in the style of
+the RISC OS desktop, as ClawsMail's) then replace Adwaita's for the names
+they draw: toolbar, menu and dialogue box icons, at 16, 22, 24, 32 and 48
+pixels. They need DejaVu's TTFs, from the DejaVu zip in $DL (or
+RISCOS_ICON_FONTS, a folder of them); without, Adwaita's stay.
+
 The desktop's own Wimp sprites come first at run time (gtk/riscos/
 gtkriscostheme.c makes a "RISCOS-Wimp" theme inheriting this one).
 
@@ -25,6 +31,44 @@ import tempfile
 
 SIZES = [16, 22, 24, 32, 48]
 SYMBOLIC_SIZES = [16, 24]
+
+
+def draw_own(theme):
+    """riscos-gtk's own icons into theme: (dirs, {name: context}), or None"""
+    import zipfile
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.dont_write_bytecode = True
+    sys.path.insert(0, os.path.join(here, "..", "tools"))
+    try:
+        import mkriscosicons
+    except ImportError as e:            # no Pillow
+        print("mkicons: riscos-gtk's own icons not drawn (%s)" % e)
+        return None
+    fonts = os.environ.get("RISCOS_ICON_FONTS")
+    tmp = None
+    if not fonts:
+        dl = os.environ.get("DL") or os.path.join(here, "..", "dl")
+        z = os.path.join(dl, "dejavu-fonts-ttf-2.37.zip")
+        if not os.path.exists(z):
+            print("mkicons: riscos-gtk's own icons not drawn (no %s)" % z)
+            return None
+        tmp = fonts = tempfile.mkdtemp()
+        with zipfile.ZipFile(z) as zf:
+            for n in zf.namelist():
+                if n.endswith(".ttf"):
+                    with open(os.path.join(fonts, os.path.basename(n)), "wb") as f:
+                        f.write(zf.read(n))
+    dirs = mkriscosicons.draw_theme(fonts, theme)
+    if tmp:
+        shutil.rmtree(tmp)
+    names = {n: ctx for n, ctx, _f in mkriscosicons.ICONS}
+    with open(os.path.join(theme, "README"), "w") as f:
+        f.write("RISCOS icon theme (riscos-gtk). These icons are riscos-gtk's own, drawn by\n"
+                "tools/mkriscosicons.py (MIT licence):\n  %s\n"
+                "The others are Adwaita 3.36's (GNOME Project; LGPL-3 or CC-BY-SA 3.0: COPYING*).\n"
+                % " ".join(sorted(names)))
+    print("mkicons: %d of riscos-gtk's own icons" % len(names))
+    return dirs, names
 
 
 def main():
@@ -83,12 +127,25 @@ def main():
             found += 1
         else:
             missing.append(name)
+    drawn = draw_own(theme)
+    if drawn:
+        drawn_dirs, drawn_names = drawn
+        # Adwaita's copy of a drawn name in another context goes, so each
+        # name is in one folder per size
+        for rel, size, ctx in list(dirs):
+            for n in drawn_names:
+                f = os.path.join(theme, rel, n + ".png")
+                if os.path.exists(f) and (rel, size, ctx) not in drawn_dirs and \
+                        os.path.exists(os.path.join(theme, "%dx%d" % (size, size), drawn_names[n], n + ".png")):
+                    os.remove(f)
+        dirs |= drawn_dirs
+        missing = [m for m in missing if m not in drawn_names]
     dirs = sorted(dirs, key=lambda d: (d[1], d[2]))
     with open(os.path.join(theme, "index.theme"), "w") as f:
         f.write("[Icon Theme]\n")
         f.write("Name=RISCOS\n")
-        f.write("Comment=riscos-gtk: icons for GTK programs on RISC OS, from Adwaita 3.36 "
-                "(GNOME Project, LGPL-3 or CC-BY-SA 3.0)\n")
+        f.write("Comment=riscos-gtk: icons for GTK programs on RISC OS: riscos-gtk's own "
+                "(MIT) and Adwaita 3.36's (GNOME Project, LGPL-3 or CC-BY-SA 3.0)\n")
         f.write("Inherits=hicolor\n")
         f.write("Directories=%s\n\n" % ",".join(d[0] for d in dirs))
         for rel, size, ctx in dirs:

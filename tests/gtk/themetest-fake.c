@@ -392,7 +392,7 @@ count_theme_pixels (int page)
 }
 
 /* The sprites as gdk_riscos_wimp_sprite decodes them */
-static int spr_ok[6], icon_ok[4];
+static int spr_ok[6], icon_ok[5];
 static char icon_note[512];
 
 /* The icon themes: RISCOS-Wimp (the desktop's sprites) over RISCOS
@@ -418,6 +418,40 @@ check_icons (void)
       if (info)
         g_object_unref (info);
     }
+  {
+    /* riscos-gtk's own icons (tools/mkriscosicons.py) in place of
+       Adwaita's: the theme's README lists the ones drawn */
+    const char *own[] = { "document-save", "edit-cut", "zoom-in", "go-next" };
+    int sizes[] = { 16, 24 }, j, k, all = 1;
+    for (j = 0; j < 4; j++)
+      for (k = 0; k < 2; k++)
+        {
+          GtkIconInfo *info = gtk_icon_theme_lookup_icon (t, own[j], sizes[k], 0);
+          const char *f = info ? gtk_icon_info_get_filename (info) : NULL;
+          char *readme = NULL, *dir, *text = NULL, *word;
+          int ok = 0;
+          if (f && strstr (f, "/RISCOS/"))
+            {
+              dir = g_strndup (f, strstr (f, "/RISCOS/") - f + 7);
+              readme = g_build_filename (dir, "README", NULL);
+              word = g_strdup_printf (" %s ", own[j]);
+              ok = g_file_get_contents (readme, &text, NULL, NULL) && strstr (text, word) &&
+                   strstr (f, sizes[k] == 16 ? "/16x16/" : "/24x24/");
+              g_free (word);
+              g_free (dir);
+            }
+          if (!ok)
+            {
+              all = 0;
+              printf ("# own icon %s at %d: %s\n", own[j], sizes[k], f ? f : "(none)");
+            }
+          g_free (readme);
+          g_free (text);
+          if (info)
+            g_object_unref (info);
+        }
+    icon_ok[4] = all;
+  }
 }
 static char spr_note[256];
 
@@ -817,6 +851,7 @@ main (int argc, char **argv)
   check (icon_ok[0], "icons: \"folder\" is the desktop's directory sprite (RISCOS-Wimp theme)");
   check (icon_ok[1] && icon_ok[3], "icons: toolbar names (document-save) and image-missing come from the shipped RISCOS theme");
   check (icon_ok[2], "icons: symbolic icons (edit-copy-symbolic) load from GTK's .symbolic.png");
+  check (icon_ok[4], "icons: riscos-gtk's own (RISC OS style) for document-save, edit-cut, zoom-in, go-next at 16 and 24 pixels");
   printf ("# icons: %s\n", icon_note);
   check (g_strcmp0 (g_getenv ("GSETTINGS_BACKEND"), "memory") == 0,
          "GSettings in memory (no keyfile backend wanting a file monitor)");

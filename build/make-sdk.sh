@@ -14,7 +14,8 @@
 #                     the programs and the libraries only ClawsMail uses
 #   share/riscos-gtk/ what riscos-gtk-package puts in an application:
 #                     the RISCOS theme, icons, compiled schemas, the MIME
-#                     database (build/mkmime.sh), DejaVu
+#                     database (build/mkmime.sh), the icon drawing
+#                     (tools/riscosdraw.py, mkriscosicons.py), DejaVu
 #                     fonts, the LGPL and the Source template; and a CMake
 #                     toolchain file
 #   docs/             README, API (the RISC OS functions), PORTING
@@ -96,6 +97,8 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf'
   'dejavu-fonts-ttf-2.37/LICENSE' -d "$S/fonts"
 mv "$S/fonts/LICENSE" "$S/fonts/Licence,fff"
 cp "$REPO_DIR/tests/render/mkfontsconf.sh" "$S/"
+mkdir -p "$S/tools"
+cp "$REPO_DIR/tools/riscosdraw.py" "$REPO_DIR/tools/mkriscosicons.py" "$S/tools/"
 cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$S/licences/"
 sed -e "s|@RISCOS_GTK_RELEASE@|$RELEASE|g" -e "s|@RISCOS_GTK_SOURCE_URL@|$SOURCE_URL|g" \
   "$REPO_DIR/sdk/share/riscos-gtk/licences/Source.txt" > "$S/licences/Source.txt"

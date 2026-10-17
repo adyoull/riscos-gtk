@@ -171,6 +171,15 @@ sprite pool at start-up, like the rest of the theme; everything else
 from a trimmed Adwaita 3.36 (PNG). The list of names is
 theme/icons-list.txt.
 
+Update (2026-10-17): riscos-gtk now draws its own icons, in the style of
+ClawsMail's RISC OS ones, for 116 of the names (toolbar, menu, dialogue
+box, media, places): `tools/mkriscosicons.py` with the drawing shared
+with `tools/mkclawsicons.py` (`tools/riscosdraw.py`). Each is drawn once
+on a 24-unit grid and made at 16, 22, 24, 32 and 48 pixels (outlines kept
+at 1 pixel below 24); `build/mkicons.py` puts them over Adwaita's, so
+every program and the devkit get them. Adwaita stays for the other names
+and for symbolic icons. Original drawings, MIT.
+
 ## L3afpad, the first real program; Menu over a text view (2026-10-06)
 L3afpad (tiny, GTK 3 only, GtkFileChooserDialog, text view, menus) was
 ported as !L3afpad. RISC OS runs one copy of a program, so "New" empties

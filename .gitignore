@@ -12,3 +12,4 @@ handoffs/
 CLAUDE.md
 *START-HERE*.md
 .DS_Store
+__pycache__/

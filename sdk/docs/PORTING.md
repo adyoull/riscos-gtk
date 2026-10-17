@@ -164,9 +164,15 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
 
 - **Images:** gdk-pixbuf reads PNG, JPEG, GIF, BMP, ICO, TGA, XPM and
   PNM, but **not SVG** (no librsvg) **or TIFF**. Icon themes must
-  be PNG. riscos-gtk ships Adwaita's PNG icons for the names GTK uses.
-  Give your program's own icons as PNGs, plus `@2` versions for 180 dpi
-  modes.
+  be PNG. riscos-gtk's RISCOS theme has its own RISC OS-style icons
+  for the usual toolbar, menu and dialogue box names (document-open,
+  edit-copy, go-next, zoom-in, dialog-warning...), and Adwaita's PNGs for
+  the rest; the desktop's sprites come first for folders, file types and
+  discs. Give your program's own icons as PNGs, plus `@2` versions for
+  180 dpi modes. To draw them in the same style, use the devkit's
+  `share/riscos-gtk/tools/riscosdraw.py` (Pillow): `mkriscosicons.py`
+  beside it shows how (an icon is a few calls on a 24-unit grid, made at
+  any size).
 - **Fonts:**
   - **With PackMan's FontConfig (UnixFC) installed,** programs get the
     system's fonts and shared font cache, plus their own `fonts`
