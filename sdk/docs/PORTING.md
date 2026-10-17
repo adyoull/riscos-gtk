@@ -97,6 +97,13 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   - Decrypted data waits inside AcornSSL, so "is there input?" must ask
     AcornSSL too (a 1-byte `MSG_PEEK`).
 - **iconv** is UnixLib's front end to the Iconv module, from PackMan.
+- **File names are Latin-1,** not UTF-8: GLib knows (riscos-gtk's
+  patch), so convert names for display with `g_filename_display_name`
+  and typed names with `g_filename_from_utf8`, as GLib's documentation
+  says. Code that treats file names as UTF-8 shows a hard space or an
+  accented letter as invalid text.
+- **File types:** packaging adds the MIME database (`share/mime`), so
+  `g_content_type_guess` knows a file from its extension.
 - **Memory:** the program starts in a WimpSlot of its size plus 4 MB,
   and UnixLib grows the WimpSlot (Wimp_SlotSize) as the C heap needs
   more, up to the size of application space. riscos-gtk's programs don't

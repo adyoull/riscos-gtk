@@ -61,6 +61,8 @@ get libxslt_1.1.39.orig.tar.xz      $U/libx/libxslt/libxslt_1.1.39.orig.tar.xz
 get libgsf_1.14.51.orig.tar.xz      $U/libg/libgsf/libgsf_1.14.51.orig.tar.xz
 get goffice_0.10.57.orig.tar.xz     $U/g/goffice/goffice_0.10.57.orig.tar.xz
 get gnumeric_1.12.57.orig.tar.xz    $U/g/gnumeric/gnumeric_1.12.57.orig.tar.xz
+# the MIME database every application carries (build/mkmime.sh)
+get shared-mime-info_2.4.orig.tar.bz2 $U/s/shared-mime-info/shared-mime-info_2.4.orig.tar.bz2
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
 # Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"

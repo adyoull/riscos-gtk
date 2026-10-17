@@ -415,8 +415,8 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
  G_END_DECLS
  
  #endif /* __GTK_FILE_CHOOSER_NATIVE_PRIVATE_H__ */
---- a/gtk/gtkmain.c	2026-10-05 20:26:45.272464431 +0100
-+++ b/gtk/gtkmain.c	2026-10-05 20:26:45.287016409 +0100
+--- a/gtk/gtkmain.c
++++ b/gtk/gtkmain.c
 @@ -118,6 +118,9 @@
  #include "gtkdebug.h"
  #include "gtkdndprivate.h"
@@ -440,6 +440,22 @@ diff -ruN a/modules/printbackends/meson.build b/modules/printbackends/meson.buil
    if (gtk_get_debug_flags () & GTK_DEBUG_INTERACTIVE)
      gtk_window_set_interactive_debugging (TRUE);
  
+@@ -2237,6 +2246,15 @@
+ 
+   g_return_if_fail (widget != NULL);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: a GtkFileChooserDialog shown as a RISC OS Save or Open
++     box (gtkfilechooser-riscos.c) stays hidden, and a grab on it (as
++     GOffice's go_gtk_file_sel_dialog adds) would take every event from
++     the box; the box has its own grab when the dialogue is modal */
++  if (g_object_get_data (G_OBJECT (widget), "riscos-gtk-box"))
++    return;
++#endif
++
+   if (!gtk_widget_has_grab (widget) && gtk_widget_is_sensitive (widget))
+     {
+       _gtk_widget_set_has_grab (widget, TRUE);
 --- a/gtk/gtkmenu.c	2024-01-24 01:14:34.000000000 +0000
 +++ b/gtk/gtkmenu.c	2026-10-04 21:30:18.388210327 +0100
 @@ -116,6 +116,9 @@
@@ -828,7 +844,22 @@ diff -ruN a/gtk/gtkiconhelper.c b/gtk/gtkiconhelper.c
 diff -ruN a/gdk/gdkwindow.c b/gdk/gdkwindow.c
 --- a/gdk/gdkwindow.c
 +++ b/gdk/gdkwindow.c
-@@ -2963,6 +2963,13 @@
+@@ -1857,6 +1857,14 @@
+     /* Already has an impl, and its not offscreen . */
+     return TRUE;
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: a native window is a Wimp window, and only top-level
++     windows are: a child window stays drawn by GDK in its top-level's
++     (GOffice's canvas widgets ask for native ones through
++     gdk_window_set_composited). */
++  return FALSE;
++#endif
++
+   /* Need to create a native window */
+ 
+   screen = gdk_window_get_screen (window);
+@@ -2963,6 +2971,13 @@
    surface_content = gdk_window_get_content (window);
  
    window->current_paint.use_gl = window->impl_window->gl_paint_context != NULL;
@@ -842,3 +873,15 @@ diff -ruN a/gdk/gdkwindow.c b/gdk/gdkwindow.c
  
    if (window->current_paint.use_gl)
      {
+@@ -7442,8 +7457,11 @@
+ G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+   if (composited && (!gdk_display_supports_composite (display) || !impl_class->set_composited))
+     {
++#ifndef GDK_WINDOWING_RISCOS
++      /* riscos-gtk: not said every time GOffice shows a sheet widget */
+       g_warning ("gdk_window_set_composited called but "
+                  "compositing is not supported");
++#endif
+       return;
+     }
+ G_GNUC_END_IGNORE_DEPRECATIONS

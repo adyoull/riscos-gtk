@@ -69,6 +69,8 @@ python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.
 # XDG_DATA_DIRS = the app's share directory
 mkdir -p "$HA/share/glib-2.0/schemas"
 glib-compile-schemas --strict --targetdir="$HA/share/glib-2.0/schemas" "$STAGE/share/glib-2.0/schemas"
+# the MIME database, as build-app.sh adds
+"$REPO_DIR/build/mkmime.sh" "$HA/share/mime"
 
 # The devkit's template program (sdk/template/hello.c) on the fake Wimp
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -I"$REPO_DIR/sdk/include" \

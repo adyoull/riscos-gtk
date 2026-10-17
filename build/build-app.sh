@@ -77,6 +77,8 @@ python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.
 # XDG_DATA_DIRS = the app's share directory
 mkdir -p "$A/share/glib-2.0/schemas"
 glib-compile-schemas --strict --targetdir="$A/share/glib-2.0/schemas" "$STAGE/share/glib-2.0/schemas"
+# the MIME database: file types from names (build/mkmime.sh)
+"$REPO_DIR/build/mkmime.sh" "$A/share/mime"
 rm -f "$OUT/$NAME-$VERSION.zip"
 python3 "$RCD_DIR/package/rozip.py" "$OUT/$NAME-$VERSION.zip" -C "$OUT" "!$NAME"
 ls -la "$A/$PROG,ff8"

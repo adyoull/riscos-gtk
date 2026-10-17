@@ -604,6 +604,43 @@ that SDL2, freeglut and the games already use.
   It now lists freedesktop's standard ones (16 to 512, each context) as
   hicolor-icon-theme does; every program gets it at packaging.
 
+## File names are Latin-1 (2026-10-17)
+- RISC OS file names are in the desktop's alphabet (Latin-1: a hard space
+  is &A0), and UnixLib passes their bytes through. GLib assumed UTF-8, so
+  such names were invalid text wherever a program showed them (GTK
+  labels warned "Invalid input string"). GLib's patch makes
+  `g_get_filename_charsets` give ISO-8859-1, then UTF-8, on RISC OS:
+  `g_filename_to_utf8`, `g_filename_display_name` and GTK's file
+  choosers convert, through UnixLib's iconv (the Iconv module).
+  `G_FILENAME_ENCODING` still overrides it. A name a program wrote in
+  UTF-8 shows as the Filer shows it.
+
+## No grab for a dialogue shown as a RISC OS box (2026-10-17)
+- A GtkFileChooserDialog is shown as a RISC OS Save or Open box and
+  stays hidden. GOffice (and other code) calls `gtk_grab_add` on the
+  dialogue after showing it, which sent every event to the hidden
+  dialogue: the box's buttons did nothing. `gtk_grab_add` ignores a
+  widget that has a box open (`riscos-gtk-box`); the box window has GTK's
+  modal grab itself when the dialogue is modal.
+
+## Native child windows stay client-side (2026-10-17)
+- The RISC OS GDK's native windows are Wimp windows, top-level only (as
+  Broadway's). `gdk_window_ensure_native` on a child window (GOffice's
+  sheet widgets, through `gdk_window_set_composited`) reached the
+  backend's assertion. It now returns FALSE on RISC OS, as for offscreen
+  windows, and the child stays drawn in its top-level.
+
+## Every application carries the MIME database (2026-10-17)
+- GIO's content types come from shared-mime-info's database in
+  `XDG_DATA_DIRS`; without it every file was `application/octet-stream`
+  (Gnumeric ignored dropped spreadsheets; file chooser filters by type
+  matched nothing). `build/mkmime.sh` builds it from shared-mime-info 2.4
+  with the build machine's `update-mime-database`, and packaging adds
+  `share/mime` (about 170 KB): globs, magic, aliases, subclasses. No
+  `mime.cache`: GLib's xdgmime would mmap it, which on RISC OS makes a
+  dynamic area. RISC OS file types aren't used yet (a name without an
+  extension is still octet-stream).
+
 ## The heap stays in the WimpSlot (2026-10-13)
 - **Checked:** none of the programs sets `__dynamic_da_name`,
   `__dynamic_da_max_size` or `__dynamic_no_da` (nm on each ELF), and

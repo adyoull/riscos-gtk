@@ -77,6 +77,36 @@ diff -ruN a/gio/gunixmounts.c b/gio/gunixmounts.c
  /* Common code {{{2 */
  #else
  #error No g_get_mount_table() implementation for system
+diff -ruN a/glib/gconvert.c b/glib/gconvert.c
+--- a/glib/gconvert.c
++++ b/glib/gconvert.c
+@@ -1121,6 +1121,18 @@
+ 	  cache->is_utf8 = g_get_charset (&new_charset);
+ 	  cache->filename_charsets[0] = g_strdup (new_charset);
+ 	}
++#ifdef __riscos__
++      else
++	{
++	  /* riscos-gtk: RISC OS file names are in the desktop's alphabet,
++	     Latin-1 (a hard space is &A0), not UTF-8; then UTF-8 for
++	     display, for names a program wrote in UTF-8 */
++	  cache->filename_charsets = g_new0 (gchar *, 3);
++	  cache->is_utf8 = FALSE;
++	  cache->filename_charsets[0] = g_strdup ("ISO-8859-1");
++	  cache->filename_charsets[1] = g_strdup ("UTF-8");
++	}
++#else
+       else 
+ 	{
+ 	  cache->filename_charsets = g_new0 (gchar *, 3);
+@@ -1129,6 +1141,7 @@
+ 	  if (!g_get_charset (&new_charset))
+ 	    cache->filename_charsets[1] = g_strdup (new_charset);
+ 	}
++#endif
+     }
+ 
+   if (filename_charsets)
 diff -ruN a/glib/gmain.c b/glib/gmain.c
 --- a/glib/gmain.c	2024-03-07 21:35:05.000000000 +0000
 +++ b/glib/gmain.c	2026-10-11 17:08:24.113442398 +0100
@@ -200,10 +230,9 @@ diff -ruN a/glib/gspawn.c b/glib/gspawn.c
    return fork_exec (!(flags & G_SPAWN_DO_NOT_REAP_CHILD),
                      working_directory,
                      (const gchar * const *) argv,
-diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
---- a/gmodule/gmodule.c	2024-03-07 21:35:05.000000000 +0000
-+++ b/gmodule/gmodule.c	2026-10-17 16:27:49.402314269 +0100
-@@ -151,6 +151,12 @@
+--- a/gmodule/gmodule.c	2026-10-17 17:43:34.463723716 +0100
++++ b/gmodule/gmodule.c	2026-10-17 17:43:34.466333576 +0100
+@@ -151,6 +151,13 @@
  };
  
  
@@ -212,11 +241,12 @@ diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
 +#define _g_module_open    _g_module_open_platform
 +#define _g_module_close   _g_module_close_platform
 +#define _g_module_symbol  _g_module_symbol_platform
++#define _g_module_self    _g_module_self_platform
 +
  /* --- prototypes --- */
  static gpointer _g_module_open (const gchar  *file_name,
                                  gboolean      bind_lazy,
-@@ -275,6 +281,132 @@
+@@ -275,6 +282,148 @@
  }
  #endif	/* no implementation */
  
@@ -230,6 +260,7 @@ diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
 +#undef _g_module_open
 +#undef _g_module_close
 +#undef _g_module_symbol
++#undef _g_module_self
 +
 +typedef struct
 +{
@@ -283,11 +314,18 @@ diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
 +  return NULL;
 +}
 +
++/* the program itself, g_module_open (NULL), where the platform can't
++   open it: no symbols, so lookups in it fail without criticals */
++static const GModuleStaticSymbol self_symbols[] = { { NULL, NULL } };
++static GModuleStatic self_module = { (gchar *) "", self_symbols };
++
 +static gboolean
 +static_module_is (gpointer handle)
 +{
 +  gsize i;
 +
++  if (handle == &self_module)
++    return TRUE;
 +  for (i = 0; static_modules && i < static_modules->len; i++)
 +    if (static_modules->pdata[i] == handle)
 +      return TRUE;
@@ -308,6 +346,14 @@ diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
 +      return sm;
 +    }
 +  return _g_module_open_platform (file_name, bind_lazy, bind_local, error);
++}
++
++static gpointer
++_g_module_self (void)
++{
++  gpointer handle = _g_module_self_platform ();
++
++  return handle ? handle : &self_module;
 +}
 +
 +static void

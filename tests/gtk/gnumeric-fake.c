@@ -8,6 +8,9 @@
  *   - the workbook saves as .xlsx (the excel plugin) and .ods
  *     (openoffice), and the .xlsx opens again with its values;
  *   - a bar chart plot comes from GOffice's plot_barcol plugin;
+ *   - a sheet with a check box on it scrolls; file types are known from
+ *     names; a file dialogue with a grab on it (File > Open) leaves the
+ *     grab with the RISC OS Open box;
  *   - closing the window quits.
  *   gnumeric-fake APPDIR OUTDIR
  * APPDIR is the packaged !Gnumeric's folders (lib/plugins, goffice/lib/
@@ -23,6 +26,10 @@
 #include <workbook-control.h>
 #include <wbc-gtk.h>
 #include <sheet.h>
+#include <sheet-object.h>
+#include <sheet-object-widget.h>
+#include <sheet-control-gui.h>
+#include <ranges.h>
 #include <cell.h>
 #include <value.h>
 #include <command-context-stderr.h>
@@ -39,6 +46,7 @@ int riscos_gnumeric_main (int argc, char **argv);
 static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, avg_ok, concat_ok, round_ok, xlsx_saved, ods_saved, reopened_ok, plot_ok;
+static int scrolled_ok, mime_ok, grab_ok, files_done;
 
 static void
 check (int ok, const char *name)
@@ -102,6 +110,19 @@ do_cells (gpointer d)
   sheet_cell_set_text (sheet_cell_fetch (sheet, 1, 0), "=CONCATENATE(\"Risc\",\"OS\")", NULL);
   sheet_cell_set_text (sheet_cell_fetch (sheet, 1, 1), "=ROUND(2.675,1)", NULL);
   workbook_recalc (wb);
+  {
+    /* a check box on the sheet: GOffice draws sheet widgets through an
+       offscreen box, which asked GDK for a native child window when the
+       sheet scrolled (an assertion in the RISC OS GDK) */
+    SheetObject *so = g_object_new (sheet_widget_checkbox_get_type (), NULL);
+    SheetObjectAnchor anchor;
+    GnmRange r;
+    range_init (&r, 2, 30, 3, 31);
+    sheet_object_anchor_init (&anchor, &r, NULL, GOD_ANCHOR_DIR_DOWN_RIGHT, GNM_SO_ANCHOR_TWO_CELLS);
+    sheet_object_set_anchor (so, &anchor);
+    sheet_object_set_sheet (so, sheet);
+    g_object_unref (so);
+  }
   v = cell_value (sheet, 0, 3);
   avg_ok = v && VALUE_IS_FLOAT (v) && value_get_as_float (v) == 3;
   v = cell_value (sheet, 1, 0);
@@ -164,11 +185,50 @@ do_files (gpointer d)
   g_free (path);
 
   {
+    /* scroll so the check box comes into view, then back */
+    SheetControlGUI *scg = wbcg_cur_scg (wbcg);
+    scg_set_top_row (scg, 20);
+    while (gtk_events_pending ())
+      gtk_main_iteration ();
+    scg_set_top_row (scg, 0);
+    while (gtk_events_pending ())
+      gtk_main_iteration ();
+    scrolled_ok = 1;          /* (an assertion would have stopped it) */
+  }
+  {
+    /* GIO knows file types from names (the application's share/mime) */
+    char *t1 = g_content_type_guess ("Job Tracker.xlsx", NULL, 0, NULL);
+    char *t2 = g_content_type_guess ("x.ods", NULL, 0, NULL);
+    printf ("# types: %s, %s\n", t1, t2);
+    mime_ok = strcmp (t1, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") == 0 &&
+              strcmp (t2, "application/vnd.oasis.opendocument.spreadsheet") == 0;
+    g_free (t1);
+    g_free (t2);
+  }
+  {
+    /* File > Open's way (GOffice's go_gtk_file_sel_dialog): show the
+       dialogue, then a grab on it. It is shown as a RISC OS Open box and
+       stays hidden: the grab must not go to it, or the box gets no
+       clicks */
+    GtkWidget *d = gtk_file_chooser_dialog_new ("Open", wbcg_toplevel (wbcg),
+                                                GTK_FILE_CHOOSER_ACTION_OPEN,
+                                                "_Cancel", GTK_RESPONSE_CANCEL,
+                                                "_Open", GTK_RESPONSE_OK, NULL);
+    gtk_window_set_modal (GTK_WINDOW (d), TRUE);
+    gtk_widget_show (d);
+    gtk_grab_add (d);
+    printf ("# grab: %s\n", gtk_grab_get_current () ? G_OBJECT_TYPE_NAME (gtk_grab_get_current ()) : "none");
+    grab_ok = gtk_grab_get_current () != d && !gtk_widget_get_mapped (d);
+    gtk_grab_remove (d);
+    gtk_widget_destroy (d);
+  }
+  {
     GogPlot *plot = gog_plot_new_by_name ("GogBarColPlot");
     plot_ok = plot != NULL;
     if (plot)
       g_object_unref (plot);
   }
+  files_done = 1;
   return G_SOURCE_REMOVE;
 }
 
@@ -249,6 +309,13 @@ hook (int reason)
       nulls (10);
       break;
     case 2:
+      /* reading and saving files lets the desktop run (progress), so this
+         comes back before do_files has finished */
+      if (!files_done)
+        {
+          nulls (5);
+          break;
+        }
       {
         Workbook *wb = wb_control_get_workbook (GNM_WBC (first_wbcg ()));
         go_doc_set_dirty (GO_DOC (wb), FALSE);      /* no "save changes?" */
@@ -288,6 +355,9 @@ main (int argc, char **argv)
   check (xlsx_saved, "saved as .xlsx (the excel plugin)");
   check (reopened_ok, "the .xlsx opens again with A4 = 3");
   check (plot_ok, "a bar chart plot (GOffice's plot_barcol plugin)");
+  check (scrolled_ok, "scrolling a sheet with a check box on it");
+  check (mime_ok, "file types from names: .xlsx and .ods are spreadsheets");
+  check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");
   check (stage == 3, "closing the window quits Gnumeric");
   printf ("# exit status %d\n", status);
   printf ("1..%d\n", n_tests);

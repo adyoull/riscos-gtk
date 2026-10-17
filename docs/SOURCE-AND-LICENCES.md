@@ -27,6 +27,7 @@ The package also carries some data and modules:
 |---|---|
 | DejaVu fonts | Bitstream Vera / Arev: free; its `Licence` in `fonts/` |
 | Adwaita icons (`share/icons`) | LGPL 3 / CC-BY-SA 3.0 |
+| The MIME database (`share/mime`), from shared-mime-info 2.4 | GPL 2 or later; its `Licence` in `share/mime`; source: shared-mime-info 2.4 (in the source archive's downloads) |
 | The RISCOS theme | MIT |
 | ClawsMail's RISC OS icons (`share/claws-mail/themes/RISCOS`, `!Sprites`), drawn by `tools/mkclawsicons.py` | MIT |
 | PThreadTicker module | Its own `PThreadTicker-Licence` |

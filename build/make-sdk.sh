@@ -13,7 +13,8 @@
 #                     macros and GTK's GSettings schemas: $STAGE without
 #                     the programs and the libraries only ClawsMail uses
 #   share/riscos-gtk/ what riscos-gtk-package puts in an application:
-#                     the RISCOS theme, icons, compiled schemas, DejaVu
+#                     the RISCOS theme, icons, compiled schemas, the MIME
+#                     database (build/mkmime.sh), DejaVu
 #                     fonts, the LGPL and the Source template; and a CMake
 #                     toolchain file
 #   docs/             README, API (the RISC OS functions), PORTING
@@ -90,6 +91,7 @@ ADW=$SRC/adwaita-icon-theme-3.36.1
 [ -d "$ADW" ] || tar -xf "$DL/adwaita-icon-theme_3.36.1.orig.tar.xz" -C "$SRC"
 python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$S/icons"
 glib-compile-schemas --strict --targetdir="$S/schemas" "$STAGE/share/glib-2.0/schemas"
+"$REPO_DIR/build/mkmime.sh" "$S/mime"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf' \
   'dejavu-fonts-ttf-2.37/LICENSE' -d "$S/fonts"
 mv "$S/fonts/LICENSE" "$S/fonts/Licence,fff"

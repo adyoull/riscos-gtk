@@ -33,3 +33,26 @@ diff -ruN a/src/gutils.c b/src/gutils.c
  #endif
  	home_dir = g_get_home_dir ();
  	gnumeric_usr_dir_unversioned = home_dir
+diff -ruN a/src/sheet-control-gui.c b/src/sheet-control-gui.c
+--- a/src/sheet-control-gui.c
++++ b/src/sheet-control-gui.c
+@@ -4185,7 +4185,18 @@
+ 			 !strcmp (mime, "text/tab-separated-values") ||
+ 			 !strcmp (mime, "text/x-comma-separated-values") ||
+ 			 !strcmp (mime, "text/html") ||
+-			 !strcmp (mime, "text/plain")) {
++			 !strcmp (mime, "text/plain")
++#if defined(__riscos__) || defined(GNM_RISCOS_UI)
++			 /* RISC OS port: Excel 2007 and later, CSV, and names
++			    with no known type (RISC OS files often have no
++			    extension: the file's own format is found when it
++			    is read) */
++			 || !strncmp (mime, "application/vnd.openxmlformats-officedocument.spreadsheetml.", 60)
++			 || !strcmp (mime, "application/vnd.ms-excel.sheet.macroEnabled.12")
++			 || !strcmp (mime, "text/csv")
++			 || !strcmp (mime, "application/octet-stream")
++#endif
++			 ) {
+ 			scg_drag_receive_spreadsheet (scg, uri_str);
+ 		} else {
+ 			g_printerr ("Received URI %s with mime type %s.\n", uri_str, mime);

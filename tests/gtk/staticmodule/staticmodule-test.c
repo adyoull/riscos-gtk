@@ -4,7 +4,8 @@
  * plugins defining the same names (go_plugin_init, go_plugin_header,
  * helper_value) linked into one program, each found by g_module_open() of
  * a path ending in its name, with or without a suffix; a missing symbol
- * and an unregistered module fail. Prints TAP. MIT licence.
+ * and an unregistered module fail; g_module_open (NULL) gives the program.
+ * Prints TAP. MIT licence.
  */
 #include <gmodule.h>
 #include <stdio.h>
@@ -49,6 +50,12 @@ main (void)
   none = g_module_open ("/apps/!Prog/plugins/plug-c/plugin", G_MODULE_BIND_LAZY);
   check (none == NULL, "a module that isn't built in doesn't open");
   check (g_module_open ("/x/myplug-a/plugin", 0) == NULL, "the name matches whole path parts only");
+  {
+    GModule *self = g_module_open (NULL, 0);
+    gpointer f = (gpointer) 1;
+    check (self && !g_module_symbol (self, "no_such_symbol_here", &f) && f == NULL && g_module_close (self),
+           "the program itself opens (as GTK asks), and a missing symbol isn't found");
+  }
   if (a2)
     g_module_close (a2);
   check (a && g_module_close (a) && b && g_module_close (b), "built-in modules close");

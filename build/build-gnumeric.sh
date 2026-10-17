@@ -162,7 +162,7 @@ GN_LIBS="$GN/src/io-context-gtk.o $(cat "$ST.archives") $SRC/libspreadsheet.a"
 GN_CFLAGS="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
 GN_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0) -lm"
 # ---- !Gnumeric ----
-VERSION=${VERSION:-1.12.57-riscos1}
+VERSION=${VERSION:-1.12.57-riscos2}
 APP=$SRC/gnumeric-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/gnumeric/app" "$APP"
 # the plugins' descriptions (what each built-in module provides), in the

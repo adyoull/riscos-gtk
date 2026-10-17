@@ -35,6 +35,7 @@ or adapted from other projects keep their original licence, listed below.
 | `patches/goffice-0.10.57-riscos.diff` | Changes to [GOffice](https://gitlab.gnome.org/GNOME/goffice) 0.10.57 (the GOffice developers) | GPL version 2 or 3, as GOffice |
 | libxml2 2.9.14, libxslt 1.1.39 (built by `build/build-gnumeric.sh`, linked into !Gnumeric; not in this repository) | [libxml2, libxslt](https://gitlab.gnome.org/GNOME/libxml2), Daniel Veillard and others | MIT |
 | libgsf 1.14.51 (built by `build/build-gnumeric.sh`, linked into !Gnumeric; not in this repository) | [libgsf](https://gitlab.gnome.org/GNOME/libgsf), the GNOME project | LGPL version 2.1 |
+| The apps' `share/mime` (made by `build/mkmime.sh`, MIT, from shared-mime-info 2.4's `freedesktop.org.xml`; not otherwise in this repository) | [shared-mime-info](https://gitlab.freedesktop.org/xdg/shared-mime-info), freedesktop.org (its COPYING goes with it as `Licence`) | GPL version 2 or later |
 | `riscos/rsvg-stub/*` (a stand-in for librsvg's API), `tools/mkstaticmodules.py`, `tools/mkgnumericsprites.py`, `tests/gtk/gnumeric-fake.c`, `tests/gtk/staticmodule/*` | Written for riscos-gtk | MIT |
 | The GLib patch's static module registry (`g_module_register_static`, in `gmodule/`) | Written for riscos-gtk; part of GLib | LGPL version 2.1 or later, as GLib |
 | `gdk/riscos/gdkglcontext-riscos.c`, `.h` | Written for riscos-gtk, based on GTK's `gdk/wayland/gdkglcontext-wayland.c`; part of GTK's backend | LGPL version 2.1 or later |

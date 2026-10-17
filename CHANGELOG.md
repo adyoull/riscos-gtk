@@ -1,6 +1,33 @@
 # Changelog
 
 ## Since RC6
+- **Gnumeric 1.12.57-riscos2 (test build): File > Open works, and
+  scrolling past a sheet's controls no longer stops it.** From the first
+  Pi run (riscos1):
+  - **Open and Save boxes took no clicks.** GOffice shows its file
+    dialogue and then adds a grab to it; the dialogue is shown as a RISC
+    OS box and stays hidden, so every event went to it. GTK now gives no
+    grab to a dialogue shown as a box (`gtk/gtkmain.c`); the box has its
+    own when it's modal. Affects any program that does the same.
+  - **It stopped when the sheet scrolled** past a check box, button or
+    list on it: GOffice draws them through an offscreen box that asks for
+    a native child window, which the RISC OS GDK can't make (an
+    assertion). GDK now keeps such windows drawn in their top-level
+    (`gdk_window_ensure_native`, `gdk/gdkwindow.c`).
+  - **A spreadsheet dropped on its window wasn't opened:** every file's
+    type was `application/octet-stream`, as no program carried the MIME
+    database. Every application now has `share/mime` (shared-mime-info
+    2.4's names and magic, `build/mkmime.sh`), so GIO knows types from
+    names, for all programs. Gnumeric also takes .xlsx, CSV and files of
+    unknown type dropped on it.
+  - **File names with characters beyond ASCII** (a hard space) showed as
+    invalid text: GLib now takes RISC OS file names as Latin-1, not
+    UTF-8 (`g_get_filename_charsets`; `G_FILENAME_ENCODING` overrides),
+    and GOffice converts a file's name for display.
+  - `g_module_open (NULL)` (the program itself, as GTK asks) gives a
+    module with no symbols instead of NULL, so no criticals at start.
+  - Test `gnumeric-fake`: 12 checks (scrolling with a check box, file
+    types, the grab).
 - **Gnumeric 1.12.57-riscos1 (new), a test build.** The spreadsheet, with
   GOffice 0.10.57 for its charts and libgsf 1.14.51, libxml2 2.9.14 and
   libxslt 1.1.39 for its files (`build/build-gnumeric.sh`, `make gnumeric`).

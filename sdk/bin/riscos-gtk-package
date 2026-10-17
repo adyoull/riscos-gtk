@@ -83,6 +83,7 @@ cp "$D/fonts/Licence,fff" "$A/fonts/"
 # the application's share directory; see riscos-gtk/app.h)
 cp -r "$D/theme/gtk-3.0" "$A/share/themes/RISCOS/"
 cp -r "$D/icons" "$A/share/"
+cp -r "$D/mime" "$A/share/"      # file types from names (GIO)
 if [ -n "${SCHEMAS:-}" ]; then
   # the program's own GSettings schemas, compiled with GTK's (needs the
   # host's glib-compile-schemas)
