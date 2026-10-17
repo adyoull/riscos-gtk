@@ -1,5 +1,20 @@
 # Changelog
 
+## Since RC6
+- **ClawsMail 4.4.0-riscos15: files dragged to a message window are
+  attached or inserted.** Both failed ("Could not get size of the file",
+  "File ///RAM::RamDisc0/$/... doesn't exist"): Claws Mail took the name
+  from a `file:///` URI by removing only `file:`, and UnixLib can't open a
+  name starting `///`. It now drops the URI's `//` and host
+  (`patches/claws-mail-4.4.0-riscos.diff`, `src/common/utils.c`); test in
+  `claws-fake`.
+- **File names in UnixLib's own form.** `gdk_riscos_path_to_unix` and
+  `gdk_riscos_path_from_unix` use UnixLib's `__unixify_std` and
+  `__riscosify_std` on RISC OS, so a dropped or opened file is named as
+  UnixLib names it (`/RAM::RamDisc0.$/Textfile.txt`, not
+  `/RAM::RamDisc0/$/Textfile.txt`; `c.hello` is `hello.c`), and `/tmp` is
+  the scrap directory. The tests' fake RISC OS keeps the simple swap.
+
 ## 3.24.41-riscos1.0-rc6 (2026-10-11)
 Programs: L3afpad 0.8.18.1.11-riscos25, ClawsMail 4.4.0-riscos14, Geany
 2.1-riscos4, mtPaint 3.50.14-riscos4 (new), GTKThemeTest and GTKGLTest

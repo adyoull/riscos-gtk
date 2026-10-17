@@ -44,6 +44,9 @@
 #include "gdkriscoswimp.h"
 
 #include <string.h>
+#ifdef __riscos__
+#include <unixlib/local.h>   /* __unixify_std, __riscosify_std */
+#endif
 #include <kernel.h>
 #include <swis.h>
 
@@ -807,15 +810,25 @@ _gdk_riscos_transfer_drop_done (gboolean success)
  * @riscos_path: a RISC OS file name, e.g. "ADFS::HD4.$.Docs.Report/txt"
  *
  * Returns: (transfer full): the same file as UnixLib names it
- * ("/ADFS::HD4/$/Docs/Report.txt"): '.' and '/' swapped, a '/' in front.
- * UnixLib maps it back when the program opens it.
+ * ("/ADFS::HD4.$/Docs/Report.txt"; "c.hello" is "hello.c"), from
+ * UnixLib's own __unixify_std, so names match the ones UnixLib gives
+ * (getcwd, realpath) and it maps them back when the program opens them.
  */
 char *
 gdk_riscos_path_to_unix (const char *riscos_path)
 {
-  GString *s = g_string_new ("/");
+  GString *s;
   const char *p;
+#ifdef __riscos__
+  char buf[1024];
 
+  if (riscos_path[0] != '/' &&
+      __unixify_std (riscos_path, buf, sizeof buf, __RISCOSIFY_FILETYPE_NOTFOUND) != NULL &&
+      buf[0] != '\0')
+    return g_strdup (buf);
+#endif
+  /* (the fake RISC OS of the tests: '.' and '/' swapped, a '/' in front) */
+  s = g_string_new ("/");
   for (p = riscos_path; *p; p++)
     g_string_append_c (s, *p == '.' ? '/' : *p == '/' ? '.' : *p);
   return g_string_free (s, FALSE);
@@ -823,16 +836,23 @@ gdk_riscos_path_to_unix (const char *riscos_path)
 
 /**
  * gdk_riscos_path_from_unix:
- * @unix_path: a file name as gdk_riscos_path_to_unix gives
+ * @unix_path: a file name as UnixLib (or gdk_riscos_path_to_unix) gives it
  *
- * Returns: (transfer full): the RISC OS file name.
+ * Returns: (transfer full): the RISC OS file name, from UnixLib's own
+ * __riscosify_std ("/tmp/x" is "<Wimp$ScrapDir>.x").
  */
 char *
 gdk_riscos_path_from_unix (const char *unix_path)
 {
-  GString *s = g_string_new (NULL);
+  GString *s;
   const char *p = unix_path[0] == '/' ? unix_path + 1 : unix_path;
+#ifdef __riscos__
+  char buf[1024];
 
+  if (__riscosify_std (unix_path, 0, buf, sizeof buf, NULL) != NULL && buf[0] != '\0')
+    return g_strdup (buf);
+#endif
+  s = g_string_new (NULL);
   for (; *p; p++)
     g_string_append_c (s, *p == '/' ? '.' : *p == '.' ? '/' : *p);
   return g_string_free (s, FALSE);

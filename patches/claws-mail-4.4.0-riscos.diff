@@ -916,8 +916,39 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +#endif /* USE_GNUTLS */
 diff -ruN a/src/common/utils.c b/src/common/utils.c
 --- a/src/common/utils.c	2025-07-15 11:55:19.000000000 +0100
-+++ b/src/common/utils.c	2026-10-09 11:34:32.876238871 +0100
-@@ -2719,8 +2719,16 @@
++++ b/src/common/utils.c	2026-10-17 08:57:44.039918897 +0100
+@@ -1275,14 +1275,27 @@
+ 		     * string which come from Nautilus.
+ 		     */
+ #ifndef G_OS_WIN32
+-					if (g_utf8_validate(file, -1, NULL))
++					{
++					/* "file:" then, for "file://host/path", the
++					 * authority: the path starts at its '/'
++					 * ("file:///RAM::RamDisc0.$/x" is
++					 * "/RAM::RamDisc0.$/x"). Leading "///" is
++					 * harmless on Unix but not to RISC OS's
++					 * UnixLib (riscos-gtk). */
++					const gchar *path = file + 5;
++					if (path[0] == '/' && path[1] == '/') {
++						const gchar *slash = strchr(path + 2, '/');
++						path = slash ? slash : path + 2;
++					}
++					if (g_utf8_validate(path, -1, NULL))
+ 						locale_file
+ 							= conv_codeset_strdup(
+-								file + 5,
++								path,
+ 								CS_UTF_8,
+ 								conv_get_locale_charset_str());
+ 					if (!locale_file)
+-						locale_file = g_strdup(file + 5);
++						locale_file = g_strdup(path);
++					}
+ #else
+ 					locale_file = g_filename_from_uri(escaped_utf8uri, NULL, NULL);
+ #endif
+@@ -2719,8 +2732,16 @@
  }
  #endif
  

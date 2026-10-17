@@ -560,6 +560,27 @@ dump_windows (void)
   g_list_free (tops);
 }
 
+/* Claws Mail's drop handler (common/utils.c): file names from a URI list
+   as GDK gives one (RISC OS names, UnixLib's form): "file:///" and
+   "file://host/" give a path with one leading '/' (UnixLib can't open
+   "///RAM::..."), %-escapes decoded */
+extern GList *uri_list_extract_filenames (const gchar *uri_list);
+
+static int
+drop_names_ok (void)
+{
+  GList *l = uri_list_extract_filenames ("file:///RAM::RamDisc0.$/Textfile.txt\r\n"
+                                         "file://localhost/SDFS::Pi.$/My%20Mail.txt\r\n");
+  int ok = g_list_length (l) == 2 &&
+           g_strcmp0 (l->data, "/RAM::RamDisc0.$/Textfile.txt") == 0 &&
+           g_strcmp0 (l->next->data, "/SDFS::Pi.$/My Mail.txt") == 0;
+  if (!ok)
+    for (GList *i = l; i; i = i->next)
+      printf ("# dropped name: %s\n", (char *) i->data);
+  g_list_free_full (l, g_free);
+  return ok;
+}
+
 static void
 finish (void)
 {
@@ -572,6 +593,7 @@ finish (void)
   g_free (p);
 
   check (start_hidden == 1, "Claws Mail starts on the icon bar: no main window until Select");
+  check (drop_names_ok (), "files dropped on a message: file:/// URIs give UnixLib names with one leading '/'");
   check (main_window_seen && shown_by_select, "Select on the icon bar shows the main window");
   check (password_answers >= 1, "it asks for the POP3 password (answered)");
   check (strstr (server_log, "POP3 RETR 1") != NULL,
