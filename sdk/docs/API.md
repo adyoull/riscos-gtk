@@ -437,6 +437,48 @@ place of yours until it ends):
   as on Unix. `g_spawn_sync()` isn't changed: it runs the program in
   place. `*Set RISCOS_GTK_SPAWN exec` turns all of this off.
 
+## Plugins (GModule)
+
+There is no `dlopen` on RISC OS, so a program's GModule plugins are
+linked into it and registered with GLib (riscos-gtk's GLib):
+
+```c
+#include <gmodule.h>
+
+typedef struct { const gchar *name; gpointer address; } GModuleStaticSymbol;
+void g_module_register_static (const gchar *module_name,
+                               const GModuleStaticSymbol *symbols);
+```
+
+- `symbols` ends with `{ NULL, NULL }` and must stay valid; register
+  before the program looks for its plugins (first thing in `main`).
+- `g_module_open (path, flags)` opens a registered module when `path`
+  ends in `module_name` at a `/` (or is it), after removing `.so`, `.la`,
+  `.dll`, `.dylib` or `.sl`: `fn-math/plugin` is found by
+  `/<Prog$Dir>/lib/plugins/fn-math/plugin.so`. Use enough of the path to
+  be unique. `NULL` (the program itself) works as before.
+- `g_module_symbol()` looks the name up in the module's table;
+  `g_module_close()` does nothing more; `g_module_supported()` is TRUE
+  once anything is registered.
+
+`riscos-gtk-staticmodules` (the devkit's `bin/`; `tools/mkstaticmodules.py`
+in riscos-gtk) makes the tables from the plugins' object files, so the
+plugin source needn't change:
+
+```sh
+riscos-gtk-staticmodules --nm arm-riscos-gnueabihf-nm \
+  --objcopy arm-riscos-gnueabihf-objcopy --ar arm-riscos-gnueabihf-ar \
+  --out build/static fn-math/plugin=fn-math/functions.o \
+  myformat/plugin=myformat/a.o,myformat/b.o
+```
+
+Each module's global symbols are renamed with a prefix of its own (so
+every plugin can define `go_plugin_init`), its objects go into
+`build/static/<prefix>.a`, and `build/static/staticmodules.c` defines
+`riscos_register_static_modules()` (`--register NAME` to rename it),
+which registers them all. It prints the archives: link them and
+`staticmodules.c` with the program.
+
 ## Printing at a lower level
 
 `GtkPrintOperation` is the way to print. GTK's own RISC OS print code

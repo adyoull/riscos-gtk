@@ -1,0 +1,37 @@
+Gnumeric @VERSION@ - the spreadsheet (GTK 3) for RISC OS
+
+Gnumeric 1.12.57 by the Gnumeric developers (GPL version 2 or 3), on GTK
+3 through riscos-gtk's RISC OS backend: hundreds of functions, charts,
+and Excel, OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text
+files.
+
+This is a test build: not everything has been tried on RISC OS yet.
+
+Using it
+- Run it: Gnumeric opens a new workbook and puts its icon on the icon
+  bar. Or drop a spreadsheet on !Gnumeric in a Filer window.
+- The icon bar icon: Select brings Gnumeric's window to the front; Menu
+  gives Info, Choices... (Gnumeric's Preferences) and Quit.
+- Files dropped on the icon bar icon, or CSV files double-clicked in the
+  Filer while Gnumeric is loaded, open in a window of their own.
+- Click Menu over a window for Gnumeric's menus.
+- File > Save As: a RISC OS Save box (the format is chosen from the name,
+  e.g. .xlsx, .ods, .csv, .gnumeric); File > Open: an Open box.
+- Gnumeric's settings are kept in <Choices$Write>.Gnumeric.
+
+Not in this build: Python and Perl functions and plugins, databases
+(GDA), the external linear solvers (glpk, lp_solve), SVG pictures, help.
+
+Messages
+Gnumeric's messages go to <Wimp$ScrapDir>.Gnumeric.Log.
+
+Needs
+RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
+Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
+(PackMan). PThreadTicker is included.
+
+Licences
+Gnumeric and GOffice: GPL version 2 or 3 (Licence). GTK, GLib and the
+other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
+libxslt: MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
+Source.

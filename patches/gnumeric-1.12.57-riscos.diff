@@ -1,0 +1,35 @@
+diff -ruN a/src/gutils.c b/src/gutils.c
+--- a/src/gutils.c	2024-01-19 21:48:19.000000000 +0000
++++ b/src/gutils.c	2026-10-17 16:36:22.222870553 +0100
+@@ -119,11 +119,28 @@
+ 		g_free (top_builddir);
+ 	}
+ 
++#if defined __riscos__ || defined GNM_RISCOS_UI
++	/* riscos-gtk: Gnumeric's files (plugins, templates) are in its
++	 * application directory: GNUMERIC_DIR, else /<Gnumeric$Dir> (set by
++	 * !Run; UnixLib reads the variable) */
++	if (!gnumeric_lib_dir) {
++		char const *dir = g_getenv ("GNUMERIC_DIR");
++		if (dir == NULL)
++			dir = "/<Gnumeric$Dir>";
++		gnumeric_lib_dir = g_build_filename (dir, "lib", NULL);
++		gnumeric_data_dir = g_build_filename (dir, "share", NULL);
++		gnumeric_locale_dir = g_build_filename (dir, "locale", NULL);
++		gnumeric_extern_plugin_dir = g_build_filename (dir, "lib", "extern-plugins", NULL);
++	}
++#endif
+ 	if (!gnumeric_lib_dir)
+ 		gnumeric_lib_dir = g_strdup (GNUMERIC_LIBDIR);
+-	gnumeric_data_dir = g_strdup (GNUMERIC_DATADIR);
+-	gnumeric_locale_dir = g_strdup (GNUMERIC_LOCALEDIR);
+-	gnumeric_extern_plugin_dir = g_strdup (GNUMERIC_EXTERNPLUGINDIR);
++	if (!gnumeric_data_dir)
++		gnumeric_data_dir = g_strdup (GNUMERIC_DATADIR);
++	if (!gnumeric_locale_dir)
++		gnumeric_locale_dir = g_strdup (GNUMERIC_LOCALEDIR);
++	if (!gnumeric_extern_plugin_dir)
++		gnumeric_extern_plugin_dir = g_strdup (GNUMERIC_EXTERNPLUGINDIR);
+ #endif
+ 	home_dir = g_get_home_dir ();
+ 	gnumeric_usr_dir_unversioned = home_dir

@@ -77,8 +77,11 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   icon bar code keeps one copy of a program running.
 - **No dynamic loading.** Everything is linked statically and `dlopen`
   isn't there. So:
-  - **GModule plug-ins** must be linked in; Claws Mail's LiteHTML viewer
-    is.
+  - **GModule plug-ins** must be linked in. Register them with
+    `g_module_register_static()` and `g_module_open()` finds them by
+    name; `riscos-gtk-staticmodules` builds the tables from the plugins'
+    objects (API.md, "Plugins"). Gnumeric's are done this way; Claws
+    Mail's LiteHTML viewer is linked in by hand.
   - **GtkBuilder can't look up `my_widget_get_type`** by name. Call
     `g_type_ensure (MY_TYPE_WIDGET)` for each of your own types used in
     a `.ui` file before loading it.
@@ -253,6 +256,28 @@ has its own configure script:
   own needs the same.
 - **Buttons:** it paints with the right button; on RISC OS that's Adjust,
   and it leaves Menu to riscos-gtk.
+
+**Gnumeric** (1.12.57: riscos-gtk's `!Gnumeric`, `build/build-gnumeric.sh`)
+needs libxml2, libxslt, libgsf and GOffice first, all built static:
+
+- **Plugins:** 34 plugins, and GOffice's 9, each a GModule found through its
+  `plugin.xml`. They are compiled as usual, then `mkstaticmodules.py`
+  (the devkit's `riscos-gtk-staticmodules`)
+  renames and registers them (the module name is the plugin's folder and
+  the `module_file` from `plugin.xml`), and the `plugin.xml` files go in
+  the application where Gnumeric looks for them.
+- **libtool:** its links fail on the toolchain's `.la` files (above), so
+  the libraries are archived from make's objects with `ar`, and
+  Gnumeric's `main()` is renamed with `objcopy --redefine-sym` so a RISC
+  OS one can run first.
+- **UnixLib:** no `frexpl` (`-Dfrexpl=frexp`, as there's no long double
+  support configured anyway: `--without-long-double`).
+- **Build tools:** `glib-compile-resources` and `itstool` must be the
+  build machine's (`make GLIB_COMPILE_RESOURCES=glib-compile-resources`,
+  `ITSTOOL=true`).
+- **librsvg** is Rust: a small stand-in that fails to load SVGs.
+- **Its data:** Gnumeric's and GOffice's directories come from
+  `<Gnumeric$Dir>` and `<GOffice$Dir>`, a few lines in each.
 
 ## Licences
 

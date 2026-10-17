@@ -1,0 +1,4 @@
+| !Boot for !Gnumeric
+IconSprites <Obey$Dir>.!Sprites
+Set Gnumeric$Dir <Obey$Dir>
+Set GOffice$Dir <Gnumeric$Dir>.goffice

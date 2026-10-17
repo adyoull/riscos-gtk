@@ -108,12 +108,22 @@ def main():
             size = rel.split("/")[0].split("x")[0]
             if size.isdigit():
                 own.append((rel, int(size)))
-    own.sort()
+    # and hicolor's standard folders (freedesktop's hicolor-icon-theme):
+    # GTK looks for icons a program adds from its resources
+    # (gtk_icon_theme_add_resource_path, e.g. Gnumeric's toolbar icons) as
+    # part of hicolor, only in folders hicolor's index.theme lists
+    contexts = {"actions": "Actions", "apps": "Applications", "categories": "Categories",
+                "devices": "Devices", "emblems": "Emblems", "emotes": "Emotes",
+                "mimetypes": "MimeTypes", "places": "Places", "status": "Status"}
+    std = [("%dx%d/%s" % (n, n, c), n) for n in (16, 22, 24, 32, 48, 64, 96, 128, 256, 512)
+           for c in sorted(contexts)]
+    dirs_all = sorted(set(own) | set(std), key=lambda d: (d[1], d[0]))
     with open(os.path.join(hic, "index.theme"), "w") as f:
         f.write("[Icon Theme]\nName=Hicolor\nComment=Fallback icon theme\nHidden=true\nDirectories=%s\n\n"
-                % ",".join(r for r, _ in own))
-        for rel, size in own:
-            f.write("[%s]\nSize=%d\nContext=Applications\nType=Fixed\n\n" % (rel, size))
+                % ",".join(r for r, _ in dirs_all))
+        for rel, size in dirs_all:
+            ctx = contexts.get(rel.split("/")[-1], "Applications")
+            f.write("[%s]\nSize=%d\nContext=%s\nType=Fixed\n\n" % (rel, size, ctx))
     print("mkicons: %d of %d names, %d directories%s" % (
         found, len(names), len(dirs), ("; not in Adwaita: " + " ".join(missing)) if missing else ""))
     if "image-missing" in missing:

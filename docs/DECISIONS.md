@@ -562,6 +562,48 @@ that SDL2, freeglut and the games already use.
 - **Fallback:** no icon bar icons to read: each filing system whose
   `<FS>:$` canonicalises.
 
+## Linked-in GModule plugins: a registry in GLib (2026-10-17)
+- **Problem:** Gnumeric and GOffice find their plugins (function
+  libraries, file formats, chart types) by reading `plugin.xml` files and
+  then `g_module_open()` the module the file names. RISC OS has no
+  `dlopen`, so none loaded: no functions beyond the core, no .xlsx.
+- **Choice:** keep the programs' plugin code unchanged and give GLib a
+  table of modules linked into the program:
+  `g_module_register_static (name, symbols)`. `g_module_open()` checks it
+  before the platform: a path matches if it ends in the name at a `/`,
+  after removing `.so`, `.la`, `.dll`, `.dylib` or `.sl`, so
+  `/<Gnumeric$Dir>/lib/plugins/fn-math/plugin.so` finds `fn-math/plugin`.
+  `g_module_symbol()` looks the symbol up in the module's table;
+  `g_module_supported()` is true when anything is registered.
+- **Name clashes:** every plugin defines `go_plugin_init`,
+  `go_plugin_header` and often the same helpers.
+  `tools/mkstaticmodules.py` renames each module's global symbols with
+  `objcopy --redefine-syms` (prefix `smod_<name>__`), which also renames
+  the references between that module's own objects, and writes the
+  tables with the original names. Nothing in the plugins' source changes.
+- **Rejected:** editing each plugin to register itself (dozens of
+  patches, redone for every program); a fake `dlopen` in UnixLib (the
+  symbol clash remains, and it would need the same tables).
+- **Plugins left out of Gnumeric:** those needing Python, Perl, GDA,
+  psiconv, Paradox, GLPK or lp_solve, the sample and hello plugins, and
+  `excelplugins` (it loads Windows XLL files); GOffice's `lasem` (no
+  lasem library). 34 of Gnumeric's plugins and 9 of GOffice's are in.
+
+## SVG: a stand-in for librsvg (2026-10-17)
+- GOffice uses librsvg for SVG pictures in charts and images. librsvg has
+  been Rust since 2.42, and there's no Rust for RISC OS. `riscos/rsvg-stub`
+  gives the few calls GOffice makes: loading always fails with "SVG
+  pictures can't be shown on RISC OS yet", the rest do nothing.
+
+## hicolor lists its standard folders (2026-10-17)
+- GTK puts icons added with `gtk_icon_theme_add_resource_path()` into the
+  hicolor theme, and looks for them only in the folders hicolor's
+  `index.theme` lists. The `index.theme` that `build/mkicons.py` writes
+  listed only the program's own folders, so Gnumeric's toolbar icons
+  (and GOffice's combo pictures, which then gave criticals) weren't found.
+  It now lists freedesktop's standard ones (16 to 512, each context) as
+  hicolor-icon-theme does; every program gets it at packaging.
+
 ## The heap stays in the WimpSlot (2026-10-13)
 - **Checked:** none of the programs sets `__dynamic_da_name`,
   `__dynamic_da_max_size` or `__dynamic_no_da` (nm on each ELF), and

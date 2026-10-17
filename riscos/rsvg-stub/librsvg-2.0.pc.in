@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: librsvg (riscos-gtk stand-in)
+Description: librsvg's calls, loading nothing (SVG isn't supported)
+Version: 2.40.99
+Requires: glib-2.0 gobject-2.0 gdk-pixbuf-2.0 cairo
+Libs: -L${libdir} -lrsvg-2
+Cflags: -I${includedir}/librsvg-2.0

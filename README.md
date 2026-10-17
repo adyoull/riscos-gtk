@@ -23,7 +23,8 @@ Two real programs come with it: **!L3afpad**, a text editor, and
 **!ClawsMail**, an email client (POP3, IMAP and SMTP, with TLS through
 AcornSSL; HTML mail; links open in Iris or NetSurf). **!Geany**, the
 programmer's editor (Geany 2.1), is a demo of a large program built
-against the devkit, and **!mtPaint** a painting program (mtPaint 3.50.14). **!GTKThemeTest** shows every common widget, and
+against the devkit, **!mtPaint** a painting program (mtPaint 3.50.14), and
+**!Gnumeric** a spreadsheet (Gnumeric 1.12.57, a test build). **!GTKThemeTest** shows every common widget, and
 **!GTKGLTest** a GtkGLArea.
 
 - What RC6 contains, requirements, known issues and how to report problems:
@@ -54,7 +55,7 @@ git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
 cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
-make l3afpad claws themetest geany mtpaint  # the programs, in out/
+make l3afpad claws themetest geany mtpaint gnumeric  # the programs, in out/
 make release RELEASE=3.24.41-riscos1.0-rc6    # programs + devkit + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```

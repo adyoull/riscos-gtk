@@ -1,6 +1,36 @@
 # Changelog
 
 ## Since RC6
+- **Gnumeric 1.12.57-riscos1 (new), a test build.** The spreadsheet, with
+  GOffice 0.10.57 for its charts and libgsf 1.14.51, libxml2 2.9.14 and
+  libxslt 1.1.39 for its files (`build/build-gnumeric.sh`, `make gnumeric`).
+  - Its plugins (functions, file formats, chart types: 34 of Gnumeric's,
+    GOffice's 9) are linked in and found through GLib's new static
+    module registry, below.
+  - Gnumeric's and GOffice's files come from `/<Gnumeric$Dir>` and
+    `/<GOffice$Dir>` (`patches/gnumeric-1.12.57-riscos.diff`,
+    `patches/goffice-0.10.57-riscos.diff`); settings in
+    `<Choices$Write>.Gnumeric`; the icon bar, Choices, CSV files (&DFE).
+  - SVG pictures aren't shown: librsvg is written in Rust, so a stand-in
+    (`riscos/rsvg-stub`) says it can't load them.
+  - Test `gnumeric-fake` (9 checks): formulas from three function
+    plugins, saving .ods and .xlsx, reopening the .xlsx, a bar chart plot,
+    quitting.
+- **GModule plugins can be linked into a program.** RISC OS has no
+  `dlopen`, so `g_module_open()` failed and programs that load plugins
+  lost them. GLib now has a registry of linked-in modules:
+  `g_module_register_static (name, symbols)`; `g_module_open()` of a path
+  ending in that name (with or without `.so`) opens it, and
+  `g_module_symbol()` finds its symbols. `tools/mkstaticmodules.py` does
+  the rest: it renames each plugin's symbols so that several can define
+  `go_plugin_init`, archives them and writes the registration function
+  (`patches/glib-2.80.0-riscos.diff`; test `staticmodule-test`, 10
+  checks).
+- **Icons a program adds from its resources are found.**
+  `gtk_icon_theme_add_resource_path()` icons (Gnumeric's toolbar) are
+  looked for as part of hicolor, in the folders hicolor's `index.theme`
+  lists; the packaged theme listed only the program's own, so they were
+  missing. `build/mkicons.py` now lists hicolor's standard folders too.
 - **ClawsMail 4.4.0-riscos15: files dragged to a message window are
   attached or inserted.** Both failed ("Could not get size of the file",
   "File ///RAM::RamDisc0/$/... doesn't exist"): Claws Mail took the name

@@ -133,6 +133,17 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# GLib's static module registry with tools/mkstaticmodules.py: two
+# plugins with the same symbol names linked into one program
+SMT=$REPO_DIR/out/staticmodule-linuxarm; rm -rf "$SMT"; mkdir -p "$SMT"
+for m in moda moda2 modb; do $CC $RO_CFLAGS -c "$REPO_DIR/tests/gtk/staticmodule/$m.c" -o "$SMT/$m.o"; done
+python3 "$REPO_DIR/tools/mkstaticmodules.py" --nm $HOST-nm --objcopy $HOST-objcopy --ar $AR --out "$SMT" \
+  "plug-a/plugin=$SMT/moda.o,$SMT/moda2.o" "plug-b/plugin=$SMT/modb.o" > "$SMT/archives.txt"
+$CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gmodule-2.0) "$REPO_DIR/tests/gtk/staticmodule/staticmodule-test.c" \
+  "$SMT/staticmodules.c" $(cat "$SMT/archives.txt") -o "$REPO_DIR/out/staticmodule-test-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gmodule-2.0 | sed 's/-pthread//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -ldl -lm -pthread
+
 # g_spawn_async*() as RISC OS tasks (gdk/riscos/gdkspawn-riscos.c)
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/spawn-fake.c" \
@@ -268,8 +279,30 @@ if [ -n "${GEANY_LA:-}" ] && [ -f "$GEANY_LA/src/.libs/libgeany.a" ]; then
 else
   echo; echo "=== linux-arm: geany-fake skipped: no Geany build in GEANY_LA=${GEANY_LA:-}"
 fi
+# Gnumeric (the port) on the fake desktop, with its plugins built in:
+# plugin functions, .xlsx and .ods, a chart plot. Needs build-gnumeric.sh
+# run for this target first ($SRC/gnumeric-libs.txt)
+if [ -f "$SRC/gnumeric-libs.txt" ]; then
+  GN=$SRC/gnumeric-1.12.57; GNT=$REPO_DIR/out/gnumeric-linuxarm
+  rm -rf "$GNT"; mkdir -p "$GNT/out"
+  cp -r "$HA"/. "$GNT/"; cp -r "$SRC/gnumeric-app/lib" "$SRC/gnumeric-app/goffice" "$GNT/"
+  cp -rn "$SRC/gnumeric-app/share"/. "$GNT/share/"
+  python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$GNT/share/icons" > /dev/null
+  GNC="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
+  $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $GNC -Dmain=riscos_gnumeric_main \
+    -c "$REPO_DIR/apps/gnumeric/riscos-gnumeric.c" -o "$GNT/riscos-gnumeric.o"
+  $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $GNC "$REPO_DIR/tests/gtk/gnumeric-fake.c" \
+    "$GNT/riscos-gnumeric.o" "$SRC/gnumeric-static/staticmodules.c" "$SRC/gnumeric-main.o" $(cat "$SRC/gnumeric-libs.txt") \
+    -o "$REPO_DIR/out/gnumeric-fake-linuxarm" \
+    -Wl,-Bstatic $(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+  run gnumeric-fake "$GNT" "$GNT/out"
+else
+  echo; echo "=== linux-arm: gnumeric-fake skipped: run build-gnumeric.sh for this target first"
+fi
 run menuclick-fake "$HA"
 run spawn-fake "$HA"
+run staticmodule-test
 # mtPaint (the port) on the fake desktop: Menu everywhere, its RISC OS save
 # and open dialogue. Needs mtPaint's objects built for this target with
 # -DMT_RISCOS_UI in MTPAINT_LA (see tests/gtk/mtpaint-fake.c)

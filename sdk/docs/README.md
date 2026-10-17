@@ -116,7 +116,7 @@ you.
 | Path | What |
 |---|---|
 | `env.sh` | Source it: the compiler, pkg-config, `RISCOS_GTK_CFLAGS`, `RISCOS_GTK_LIBS` |
-| `bin/` | Compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross` |
+| `bin/` | Compiler wrappers, `riscos-gtk-package`, `riscos-gtk-meson-cross`, `riscos-gtk-staticmodules` (linked-in GModule plugins: API.md) |
 | `sysroot/riscos-gtk/` | Headers, static libraries, pkg-config files, aclocal macros |
 | `share/riscos-gtk/` | What packaging puts in an application: theme, icons, schemas, fonts, licences |
 | `template/` | The template program |

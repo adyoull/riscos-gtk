@@ -1,0 +1,24 @@
+diff -ruN a/goffice/goffice.c b/goffice/goffice.c
+--- a/goffice/goffice.c	2024-01-19 20:43:15.000000000 +0000
++++ b/goffice/goffice.c	2026-10-17 16:36:22.222638691 +0100
+@@ -194,6 +194,20 @@
+     }
+ #endif /* GTKOSXAPPLICATION */
+ #endif
++#if defined __riscos__ || defined GO_RISCOS_UI
++	/* riscos-gtk: GOffice's files (plugins) are in the program's
++	 * application directory: GOFFICE_DIR, else /<GOffice$Dir> (set by
++	 * the program's !Run; UnixLib reads the variable) */
++	{
++	char const *dir = g_getenv ("GOFFICE_DIR");
++	if (dir == NULL)
++		dir = "/<GOffice$Dir>";
++	libgoffice_data_dir = g_build_filename (dir, "share", NULL);
++	libgoffice_icon_dir = g_build_filename (dir, "pixmaps", NULL);
++	libgoffice_locale_dir = g_build_filename (dir, "locale", NULL);
++	libgoffice_lib_dir = g_build_filename (dir, "lib", NULL);
++	}
++#endif
+ 
+ 	bindtextdomain (GETTEXT_PACKAGE, libgoffice_locale_dir);
+ 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");

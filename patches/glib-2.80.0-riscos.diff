@@ -200,3 +200,178 @@ diff -ruN a/glib/gspawn.c b/glib/gspawn.c
    return fork_exec (!(flags & G_SPAWN_DO_NOT_REAP_CHILD),
                      working_directory,
                      (const gchar * const *) argv,
+diff -ruN a/gmodule/gmodule.c b/gmodule/gmodule.c
+--- a/gmodule/gmodule.c	2024-03-07 21:35:05.000000000 +0000
++++ b/gmodule/gmodule.c	2026-10-17 16:27:49.402314269 +0100
+@@ -151,6 +151,12 @@
+ };
+ 
+ 
++/* riscos-gtk: the platform's functions get these names; the static
++   module registry below wraps them (see g_module_register_static) */
++#define _g_module_open    _g_module_open_platform
++#define _g_module_close   _g_module_close_platform
++#define _g_module_symbol  _g_module_symbol_platform
++
+ /* --- prototypes --- */
+ static gpointer _g_module_open (const gchar  *file_name,
+                                 gboolean      bind_lazy,
+@@ -275,6 +281,132 @@
+ }
+ #endif	/* no implementation */
+ 
++/* --- riscos-gtk: the static module registry ---
++ * Where programs are linked statically (RISC OS has no dlopen), a
++ * program's plugins are linked in and registered with
++ * g_module_register_static(): g_module_open() of a file name ending in a
++ * registered name ("fn-math/plugin" for ".../plugins/fn-math/plugin.so")
++ * gives that module, and g_module_symbol() looks the name up in its table.
++ * Registered modules are found first, so this works alongside dlopen. */
++#undef _g_module_open
++#undef _g_module_close
++#undef _g_module_symbol
++
++typedef struct
++{
++  gchar *name;
++  const GModuleStaticSymbol *symbols;
++} GModuleStatic;
++
++static GPtrArray *static_modules = NULL;
++static GRecMutex g_module_global_lock;   /* (defined again below, as GLib has it) */
++
++void
++g_module_register_static (const gchar               *module_name,
++                          const GModuleStaticSymbol *symbols)
++{
++  GModuleStatic *sm;
++
++  g_return_if_fail (module_name != NULL && symbols != NULL);
++  g_rec_mutex_lock (&g_module_global_lock);
++  if (static_modules == NULL)
++    static_modules = g_ptr_array_new ();
++  sm = g_new (GModuleStatic, 1);
++  sm->name = g_strdup (module_name);
++  sm->symbols = symbols;
++  g_ptr_array_add (static_modules, sm);
++  g_rec_mutex_unlock (&g_module_global_lock);
++}
++
++static GModuleStatic *
++static_module_find (const gchar *file_name)
++{
++  static const char *const suffixes[] = { ".so", ".la", ".dll", ".dylib", ".sl" };
++  gsize len = strlen (file_name), i;
++
++  if (static_modules == NULL)
++    return NULL;
++  for (i = 0; i < G_N_ELEMENTS (suffixes); i++)
++    if (g_str_has_suffix (file_name, suffixes[i]))
++      {
++        len -= strlen (suffixes[i]);
++        break;
++      }
++  for (i = 0; i < static_modules->len; i++)
++    {
++      GModuleStatic *sm = static_modules->pdata[i];
++      gsize n = strlen (sm->name);
++
++      if (n <= len && strncmp (file_name + len - n, sm->name, n) == 0 &&
++          (n == len || file_name[len - n - 1] == '/'))
++        return sm;
++    }
++  return NULL;
++}
++
++static gboolean
++static_module_is (gpointer handle)
++{
++  gsize i;
++
++  for (i = 0; static_modules && i < static_modules->len; i++)
++    if (static_modules->pdata[i] == handle)
++      return TRUE;
++  return FALSE;
++}
++
++static gpointer
++_g_module_open (const gchar  *file_name,
++                gboolean      bind_lazy,
++                gboolean      bind_local,
++                GError      **error)
++{
++  GModuleStatic *sm = static_module_find (file_name);
++
++  if (sm)
++    {
++      g_module_set_error (NULL);
++      return sm;
++    }
++  return _g_module_open_platform (file_name, bind_lazy, bind_local, error);
++}
++
++static void
++_g_module_close (gpointer handle)
++{
++  if (!static_module_is (handle))
++    _g_module_close_platform (handle);
++}
++
++static gpointer
++_g_module_symbol (gpointer     handle,
++                  const gchar *symbol_name)
++{
++  if (static_module_is (handle))
++    {
++      const GModuleStaticSymbol *s;
++      for (s = ((GModuleStatic *) handle)->symbols; s->name; s++)
++        if (strcmp (s->name, symbol_name) == 0)
++          return s->address;
++      g_module_set_error_unduped (g_strdup_printf ("%s: symbol not found in a built-in module",
++                                                   symbol_name));
++      return NULL;
++    }
++  return _g_module_symbol_platform (handle, symbol_name);
++}
++
++/* modules work if the platform has them or any are built in */
++#if (G_MODULE_IMPL == G_MODULE_IMPL_DL) || (G_MODULE_IMPL == G_MODULE_IMPL_WIN32) || (G_MODULE_IMPL == G_MODULE_IMPL_AR)
++#define G_MODULE_PLATFORM 1
++#else
++#define G_MODULE_PLATFORM 0
++#endif
++#undef	SUPPORT_OR_RETURN
++#define	SUPPORT_OR_RETURN(rv)	{ if (!G_MODULE_PLATFORM && !(static_modules && static_modules->len)) \
++                                    { g_module_set_error ("dynamic modules are " \
++                                                          "not supported by this system"); return rv; } \
++                                  g_module_set_error (NULL); }
++
+ /**
+  * G_MODULE_ERROR:
+  *
+diff -ruN a/gmodule/gmodule.h b/gmodule/gmodule.h
+--- a/gmodule/gmodule.h	2024-03-07 21:35:05.000000000 +0000
++++ b/gmodule/gmodule.h	2026-10-17 16:26:42.107636651 +0100
+@@ -92,8 +92,21 @@
+ GMODULE_AVAILABLE_ENUMERATOR_IN_2_70;
+ 
+ /* return TRUE if dynamic module loading is supported */
++/* riscos-gtk: a module linked into the program, found by g_module_open()
++ * of a file name ending in module_name ("fn-math/plugin"); symbols is
++ * {name, address} pairs ending with { NULL, NULL } */
++typedef struct
++{
++  const gchar *name;
++  gpointer     address;
++} GModuleStaticSymbol;
++
++GMODULE_AVAILABLE_IN_ALL
++void		g_module_register_static   (const gchar               *module_name,
++					    const GModuleStaticSymbol *symbols);
++
+ GMODULE_AVAILABLE_IN_ALL
+-gboolean	g_module_supported	   (void) G_GNUC_CONST;
++gboolean	g_module_supported	   (void);  /* riscos-gtk: not const (built-in modules) */
+ 
+ /* open a module 'file_name' and return handle, which is NULL on error */
+ GMODULE_AVAILABLE_IN_ALL
