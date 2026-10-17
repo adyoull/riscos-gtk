@@ -169,6 +169,55 @@ leaf_type (const char *leaf)
   return 0xFFD;
 }
 
+/* RISC OS names are Latin-1 (a hard space is &A0); GTK shows UTF-8.
+   Names go into the box's entries, the list and the sidebar through
+   ro_to_ui and come out through entry_ro. */
+static char *
+ro_to_ui (const char *latin1)
+{
+  GString *s = g_string_new (NULL);
+  const unsigned char *p;
+
+  for (p = (const unsigned char *) (latin1 ? latin1 : ""); *p; p++)
+    g_string_append_unichar (s, *p);
+  return g_string_free (s, FALSE);
+}
+
+static char *
+ui_to_ro (const char *utf8)
+{
+  GString *s;
+  const char *p;
+
+  if (utf8 == NULL || !g_utf8_validate (utf8, -1, NULL))
+    return g_strdup (utf8 ? utf8 : "");     /* not UTF-8: as it is */
+  s = g_string_new (NULL);
+  for (p = utf8; *p; p = g_utf8_next_char (p))
+    {
+      gunichar c = g_utf8_get_char (p);
+      g_string_append_c (s, c < 256 ? (char) c : '?');
+    }
+  return g_string_free (s, FALSE);
+}
+
+static void
+entry_set_ro (GtkEntry *entry, const char *latin1)
+{
+  char *t = ro_to_ui (latin1);
+  gtk_entry_set_text (entry, t);
+  g_free (t);
+}
+
+/* The entry's text as a RISC OS (Latin-1) name; kept with the entry
+   until the next call */
+static const char *
+entry_ro (GtkEntry *entry)
+{
+  char *t = ui_to_ro (gtk_entry_get_text (entry));
+  g_object_set_data_full (G_OBJECT (entry), "riscos-gtk-ro", t, g_free);
+  return t;
+}
+
 static const char *
 leaf_of (const char *riscos_name)
 {
@@ -428,7 +477,7 @@ on_icon_release (GtkWidget *w, GdkEventButton *ev, RiscosBox *box)
   if (!box->dragging)
     return TRUE;
   box->dragging = FALSE;
-  name = g_strdup (gtk_entry_get_text (GTK_ENTRY (box->entry)));
+  name = g_strdup (entry_ro (GTK_ENTRY (box->entry)));
   leaf = g_strdup (leaf_of (name));
   if (*leaf == '\0')
     {
@@ -449,7 +498,7 @@ on_name_changed (GtkEditable *e, RiscosBox *box)
   GtkWidget *parent = box->icon;
   GtkWidget *image = gtk_bin_get_child (GTK_BIN (parent));
   char *sprite = NULL;
-  int type = leaf_type (leaf_of (gtk_entry_get_text (GTK_ENTRY (box->entry))));
+  int type = leaf_type (leaf_of (entry_ro (GTK_ENTRY (box->entry))));
   GtkWidget *fresh = file_icon (type, &sprite);
 
   if (box->sprite && strcmp (sprite, box->sprite) == 0)
@@ -469,7 +518,7 @@ on_name_changed (GtkEditable *e, RiscosBox *box)
 static void
 on_save_ok (GtkWidget *w, RiscosBox *box)
 {
-  const char *name = gtk_entry_get_text (GTK_ENTRY (box->entry));
+  const char *name = entry_ro (GTK_ENTRY (box->entry));
   char *folder;
 
   if (*name == '\0')
@@ -527,7 +576,7 @@ on_load (const char *riscos_path, int filetype, gpointer data)
 static void
 on_open_ok (GtkWidget *w, RiscosBox *box)
 {
-  const char *name = gtk_entry_get_text (GTK_ENTRY (box->entry));
+  const char *name = entry_ro (GTK_ENTRY (box->entry));
 
   if (is_full_name (name))
     finish (box, GTK_RESPONSE_ACCEPT, file_for (name));
@@ -741,7 +790,7 @@ box_build (RiscosBox *box)
       g_signal_connect (box->icon, "button-release-event", G_CALLBACK (on_icon_release), box);
       gtk_box_pack_start (GTK_BOX (col), box->icon, FALSE, FALSE, 0);
 
-      gtk_entry_set_text (GTK_ENTRY (box->entry), name);
+      entry_set_ro (GTK_ENTRY (box->entry), name);
       gtk_entry_set_width_chars (GTK_ENTRY (box->entry), 1);
       gtk_widget_set_size_request (box->entry, 120, 26);
       gtk_widget_set_margin_top (box->entry, 6);
@@ -804,7 +853,7 @@ box_build (RiscosBox *box)
       if (name)
         {
           char *text = g_strconcat (name, ".", NULL);
-          gtk_entry_set_text (GTK_ENTRY (box->entry), text);
+          entry_set_ro (GTK_ENTRY (box->entry), text);
           g_free (text);
         }
       gtk_box_pack_start (GTK_BOX (vb), box->entry, FALSE, FALSE, 0);
@@ -906,7 +955,9 @@ box_open (GObject *owner, RiscosBoxDone done, GtkFileChooserAction action,
 enum
 {
   COL_LARGE, COL_SMALL, COL_NAME, COL_TYPE, COL_OBJECT, COL_SIZE, COL_DATE,
-  COL_SIZE_TEXT, COL_TYPE_TEXT, COL_DATE_TEXT, N_COLS
+  COL_SIZE_TEXT, COL_TYPE_TEXT, COL_DATE_TEXT,
+  COL_RONAME,      /* the RISC OS (Latin-1) name; COL_NAME is it in UTF-8 */
+  N_COLS
 };
 
 enum { VIEW_LARGE, VIEW_SMALL, VIEW_FULL };
@@ -1253,7 +1304,7 @@ browser_go (RiscosBox *box, const char *dir, gboolean report)
   g_free (b->dir);
   b->dir = canon;
   browser_status (b, NULL);
-  gtk_entry_set_text (GTK_ENTRY (b->path), b->dir);
+  entry_set_ro (GTK_ENTRY (b->path), b->dir);
   gtk_editable_set_position (GTK_EDITABLE (b->path), -1);
   b->filling = TRUE;
   gtk_list_store_clear (b->store);
@@ -1271,13 +1322,14 @@ browser_go (RiscosBox *box, const char *dir, gboolean report)
       else if (box->action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER
                || !browser_filter_ok (box, b, e->name, type))
         continue;
+      char *ui_name = ro_to_ui (e->name);
       browser_icons (b, e->name, type, &large, &small);
       st = browser_size_text (type, e->length);
       tt = browser_type_text (type);
       dt = browser_date_text (e->date);
       gtk_list_store_insert_with_values (b->store, &it, -1,
                                          COL_LARGE, large, COL_SMALL, small,
-                                         COL_NAME, e->name, COL_TYPE, type,
+                                         COL_NAME, ui_name, COL_RONAME, e->name, COL_TYPE, type,
                                          COL_OBJECT, e->object_type,
                                          COL_SIZE, (gint64) e->length, COL_DATE, e->date,
                                          COL_SIZE_TEXT, st, COL_TYPE_TEXT, tt,
@@ -1287,6 +1339,7 @@ browser_go (RiscosBox *box, const char *dir, gboolean report)
       g_free (st);
       g_free (tt);
       g_free (dt);
+      g_free (ui_name);
     }
   b->filling = FALSE;
   g_ptr_array_unref (list);
@@ -1326,7 +1379,7 @@ browser_row (Browser *b, GtkTreePath *path, char **name, int *type)
   *name = NULL;
   *type = 0;
   if (gtk_tree_model_get_iter (GTK_TREE_MODEL (b->store), &it, path))
-    gtk_tree_model_get (GTK_TREE_MODEL (b->store), &it, COL_NAME, name, COL_TYPE, type, -1);
+    gtk_tree_model_get (GTK_TREE_MODEL (b->store), &it, COL_RONAME, name, COL_TYPE, type, -1);
 }
 
 static void
@@ -1349,7 +1402,7 @@ on_browser_selection (gpointer w, RiscosBox *box)
          directory's (choosing a folder) */
       if (name && (box->action == GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER ? dir : !dir))
         {
-          gtk_entry_set_text (GTK_ENTRY (box->entry), name);
+          entry_set_ro (GTK_ENTRY (box->entry), name);
           gtk_editable_set_position (GTK_EDITABLE (box->entry), -1);
         }
       g_free (name);
@@ -1389,7 +1442,7 @@ static void
 on_browser_ok (GtkWidget *w, RiscosBox *box)
 {
   Browser *b = box->b;
-  const char *name = gtk_entry_get_text (GTK_ENTRY (box->entry));
+  const char *name = entry_ro (GTK_ENTRY (box->entry));
   GFile *f;
 
   if (box->action == GTK_FILE_CHOOSER_ACTION_SAVE)
@@ -1442,7 +1495,7 @@ on_browser_ok (GtkWidget *w, RiscosBox *box)
       char *ro = riscos_name_of (f);
       g_object_unref (f);
       if (ro && browser_go (box, ro, TRUE))
-        gtk_entry_set_text (GTK_ENTRY (box->entry), "");
+        entry_set_ro (GTK_ENTRY (box->entry), "");
       g_free (ro);
       return;
     }
@@ -1477,7 +1530,7 @@ browser_activate (RiscosBox *box, GtkTreePath *path)
   else if (box->action == GTK_FILE_CHOOSER_ACTION_OPEN)
     browser_accept (box, g_slist_prepend (NULL, browser_file (b, name)));
   else if (box->action == GTK_FILE_CHOOSER_ACTION_SAVE)
-    gtk_entry_set_text (GTK_ENTRY (box->entry), name);
+    entry_set_ro (GTK_ENTRY (box->entry), name);
   g_free (name);
 }
 
@@ -1510,7 +1563,7 @@ on_browser_parent (GtkWidget *w, RiscosBox *box)
 static void
 on_browser_path (GtkEntry *e, RiscosBox *box)
 {
-  browser_go (box, gtk_entry_get_text (e), TRUE);
+  browser_go (box, entry_ro (e), TRUE);
 }
 
 /* A directory dragged from the Filer is shown; a file is chosen (Open)
@@ -1540,7 +1593,7 @@ on_browser_load (const char *riscos_path, int filetype, gpointer data)
       g_idle_add (open_idle, box);
     }
   else
-    gtk_entry_set_text (GTK_ENTRY (box->entry), leaf);
+    entry_set_ro (GTK_ENTRY (box->entry), leaf);
   return TRUE;
 }
 
@@ -1651,7 +1704,7 @@ static void
 on_newdir_response (GtkDialog *d, int response, RiscosBox *box)
 {
   GtkWidget *entry = g_object_get_data (G_OBJECT (d), "riscos-gtk-entry");
-  char *name = g_strdup (gtk_entry_get_text (GTK_ENTRY (entry)));
+  char *name = g_strdup (entry_ro (GTK_ENTRY (entry)));
 
   gtk_widget_destroy (GTK_WIDGET (d));
   if (response == GTK_RESPONSE_OK && *name && box->b)
@@ -1813,7 +1866,8 @@ side_item (Browser *b, const char *label, const char *dir, GdkPixbuf *icon)
 {
   GtkWidget *row = gtk_list_box_row_new ();
   GtkWidget *hb = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-  GtkWidget *text = gtk_label_new (label);
+  char *ui_label = ro_to_ui (label), *ui_dir = ro_to_ui (dir);
+  GtkWidget *text = gtk_label_new (ui_label);
 
   gtk_widget_set_margin_start (hb, 14);
   gtk_widget_set_margin_end (hb, 6);
@@ -1825,7 +1879,9 @@ side_item (Browser *b, const char *label, const char *dir, GdkPixbuf *icon)
   gtk_label_set_ellipsize (GTK_LABEL (text), PANGO_ELLIPSIZE_MIDDLE);
   gtk_box_pack_start (GTK_BOX (hb), text, TRUE, TRUE, 0);
   gtk_container_add (GTK_CONTAINER (row), hb);
-  gtk_widget_set_tooltip_text (row, dir);
+  gtk_widget_set_tooltip_text (row, ui_dir);
+  g_free (ui_label);
+  g_free (ui_dir);
   g_object_set_data_full (G_OBJECT (row), "riscos-gtk-dir", g_strdup (dir), g_free);
   gtk_container_add (GTK_CONTAINER (b->side), row);
   g_clear_object (&icon);
@@ -2050,7 +2106,7 @@ browser_start (RiscosBox *box)
   if (!b->dir)
     {
       b->dir = g_strdup ("$");
-      gtk_entry_set_text (GTK_ENTRY (b->path), b->dir);
+      entry_set_ro (GTK_ENTRY (b->path), b->dir);
     }
 done:
   g_free (dir);
@@ -2069,7 +2125,7 @@ browser_build (RiscosBox *box)
   browser_load_choices (b);
   b->store = gtk_list_store_new (N_COLS, GDK_TYPE_PIXBUF, GDK_TYPE_PIXBUF, G_TYPE_STRING, G_TYPE_INT,
                                  G_TYPE_INT, G_TYPE_INT64, G_TYPE_INT64,
-                                 G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+                                 G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
   gtk_tree_sortable_set_default_sort_func (GTK_TREE_SORTABLE (b->store), browser_compare, b, NULL);
   gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE (b->store),
                                         GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
@@ -2141,7 +2197,7 @@ browser_build (RiscosBox *box)
       g_signal_connect (box->icon, "motion-notify-event", G_CALLBACK (on_icon_motion), box);
       g_signal_connect (box->icon, "button-release-event", G_CALLBACK (on_icon_release), box);
       gtk_box_pack_start (GTK_BOX (bottom), box->icon, FALSE, FALSE, 0);
-      gtk_entry_set_text (GTK_ENTRY (box->entry), leaf);
+      entry_set_ro (GTK_ENTRY (box->entry), leaf);
       g_signal_connect (box->entry, "changed", G_CALLBACK (on_name_changed), box);
       g_free (leaf);
     }
@@ -2210,7 +2266,11 @@ gtk_file_chooser_native_riscos_show (GtkFileChooserNative *self)
     {
       name = riscos_name_of (self->current_file);
       if (name == NULL && self->current_name)
-        name = gdk_riscos_path_from_unix (self->current_name);
+        {
+          char *ro_leaf = ui_to_ro (self->current_name);   /* UTF-8 to Latin-1 */
+          name = gdk_riscos_path_from_unix (ro_leaf);
+          g_free (ro_leaf);
+        }
     }
   filters = gtk_file_chooser_list_filters (GTK_FILE_CHOOSER (self));
   self->mode_data = box_open (G_OBJECT (self), native_done, action,
@@ -2305,7 +2365,10 @@ _gtk_file_chooser_riscos_dialog_show (GtkFileChooserDialog *dialog)
   filters = gtk_file_chooser_list_filters (chooser);
   if (action == GTK_FILE_CHOOSER_ACTION_SAVE)
     {
-      char *leaf = gtk_file_chooser_get_current_name (chooser);
+      char *utf8_leaf = gtk_file_chooser_get_current_name (chooser);
+      /* (the program gives the name in UTF-8; files are named in Latin-1) */
+      char *leaf = utf8_leaf ? ui_to_ro (utf8_leaf) : NULL;
+      g_free (utf8_leaf);
       if (leaf && *leaf)
         {
           char *ro_leaf = gdk_riscos_path_from_unix (leaf);

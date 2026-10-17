@@ -39,6 +39,8 @@
 #define Wimp_TransferBlock 0x400F1
 #define Wimp_ReadSysInfo   0x400F2
 #define TaskManager_TaskNameFromHandle 0x42680
+#define TaskManager_EnumerateTasks     0x42681
+#define OS_Memory     0x68
 
 static void
 entry_free (gpointer p)
@@ -233,22 +235,74 @@ fs_of_task (const char *task, char **fss)
   return best;
 }
 
-/* Read a string from another task (control-terminated, at most size - 1) */
+/* Is task a module task (TaskManager_EnumerateTasks flags bit 0)? The
+   Filers are: their icons' indirected text is in the RMA, not in an
+   application slot */
+static gboolean
+module_task (int task)
+{
+  _kernel_swi_regs r;
+  int buf[4 * 16], *b, next = 0;
+
+  do
+    {
+      r.r[0] = next;
+      r.r[1] = (int) (long) buf;
+      r.r[2] = sizeof buf;
+      if (_kernel_swi (TaskManager_EnumerateTasks, &r, &r) != NULL)
+        return FALSE;
+      next = r.r[0];
+      for (b = buf; (char *) b < (char *) (long) r.r[1]; b += 4)
+        if (b[0] == task)
+          return (b[3] & 1) != 0;
+    }
+  while (next >= 0);
+  return FALSE;
+}
+
+/* Is lo..lo+len readable in user mode (OS_Memory 24, RISC OS 5.21)? */
+static gboolean
+user_readable (guint32 lo, int len)
+{
+  _kernel_swi_regs r;
+
+  r.r[0] = 24;
+  r.r[1] = (int) lo;
+  r.r[2] = (int) (lo + len);
+  return _kernel_swi (OS_Memory, &r, &r) == NULL && (r.r[1] & 1);
+}
+
+/* Read a string from another task (control-terminated, at most size - 1):
+   a module task's directly (it is in the RMA, which every task sees, and
+   Wimp_TransferBlock is for application slots), an application's with
+   Wimp_TransferBlock */
 static gboolean
 task_string (int task, int me, guint32 addr, char *buf, int size)
 {
   _kernel_swi_regs r;
   int i, len = size - 1;
+  gboolean module = module_task (task);
 
-  /* the string may end near the end of the task's memory: try shorter */
+  /* the string may end near the end of the memory: try shorter */
   for (; len >= 4; len /= 2)
     {
-      r.r[0] = task;
-      r.r[1] = (int) addr;
-      r.r[2] = me;
-      r.r[3] = (int) (long) buf;
-      r.r[4] = len;
-      if (_kernel_swi (Wimp_TransferBlock, &r, &r) == NULL)
+      gboolean ok;
+      if (module)
+        {
+          ok = user_readable (addr, len);
+          if (ok)
+            memcpy (buf, (const void *) (long) addr, len);
+        }
+      else
+        {
+          r.r[0] = task;
+          r.r[1] = (int) addr;
+          r.r[2] = me;
+          r.r[3] = (int) (long) buf;
+          r.r[4] = len;
+          ok = _kernel_swi (Wimp_TransferBlock, &r, &r) == NULL;
+        }
+      if (ok)
         {
           buf[len] = '\0';
           for (i = 0; i < len; i++)
@@ -278,7 +332,7 @@ add_disc (GPtrArray *list, const char *fs, const char *name, const char *root, c
 }
 
 static void
-icon_bar_discs (GPtrArray *list, char **fss)
+icon_bar_discs (GPtrArray *list, char **fss, GString *log)
 {
   int handles[256], me, i, j, order[256], n = 0;
   int x0[256];
@@ -293,8 +347,24 @@ icon_bar_discs (GPtrArray *list, char **fss)
   r.r[1] = (int) (long) handles;
   r.r[2] = 1 << 23;           /* not deleted */
   r.r[3] = 0;
-  if (_kernel_swi (Wimp_WhichIcon, &r, &r) != NULL)
-    return;
+  if (_kernel_swi (Wimp_WhichIcon, &r, &r) != NULL || handles[0] == -1)
+    {
+      /* each icon handle in turn, to the first that isn't there */
+      g_string_append (log, " (WhichIcon failed: by handle)");
+      for (i = 0, n = 0; i < 255; i++)
+        {
+          int st[10];
+          st[0] = -2;
+          st[1] = i;
+          r.r[1] = (int) (long) st;
+          if (_kernel_swi (Wimp_GetIconState, &r, &r) != NULL)
+            break;
+          if (!(st[6] & (1 << 23)))
+            handles[n++] = i;
+        }
+      handles[n] = -1;
+      n = 0;
+    }
   /* left to right */
   for (i = 0; i < 255 && handles[i] != -1; i++)
     {
@@ -344,7 +414,10 @@ icon_bar_discs (GPtrArray *list, char **fss)
         {
           int size = st[9] > 0 ? MIN (st[9] + 1, (int) sizeof text) : (int) sizeof text;
           if (!task_string (owner, me, (guint32) st[7], text, size))
-            continue;
+            {
+              g_string_append_printf (log, "; %s: text at &%X unreadable", task, (unsigned) st[7]);
+              continue;
+            }
           if (st[8] != 0 && st[8] != -1)
             task_string (owner, me, (guint32) st[8], valid, sizeof valid);
         }
@@ -369,6 +442,7 @@ icon_bar_discs (GPtrArray *list, char **fss)
       if (text[0] == '\0')
         continue;
       fs = fs_of_task (task, fss);
+      g_string_append_printf (log, "; %s \"%s\"%s", task, text, fs ? "" : " (not a filing system's)");
       if (fs == NULL)
         {
           /* ResourceFS's Apps */
@@ -390,6 +464,8 @@ icon_bar_discs (GPtrArray *list, char **fss)
       canon = canonical_or_null (root);
       if (canon)
         add_disc (list, fs, text, canon, sprite);
+      else
+        g_string_append_printf (log, " (%s not found)", root);
       g_free (canon);
       g_free (root);
     }
@@ -416,12 +492,15 @@ gdk_riscos_discs (void)
 {
   GPtrArray *list = g_ptr_array_new_with_free_func (disc_free);
   char **fss = gdk_riscos_filing_systems ();
+  GString *log = g_string_new (NULL);
+  static char *last_log;
   int i;
 
   if (g_strcmp0 (g_getenv ("RISCOS_GTK_DISCS"), "all") != 0)
-    icon_bar_discs (list, fss);
+    icon_bar_discs (list, fss, log);
   if (list->len == 0)
     {
+      g_string_append (log, "; none: every filing system's current disc");
       /* no icon bar to read: each filing system's current disc */
       for (i = 0; fss[i]; i++)
         {
@@ -441,6 +520,16 @@ gdk_riscos_discs (void)
           g_free (root);
         }
     }
+  /* what was found, in the Log (once, unless it changes) */
+  for (i = 0; i < (int) list->len; i++)
+    g_string_append_printf (log, "%s%s", i ? " " : "; discs: ", ((GdkRiscosDisc *) list->pdata[i])->root);
+  if (g_strcmp0 (last_log, log->str) != 0)
+    {
+      g_printerr ("riscos-gtk: icon bar%s\n", log->str);
+      g_free (last_log);
+      last_log = g_strdup (log->str);
+    }
+  g_string_free (log, TRUE);
   g_strfreev (fss);
   return list;
 }

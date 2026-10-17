@@ -604,6 +604,17 @@ that SDL2, freeglut and the games already use.
   It now lists freedesktop's standard ones (16 to 512, each context) as
   hicolor-icon-theme does; every program gets it at packaging.
 
+## Reading the icon bar: Filers' text is in the RMA (2026-10-17)
+- The browser's Discs come from the icon bar (Wimp_WhichIcon on -2, then
+  each icon's indirected text). The Filers (SDFS Filer, RAMFS Filer,
+  LanMan98...) are module tasks, so that text is in the RMA, not in an
+  application slot; Wimp_TransferBlock from them failed on the Pi, every
+  icon was skipped and the fallback (every filing system) was shown.
+  Module tasks (TaskManager_EnumerateTasks flag bit 0) are now read
+  directly, after OS_Memory 24 says the range is readable in user mode.
+- What was read goes to the Log in one line, so a desktop where it still
+  fails can be diagnosed from the Log.
+
 ## File names are Latin-1 (2026-10-17)
 - RISC OS file names are in the desktop's alphabet (Latin-1: a hard space
   is &A0), and UnixLib passes their bytes through. GLib assumed UTF-8, so

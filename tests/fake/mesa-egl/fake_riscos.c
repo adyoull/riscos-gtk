@@ -1410,7 +1410,9 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         }
         if (fake_message_hook) fake_message_hook(r.r[0], block, r.r[2], r.r[3]);
         break;
-    case 0x400F1:   /* Wimp_TransferBlock: one address space here */
+    case 0x400F1:   /* Wimp_TransferBlock: one address space here (a test's
+                       fake_swi_hook can refuse it) */
+        if (fake_swi_hook && fake_swi_hook(no, &r, &e)) break;
         memcpy((void *) (long) (unsigned) r.r[3], (const void *) (long) (unsigned) r.r[1], (size_t) r.r[4]);
         break;
     case 0x400E9:   /* Wimp_SpriteOp 36 and 40 on the Wimp's pointer sprites */

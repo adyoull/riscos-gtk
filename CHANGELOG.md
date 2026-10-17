@@ -1,6 +1,24 @@
 # Changelog
 
 ## Since RC6
+- **The directory browser's Discs: the icon bar's on a real desktop.**
+  On the Pi the list showed every filing system, as if there were no icon
+  bar. The Filers are module tasks, so their icons' text is in the RMA,
+  and it was read with Wimp_TransferBlock, which failed: every icon was
+  skipped. A module task's text is now read directly (checked with
+  OS_Memory 24); an application's still with Wimp_TransferBlock. If
+  Wimp_WhichIcon can't list the icon bar, each icon handle is tried in
+  turn. The Log gets one line saying what was read
+  (`riscos-gtk: icon bar; SDFS Filer "RISCOSpi"; ...`). Test
+  `browser-fake`: the Filers are module tasks, and the sidebar is clicked
+  with the mouse (`gdk/riscos/gdkfiles-riscos.c`).
+- **Names beyond ASCII in the Save and Open boxes and the browser.** A
+  file name with a hard space or an accented letter (Latin-1) was put
+  into GTK as it was: invalid UTF-8 (Pango warnings, wrong text). The
+  boxes now convert RISC OS names to UTF-8 to show them and back to
+  Latin-1 to use them, and the program's suggested name (UTF-8) to
+  Latin-1 (`gtk/riscos/gtkfilechooser-riscos.c`; `browser-fake`).
+- Gnumeric 1.12.57-riscos3 (test build) has both.
 - **Gnumeric 1.12.57-riscos2 (test build): File > Open works, and
   scrolling past a sheet's controls no longer stops it.** From the first
   Pi run (riscos1):

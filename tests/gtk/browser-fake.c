@@ -87,6 +87,32 @@ bar_swi (int no, _kernel_swi_regs *r, _kernel_oserror **e)
           return 1;
         }
       return 0;
+    case 0x42681:   /* TaskManager_EnumerateTasks: the Filers are module tasks */
+      {
+        int *b = (int *) (long) r->r[1], k = 0;
+        for (i = 0; i < 7 && (k + 1) * 16 <= r->r[2]; i++, k++)
+          {
+            b[k * 4] = 0x6001 + i;
+            b[k * 4 + 1] = (int) (long) bar_tasks[i];
+            b[k * 4 + 2] = strstr (bar_tasks[i], "Filer") || strstr (bar_tasks[i], "LanMan") ? 0 : 0x100000;
+            b[k * 4 + 3] = b[k * 4 + 2] == 0 ? 1 : 2;
+          }
+        r->r[0] = -1;
+        r->r[1] = (int) (long) (b + k * 4);
+        r->r[2] -= k * 16;
+        return 1;
+      }
+    case 0x400F1:   /* Wimp_TransferBlock: refused from a module task (its
+                       text is in the RMA, not a slot), as a check that
+                       the Filers' icon text is read directly */
+      if (r->r[0] >= 0x6001 && r->r[0] <= 0x6007 &&
+          (strstr (bar_tasks[r->r[0] - 0x6001], "Filer") || strstr (bar_tasks[r->r[0] - 0x6001], "LanMan")))
+        {
+          static _kernel_oserror err = { 0x288, "Wimp transfer out of range" };
+          *e = &err;
+          return 1;
+        }
+      return 0;
     case 0x42680:   /* TaskManager_TaskNameFromHandle */
       if (r->r[0] >= 0x6001 && r->r[0] <= 0x6007)
         {
@@ -637,7 +663,18 @@ hook (int reason)
         check (gtk_list_box_get_selected_row (GTK_LIST_BOX (side)) != NULL,
                "the folder shown is selected in the sidebar");
         if (sdfs)
-          gtk_list_box_select_row (GTK_LIST_BOX (side), sdfs);
+          {
+            /* a real click with Select, as on the desktop */
+            int x, y;
+            GtkAllocation a;
+            gtk_widget_get_allocation (GTK_WIDGET (sdfs), &a);
+            gtk_widget_translate_coordinates (GTK_WIDGET (sdfs), w, 0, 0, &x, &y);
+            printf ("# click sidebar at %d,%d (%dx%d)\n", x + a.width / 2, y + a.height / 2, a.width, a.height);
+            add (FAKE_MOVE, x + a.width / 2, y + a.height / 2, 0);
+            add (6, x + a.width / 2, y + a.height / 2, 4);
+            nulls (2);
+            add (FAKE_RELEASE, 0, 0, 0);
+          }
         g_string_free (names, TRUE);
         g_list_free (rows);
       }
@@ -660,6 +697,14 @@ hook (int reason)
       w = window_titled ("Open File");
       check (g_str_has_suffix (gtk_entry_get_text (entry_n (w, 0)), ".Letters"),
              "a directory dropped from the Filer is shown");
+      t = names_shown (w);
+      printf ("# Letters: %s\n", t);
+      check (g_strcmp0 (t, "Bank/txt Job\xc2\xa0Tracker/txt") == 0,
+             "a name with a hard space (Latin-1 &A0) is shown as UTF-8");
+      g_free (t);
+      select_name (w, "Job\xc2\xa0Tracker/txt", FALSE);
+      check (g_strcmp0 (gtk_entry_get_text (entry_n (w, 1)), "Job\xc2\xa0Tracker/txt") == 0,
+             "and selected, it is the name below, in UTF-8");
       gtk_entry_set_text (entry_n (w, 0), testdir_ro);
       g_signal_emit_by_name (entry_n (w, 0), "activate");
       select_name (w, "Report/txt", FALSE);
@@ -864,7 +909,9 @@ main (int argc, char **argv)
   p = g_build_filename (testdir, "Documents", NULL); g_mkdir_with_parents (p, 0755);
   make_file (p, "Plan.txt", 900, base); make_file (p, "Budget.csv", 2100, base); g_free (p);
   p = g_build_filename (testdir, "Letters", NULL); g_mkdir_with_parents (p, 0755);
-  make_file (p, "Bank.txt", 300, base); g_free (p);
+  make_file (p, "Bank.txt", 300, base);
+  make_file (p, "Job\xa0Tracker.txt", 400, base);    /* Latin-1: a hard space */
+  g_free (p);
   p = g_build_filename (testdir, "!Edit", NULL); g_mkdir_with_parents (p, 0755); g_free (p);
   make_file (testdir, "Report.txt", 3120, base - 3600);
   make_file (testdir, "notes.txt", 210, base - 86400);
