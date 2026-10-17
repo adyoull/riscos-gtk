@@ -11,29 +11,44 @@ This was built on Ubuntu 24.04, x86-64.
 
 ```sh
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
-    libltdl-dev gettext gperf cmake python3-packaging python3-pil \
-    libglib2.0-dev-bin libgtk-3-bin \
+    gperf cmake curl unzip xz-utils python3-packaging python3-pil \
+    libglib2.0-dev-bin shared-mime-info \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
 
-- `libglib2.0-dev-bin` provides glib-compile-schemas.
-- `libgtk-3-bin` provides gtk-encode-symbolic-svg, used for the Adwaita
-  icons.
+- `libglib2.0-dev-bin` provides glib-compile-resources and
+  glib-compile-schemas; `shared-mime-info` update-mime-database
+  (`build/mkmime.sh`); `python3-pil` the icon drawing.
 - The `arm-linux-gnueabihf` compilers are only needed for `make check`.
+- `build/check-host.sh` (run by `make deps` and `make check`) says what's
+  missing.
+- GTK's host tools aren't needed: riscos-gtk draws its symbolic icons
+  itself (it used gtk-encode-symbolic-svg, `libgtk-3-bin`, before).
 
-## 2. The toolchain: riscos-crossdev 1.5 (UnixLib 5.0.3.3)
+## 2. The toolchain: riscos-crossdev 1.8.1 (UnixLib 5.0.3.3)
+
+The release riscos-gtk is built with is named in `.riscos-deps`
+(`riscos-crossdev v1.8.1`).
 
 ```sh
-git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
+git clone -b v1.8.1 https://github.com/adyoull/riscos-crossdev
 (cd riscos-crossdev && make prebuilt && make devkit)
 export RCD_DIR=$PWD/riscos-crossdev
 ```
 
-- **`make prebuilt`:** riscos-crossdev 1.5's toolchain is 1.4's: GCCSDK
+Or in riscos-crossdev's container image, which has the toolchain, the
+devkit and (from the release that adds them: see below) the host
+packages:
+
+```sh
+docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.8.1 make deps tests hello check sdk
+```
+
+- **`make prebuilt`:** riscos-crossdev 1.8.1's toolchain is 1.4's: GCCSDK
   GCC 10.2 with **UnixLib 5.0.3.3**, built from the riscos-unixlib
   v5.0.3.3 release's `unixlib-riscos.diff`. It is static only, with
   PThreadTicker 0.03.
-- **`make devkit`:** riscos-mesa's devkit (20.3.5-15 in crossdev 1.5),
+- **`make devkit`:** riscos-mesa's devkit (20.3.5-16 in crossdev 1.8.1),
   in `riscos-crossdev/devkit/env`. Only !GTKGLTest and the OpenGL test
   need it.
 - **UnixLib check:** `build/env.sh` stops a RISC OS build whose
@@ -134,3 +149,17 @@ SMTP and IMAP server. Every suite must pass before a release.
 - **Older toolchains:** `env.sh` stops if the toolchain is older than
   riscos-crossdev 1.3 (UnixLib 5.0.3.2, static only), and a RISC OS build
   if it doesn't link UnixLib 5.0.3.3 (crossdev 1.4 and later).
+
+## Building on GitHub
+
+`.github/workflows/riscos-build.yml` builds, tests and makes the devkit
+on every push and pull request, in the riscos-crossdev image that
+`.riscos-deps` names: `make deps tests hello check sdk`. GTKTest, GTKHello
+and the devkit tarball are kept as the run's download. `dl/` is cached.
+
+`.github/workflows/riscos-deps-update.yml` checks every day for a newer
+release of riscos-crossdev. When there is one, it builds with it and opens
+a pull request saying whether that passed. Nothing is merged or released
+by itself: merge, test on a Pi, release (riscos-crossdev `docs/CI.md`).
+GTK programs built on riscos-gtk can pin it the same way (`riscos-gtk
+v3.24.41-riscos1.0`) once its devkit is published with each release.

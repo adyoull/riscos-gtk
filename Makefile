@@ -25,6 +25,7 @@ export RCD_DIR ?= $(abspath ../riscos-crossdev)
 all: deps tests hello check
 
 deps:
+	build/check-host.sh
 	build/fetch-sources.sh
 	build/build-deps.sh
 
@@ -56,6 +57,7 @@ gnumeric: deps
 	build/build-gnumeric.sh
 
 check:
+	build/check-host.sh check
 	build/build-linuxarm.sh
 
 release: deps

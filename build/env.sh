@@ -3,7 +3,8 @@
 #
 # Based on riscos-warzone2100's build/env.sh, with the toolchain taken from
 # riscos-crossdev (a tagged release, never main):
-#   RCD_DIR   a riscos-crossdev checkout at tag v1.5 (or v1.4) with the
+#   RCD_DIR   a riscos-crossdev checkout at the tag .riscos-deps names (or the
+#             container image's /opt/riscos-crossdev) with the
 #             toolchain installed (make prebuilt; make devkit for the GL
 #             test and !GTKGLTest). Default: ../riscos-crossdev.
 #   SYSROOT   the libraries built here are installed into $SYSROOT$PREFIX
@@ -50,7 +51,7 @@ esac
 if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h" ||
    [ -e "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.so" ]; then
   echo "env.sh: $GCCSDK_ENV is older than riscos-crossdev 1.3 (UnixLib 5.0.3.2," >&2
-  echo "  static only): use riscos-crossdev v1.5 (make prebuilt there)" >&2
+  echo "  static only): use riscos-crossdev v1.8.1 (make prebuilt there)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -67,7 +68,7 @@ fi
 export UNIXLIB_VERSION
 if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.3 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.3:" >&2
-  echo "  use riscos-crossdev v1.5 (or v1.4), make prebuilt there" >&2
+  echo "  use riscos-crossdev v1.8.1 (or v1.4 and later), make prebuilt there" >&2
   return 1 2>/dev/null || exit 1
 fi
 

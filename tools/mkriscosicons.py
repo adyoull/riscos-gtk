@@ -733,6 +733,46 @@ def render(f, size):
     return c.image()
 
 
+
+# the emoji chooser's categories and the touchpad gestures (GTK's own)
+sym("emoji-recent-symbolic")(lambda c: (sym_ring(c, 8, 8, 6.5), ln(c, [(8, 4), (8, 8), (11, 9.5)], 1.6)))
+sym("emoji-people-symbolic")(lambda c: (sym_ring(c, 8, 8, 6.5), c.ellipse(5, 5, 7, 7.5, K, None),
+                                        c.ellipse(9, 5, 11, 7.5, K, None), c.arc(8, 8, 3.8, 20, 160, K, 1.4)))
+sym("emoji-body-symbolic")(lambda c: (fill(c, [(4, 15), (4, 7), (5.5, 7), (5.5, 2), (7, 2), (7, 6.5), (8.5, 6.5), (8.5, 1.5),
+                                                (10, 1.5), (10, 6.5), (11.5, 6.5), (11.5, 3), (13, 3), (13, 11), (11, 15)]),))
+sym("emoji-nature-symbolic")(lambda c: (fill(c, [(3, 13)] + [(8 + 6 * math.cos(math.radians(a)), 7 + 6 * math.sin(math.radians(a)) * 0.9)
+                                                          for a in range(150, 391, 20)]),
+                                        c.erase(line=[(4, 12), (11, 5)], w=1), ln(c, [(3, 13), (1.5, 15)], 1.4)))
+sym("emoji-food-symbolic")(lambda c: (c.ellipse(1.5, 4, 14.5, 15.5, K, None), ln(c, [(8, 5), (9.5, 1)], 1.4),
+                                      fill(c, [(10, 3), (13.5, 1.5), (12.5, 4)])))
+sym("emoji-activities-symbolic")(lambda c: (c.ellipse(1, 1, 15, 15, K, None),
+                                            c.erase(line=[(1, 8), (15, 8)], w=1), c.erase(line=[(8, 1), (8, 15)], w=1),
+                                            c.erase(ellipse=(4, 4, 12, 12)), sym_ring(c, 8, 8, 4, 1)))
+sym("emoji-travel-symbolic")(lambda c: (fill(c, [(1, 11), (1, 7.5), (3.5, 3.5), (12.5, 3.5), (15, 7.5), (15, 11)]),
+                                        c.erase([(4.5, 5), (11.5, 5), (13, 7.5), (3, 7.5)]),
+                                        c.ellipse(2.5, 10, 6, 13.5, K, None), c.ellipse(10, 10, 13.5, 13.5, K, None)))
+sym("emoji-objects-symbolic")(lambda c: (c.ellipse(3, 1, 13, 11, K, None), fill(c, [(5.5, 9), (10.5, 9), (10.5, 13), (5.5, 13)]),
+                                         ln(c, [(6, 14.7), (10, 14.7)], 1.2)))
+sym("emoji-symbols-symbolic")(lambda c: fill(c, [(8, 14.5)] + [(4.5 + 3.5 * math.cos(math.radians(a)), 5.5 + 3.5 * math.sin(math.radians(a)))
+                                                            for a in range(135, 361, 15)] +
+                                                [(11.5 + 3.5 * math.cos(math.radians(a)), 5.5 + 3.5 * math.sin(math.radians(a)))
+                                                 for a in range(180, 406, 15)]))
+sym("emoji-flags-symbolic")(lambda c: (ln(c, [(3, 1), (3, 15)], 1.6), fill(c, [(3.5, 1.5), (13.5, 1.5), (11, 5), (13.5, 8.5), (3.5, 8.5)])))
+sym("gesture-pinch-symbolic")(lambda c: (c.ellipse(1, 1, 5, 5, K, None), c.ellipse(11, 11, 15, 15, K, None),
+                                         ln(c, [(4.5, 4.5), (6.5, 6.5)], 1.4), ln(c, [(11.5, 11.5), (9.5, 9.5)], 1.4),
+                                         fill(c, [(7.5, 4.5), (7.5, 7.5), (4.5, 7.5)]), fill(c, [(8.5, 11.5), (8.5, 8.5), (11.5, 8.5)])))
+sym("gesture-stretch-symbolic")(lambda c: (c.ellipse(5, 5, 9, 9, K, None) if False else None,
+                                           c.ellipse(5.5, 5.5, 8, 8, K, None), c.ellipse(8, 8, 10.5, 10.5, K, None),
+                                           ln(c, [(5.5, 5.5), (2.5, 2.5)], 1.4), ln(c, [(10.5, 10.5), (13.5, 13.5)], 1.4),
+                                           fill(c, [(1, 1), (5, 1.5), (1.5, 5)]), fill(c, [(15, 15), (11, 14.5), (14.5, 11)])))
+sym("gesture-rotate-clockwise-symbolic")(lambda c: sym_curve(c, False, 8, 9, 5))
+sym("gesture-rotate-anticlockwise-symbolic")(lambda c: sym_curve(c, True, 8, 9, 5))
+sym("gesture-two-finger-swipe-left-symbolic")(lambda c: (c.ellipse(9, 2.5, 12.5, 6, K, None), c.ellipse(9, 10, 12.5, 13.5, K, None),
+                                                         ln(c, [(9, 8), (3.5, 8)], 1.6), fill(c, [(1, 8), (4.5, 5), (4.5, 11)])))
+sym("gesture-two-finger-swipe-right-symbolic")(lambda c: (c.ellipse(3.5, 2.5, 7, 6, K, None), c.ellipse(3.5, 10, 7, 13.5, K, None),
+                                                          ln(c, [(7, 8), (12.5, 8)], 1.6), fill(c, [(15, 8), (11.5, 5), (11.5, 11)])))
+
+
 def render_symbolic(f, size):
     c = Icon(16, 16, size / 16)
     f(c)

@@ -6,8 +6,10 @@ icon theme 3.36 (GNOME Project; LGPL-3 or CC-BY-SA 3.0): the icons GTK
 itself asks for and the usual freedesktop.org names programs use for
 toolbars and menus (theme/icons-list.txt). Full-colour PNGs at 16, 22,
 24, 32 and 48 pixels; symbolic icons (GTK's own: arrows, the entry clear
-icon, ...) made into GTK's .symbolic.png at 16 and 24 pixels (gdk-pixbuf
-on RISC OS has no SVG loader), with gtk-encode-symbolic-svg.
+icon, ...) as GTK's .symbolic.png at 16 and 24 pixels (gdk-pixbuf on RISC
+OS has no SVG loader): riscos-gtk draws them all; a name it doesn't draw
+is made from Adwaita's SVG with gtk-encode-symbolic-svg if the build
+machine has it (libgtk-3-bin), and left out otherwise.
 
 riscos-gtk's own icons (tools/mkriscosicons.py: original, in the style of
 the RISC OS desktop, as ClawsMail's) then replace Adwaita's for the names
@@ -31,6 +33,18 @@ import tempfile
 
 SIZES = [16, 22, 24, 32, 48]
 SYMBOLIC_SIZES = [16, 24]
+
+
+def own_names():
+    """the names tools/mkriscosicons.py draws (empty without Pillow)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.dont_write_bytecode = True
+    sys.path.insert(0, os.path.join(here, "..", "tools"))
+    try:
+        import mkriscosicons
+    except ImportError:
+        return set()
+    return {n for n, _c, _f in mkriscosicons.ICONS + mkriscosicons.SYMBOLIC}
 
 
 def draw_own(theme):
@@ -84,9 +98,17 @@ def main():
     dirs = set()
     found = 0
     missing = []
+    own = own_names()
+    have_encoder = shutil.which("gtk-encode-symbolic-svg") is not None
     for name in names:
         symbolic = name.endswith("-symbolic")
         hit = False
+        if symbolic and name in own:
+            found += 1          # drawn by tools/mkriscosicons.py below
+            continue
+        if symbolic and not have_encoder:
+            missing.append(name)
+            continue
         if not symbolic:
             for size in SIZES:
                 sd = os.path.join(adw, "%dx%d" % (size, size))

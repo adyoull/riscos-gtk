@@ -50,7 +50,7 @@ UnixLib does and doesn't do that matters here:
 ## Building (short version)
 
 ```sh
-git clone -b v1.5 https://github.com/adyoull/riscos-crossdev
+git clone -b v1.8.1 https://github.com/adyoull/riscos-crossdev
 (cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.3; riscos-mesa for GL
 cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev

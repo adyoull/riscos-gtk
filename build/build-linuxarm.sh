@@ -58,9 +58,9 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVu
   'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf' -d "$HA/fonts"
 "$REPO_DIR/tests/render/mkfontsconf.sh" "$HA/fonts" "$HA/fontcache" > "$HA/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$HA/share/themes/RISCOS/"
-# icons: the RISCOS theme (Adwaita's, for the names GTK and programs use;
-# needs the host's gtk-encode-symbolic-svg, libgtk-3-bin) and an empty
-# hicolor; the desktop's sprites are added at run time
+# icons: the RISCOS theme (riscos-gtk's own, then Adwaita's, for the names
+# GTK and programs use: build/mkicons.py) and an empty hicolor; the
+# desktop's sprites are added at run time
 ADW=$SRC/adwaita-icon-theme-3.36.1
 [ -d "$ADW" ] || tar -xf "$DL/adwaita-icon-theme_3.36.1.orig.tar.xz" -C "$SRC"
 python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$HA/share/icons"
