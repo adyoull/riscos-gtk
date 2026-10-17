@@ -421,9 +421,10 @@ check_icons (void)
   {
     /* riscos-gtk's own icons (tools/mkriscosicons.py) in place of
        Adwaita's: the theme's README lists the ones drawn */
-    const char *own[] = { "document-save", "edit-cut", "zoom-in", "go-next" };
+    const char *own[] = { "document-save", "edit-cut", "zoom-in", "go-next", "pan-down-symbolic",
+                          "window-close-symbolic" };
     int sizes[] = { 16, 24 }, j, k, all = 1;
-    for (j = 0; j < 4; j++)
+    for (j = 0; j < 6; j++)
       for (k = 0; k < 2; k++)
         {
           GtkIconInfo *info = gtk_icon_theme_lookup_icon (t, own[j], sizes[k], 0);
@@ -851,7 +852,7 @@ main (int argc, char **argv)
   check (icon_ok[0], "icons: \"folder\" is the desktop's directory sprite (RISCOS-Wimp theme)");
   check (icon_ok[1] && icon_ok[3], "icons: toolbar names (document-save) and image-missing come from the shipped RISCOS theme");
   check (icon_ok[2], "icons: symbolic icons (edit-copy-symbolic) load from GTK's .symbolic.png");
-  check (icon_ok[4], "icons: riscos-gtk's own (RISC OS style) for document-save, edit-cut, zoom-in, go-next at 16 and 24 pixels");
+  check (icon_ok[4], "icons: riscos-gtk's own (RISC OS style) for document-save, edit-cut, zoom-in, go-next and the symbolic pan-down, window-close at 16 and 24 pixels");
   printf ("# icons: %s\n", icon_note);
   check (g_strcmp0 (g_getenv ("GSETTINGS_BACKEND"), "memory") == 0,
          "GSettings in memory (no keyfile backend wanting a file monitor)");

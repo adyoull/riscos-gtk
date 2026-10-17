@@ -13,6 +13,9 @@ desktop's own sprites still come first for folders, file types, discs and
 the dialogue box symbols: gtk/riscos/gtkriscostheme.c).
 
     mkriscosicons.py FONTDIR THEMEDIR [SHEET.png]
+    mkriscosicons.py --pack NAME FONTDIR THEMEDIR [SHEET.png]
+      a program's own icons (tools/riscosicons_apps.py: gnumeric, geany)
+      into its RISCOS theme
 
 FONTDIR has DejaVu's TTFs (for the letters on the text-format icons).
 THEMEDIR gets SIZExSIZE/CONTEXT/NAME.png for SIZES. Prints the
@@ -439,11 +442,306 @@ icon("folder-videos", "places")(lambda c: (folder(c, 1.5, 4.5, 22.5, 20.5),
                                            c.poly([(16, 14.5), (20, 17), (16, 19.5)], WHITE, None)))
 
 
+
+# ---- fallbacks for the desktop's sprites (folders, file types, discs) ----
+# The desktop's own sprites (directory, file_fff, harddisc...) come first
+# (gtk/riscos/gtkriscostheme.c); these are for a desktop without them.
+
+def harddisc(c, x0, y0, x1, y1):
+    c.rect(x0, y0, x1, y1, (GREY, GREY3))
+    c.rect(x0 + 2, y0 + 2, x1 - 2, y0 + (y1 - y0) * 0.5, (WHITE, GREY), K2)
+    c.line([(x0 + 3, y1 - 3), (x1 - 8, y1 - 3)], K2, 1)
+    c.ellipse(x1 - 5.5, y1 - 5, x1 - 2.5, y1 - 2, GREENA, None)
+
+
+def file_icon(c, mark=None):
+    """a RISC OS file icon: a sheet with its corner folded; mark draws on it"""
+    sheet(c, 4.5, 2.5, 19.5, 21.5, mark is None)
+    if mark:
+        mark(c)
+
+
+icon("folder", "places")(lambda c: folder(c, 1.5, 4.5, 22.5, 20.5))
+icon("folder-open", "places")(lambda c: folder(c, 1.5, 4.5, 22.5, 20.5, True))
+icon("drive-harddisk", "devices")(lambda c: harddisc(c, 1.5, 6.5, 22.5, 17.5))
+icon("drive-removable-media", "devices")(lambda c: floppy(c, 3.5, 3.5, 20.5, 20.5, (GREY2, GREY3)))
+icon("media-floppy", "devices")(lambda c: floppy(c, 3.5, 3.5, 20.5, 20.5, (GREY2, GREY3)))
+icon("drive-optical", "devices")(lambda c: (harddisc(c, 1.5, 11.5, 22.5, 21.5), disc_cd(c, 12, 8, 6.5)))
+icon("text-x-generic", "mimetypes")(lambda c: file_icon(c))
+icon("text-html", "mimetypes")(lambda c: file_icon(c, lambda c: (
+    c.ellipse(6.5, 7.5, 17.5, 18.5, ((120, 180, 255, 255), BLUE2)),
+    c.line([(12, 7.5), (12, 18.5)], WHITE, 0.8), c.line([(6.5, 13), (17.5, 13)], WHITE, 0.8),
+    c.ellipse(9.5, 7.5, 14.5, 18.5, None, WHITE, 0.8))))
+icon("image-x-generic", "mimetypes")(lambda c: file_icon(c, lambda c: picture(c, 6.5, 9.5, 17.5, 18.5)))
+icon("audio-x-generic", "mimetypes")(lambda c: file_icon(c, lambda c: (
+    c.ellipse(7, 14.5, 11, 18.5, K, None), c.ellipse(12.5, 13, 16.5, 17, K, None),
+    c.line([(10.5, 16.5), (10.5, 8.5), (16, 7), (16, 15)], K, 1.4))))
+icon("video-x-generic", "mimetypes")(lambda c: file_icon(c, lambda c: (
+    c.rect(6.5, 8.5, 17.5, 18.5, K2, K),
+    [c.rect(7.2, y, 8.4, y + 1, WHITE, None) for y in (9.5, 12, 14.5, 17)],
+    [c.rect(15.6, y, 16.8, y + 1, WHITE, None) for y in (9.5, 12, 14.5, 17)],
+    c.poly([(10.5, 11), (14, 13.5), (10.5, 16)], WHITE, None))))
+icon("package-x-generic", "mimetypes")(lambda c: (
+    c.poly([(2.5, 8.5), (12, 4.5), (21.5, 8.5), (12, 12.5)], (CREAM, FLAP)),
+    c.poly([(2.5, 8.5), (12, 12.5), (12, 21.5), (2.5, 17.5)], (BROWN, BROWN2)),
+    c.poly([(21.5, 8.5), (12, 12.5), (12, 21.5), (21.5, 17.5)], (FLAP2, BROWN)),
+    c.line([(7, 6.5), (16.5, 10.5), (16.5, 15)], GOLD2, 1.4)))
+icon("application-x-executable", "mimetypes")(lambda c: file_icon(c, lambda c: gear(c, 12, 13.5, 5.5, GREENA)))
+icon("font-x-generic", "mimetypes")(lambda c: file_icon(c, lambda c: c.text(7, 6.5, "A", 12, font("DejaVuSerif-Bold.ttf"))))
+
+
+# ---- symbolic icons: one colour (GTK colours them), for GTK's own widgets ----
+# Drawn black on a 16-unit grid at 16 and 24 pixels as NAME.symbolic.png
+# (GTK's form: black where the foreground colour goes, alpha the shape).
+
+SYMBOLIC = []          # (name, context, draw)
+SYMBOLIC_SIZES = [16, 24]
+
+
+def sym(name, context="actions"):
+    def reg(f):
+        SYMBOLIC.append((name, context, f))
+        return f
+    return reg
+
+
+def fill(c, pts):
+    c.poly(pts, K, None)
+
+
+def ln(c, pts, w=1.6):
+    c.line(pts, K, w)
+
+
+def box(c, x0, y0, x1, y1, w=1.4):
+    c.rect(x0, y0, x1, y1, None, K, w)
+
+
+def tri(c, d, cx=8, cy=8, r=4.5):
+    """a RISC OS scroll arrow: a solid triangle pointing d"""
+    pts = {"down": [(cx - r, cy - r * 0.55), (cx + r, cy - r * 0.55), (cx, cy + r * 0.65)],
+           "up": [(cx - r, cy + r * 0.55), (cx + r, cy + r * 0.55), (cx, cy - r * 0.65)],
+           "left": [(cx + r * 0.55, cy - r), (cx + r * 0.55, cy + r), (cx - r * 0.65, cy)],
+           "right": [(cx - r * 0.55, cy - r), (cx - r * 0.55, cy + r), (cx + r * 0.65, cy)]}[d]
+    fill(c, pts)
+
+
+def sym_arrow(c, d):
+    """a block arrow (go-*)"""
+    pts = [(5.5, 14), (10.5, 14), (10.5, 8.5), (13.5, 8.5), (8, 2), (2.5, 8.5), (5.5, 8.5)]
+    rot = {"up": lambda x, y: (x, y), "down": lambda x, y: (x, 16 - y),
+           "left": lambda x, y: (y, x), "right": lambda x, y: (16 - y, x)}[d]
+    fill(c, [rot(x, y) for x, y in pts])
+
+
+def sym_folder(c, cut=None):
+    fill(c, [(1, 3), (6, 3), (7.5, 4.5), (15, 4.5), (15, 14), (1, 14)])
+    c.erase([(2.5, 7), (13.5, 7), (13.5, 12.5), (2.5, 12.5)])
+    if cut:
+        cut(c)
+
+
+def sym_sheet(c, x0=3, y0=1, x1=13, y1=15):
+    fill(c, [(x0, y0), (x1 - 3.5, y0), (x1, y0 + 3.5), (x1, y1), (x0, y1)])
+    c.erase([(x0 + 1.5, y0 + 1.5), (x1 - 4.2, y0 + 1.5), (x1 - 4.2, y0 + 4.7), (x1 - 1.5, y0 + 4.7),
+             (x1 - 1.5, y1 - 1.5), (x0 + 1.5, y1 - 1.5)])
+
+
+def sym_ring(c, cx, cy, r, w=1.6):
+    c.ellipse(cx - r, cy - r, cx + r, cy + r, None, K, w)
+
+
+def sym_curve(c, left, cx=8, cy=9, r=4.5):
+    """a curling arrow (undo: left, redo: right)"""
+    s = 1 if left else -1
+    pts = [(cx + s * r * math.cos(math.radians(a)), cy - r * math.sin(math.radians(a))) for a in range(-60, 181, 20)]
+    ln(c, pts, 1.8)
+    ex, ey = pts[-1]
+    fill(c, [(ex - 3, ey - 0.5), (ex + 3, ey - 0.5), (ex, ey + 3.5)])
+
+
+def sym_gear(c, cx=8, cy=8, r=6.5):
+    pts = []
+    for i in range(32):
+        a = 2 * math.pi * i / 32
+        rr = r if (i % 4) in (0, 1) else r * 0.72
+        pts.append((cx + rr * math.cos(a), cy + rr * math.sin(a)))
+    fill(c, pts)
+    c.erase(ellipse=(cx - r * 0.3, cy - r * 0.3, cx + r * 0.3, cy + r * 0.3))
+
+
+def sym_magnifier(c, cx=6.5, cy=6.5, r=4.5, inside=None):
+    sym_ring(c, cx, cy, r, 1.8)
+    ln(c, [(cx + r * 0.75, cy + r * 0.75), (14.5, 14.5)], 2.6)
+    if inside in ("+", "-"):
+        ln(c, [(cx - 2.3, cy), (cx + 2.3, cy)], 1.4)
+    if inside == "+":
+        ln(c, [(cx, cy - 2.3), (cx, cy + 2.3)], 1.4)
+
+
+def sym_padlock(c, closed=True):
+    fill(c, [(3, 7.5), (13, 7.5), (13, 15), (3, 15)])
+    sx = 8 if closed else 11
+    pts = [(sx - 3.2, 7.5 if closed else 6)] + [(sx + 3.2 * math.cos(math.radians(a)), 4.5 + 3.2 * math.sin(math.radians(a)))
+                                                for a in range(180, 361, 15)] + [(sx + 3.2, 7.5)]
+    ln(c, pts, 1.6)
+    c.erase(ellipse=(7, 9.5, 9, 11.5))
+
+
+def sym_speaker(c, waves):
+    fill(c, [(1.5, 6), (4.5, 6), (8.5, 2), (8.5, 14), (4.5, 10), (1.5, 10)])
+    for i in range(waves):
+        r = 2.5 + 2.2 * i
+        c.arc(8.5, 8, r, -50, 50, K, 1.4)
+
+
+def sym_monitor(c):
+    fill(c, [(1, 2), (15, 2), (15, 11.5), (1, 11.5)])
+    c.erase([(2.5, 3.5), (13.5, 3.5), (13.5, 10), (2.5, 10)])
+    fill(c, [(6, 11.5), (10, 11.5), (11, 14.5), (5, 14.5)])
+
+
+def sym_bin(c, full=False):
+    fill(c, [(3, 4), (13, 4), (12, 15), (4, 15)])
+    fill(c, [(2, 2), (14, 2), (14, 3.4), (2, 3.4)])
+    for x in (6, 8, 10):
+        c.erase(line=[(x, 6), (x, 13)], w=0.9)
+    if full:
+        fill(c, [(4, 0.5), (8, 0.5), (8, 1.5), (4, 1.5)])
+
+
+# the widgets' own: arrows, the field clear button, add and remove, window controls
+sym("pan-down-symbolic")(lambda c: tri(c, "down"))
+sym("pan-up-symbolic")(lambda c: tri(c, "up"))
+sym("pan-start-symbolic")(lambda c: tri(c, "left"))
+sym("pan-end-symbolic")(lambda c: tri(c, "right"))
+sym("go-up-symbolic")(lambda c: sym_arrow(c, "up"))
+sym("go-down-symbolic")(lambda c: sym_arrow(c, "down"))
+sym("go-previous-symbolic")(lambda c: sym_arrow(c, "left"))
+sym("go-next-symbolic")(lambda c: sym_arrow(c, "right"))
+sym("edit-clear-symbolic")(lambda c: (c.ellipse(1, 1, 15, 15, K, None),
+                                      c.erase(line=[(5, 5), (11, 11)], w=1.8), c.erase(line=[(11, 5), (5, 11)], w=1.8)))
+sym("list-add-symbolic")(lambda c: (ln(c, [(2, 8), (14, 8)], 2.4), ln(c, [(8, 2), (8, 14)], 2.4)))
+sym("list-remove-symbolic")(lambda c: ln(c, [(2, 8), (14, 8)], 2.4))
+sym("window-close-symbolic")(lambda c: (ln(c, [(3.5, 3.5), (12.5, 12.5)], 2.2), ln(c, [(12.5, 3.5), (3.5, 12.5)], 2.2)))
+sym("window-minimize-symbolic")(lambda c: fill(c, [(3, 11), (13, 11), (13, 13.5), (3, 13.5)]))
+sym("window-maximize-symbolic")(lambda c: (box(c, 2.5, 2.5, 13.5, 13.5, 1.4), fill(c, [(2.5, 2.5), (13.5, 2.5), (13.5, 5), (2.5, 5)])))
+sym("window-restore-symbolic")(lambda c: (box(c, 5.5, 2.5, 13.5, 10.5, 1.2), box(c, 2.5, 5.5, 10.5, 13.5, 1.4),
+                                          fill(c, [(2.5, 5.5), (10.5, 5.5), (10.5, 7.5), (2.5, 7.5)])))
+sym("open-menu-symbolic")(lambda c: [ln(c, [(2.5, y), (13.5, y)], 1.8) for y in (4, 8, 12)])
+sym("view-more-symbolic")(lambda c: [c.ellipse(x - 1.6, 6.4, x + 1.6, 9.6, K, None) for x in (3, 8, 13)])
+sym("object-select-symbolic")(lambda c: ln(c, [(2, 8.5), (6, 12.5), (14, 3.5)], 2.4))
+sym("process-working-symbolic")(lambda c: [c.ellipse(8 + 5.5 * math.cos(math.radians(a)) - r, 8 + 5.5 * math.sin(math.radians(a)) - r,
+                                                     8 + 5.5 * math.cos(math.radians(a)) + r, 8 + 5.5 * math.sin(math.radians(a)) + r,
+                                                     (0, 0, 0, int(60 + 195 * i / 7)), None)
+                                           for i, a in enumerate(range(0, 360, 45)) for r in (0.8 + 0.12 * i,)])
+sym("caps-lock-symbolic")(lambda c: (fill(c, [(8, 1.5), (14, 8), (10.5, 8), (10.5, 10.5), (5.5, 10.5), (5.5, 8), (2, 8)]),
+                                     fill(c, [(5.5, 12), (10.5, 12), (10.5, 14), (5.5, 14)])))
+sym("switch-on-symbolic")(lambda c: ln(c, [(8, 3), (8, 13)], 2))
+sym("switch-off-symbolic")(lambda c: sym_ring(c, 8, 8, 5, 2))
+sym("starred-symbolic")(lambda c: fill(c, [(8 + (7 if i % 2 == 0 else 3) * math.cos(math.radians(-90 + 36 * i)),
+                                              8.5 + (7 if i % 2 == 0 else 3) * math.sin(math.radians(-90 + 36 * i))) for i in range(10)]))
+sym("bookmark-new-symbolic")(lambda c: fill(c, [(3.5, 1), (12.5, 1), (12.5, 15), (8, 11), (3.5, 15)]))
+sym("changes-prevent-symbolic")(lambda c: sym_padlock(c, True))
+sym("changes-allow-symbolic")(lambda c: sym_padlock(c, False))
+sym("dialog-password-symbolic", "status")(lambda c: sym_padlock(c, True))
+sym("dialog-warning-symbolic", "status")(lambda c: (fill(c, [(8, 1), (15.5, 14.5), (0.5, 14.5)]),
+                                                    c.erase(line=[(8, 5.5), (8, 9.5)], w=1.8),
+                                                    c.erase(ellipse=(7, 11, 9, 13))))
+sym("audio-volume-muted-symbolic", "status")(lambda c: (sym_speaker(c, 0), ln(c, [(10.5, 6), (14.5, 10)], 1.4),
+                                                        ln(c, [(14.5, 6), (10.5, 10)], 1.4)))
+sym("audio-volume-low-symbolic", "status")(lambda c: sym_speaker(c, 1))
+sym("audio-volume-medium-symbolic", "status")(lambda c: sym_speaker(c, 2))
+sym("audio-volume-high-symbolic", "status")(lambda c: sym_speaker(c, 3))
+sym("emblem-system-symbolic", "emblems")(lambda c: sym_gear(c))
+sym("system-run-symbolic")(lambda c: sym_gear(c))
+sym("emblem-synchronizing-symbolic", "emblems")(lambda c: (c.arc(8, 8, 5.5, 200, 340, K, 1.8), c.arc(8, 8, 5.5, 20, 160, K, 1.8),
+                                                           fill(c, [(11.5, 1.5), (15, 5.5), (10, 6)]),
+                                                           fill(c, [(4.5, 14.5), (1, 10.5), (6, 10)])))
+sym("view-refresh-symbolic")(lambda c: (c.arc(8, 8, 5.5, 200, 340, K, 1.8), c.arc(8, 8, 5.5, 20, 160, K, 1.8),
+                                        fill(c, [(11.5, 1.5), (15, 5.5), (10, 6)]), fill(c, [(4.5, 14.5), (1, 10.5), (6, 10)])))
+sym("document-open-recent-symbolic")(lambda c: (sym_ring(c, 8, 8, 6.5, 1.6), ln(c, [(8, 4), (8, 8), (11, 9.5)], 1.6)))
+sym("find-location-symbolic")(lambda c: (sym_ring(c, 8, 8, 5, 1.6), ln(c, [(8, 0.5), (8, 4)]), ln(c, [(8, 12), (8, 15.5)]),
+                                         ln(c, [(0.5, 8), (4, 8)]), ln(c, [(12, 8), (15.5, 8)]), c.ellipse(6.5, 6.5, 9.5, 9.5, K, None)))
+sym("face-smile-symbolic")(lambda c: (sym_ring(c, 8, 8, 6.5), c.ellipse(5, 5, 7, 7.5, K, None), c.ellipse(9, 5, 11, 7.5, K, None),
+                                      c.arc(8, 8, 3.8, 20, 160, K, 1.4)))
+
+# documents and editing
+sym("document-new-symbolic")(lambda c: (sym_sheet(c), ln(c, [(8, 7), (8, 13)], 1.4), ln(c, [(5, 10), (11, 10)], 1.4)))
+sym("document-open-symbolic")(lambda c: (sym_folder(c),))
+sym("document-save-symbolic")(lambda c: (fill(c, [(1.5, 1.5), (12.5, 1.5), (14.5, 3.5), (14.5, 14.5), (1.5, 14.5)]),
+                                         c.erase([(4.5, 1.5), (11, 1.5), (11, 6), (4.5, 6)]),
+                                         c.erase([(4, 9), (12, 9), (12, 13), (4, 13)])))
+sym("text-x-generic-symbolic", "mimetypes")(lambda c: (sym_sheet(c), [ln(c, [(5, y), (11, y)], 1) for y in (8, 10, 12)]))
+sym("application-x-executable-symbolic", "mimetypes")(lambda c: sym_gear(c))
+sym("edit-copy-symbolic")(lambda c: (box(c, 1.5, 1.5, 10, 10, 1.4), fill(c, [(5, 5), (14.5, 5), (14.5, 14.5), (5, 14.5)]),
+                                     c.erase([(6.5, 6.5), (13, 6.5), (13, 13), (6.5, 13)])))
+sym("edit-cut-symbolic")(lambda c: (ln(c, [(4.5, 1), (10, 10)], 1.4), ln(c, [(11.5, 1), (6, 10)], 1.4),
+                                    sym_ring(c, 4.5, 12, 2.4, 1.5), sym_ring(c, 11.5, 12, 2.4, 1.5)))
+sym("edit-paste-symbolic")(lambda c: (fill(c, [(2, 2.5), (14, 2.5), (14, 15), (2, 15)]),
+                                      c.erase([(3.5, 4.5), (12.5, 4.5), (12.5, 13.5), (3.5, 13.5)]),
+                                      fill(c, [(5.5, 1), (10.5, 1), (10.5, 4), (5.5, 4)]),
+                                      [ln(c, [(5, y), (11, y)], 1) for y in (7.5, 10)]))
+sym("edit-undo-symbolic")(lambda c: sym_curve(c, True))
+sym("edit-redo-symbolic")(lambda c: sym_curve(c, False))
+sym("edit-delete-symbolic")(lambda c: (ln(c, [(3, 3), (13, 13)], 2.4), ln(c, [(13, 3), (3, 13)], 2.4)))
+sym("edit-find-symbolic")(lambda c: sym_magnifier(c))
+sym("edit-select-all-symbolic")(lambda c: ([ln(c, [(x, 1.5), (x + 1.5, 1.5)], 1) for x in (1.5, 4.5, 7.5, 10.5, 13)],
+                                           [ln(c, [(x, 14.5), (x + 1.5, 14.5)], 1) for x in (1.5, 4.5, 7.5, 10.5, 13)],
+                                           [ln(c, [(1.5, y), (1.5, y + 1.5)], 1) for y in (4.5, 7.5, 10.5)],
+                                           [ln(c, [(14.5, y), (14.5, y + 1.5)], 1) for y in (4.5, 7.5, 10.5)],
+                                           fill(c, [(4.5, 4.5), (11.5, 4.5), (11.5, 11.5), (4.5, 11.5)])))
+sym("zoom-in-symbolic")(lambda c: sym_magnifier(c, inside="+"))
+sym("zoom-out-symbolic")(lambda c: sym_magnifier(c, inside="-"))
+
+# places (the file chooser's sidebar), devices and the network
+sym("folder-symbolic", "places")(lambda c: sym_folder(c))
+sym("folder-documents-symbolic", "places")(lambda c: sym_folder(c, lambda c: [ln(c, [(4, y), (12, y)], 1) for y in (8.8, 10.8)]))
+sym("folder-download-symbolic", "places")(lambda c: sym_folder(c, lambda c: fill(c, [(7, 7.5), (9, 7.5), (9, 9.5), (10.5, 9.5),
+                                                                                     (8, 12), (5.5, 9.5), (7, 9.5)])))
+sym("folder-music-symbolic", "places")(lambda c: sym_folder(c, lambda c: (c.ellipse(5.5, 9.8, 8, 12, K, None),
+                                                                          ln(c, [(7.8, 11), (7.8, 7.8), (10.5, 7.5)], 1))))
+sym("folder-pictures-symbolic", "places")(lambda c: sym_folder(c, lambda c: fill(c, [(4, 12), (7, 8.5), (9, 10.5), (10.5, 9),
+                                                                                     (12.5, 12)])))
+sym("folder-videos-symbolic", "places")(lambda c: sym_folder(c, lambda c: fill(c, [(6.5, 8), (10.5, 9.8), (6.5, 11.6)])))
+sym("folder-publicshare-symbolic", "places")(lambda c: sym_folder(c, lambda c: (c.ellipse(7, 7.8, 9, 9.8, K, None),
+                                                                                fill(c, [(5.5, 12), (6, 10.3), (10, 10.3), (10.5, 12)]))))
+sym("folder-remote-symbolic", "places")(lambda c: sym_folder(c, lambda c: (sym_ring(c, 8, 9.8, 2.2, 1), ln(c, [(5.5, 9.8), (10.5, 9.8)], 0.8))))
+sym("folder-saved-search-symbolic", "places")(lambda c: sym_folder(c, lambda c: (sym_ring(c, 7.5, 9.5, 1.8, 1),
+                                                                                 ln(c, [(8.8, 10.8), (10.5, 12.3)], 1.2))))
+sym("folder-templates-symbolic", "places")(lambda c: sym_folder(c, lambda c: box(c, 5, 8, 11, 11.5, 1)))
+sym("user-home-symbolic", "places")(lambda c: (fill(c, [(8, 1), (15.5, 7.5), (13, 7.5), (13, 15), (3, 15), (3, 7.5), (0.5, 7.5)]),
+                                               c.erase([(6.5, 10), (9.5, 10), (9.5, 15), (6.5, 15)])))
+sym("user-desktop-symbolic", "places")(lambda c: sym_monitor(c))
+sym("user-trash-symbolic", "places")(lambda c: sym_bin(c))
+sym("user-trash-full-symbolic", "places")(lambda c: sym_bin(c, True))
+sym("drive-harddisk-symbolic", "devices")(lambda c: (fill(c, [(1, 4), (15, 4), (15, 12), (1, 12)]),
+                                                     c.erase([(2.5, 5.5), (13.5, 5.5), (13.5, 8), (2.5, 8)]),
+                                                     c.erase(ellipse=(11, 9, 13, 11))))
+sym("media-eject-symbolic", "devices")(lambda c: (fill(c, [(8, 2), (14.5, 9), (1.5, 9)]), fill(c, [(1.5, 11), (14.5, 11), (14.5, 14), (1.5, 14)])))
+sym("network-server-symbolic", "devices")(lambda c: ([fill(c, [(2, y), (14, y), (14, y + 3.5), (2, y + 3.5)]) for y in (1.5, 6.25, 11)],
+                                                     [c.erase(ellipse=(11, y + 1, 12.6, y + 2.6)) for y in (1.5, 6.25, 11)]))
+sym("network-workgroup-symbolic", "places")(lambda c: (fill(c, [(1, 1), (8, 1), (8, 6.5), (1, 6.5)]),
+                                                       fill(c, [(8, 9), (15, 9), (15, 14.5), (8, 14.5)]),
+                                                       ln(c, [(4.5, 6.5), (4.5, 11.5), (8, 11.5)], 1.2)))
+
+
 def render(f, size):
     k = size / 24
     c = Icon(24, 24, k, minline=True)
     f(c)
     return c.image()
+
+
+def render_symbolic(f, size):
+    c = Icon(16, 16, size / 16)
+    f(c)
+    im = c.image()
+    # GTK's symbolic form: black, the shape in alpha
+    black = im.copy()
+    black.paste((0, 0, 0, 255), (0, 0) + im.size)
+    black.putalpha(im.getchannel("A"))
+    return black
 
 
 def draw_theme(fontdir, themedir, sizes=SIZES):
@@ -455,26 +753,80 @@ def draw_theme(fontdir, themedir, sizes=SIZES):
             os.makedirs(os.path.join(themedir, rel), exist_ok=True)
             render(f, size).save(os.path.join(themedir, rel, name + ".png"))
             dirs.add((rel, size, ctx))
+    for name, ctx, f in SYMBOLIC:
+        for size in SYMBOLIC_SIZES:
+            rel = "%dx%d/%s" % (size, size, ctx)
+            os.makedirs(os.path.join(themedir, rel), exist_ok=True)
+            render_symbolic(f, size).save(os.path.join(themedir, rel, name + ".symbolic.png"))
+            dirs.add((rel, size, ctx))
     return dirs
 
 
+def draw_pack(name, fontdir, themedir, sizes=SIZES):
+    """a program's own icons (tools/riscosicons_apps.py) into its RISCOS
+    theme (made by build/mkicons.py): listed in index.theme and README"""
+    import riscosicons_apps as apps
+    FONTS["dir"] = fontdir
+    apps.setup(font, {"plus": plus, "minus": minus, "chain": chain, "floppy": floppy})
+    icons = apps.PACKS[name]
+    dirs = set()
+    for n, ctx, f in icons:
+        for size in sizes:
+            rel = "%dx%d/%s" % (size, size, ctx)
+            os.makedirs(os.path.join(themedir, rel), exist_ok=True)
+            render(f, size).save(os.path.join(themedir, rel, n + ".png"))
+            dirs.add((rel, size, ctx))
+    index = os.path.join(themedir, "index.theme")
+    if os.path.exists(index):
+        text = open(index).read()
+        listed = text.split("Directories=", 1)[1].split("\n", 1)[0].split(",")
+        new = sorted((d for d in dirs if d[0] not in listed), key=lambda d: (d[1], d[2]))
+        if new:
+            text = text.replace("Directories=" + ",".join(listed),
+                                "Directories=" + ",".join(listed + [d[0] for d in new]), 1)
+            text += "".join("[%s]\nSize=%d\nContext=%s\nType=Fixed\n\n" % (r, sz, c.capitalize())
+                            for r, sz, c in new)
+            open(index, "w").write(text)
+    with open(os.path.join(themedir, "README"), "a") as f:
+        f.write("And the program's own, drawn by tools/mkriscosicons.py --pack %s (MIT):\n  %s\n"
+                % (name, " ".join(sorted(n for n, _c, _f in icons))))
+    return icons
+
+
 def main():
+    if sys.argv[1] == "--pack":
+        name, fontdir, themedir = sys.argv[2:5]
+        icons = draw_pack(name, fontdir, themedir)
+        if len(sys.argv) > 5:
+            from PIL import Image
+            cols, z = 10, 3
+            cell = 24 * z + 16 * z + 12
+            rows = (len(icons) + cols - 1) // cols
+            im = Image.new("RGBA", (cols * cell, rows * (24 * z + 8)), (221, 221, 221, 255))
+            for i, (_n, _c, f) in enumerate(icons):
+                x, y = (i % cols) * cell + 4, (i // cols) * (24 * z + 8) + 4
+                im.alpha_composite(render(f, 24).resize((24 * z, 24 * z), Image.NEAREST), (x, y))
+                im.alpha_composite(render(f, 16).resize((16 * z, 16 * z), Image.NEAREST), (x + 24 * z + 4, y))
+            im.save(sys.argv[5])
+        print("mkriscosicons: %s's %d icons" % (name, len(icons)))
+        return
     fontdir, themedir = sys.argv[1], sys.argv[2]
     dirs = draw_theme(fontdir, themedir)
     if len(sys.argv) > 3:
         from PIL import Image
+        entries = [(lambda f=f: render(f, 24), lambda f=f: render(f, 16)) for _n, _c, f in ICONS]
+        entries += [(lambda f=f: render_symbolic(f, 24), lambda f=f: render_symbolic(f, 16)) for _n, _c, f in SYMBOLIC]
         cols, z = 10, 3
         cell = 24 * z + 16 * z + 12
-        rows = (len(ICONS) + cols - 1) // cols
+        rows = (len(entries) + cols - 1) // cols
         im = Image.new("RGBA", (cols * cell, rows * (24 * z + 8)), (221, 221, 221, 255))
-        for i, (name, _ctx, f) in enumerate(ICONS):
+        for i, (big, small) in enumerate(entries):
             x, y = (i % cols) * cell + 4, (i // cols) * (24 * z + 8) + 4
-            a = render(f, 24).resize((24 * z, 24 * z), Image.NEAREST)
-            b = render(f, 16).resize((16 * z, 16 * z), Image.NEAREST)
-            im.alpha_composite(a, (x, y))
-            im.alpha_composite(b, (x + 24 * z + 4, y))
+            im.alpha_composite(big().resize((24 * z, 24 * z), Image.NEAREST), (x, y))
+            im.alpha_composite(small().resize((16 * z, 16 * z), Image.NEAREST), (x + 24 * z + 4, y))
         im.save(sys.argv[3])
-    print("mkriscosicons: %d icons at %s pixels" % (len(ICONS), ", ".join(map(str, SIZES))))
+    print("mkriscosicons: %d icons at %s pixels, %d symbolic at %s" %
+          (len(ICONS), ", ".join(map(str, SIZES)), len(SYMBOLIC), ", ".join(map(str, SYMBOLIC_SIZES))))
     print("dirs:")
     for rel, _s, _c in sorted(dirs):
         print(rel)

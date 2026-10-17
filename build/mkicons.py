@@ -61,7 +61,7 @@ def draw_own(theme):
     dirs = mkriscosicons.draw_theme(fonts, theme)
     if tmp:
         shutil.rmtree(tmp)
-    names = {n: ctx for n, ctx, _f in mkriscosicons.ICONS}
+    names = {n: ctx for n, ctx, _f in mkriscosicons.ICONS + mkriscosicons.SYMBOLIC}
     with open(os.path.join(theme, "README"), "w") as f:
         f.write("RISCOS icon theme (riscos-gtk). These icons are riscos-gtk's own, drawn by\n"
                 "tools/mkriscosicons.py (MIT licence):\n  %s\n"
@@ -134,10 +134,11 @@ def main():
         # name is in one folder per size
         for rel, size, ctx in list(dirs):
             for n in drawn_names:
-                f = os.path.join(theme, rel, n + ".png")
-                if os.path.exists(f) and (rel, size, ctx) not in drawn_dirs and \
-                        os.path.exists(os.path.join(theme, "%dx%d" % (size, size), drawn_names[n], n + ".png")):
-                    os.remove(f)
+                for suffix in (".png", ".symbolic.png"):
+                    f = os.path.join(theme, rel, n + suffix)
+                    mine = os.path.join(theme, "%dx%d" % (size, size), drawn_names[n], n + suffix)
+                    if os.path.exists(f) and ctx != drawn_names[n] and os.path.exists(mine):
+                        os.remove(f)
         dirs |= drawn_dirs
         missing = [m for m in missing if m not in drawn_names]
     dirs = sorted(dirs, key=lambda d: (d[1], d[2]))

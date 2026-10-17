@@ -2,8 +2,17 @@
 
 ## Since RC6
 - **RISC OS-style icons for every program.** The RISCOS icon theme now
-  has riscos-gtk's own icons, drawn in the style of ClawsMail's, for 116
-  of the names programs use for toolbars, menus and dialogue boxes
+  has riscos-gtk's own icons, drawn in the style of ClawsMail's, for all
+  130 full-colour names it ships (folders, file types and discs too,
+  for a desktop without those sprites) and 72 of the one-colour
+  (symbolic) icons GTK's widgets use (arrows, the field clear button,
+  window controls, the file chooser's places...; emoji and gesture
+  pictures stay Adwaita's). Programs' own icons get the same treatment:
+  Gnumeric's 100 (toolbars, borders, alignment, sheet objects) and
+  Geany's 11 (symbol list, Build, Save all, Close all), drawn by
+  `tools/riscosicons_apps.py` and put in their RISCOS theme by
+  `build-app.sh` (`ICON_PACK`). This covers the names programs use for
+  toolbars, menus and dialogue boxes
   (open, save, print, cut, copy, paste, undo, find, go, zoom, text
   formatting, media, warning and error...), at 16, 22, 24, 32 and 48
   pixels, in place of Adwaita's (`tools/mkriscosicons.py`). The drawing
@@ -27,7 +36,7 @@
   boxes now convert RISC OS names to UTF-8 to show them and back to
   Latin-1 to use them, and the program's suggested name (UTF-8) to
   Latin-1 (`gtk/riscos/gtkfilechooser-riscos.c`; `browser-fake`).
-- Gnumeric 1.12.57-riscos3 (test build) has both; riscos4 adds the icons.
+- Gnumeric 1.12.57-riscos3 (test build) has both; riscos4 adds the icons, riscos5 its own icons and the symbolic ones.
 - **Gnumeric 1.12.57-riscos2 (test build): File > Open works, and
   scrolling past a sheet's controls no longer stops it.** From the first
   Pi run (riscos1):

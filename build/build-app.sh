@@ -72,6 +72,14 @@ cp -r "$REPO_DIR/theme/gtk-3.0" "$A/share/themes/RISCOS/"
 ADW=$SRC/adwaita-icon-theme-3.36.1
 [ -d "$ADW" ] || tar -xf "$DL/adwaita-icon-theme_3.36.1.orig.tar.xz" -C "$SRC"
 python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$A/share/icons"
+# the program's own icons in the RISC OS style (ICON_PACK=gnumeric, geany:
+# tools/riscosicons_apps.py), ahead of its upstream ones
+if [ -n "${ICON_PACK:-}" ]; then
+  IPF=$(mktemp -d)
+  unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf' -d "$IPF"
+  python3 -B "$REPO_DIR/tools/mkriscosicons.py" --pack "$ICON_PACK" "$IPF" "$A/share/icons/RISCOS"
+  rm -rf "$IPF"
+fi
 # GTK's GSettings schemas (the file choosers, colour chooser, emoji
 # chooser need them: GLib stops the program without), found through
 # XDG_DATA_DIRS = the app's share directory

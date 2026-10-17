@@ -290,6 +290,10 @@ if [ -f "$SRC/gnumeric-libs.txt" ]; then
   cp -r "$HA"/. "$GNT/"; cp -r "$SRC/gnumeric-app/lib" "$SRC/gnumeric-app/goffice" "$GNT/"
   cp -rn "$SRC/gnumeric-app/share"/. "$GNT/share/"
   python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$GNT/share/icons" > /dev/null
+  IPF=$(mktemp -d)
+  unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf' -d "$IPF"
+  python3 -B "$REPO_DIR/tools/mkriscosicons.py" --pack gnumeric "$IPF" "$GNT/share/icons/RISCOS" > /dev/null
+  rm -rf "$IPF"
   GNC="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
   $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $GNC -Dmain=riscos_gnumeric_main \
     -c "$REPO_DIR/apps/gnumeric/riscos-gnumeric.c" -o "$GNT/riscos-gnumeric.o"

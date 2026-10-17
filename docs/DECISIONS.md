@@ -171,6 +171,14 @@ sprite pool at start-up, like the rest of the theme; everything else
 from a trimmed Adwaita 3.36 (PNG). The list of names is
 theme/icons-list.txt.
 
+Update (2026-10-17, later): all 130 full-colour names, 72 symbolic ones
+(drawn black as GTK's .symbolic.png, coloured by GTK) and programs' own
+icons (Gnumeric, Geany: `tools/riscosicons_apps.py`, `ICON_PACK` in
+build-app.sh; they go in the program's RISCOS theme, which GTK searches
+before the program's hicolor and resource icons). Left as they are:
+Adwaita's emoji, gesture and use symbolic icons (rarely seen) and
+Gnumeric's fill patterns (swatches, not icons).
+
 Update (2026-10-17): riscos-gtk now draws its own icons, in the style of
 ClawsMail's RISC OS ones, for 116 of the names (toolbar, menu, dialogue
 box, media, places): `tools/mkriscosicons.py` with the drawing shared

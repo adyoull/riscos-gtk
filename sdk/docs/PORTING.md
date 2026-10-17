@@ -172,7 +172,10 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
   180 dpi modes. To draw them in the same style, use the devkit's
   `share/riscos-gtk/tools/riscosdraw.py` (Pillow): `mkriscosicons.py`
   beside it shows how (an icon is a few calls on a 24-unit grid, made at
-  any size).
+  any size). To restyle a program's own named icons, add a pack to
+  `riscosicons_apps.py` (as Gnumeric's and Geany's are) and run
+  `mkriscosicons.py --pack NAME FONTDIR APP/share/icons/RISCOS`: icons
+  there are found before the program's own hicolor or resource ones.
 - **Fonts:**
   - **With PackMan's FontConfig (UnixFC) installed,** programs get the
     system's fonts and shared font cache, plus their own `fonts`

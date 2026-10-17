@@ -119,13 +119,34 @@ class Icon:
                 cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
         self.line(pts, col, w)
 
-    def text(self, x, y, s, size, font, fill=K):
+    def erase(self, pts=None, line=None, w=1.0, ellipse=None):
+        """make transparent: inside the polygon pts, along the line (width
+        w) or inside the ellipse (x0, y0, x1, y1): cut-outs in one-colour
+        (symbolic) icons"""
+        m = Image.new("L", self.im.size, 0)
+        d = ImageDraw.Draw(m)
+        if pts:
+            d.polygon(self._p(pts), fill=255)
+        if line:
+            q = self._p(line)
+            d.line(q, fill=255, width=int(w * S * self.lk), joint="curve")
+            for x, y in q:
+                r = w * S * self.lk / 2
+                d.ellipse([x - r, y - r, x + r, y + r], fill=255)
+        if ellipse:
+            x0, y0, x1, y1 = ellipse
+            d.ellipse(self._p([(x0, y0), (x1, y1)]), fill=255)
+        a = self.im.getchannel("A")
+        from PIL import ImageChops
+        self.im.putalpha(ImageChops.subtract(a, m))
+
+    def text(self, x, y, s, size, font, fill=K, anchor=None):
         """s in the TrueType font (a path), its top left at (x, y), size
-        units high"""
+        units high; anchor "mm": centred on (x, y)"""
         from PIL import ImageFont
         f = ImageFont.truetype(font, int(size * S * self.k))
         l = Image.new("RGBA", self.im.size)
-        ImageDraw.Draw(l).text((x * S * self.k, y * S * self.k), s, font=f, fill=fill)
+        ImageDraw.Draw(l).text((x * S * self.k, y * S * self.k), s, font=f, fill=fill, anchor=anchor)
         self.im.alpha_composite(l)
 
     def image(self):

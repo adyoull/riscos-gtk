@@ -46,7 +46,7 @@ int riscos_gnumeric_main (int argc, char **argv);
 static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, avg_ok, concat_ok, round_ok, xlsx_saved, ods_saved, reopened_ok, plot_ok;
-static int scrolled_ok, mime_ok, grab_ok, files_done;
+static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok;
 
 static void
 check (int ok, const char *name)
@@ -223,6 +223,26 @@ do_files (gpointer d)
     gtk_widget_destroy (d);
   }
   {
+    /* Gnumeric's own icons in the RISC OS style (mkriscosicons.py --pack
+       gnumeric) come before its built-in ones */
+    GtkIconTheme *t = gtk_icon_theme_get_default ();
+    const char *names[] = { "gnumeric-format-border-left", "gnumeric-autosum", "gnumeric-row-add" };
+    int i;
+    icons_ok = 1;
+    for (i = 0; i < 3; i++)
+      {
+        GtkIconInfo *info = gtk_icon_theme_lookup_icon (t, names[i], 24, 0);
+        const char *f = info ? gtk_icon_info_get_filename (info) : NULL;
+        if (!f || !strstr (f, "/RISCOS/24x24/"))
+          {
+            icons_ok = 0;
+            printf ("# icon %s: %s\n", names[i], f ? f : "(none or built in)");
+          }
+        if (info)
+          g_object_unref (info);
+      }
+  }
+  {
     GogPlot *plot = gog_plot_new_by_name ("GogBarColPlot");
     plot_ok = plot != NULL;
     if (plot)
@@ -358,6 +378,7 @@ main (int argc, char **argv)
   check (scrolled_ok, "scrolling a sheet with a check box on it");
   check (mime_ok, "file types from names: .xlsx and .ods are spreadsheets");
   check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");
+  check (icons_ok, "Gnumeric's own toolbar icons in the RISC OS style");
   check (stage == 3, "closing the window quits Gnumeric");
   printf ("# exit status %d\n", status);
   printf ("1..%d\n", n_tests);

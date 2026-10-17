@@ -98,7 +98,7 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf'
 mv "$S/fonts/LICENSE" "$S/fonts/Licence,fff"
 cp "$REPO_DIR/tests/render/mkfontsconf.sh" "$S/"
 mkdir -p "$S/tools"
-cp "$REPO_DIR/tools/riscosdraw.py" "$REPO_DIR/tools/mkriscosicons.py" "$S/tools/"
+cp "$REPO_DIR/tools/riscosdraw.py" "$REPO_DIR/tools/mkriscosicons.py" "$REPO_DIR/tools/riscosicons_apps.py" "$S/tools/"
 cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$S/licences/"
 sed -e "s|@RISCOS_GTK_RELEASE@|$RELEASE|g" -e "s|@RISCOS_GTK_SOURCE_URL@|$SOURCE_URL|g" \
   "$REPO_DIR/sdk/share/riscos-gtk/licences/Source.txt" > "$S/licences/Source.txt"
