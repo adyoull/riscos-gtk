@@ -22,6 +22,7 @@ need 'command -v xz' xz-utils
 need 'command -v glib-compile-schemas' libglib2.0-bin
 need 'command -v glib-compile-resources' libglib2.0-dev-bin
 need 'command -v update-mime-database' shared-mime-info
+need 'command -v gdk-pixbuf-pixdata' libgdk-pixbuf2.0-bin
 need 'python3 -c "import packaging"' python3-packaging
 need 'python3 -c "import PIL"' python3-pil
 if [ "${1:-}" = check ]; then

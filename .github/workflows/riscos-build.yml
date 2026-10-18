@@ -21,8 +21,9 @@ env:
   ARTIFACTS: |
     out/*.zip
     out/sdk/*.tar.gz
-  # the icon drawing (Pillow) and the MIME database (update-mime-database)
-  PACKAGES: "python3-pil shared-mime-info"
+  # the icon drawing (Pillow), the MIME database (update-mime-database),
+  # GTK's resources (gdk-pixbuf-pixdata)
+  PACKAGES: "python3-pil shared-mime-info libgdk-pixbuf2.0-bin"
 
 jobs:
   pin:

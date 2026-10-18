@@ -37,7 +37,7 @@ permissions:
 
 env:
   BUILD: make deps tests hello check sdk      # the same as in riscos-build.yml
-  PACKAGES: "python3-pil shared-mime-info"    # the same as in riscos-build.yml
+  PACKAGES: "python3-pil shared-mime-info libgdk-pixbuf2.0-bin"   # the same as in riscos-build.yml
 
 jobs:
   update:

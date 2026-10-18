@@ -12,13 +12,15 @@ This was built on Ubuntu 24.04, x86-64.
 ```sh
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
     gperf cmake curl unzip xz-utils python3-packaging python3-pil \
-    libglib2.0-dev-bin shared-mime-info \
+    libglib2.0-dev-bin shared-mime-info libgdk-pixbuf2.0-bin \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
 
 - `libglib2.0-dev-bin` provides glib-compile-resources and
   glib-compile-schemas; `shared-mime-info` update-mime-database
-  (`build/mkmime.sh`); `python3-pil` the icon drawing.
+  (`build/mkmime.sh`); `python3-pil` the icon drawing;
+  `libgdk-pixbuf2.0-bin` gdk-pixbuf-pixdata, which GTK's build uses for
+  its resources.
 - The `arm-linux-gnueabihf` compilers are only needed for `make check`.
 - `build/check-host.sh` (run by `make deps` and `make check`) says what's
   missing.
@@ -37,8 +39,8 @@ export RCD_DIR=$PWD/riscos-crossdev
 ```
 
 Or in riscos-crossdev's container image, which has the toolchain, the
-devkit and the host packages but two (`apt-get install python3-pil
-shared-mime-info` first, as the workflows do):
+devkit and the host packages but three (`apt-get install python3-pil
+shared-mime-info libgdk-pixbuf2.0-bin` first, as the workflows do):
 
 ```sh
 docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.8.2 make deps tests hello check sdk
@@ -155,8 +157,8 @@ SMTP and IMAP server. Every suite must pass before a release.
 `.github/workflows/riscos-build.yml` builds, tests and makes the devkit
 on every push and pull request, in the riscos-crossdev image that
 `.riscos-deps` names: `make deps tests hello check sdk`, after installing
-`PACKAGES` (python3-pil and shared-mime-info: riscos-crossdev's image
-holds only what several ports share). GTKTest, GTKHello
+`PACKAGES` (python3-pil, shared-mime-info and libgdk-pixbuf2.0-bin: riscos-crossdev's
+image holds only what several ports share). GTKTest, GTKHello
 and the devkit tarball are kept as the run's download. `dl/` is cached.
 
 `.github/workflows/riscos-deps-update.yml` checks every day for a newer
