@@ -37,6 +37,20 @@ STAGE=$SYSROOT$PREFIX
 : "${SRC:=$REPO_DIR/src$SUFFIX}"
 : "${DL:=$REPO_DIR/dl}"
 export TARGET REPO_DIR RCD_DIR GCCSDK_ENV SYSROOT PREFIX STAGE SRC DL
+# The scripts ask git for the commit (VERSION files, the devkit, the
+# release). In a container the checkout often belongs to another user
+# (GitHub's actions/checkout, a mounted folder) and git then refuses with
+# "dubious ownership"; trust this repository and riscos-crossdev's for the
+# build's git commands only, without touching the user's git config.
+if [ "$RISCOS_GTK_GIT_SAFE" != "$REPO_DIR:$RCD_DIR" ]; then
+  _n=${GIT_CONFIG_COUNT:-0}
+  for _d in "$REPO_DIR" "$RCD_DIR"; do
+    export GIT_CONFIG_KEY_$_n=safe.directory GIT_CONFIG_VALUE_$_n="$_d"
+    _n=$((_n + 1))
+  done
+  export GIT_CONFIG_COUNT=$_n RISCOS_GTK_GIT_SAFE="$REPO_DIR:$RCD_DIR"
+  unset _n _d
+fi
 case "$STAGE|$SRC|$DL|$GCCSDK_ENV" in *" "*)
   echo "env.sh: STAGE, SRC, DL and the toolchain path must not contain spaces" >&2
   return 1 2>/dev/null || exit 1;;
