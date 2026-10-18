@@ -19,6 +19,33 @@ diff -ruN a/gio/glocalfile.c b/gio/glocalfile.c
        g_file_info_set_attribute_uint64 (info, G_FILE_ATTRIBUTE_FILESYSTEM_USED, block_size * (statfs_buffer.f_blocks - statfs_buffer.f_bfree));
  #endif /* G_OS_WIN32 */
      }
+diff -ruN a/gio/glocalfileinfo.c b/gio/glocalfileinfo.c
+--- a/gio/glocalfileinfo.c
++++ b/gio/glocalfileinfo.c
+@@ -1182,7 +1182,11 @@
+   data = g_new0 (UidData, 1);
+ 
+ #if defined(HAVE_GETPWUID_R)
+-  getpwuid_r (uid, &pwbuf, buffer, sizeof(buffer), &pwbufp);
++  /* riscos-gtk: a failed lookup may leave pwbufp alone (UnixLib's
++     getpwuid_r and getgrgid_r return -1 without setting it when there's
++     no /etc/passwd entry or /etc/group), so don't trust it then */
++  if (getpwuid_r (uid, &pwbuf, buffer, sizeof(buffer), &pwbufp) != 0)
++    pwbufp = NULL;
+ #else
+   pwbufp = getpwuid (uid);
+ #endif
+@@ -1270,7 +1274,9 @@
+     return name;
+ 
+ #if defined (HAVE_GETGRGID_R)
+-  getgrgid_r (gid, &gbuf, buffer, sizeof(buffer), &gbufp);
++  /* riscos-gtk: as getpwuid_r above (RISC OS has no /etc/group) */
++  if (getgrgid_r (gid, &gbuf, buffer, sizeof(buffer), &gbufp) != 0)
++    gbufp = NULL;
+ #else
+   gbufp = getgrgid (gid);
+ #endif
 diff -ruN a/gio/gtrashportal.c b/gio/gtrashportal.c
 --- a/gio/gtrashportal.c	2024-03-07 21:35:05.000000000 +0000
 +++ b/gio/gtrashportal.c	2026-10-03 19:37:49.000000000 +0100

@@ -41,3 +41,25 @@ diff -ruN a/goffice/utils/go-file.c b/goffice/utils/go-file.c
  	return res;
  }
  
+@@ -719,6 +728,10 @@
+ 	}
+ 
+ 	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER);
++	if (name == NULL) {	/* RISC OS port: not every system has one */
++		g_object_unref (info);
++		return NULL;
++	}
+ 	(void) go_guess_encoding (name, strlen (name),
+ 				  NULL, &nameutf8, NULL);
+ 	g_object_unref (info);
+@@ -746,6 +759,10 @@
+ 	}
+ 
+ 	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_GROUP);
++	if (name == NULL) {	/* RISC OS port: not every system has one */
++		g_object_unref (info);
++		return NULL;
++	}
+ 	(void) go_guess_encoding (name, strlen (name),
+ 				  NULL, &nameutf8, NULL);
+ 	g_object_unref (info);

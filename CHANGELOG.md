@@ -1,6 +1,15 @@
 # Changelog
 
 ## Since RC6
+- **File > Properties: Group showed rubbish (Gnumeric).** RISC OS has no
+  /etc/group, and UnixLib's `getgrgid_r` (and `getpwuid_r`) then return
+  -1 without setting the result pointer, which GLib read anyway. GLib now
+  ignores the result when the call fails, so the group shows as its
+  number, as on Unix for an unknown group; GOffice copes with a file that
+  has no owner or group name (`patches/glib-2.80.0-riscos.diff`,
+  `patches/goffice-0.10.57-riscos.diff`). Gnumeric 1.12.57-riscos6. UnixLib
+  handoff: `getgrgid_r`/`getgrnam_r`/`getpwuid_r` should set `*result` to
+  NULL on failure.
 - **Builds on GitHub, with a pull request when riscos-crossdev releases.**
   `.riscos-deps` (`riscos-crossdev v1.8.2`) and the two workflows from
   riscos-crossdev's `ci/`: `make deps tests hello check sdk` in the
