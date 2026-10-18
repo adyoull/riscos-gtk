@@ -162,7 +162,7 @@ GN_LIBS="$GN/src/io-context-gtk.o $(cat "$ST.archives") $SRC/libspreadsheet.a"
 GN_CFLAGS="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
 GN_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0) -lm"
 # ---- !Gnumeric ----
-VERSION=${VERSION:-1.12.57-riscos9}
+VERSION=${VERSION:-1.12.57-riscos10}
 APP=$SRC/gnumeric-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/gnumeric/app" "$APP"
 # the plugins' descriptions (what each built-in module provides), in the
@@ -170,10 +170,18 @@ rm -rf "$APP"; cp -r "$REPO_DIR/apps/gnumeric/app" "$APP"
 for spec in "${MODS[@]}"; do
   n=${spec%%/*}
   if [ -f "$GN/plugins/$n/plugin.xml" ]; then
-    mkdir -p "$APP/lib/plugins/$n"; cp "$GN/plugins/$n/plugin.xml" "$APP/lib/plugins/$n/"
+    P=$GN/plugins/$n; D=$APP/lib/plugins/$n
   else
-    mkdir -p "$APP/goffice/lib/plugins/$n"; cp "$GO/plugins/$n/plugin.xml" "$APP/goffice/lib/plugins/$n/"
+    P=$GO/plugins/$n; D=$APP/goffice/lib/plugins/$n
   fi
+  mkdir -p "$D"; cp "$P/plugin.xml" "$D/"
+  # and the files its services read at run time (<file>: GOffice's chart
+  # types plot-types.xml, the trend lines' reg-types.xml, smoothing's
+  # types.xml); without them Insert > Chart has no chart types
+  for f in $(sed -n 's|.*<file>\([^<]*\)</file>.*|\1|p' "$P/plugin.xml"); do
+    [ -f "$P/$f" ] || { echo "build-gnumeric.sh: $n's plugin.xml names $f, which isn't there" >&2; exit 1; }
+    cp "$P/$f" "$D/"
+  done
 done
 # Gnumeric's data (autoformat templates) and its icons (hicolor)
 I=$SRC/gnumeric-inst; rm -rf "$I"

@@ -7,7 +7,9 @@
  *     CONCATENATE, fn-math's ROUND) work: the modules load on first use;
  *   - the workbook saves as .xlsx (the excel plugin) and .ods
  *     (openoffice), and the .xlsx opens again with its values;
- *   - a bar chart plot comes from GOffice's plot_barcol plugin;
+ *   - a bar chart plot comes from GOffice's plot_barcol plugin, and
+ *     Insert > Chart's chart types (the plugins' plot-types.xml) and trend
+ *     lines (reg-types.xml) are there;
  *   - a sheet with a check box on it scrolls; file types are known from
  *     names; a file dialogue with a grab on it (File > Open) leaves the
  *     grab with the RISC OS Open box;
@@ -50,7 +52,7 @@ int riscos_gnumeric_main (int argc, char **argv);
 static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, avg_ok, concat_ok, round_ok, xlsx_saved, ods_saved, reopened_ok, plot_ok;
-static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok, fontsel_ok;
+static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok, fontsel_ok, families_ok, trends_ok;
 
 static void
 check (int ok, const char *name)
@@ -350,6 +352,25 @@ do_files (gpointer d)
     if (plot)
       g_object_unref (plot);
   }
+  {
+    /* what the chart dialogue lists: every plugin's chart families */
+    const char *fams[] = { "Line", "Area", "Bar", "Column", "Pie", "Ring", "Radar",
+                           "XY", "Bubble", "Contour", "Surface", "Statistics" };
+    GHashTable const *all = gog_plot_families ();
+    GogTrendLine *t = gog_trend_line_new_by_name ("GogLinRegCurve");
+    int i;
+    families_ok = 1;
+    for (i = 0; i < (int) G_N_ELEMENTS (fams); i++)
+      if (!gog_plot_family_by_name (fams[i]))
+        {
+          families_ok = 0;
+          printf ("# chart family %s: missing\n", fams[i]);
+        }
+    printf ("# chart families: %u\n", all ? g_hash_table_size ((GHashTable *) all) : 0);
+    trends_ok = t != NULL && g_hash_table_size ((GHashTable *) gog_trend_line_types ()) > 0;
+    if (t)
+      g_object_unref (t);
+  }
   do_fontsel ();
   files_done = 1;
   return G_SOURCE_REMOVE;
@@ -517,6 +538,8 @@ main (int argc, char **argv)
   check (xlsx_saved, "saved as .xlsx (the excel plugin)");
   check (reopened_ok, "the .xlsx opens again with A4 = 3");
   check (plot_ok, "a bar chart plot (GOffice's plot_barcol plugin)");
+  check (families_ok, "Insert > Chart's chart types are there (each plugin's plot-types.xml)");
+  check (trends_ok, "and the trend lines (reg-types.xml)");
   check (scrolled_ok, "scrolling a sheet with a check box on it");
   check (mime_ok, "file types from names: .xlsx and .ods are spreadsheets");
   check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");

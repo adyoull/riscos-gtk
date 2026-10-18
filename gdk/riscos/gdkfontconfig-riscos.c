@@ -231,7 +231,12 @@ _gdk_riscos_fontconfig_init (void)
   if (config == NULL)
     {
       config = FcInitLoadConfigAndFonts ();
-      setup = g_strdup_printf ("the program's own (%s)", saved_conf ? saved_conf : "fontconfig's default");
+      setup = g_strdup_printf ("the program's own (%s%s)", saved_conf ? saved_conf : "fontconfig's default",
+                               g_strcmp0 (choice, "own") == 0
+                               ? "; RISCOS_GTK_FONTS is own"
+                               : fc_dir == NULL
+                               ? "; UnixFC$Dir isn't set: PackMan's FontConfig isn't installed, or hasn't been booted since it was"
+                               : "");
     }
   if (config == NULL)
     {

@@ -1,6 +1,17 @@
 # Changelog
 
 ## Since RC7
+- **Gnumeric: Insert > Chart had no chart types** ("cb_pending_plot_types_load:
+  assertion 'doc != NULL ...' failed" in the Log, one per chart plugin). The
+  package had each plugin's plugin.xml but not the files their services
+  read: GOffice's chart types (`plot-types.xml`), trend lines
+  (`reg-types.xml`) and smoothing (`types.xml`). `build-gnumeric.sh` now
+  copies every file a plugin.xml names in `<file>`, and stops if one is
+  missing. Test `gnumeric-fake`: the chart families (Line, Bar, Pie, XY,
+  Surface...) and a trend line. Gnumeric 1.12.57-riscos10 (test build).
+- **The Log says why UnixFC wasn't used:** "UnixFC$Dir isn't set:
+  PackMan's FontConfig isn't installed, or hasn't been booted since it
+  was" (or that RISCOS_GTK_FONTS is own).
 - **Font choosers: Serif and Monospace looked the same as Sans.** In
   Gnumeric's Format Cells > Font, choosing Serif or Monospace changed the
   preview's size but not its face. Programs carry only DejaVu Sans; other
