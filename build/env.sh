@@ -80,12 +80,10 @@ else
   UNIXLIB_VERSION=5.0.3.2
 fi
 export UNIXLIB_VERSION
-# The fonts every package carries: DejaVu Sans, Serif and Sans Mono, so
-# fontconfig's sans-serif, serif and monospace (and font choosers' Sans,
-# Serif and Monospace) are three different faces (tests/render/mkfontsconf.sh)
-export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf
-  DejaVuSerif.ttf DejaVuSerif-Bold.ttf DejaVuSerif-Italic.ttf
-  DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf DejaVuSansMono-Oblique.ttf"
+# The fonts every package carries: DejaVu Sans, GTK's default face. Other
+# fonts (serif, monospace, the user's) come from the system, through
+# PackMan's FontConfig (UnixFC): gdk/riscos/gdkfontconfig-riscos.c
+export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
 if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.3 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.3:" >&2
   echo "  use riscos-crossdev v1.8.2 (or v1.4 and later), make prebuilt there" >&2

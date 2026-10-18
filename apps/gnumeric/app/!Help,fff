@@ -30,6 +30,10 @@ Needs
 RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
 Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
 (PackMan). PThreadTicker is included.
+Fonts: Gnumeric carries DejaVu Sans. For other fonts (Serif, Monospace and
+your own), install FontConfig and fonts from PackMan: Gnumeric then uses
+the system's fonts, as other FontConfig programs do. The Log's "fonts:"
+line says which fonts it found.
 
 Licences
 Gnumeric and GOffice: GPL version 2 or 3 (Licence). GTK, GLib and the

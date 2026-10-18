@@ -54,10 +54,10 @@ sed -e "s|@NAME@|$NAME|g" -e "s|@VERSION@|$VERSION|g" -e "s|@COMMIT@|$COMMIT|g" 
     "$REPO_DIR/riscos/licences/Source.txt" > "$A/Source,fff"
 cp "$GCCSDK_ENV"/riscos/PThrTicker,ffa "$GCCSDK_ENV"/riscos/PThreadTicker-ReadMe,fff \
    "$GCCSDK_ENV"/riscos/PThreadTicker-Licence,fff "$A/"
-# DejaVu Sans, Serif and Sans Mono (DEJAVU_FACES, env.sh)
+# DejaVu Sans (DEJAVU_FACES, env.sh); the rest come from UnixFC
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" $(for f in $DEJAVU_FACES; do echo "dejavu-fonts-ttf-2.37/ttf/$f"; done) \
   'dejavu-fonts-ttf-2.37/LICENSE' -d "$A/fonts"
-# more DejaVu faces an application wants (e.g. EXTRA_FONTS="DejaVuSans-BoldOblique.ttf")
+# more DejaVu faces an application wants (e.g. EXTRA_FONTS="DejaVuSansMono.ttf")
 for f in ${EXTRA_FONTS:-}; do
   unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" "dejavu-fonts-ttf-2.37/ttf/$f" -d "$A/fonts"
 done

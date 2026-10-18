@@ -1,9 +1,8 @@
 #!/bin/sh
 # mkfontsconf.sh FONTDIR CACHEDIR: a minimal fonts.conf that uses only the
-# fonts in FONTDIR, with DejaVu Sans, Serif and Sans Mono as the generic
-# families (sans-serif, serif, monospace, and the names font choosers list:
-# Sans, Serif, Monospace, system-ui), so each is a different face when the
-# package has them; a family not there falls back to DejaVu Sans. Paths are as
+# fonts in FONTDIR, with DejaVu Sans as the default sans-serif (and Sans,
+# system-ui), and DejaVu Serif / Sans Mono for serif and monospace if a
+# package has them (DejaVu Sans otherwise). Paths are as
 # the program will see them: on RISC OS, UnixLib paths such as
 # /<GTKTest$Dir>/fonts. fonts.conf is XML, so '<', '>' and '&' are written
 # as entities (GTKTest 0.4 didn't: "line 4: not well-formed"); fontconfig

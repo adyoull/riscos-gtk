@@ -181,12 +181,16 @@ UnixLib is GCCSDK's C library: POSIX on top of RISC OS.
     system's fonts and shared font cache, plus their own `fonts`
     folder.
   - **Without it,** they get only their own `fonts` folder, which has
-    DejaVu Sans, DejaVu Serif and DejaVu Sans Mono (regular, bold and
-    italic) by default, as sans-serif, serif and monospace, so a font
-    chooser's Sans, Serif and Monospace look different.
+    DejaVu Sans by default, so a font chooser's Serif and Monospace look
+    like Sans: fonts for those come from the system, so tell users to
+    install PackMan's FontConfig and fonts.
   - **More faces:** add them with `EXTRA_FONTS` when packaging
-    (`DejaVuSans-BoldOblique.ttf`), or put other TrueType or OpenType
-    files in `fonts`.
+    (`DejaVuSansMono.ttf` for a monospaced view), or put other TrueType
+    or OpenType files in `fonts`. They're added one by one at start, so
+    new ones in an updated copy of the program are seen.
+  - **The Log** says what fontconfig found: the set-up, how many fonts
+    and families, the font folders, and what Sans, Serif and Monospace
+    become.
   - **RISC OS's own outline fonts** can't be used (API.md, "Fonts").
 - **The theme** is riscos-gtk's RISCOS theme. A program's own CSS works,
   but CSS that names Adwaita's colours, or hard-codes sizes for a

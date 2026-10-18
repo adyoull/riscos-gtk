@@ -11,10 +11,12 @@
  *   - a sheet with a check box on it scrolls; file types are known from
  *     names; a file dialogue with a grab on it (File > Open) leaves the
  *     grab with the RISC OS Open box;
- *   - Format Cells' font chooser (GOFontSel): picking Serif or Monospace
- *     from its family menu changes the preview's face, not only its size;
+ *   - Format Cells' font chooser (GOFontSel), with a stand-in for
+ *     PackMan's FontConfig (UnixFC) whose fonts are FONT...: picking Serif
+ *     or Monospace from its family menu changes the preview's face to the
+ *     system's, not only its size;
  *   - closing the window quits.
- *   gnumeric-fake APPDIR OUTDIR
+ *   gnumeric-fake APPDIR OUTDIR [FONT...]
  * APPDIR is the packaged !Gnumeric's folders (lib/plugins, goffice/lib/
  * plugins, share, fonts) for the linuxarm build. GN_SHOT=FILE.ppm: a
  * picture of the screen after the cells are filled; GN_TREE=1: the window's
@@ -457,6 +459,45 @@ main (int argc, char **argv)
   int status;
 
   outdir = argv[2];
+  /* the system's fonts through a stand-in UnixFC (as fontconfig-fake) */
+  if (argc > 3)
+    {
+      char *fc = g_build_filename (outdir, "UnixFC", NULL);
+      char *fcfonts = g_build_filename (fc, "fonts", NULL);
+      char *sys = g_build_filename (outdir, "UnixFont", NULL);
+      char *cache = g_build_filename (outdir, "UnixFC-cache", NULL);
+      char *text, *sysconf;
+      int i;
+
+      g_mkdir_with_parents (fcfonts, 0755);
+      g_mkdir_with_parents (sys, 0755);
+      g_mkdir_with_parents (cache, 0755);
+      for (i = 3; i < argc; i++)
+        {
+          char *data, *base = g_path_get_basename (argv[i]);
+          char *dst = g_build_filename (sys, base, NULL);
+          gsize len;
+          if (g_file_get_contents (argv[i], &data, &len, NULL))
+            {
+              g_file_set_contents (dst, data, len, NULL);
+              g_free (data);
+            }
+          g_free (dst);
+          g_free (base);
+        }
+      text = g_strdup_printf ("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+                              "<fontconfig>\n  <dir>%s</dir>\n  <cachedir>%s</cachedir>\n"
+                              "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>sans-serif</string></edit></match>\n"
+                              "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>mono</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>monospace</string></edit></match>\n"
+                              "  <alias><family>sans-serif</family><prefer><family>DejaVu Sans</family></prefer></alias>\n"
+                              "  <alias><family>serif</family><prefer><family>DejaVu Serif</family></prefer></alias>\n"
+                              "  <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>\n"
+                              "</fontconfig>\n", sys, cache);
+      sysconf = g_build_filename (fcfonts, "fonts.conf", NULL);
+      g_file_set_contents (sysconf, text, -1, NULL);
+      g_setenv ("UnixFC$Dir", fc, TRUE);
+      g_free (text); g_free (sysconf); g_free (fc); g_free (fcfonts); g_free (sys); g_free (cache);
+    }
   g_setenv ("GNUMERIC_DIR", argv[1], TRUE);
   g_setenv ("GOFFICE_DIR", go, TRUE);
   g_setenv ("FONTCONFIG_FILE", conf, TRUE);
@@ -480,7 +521,7 @@ main (int argc, char **argv)
   check (mime_ok, "file types from names: .xlsx and .ods are spreadsheets");
   check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");
   check (icons_ok, "Gnumeric's own toolbar icons in the RISC OS style");
-  check (fontsel_ok, "the font chooser's preview changes face for Sans, Serif and Monospace");
+  check (fontsel_ok, "with UnixFC, the font chooser's preview changes face for Sans, Serif and Monospace");
   check (stage == 3, "closing the window quits Gnumeric");
   printf ("# exit status %d\n", status);
   printf ("1..%d\n", n_tests);

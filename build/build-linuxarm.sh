@@ -161,7 +161,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 FCT=$REPO_DIR/out/fontconfig-linuxarm
 rm -rf "$FCT"; mkdir -p "$FCT/mono"
-unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuMathTeXGyre.ttf' -d "$FCT/mono"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSerif.ttf' 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf' -d "$FCT/sys"
 
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
@@ -301,7 +301,7 @@ if [ -f "$SRC/gnumeric-libs.txt" ]; then
     -o "$REPO_DIR/out/gnumeric-fake-linuxarm" \
     -Wl,-Bstatic $(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
     -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
-  run gnumeric-fake "$GNT" "$GNT/out"
+  run gnumeric-fake "$GNT" "$GNT/out" "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf"
 else
   echo; echo "=== linux-arm: gnumeric-fake skipped: run build-gnumeric.sh for this target first"
 fi
@@ -329,7 +329,7 @@ else
 fi
 for m in unixfc own forced; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
-  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/mono/DejaVuMathTeXGyre.ttf"
+  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf"
 done
 run toolsprites-fake
 run printvec-fake

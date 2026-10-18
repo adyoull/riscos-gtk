@@ -19,7 +19,7 @@
 # the icons GTK uses, GTK's GSettings schemas, PThreadTicker, the LGPL
 # and a Source file; and riscos-mesa's licences (LicenceMesa) if the
 # program has OpenGL linked in. Environment:
-#   EXTRA_FONTS          more DejaVu faces (e.g. "DejaVuSans-BoldOblique.ttf")
+#   EXTRA_FONTS          more DejaVu faces (e.g. "DejaVuSansMono.ttf")
 #   PROGRAM_SOURCE_URL   where your program's source is (for Source,fff)
 #   SCHEMAS              the program's own GSettings schemas (.gschema.xml
 #                        files), compiled in with GTK's
@@ -71,11 +71,9 @@ if "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-nm" "$ELF" 2>/dev/null | grep -q 
   fi
 fi
 
-# Fonts: DejaVu Sans (GTK's default face), Serif and Sans Mono (so serif
-# and monospace are faces of their own), and any EXTRA_FONTS
-for f in DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf \
-         DejaVuSerif.ttf DejaVuSerif-Bold.ttf DejaVuSerif-Italic.ttf \
-         DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf DejaVuSansMono-Oblique.ttf ${EXTRA_FONTS:-}; do
+# Fonts: DejaVu Sans (GTK's default face) and any EXTRA_FONTS; the
+# system's fonts come through PackMan's FontConfig (UnixFC) at run time
+for f in DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf ${EXTRA_FONTS:-}; do
   [ -f "$D/fonts/$f" ] || { echo "riscos-gtk-package: no font $f in the devkit" >&2; exit 1; }
   cp "$D/fonts/$f" "$A/fonts/"
 done

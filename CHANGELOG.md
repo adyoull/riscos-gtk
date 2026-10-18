@@ -3,18 +3,29 @@
 ## Since RC7
 - **Font choosers: Serif and Monospace looked the same as Sans.** In
   Gnumeric's Format Cells > Font, choosing Serif or Monospace changed the
-  preview's size but not its face: every package had only DejaVu Sans, so
-  fontconfig drew every family with it. Every package now has DejaVu
-  Serif and DejaVu Sans Mono too (regular, bold and italic), and its
-  fonts.conf makes them serif and monospace (and Serif, Monospace,
-  system-ui, the names font choosers list), so they look different in
-  every program. `DEJAVU_FACES` in `build/env.sh`,
-  `tests/render/mkfontsconf.sh`, the devkit's `riscos-gtk-package`;
-  L3afpad's and Geany's own `EXTRA_FONTS` for Sans Mono are no longer
-  needed. Each package is about 1 MB bigger. Tests: `gnumeric-fake`
-  picks Sans, Serif and Monospace in GOffice's font chooser and checks
-  the preview's face; `fontconfig-fake` checks what each name gives.
-  Gnumeric 1.12.57-riscos8 (test build).
+  preview's size but not its face. Programs carry only DejaVu Sans; other
+  fonts come from the system, through PackMan's FontConfig (UnixFC), and
+  without it every family is drawn with DejaVu Sans. With UnixFC, Serif
+  and Monospace are what its fonts.conf makes them (DejaVu Serif and Sans
+  Mono when they're installed). `gdk/riscos/gdkfontconfig-riscos.c`:
+  - **The Log says what fontconfig has:** the set-up (UnixFC's or the
+    program's own), how many fonts and families (the first few named),
+    the font folders, and what Sans, Serif and Monospace become, e.g.
+    `riscos-gtk: fonts: the system's (UnixFC, ...): 41 fonts (3 the
+    program's own) in 9 families (...); folders /UnixFont:truetype; Sans
+    is DejaVu Sans, Serif DejaVu Serif, Monospace DejaVu Sans Mono`.
+    If UnixFC$Dir is set but its fonts.conf can't be read, it says so.
+  - **The program's own fonts are added one file at a time,** any its
+    fonts.conf's folder didn't give: FileCore doesn't change a folder's
+    date when files are added, so a font cache made by an older copy of
+    the program would hide new ones.
+  - Tests: `gnumeric-fake` picks Sans, Serif and Monospace in GOffice's
+    font chooser with a stand-in UnixFC (fontconfig's own rules for sans,
+    mono, sans-serif, serif and monospace) and checks the preview's face;
+    `fontconfig-fake` checks what each name gives with and without UnixFC,
+    and that the program's own fonts are added.
+  - Gnumeric 1.12.57-riscos9 (test build); its !Help says to install
+    PackMan's FontConfig and fonts for more than DejaVu Sans.
 
 ## 3.24.41-riscos1.0-rc7 (2026-10-18)
 - **Gnumeric is part of the release:** `Gnumeric-1.12.57-riscos7.zip`, a
