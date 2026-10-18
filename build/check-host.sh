@@ -12,7 +12,6 @@ need() {  # TEST PACKAGE
 need 'command -v meson' meson
 need 'command -v ninja' ninja-build
 need 'command -v pkg-config' pkg-config
-need 'command -v autoreconf' autoconf
 need 'command -v automake' automake
 need 'command -v libtoolize' libtool
 need 'command -v cmake' cmake

@@ -17,6 +17,9 @@ HOSTARGS="--host=$HOST --prefix=$PREFIX --disable-shared --enable-static"
 # name $PREFIX paths, which only exist inside SYSROOT).
 inst() { make "$@" DESTDIR="$SYSROOT"; rm -f "$STAGE"/lib/*.la; }
 step() { echo; echo "=== $*"; }
+# on a failure, the end of the newest log (the logs are in $SRC: on GitHub
+# they'd be lost with the runner)
+trap 'l=$(ls -t "$SRC"/*.log 2>/dev/null | head -1); [ -z "$l" ] || { echo "build-deps.sh: failed; the end of $l:" >&2; tail -n 40 "$l" >&2; }' ERR
 have() { [ -f "$STAGE/lib/$1" ] && echo "    (already built)"; }
 # set -e doesn't see failures inside "if" conditions or before "&&", so each
 # step ends by checking that its library is there.
@@ -102,10 +105,10 @@ need libz.a
 
 step "libffi 3.4.6 (GObject's generic marshaller)"
 if ! have libffi.a; then
-fresh libffi_3.4.6.orig.tar.gz libffi-3.4.6; cd libffi-3.4.6
-# The orig tarball is a git export without configure.
-autoreconf -fi > ../ffi.log 2>&1; fresh_config_sub .
-./configure $HOSTARGS --disable-docs --disable-multi-os-directory >> ../ffi.log
+fresh libffi-3.4.6.tar.gz libffi-3.4.6; cd libffi-3.4.6
+# libffi's release tarball, with its configure script (no autoreconf)
+fresh_config_sub .
+./configure $HOSTARGS --disable-docs --disable-multi-os-directory > ../ffi.log
 make -j$JOBS >> ../ffi.log 2>&1
 inst install >> ../ffi.log; cd ..
 fi

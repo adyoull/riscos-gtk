@@ -20,7 +20,10 @@ get() {  # file url
   echo "fetch $1"; curl -fsSL -o "$1.part" "$2" && mv "$1.part" "$1" || { rm -f "$1.part"; echo "  FAILED: $2" >&2; }
 }
 get zlib_1.3.dfsg+really1.3.1.orig.tar.gz $U/z/zlib/zlib_1.3.dfsg+really1.3.1.orig.tar.gz
-get libffi_3.4.6.orig.tar.gz        $U/libf/libffi/libffi_3.4.6.orig.tar.gz
+# libffi's own release tarball (it has its configure script; Ubuntu's orig
+# is a git export that needs autoconf 2.71, which riscos-crossdev's image
+# hasn't: it has 2.69, for GCCSDK)
+get libffi-3.4.6.tar.gz            https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
 get pcre2_10.42.orig.tar.gz         $U/p/pcre2/pcre2_10.42.orig.tar.gz
 get glib2.0_2.80.0.orig.tar.xz      $U/g/glib2.0/glib2.0_2.80.0.orig.tar.xz
 get libpng1.6_1.6.37.orig.tar.gz    $U/libp/libpng1.6/libpng1.6_1.6.37.orig.tar.gz

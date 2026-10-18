@@ -21,6 +21,9 @@
   them, including the emoji chooser's and the gestures). See
   docs/BUILDING.md. GOffice and Gnumeric download from Ubuntu's universe
   (their main URLs were wrong; the first GitHub run found it).
+  libffi comes from its own release tarball, which has its configure
+  script: Ubuntu's needed autoconf 2.71, and the image has 2.69. A failed
+  library build now shows the end of its log.
 - **RISC OS-style icons for every program.** The RISCOS icon theme now
   has riscos-gtk's own icons, drawn in the style of ClawsMail's, for all
   130 full-colour names it ships (folders, file types and discs too,
