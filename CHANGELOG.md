@@ -1,5 +1,21 @@
 # Changelog
 
+## Since RC7
+- **Font choosers: Serif and Monospace looked the same as Sans.** In
+  Gnumeric's Format Cells > Font, choosing Serif or Monospace changed the
+  preview's size but not its face: every package had only DejaVu Sans, so
+  fontconfig drew every family with it. Every package now has DejaVu
+  Serif and DejaVu Sans Mono too (regular, bold and italic), and its
+  fonts.conf makes them serif and monospace (and Serif, Monospace,
+  system-ui, the names font choosers list), so they look different in
+  every program. `DEJAVU_FACES` in `build/env.sh`,
+  `tests/render/mkfontsconf.sh`, the devkit's `riscos-gtk-package`;
+  L3afpad's and Geany's own `EXTRA_FONTS` for Sans Mono are no longer
+  needed. Each package is about 1 MB bigger. Tests: `gnumeric-fake`
+  picks Sans, Serif and Monospace in GOffice's font chooser and checks
+  the preview's face; `fontconfig-fake` checks what each name gives.
+  Gnumeric 1.12.57-riscos8 (test build).
+
 ## 3.24.41-riscos1.0-rc7 (2026-10-18)
 - **Gnumeric is part of the release:** `Gnumeric-1.12.57-riscos7.zip`, a
   direct download beside the other programs (`make-release.sh` builds it;

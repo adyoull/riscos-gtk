@@ -11,6 +11,8 @@
  *   - a sheet with a check box on it scrolls; file types are known from
  *     names; a file dialogue with a grab on it (File > Open) leaves the
  *     grab with the RISC OS Open box;
+ *   - Format Cells' font chooser (GOFontSel): picking Serif or Monospace
+ *     from its family menu changes the preview's face, not only its size;
  *   - closing the window quits.
  *   gnumeric-fake APPDIR OUTDIR
  * APPDIR is the packaged !Gnumeric's folders (lib/plugins, goffice/lib/
@@ -46,7 +48,7 @@ int riscos_gnumeric_main (int argc, char **argv);
 static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, avg_ok, concat_ok, round_ok, xlsx_saved, ods_saved, reopened_ok, plot_ok;
-static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok;
+static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok, fontsel_ok;
 
 static void
 check (int ok, const char *name)
@@ -152,6 +154,104 @@ save_as (WorkbookView *wbv, const char *saver, const char *leaf)
   return ok;
 }
 
+/* GOFontSel's pieces: its family GOOptionMenu (the one whose menu has
+   "All fonts...") and its preview label (the sample text) */
+static GOOptionMenu *fs_family;
+static GtkLabel *fs_preview;
+
+static void
+find_fontsel_parts (GtkWidget *w, const char *sample)
+{
+  if (GO_IS_OPTION_MENU (w) && !fs_family)
+    {
+      GtkWidget *m = go_option_menu_get_menu (GO_OPTION_MENU (w));
+      GList *l, *items = m ? gtk_container_get_children (GTK_CONTAINER (m)) : NULL;
+      for (l = items; l; l = l->next)
+        if (GTK_IS_MENU_ITEM (l->data) &&
+            g_strcmp0 (gtk_menu_item_get_label (l->data), "All fonts...") == 0)
+          fs_family = GO_OPTION_MENU (w);
+      g_list_free (items);
+    }
+  if (GTK_IS_LABEL (w) && g_strcmp0 (gtk_label_get_text (GTK_LABEL (w)), sample) == 0)
+    fs_preview = GTK_LABEL (w);
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *l, *c = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = c; l; l = l->next)
+        find_fontsel_parts (l->data, sample);
+      g_list_free (c);
+    }
+}
+
+/* choose NAME in the family menu, as a click on its item does */
+static gboolean
+pick_family (const char *name)
+{
+  GtkWidget *m = go_option_menu_get_menu (fs_family);
+  GList *l, *items = gtk_container_get_children (GTK_CONTAINER (m));
+  gboolean found = FALSE;
+
+  for (l = items; l && !found; l = l->next)
+    if (GTK_IS_MENU_ITEM (l->data) &&
+        g_strcmp0 (gtk_menu_item_get_label (l->data), name) == 0)
+      {
+        gtk_menu_item_activate (l->data);
+        found = TRUE;
+      }
+  g_list_free (items);
+  return found;
+}
+
+/* the family of the face the preview is drawn with */
+static char *
+preview_face (void)
+{
+  PangoLayout *layout = gtk_label_get_layout (fs_preview);
+  PangoLayoutLine *line = pango_layout_get_line_readonly (layout, 0);
+  char *family = NULL;
+
+  if (line && line->runs)
+    {
+      PangoGlyphItem *run = line->runs->data;
+      PangoFontDescription *d = pango_font_describe (run->item->analysis.font);
+      family = g_strdup (pango_font_description_get_family (d));
+      pango_font_description_free (d);
+    }
+  return family;
+}
+
+static void
+do_fontsel (void)
+{
+  GtkWidget *win = gtk_offscreen_window_new ();
+  GtkWidget *box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+  GtkWidget *gfs = go_font_sel_new ();
+  char *sans = NULL, *serif = NULL, *mono = NULL;
+
+  /* in a box, as in Format Cells: GOffice's chooser can't be destroyed
+     as a window's own child (its screen-changed handler runs after its
+     dispose) */
+  gtk_container_add (GTK_CONTAINER (box), gfs);
+  gtk_container_add (GTK_CONTAINER (win), box);
+  gtk_widget_show_all (win);
+  find_fontsel_parts (gfs, pango_language_get_sample_string (NULL));
+  if (fs_family && fs_preview)
+    {
+      if (pick_family ("Sans"))
+        sans = preview_face ();
+      if (pick_family ("Serif"))
+        serif = preview_face ();
+      if (pick_family ("Monospace"))
+        mono = preview_face ();
+    }
+  printf ("# font chooser: family menu %d, preview %d; Sans %s, Serif %s, Monospace %s\n",
+          fs_family != NULL, fs_preview != NULL, sans, serif, mono);
+  fontsel_ok = g_strcmp0 (sans, "DejaVu Sans") == 0 && g_strcmp0 (serif, "DejaVu Serif") == 0 &&
+               g_strcmp0 (mono, "DejaVu Sans Mono") == 0;
+  g_free (sans); g_free (serif); g_free (mono);
+  gtk_widget_destroy (win);
+}
+
 static gboolean
 do_files (gpointer d)
 {
@@ -248,6 +348,7 @@ do_files (gpointer d)
     if (plot)
       g_object_unref (plot);
   }
+  do_fontsel ();
   files_done = 1;
   return G_SOURCE_REMOVE;
 }
@@ -379,6 +480,7 @@ main (int argc, char **argv)
   check (mime_ok, "file types from names: .xlsx and .ods are spreadsheets");
   check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");
   check (icons_ok, "Gnumeric's own toolbar icons in the RISC OS style");
+  check (fontsel_ok, "the font chooser's preview changes face for Sans, Serif and Monospace");
   check (stage == 3, "closing the window quits Gnumeric");
   printf ("# exit status %d\n", status);
   printf ("1..%d\n", n_tests);

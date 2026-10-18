@@ -54,8 +54,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DHELLO_NO_MAIN \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 HA=$REPO_DIR/out/hello-linuxarm-app
 rm -rf "$HA"; mkdir -p "$HA/fonts" "$HA/share/themes/RISCOS"
-unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf' \
-  'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf' -d "$HA/fonts"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" $(for f in $DEJAVU_FACES; do echo "dejavu-fonts-ttf-2.37/ttf/$f"; done) -d "$HA/fonts"
 "$REPO_DIR/tests/render/mkfontsconf.sh" "$HA/fonts" "$HA/fontcache" > "$HA/fonts/fonts.conf"
 cp -r "$REPO_DIR/theme/gtk-3.0" "$HA/share/themes/RISCOS/"
 # icons: the RISCOS theme (riscos-gtk's own, then Adwaita's, for the names
@@ -162,7 +161,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 FCT=$REPO_DIR/out/fontconfig-linuxarm
 rm -rf "$FCT"; mkdir -p "$FCT/mono"
-unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf' -d "$FCT/mono"
+unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuMathTeXGyre.ttf' -d "$FCT/mono"
 
 # The theme test on the fake Wimp: every page and the File menu.
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -DTHEMETEST_NO_MAIN \
@@ -330,7 +329,7 @@ else
 fi
 for m in unixfc own forced; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
-  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/mono/DejaVuSansMono.ttf"
+  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/mono/DejaVuMathTeXGyre.ttf"
 done
 run toolsprites-fake
 run printvec-fake

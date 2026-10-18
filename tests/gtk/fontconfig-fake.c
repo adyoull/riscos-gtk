@@ -7,10 +7,11 @@
  *   fontconfig-fake APPDIR OUTDIR forced    installed, RISCOS_GTK_FONTS=own
  *
  * "Installed" is a stand-in made in OUTDIR: a fonts.conf listing a
- * "system" font folder with DejaVu Sans Mono in it, and a cache folder.
+ * "system" font folder with DejaVu Math TeX Gyre in it, and a cache folder.
  * On Linux UnixFC$Dir holds the folder itself (on RISC OS the backend
- * reads it as /<UnixFC$Dir>). APPDIR's own fonts (DejaVu Sans) are the
- * program's. Prints TAP; exit status = failures. MIT licence.
+ * reads it as /<UnixFC$Dir>). APPDIR's own fonts (DejaVu Sans, Serif and
+ * Sans Mono) are the program's; with its own fonts.conf, Serif and
+ * Monospace (a font chooser's names) are DejaVu Serif and Sans Mono. Prints TAP; exit status = failures. MIT licence.
  */
 #include <gtk/gtk.h>
 #include <fontconfig/fontconfig.h>
@@ -56,6 +57,26 @@ has_family (const char *family)
   return found;
 }
 
+/* the family fontconfig gives for a name, after the config's aliases */
+static char *
+matched_family (const char *name)
+{
+  FcPattern *pat = FcNameParse ((const FcChar8 *) name), *m;
+  FcResult res;
+  FcChar8 *f;
+  char *family = NULL;
+
+  FcConfigSubstitute (NULL, pat, FcMatchPattern);
+  FcDefaultSubstitute (pat);
+  m = FcFontMatch (NULL, pat, &res);
+  if (m && FcPatternGetString (m, FC_FAMILY, 0, &f) == FcResultMatch)
+    family = g_strdup ((const char *) f);
+  if (m)
+    FcPatternDestroy (m);
+  FcPatternDestroy (pat);
+  return family;
+}
+
 static int
 count_files (const char *dir, const char *suffix)
 {
@@ -94,10 +115,10 @@ main (int argc, char **argv)
   g_mkdir_with_parents (fcfonts, 0755);
   g_mkdir_with_parents (sysfonts, 0755);
   g_mkdir_with_parents (cache, 0755);
-  mono = g_build_filename (appdir, "fonts", "DejaVuSansMono.ttf", NULL);
+  mono = g_build_filename (appdir, "fonts", "DejaVuMathTeXGyre.ttf", NULL);
   {
     char *data; gsize len;
-    char *dst = g_build_filename (sysfonts, "DejaVuSansMono.ttf", NULL);
+    char *dst = g_build_filename (sysfonts, "DejaVuMathTeXGyre.ttf", NULL);
     if (g_file_get_contents (argc > 4 ? argv[4] : mono, &data, &len, NULL))
       {
         g_file_set_contents (dst, data, len, NULL);
@@ -127,15 +148,15 @@ main (int argc, char **argv)
   gtk_init (&argc, &argv);
 
   now = g_getenv ("FONTCONFIG_FILE");
-  printf ("# mode %s: FONTCONFIG_FILE %s; DejaVu Sans %d, DejaVu Sans Mono %d; caches in UnixFC's folder %d\n",
-          mode, now, has_family ("DejaVu Sans"), has_family ("DejaVu Sans Mono"),
+  printf ("# mode %s: FONTCONFIG_FILE %s; DejaVu Sans %d, DejaVu Math TeX Gyre %d; caches in UnixFC's folder %d\n",
+          mode, now, has_family ("DejaVu Sans"), has_family ("DejaVu Math TeX Gyre"),
           count_files (cache, ".cache-8") + count_files (cache, ".cache-9"));
   check (g_getenv ("FONTCONFIG_SYSROOT") == NULL, "another program's FONTCONFIG_SYSROOT is ignored");
   check (has_family ("DejaVu Sans"), "the program's own font (DejaVu Sans) is there");
   if (strcmp (mode, "unixfc") == 0)
     {
       check (g_strcmp0 (now, conf) == 0, "UnixFC installed: its fonts.conf is used");
-      check (has_family ("DejaVu Sans Mono"), "and the system's fonts (UnixFont) are there");
+      check (has_family ("DejaVu Math TeX Gyre"), "and the system's fonts (UnixFont) are there");
       check (count_files (cache, ".cache-8") + count_files (cache, ".cache-9") >= 1,
              "and the font cache is the system's (UnixFC's cache folder)");
     }
@@ -144,7 +165,18 @@ main (int argc, char **argv)
       check (g_strcmp0 (now, own_conf) == 0, strcmp (mode, "own") == 0
              ? "no UnixFC: the program's own fonts.conf is used"
              : "RISCOS_GTK_FONTS=own: the program's own fonts.conf is used");
-      check (!has_family ("DejaVu Sans Mono"), "and the system's fonts aren't");
+      check (!has_family ("DejaVu Math TeX Gyre"), "and the system's fonts aren't");
+      {
+        char *sans = matched_family ("Sans"), *serif = matched_family ("Serif");
+        char *mono_f = matched_family ("Monospace"), *ui = matched_family ("system-ui");
+        printf ("# Sans: %s; Serif: %s; Monospace: %s; system-ui: %s\n", sans, serif, mono_f, ui);
+        check (g_strcmp0 (sans, "DejaVu Sans") == 0 && g_strcmp0 (ui, "DejaVu Sans") == 0,
+               "Sans and system-ui are DejaVu Sans");
+        check (g_strcmp0 (serif, "DejaVu Serif") == 0,
+               "Serif is DejaVu Serif (a font chooser's Serif looks different)");
+        check (g_strcmp0 (mono_f, "DejaVu Sans Mono") == 0, "Monospace is DejaVu Sans Mono");
+        g_free (sans); g_free (serif); g_free (mono_f); g_free (ui);
+      }
     }
   printf ("1..%d\n", n_tests);
   return n_failed;

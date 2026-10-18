@@ -66,6 +66,5 @@ $CXX $RO_CFLAGS -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -DGTK -DGEANY
   -o "$SRC/geany-prog" -static \
   $(pkg-config --libs --static gtk+-3.0 gmodule-2.0) -lstdc++
 # a monospaced font, for the editor
-export EXTRA_FONTS="DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf"
 export PREBUILT=$SRC/geany-prog
 ICON_PACK=geany exec "$HERE/build-app.sh" Geany geany "$VERSION" "$APP"
