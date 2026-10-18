@@ -15,7 +15,8 @@ on:
 
 env:
   # the libraries, GTKTest and GTKHello, the Linux (QEMU) tests, the devkit
-  BUILD: make deps tests hello check sdk
+  # (ci-setup.sh adds the host packages the image doesn't have yet)
+  BUILD: build/ci-setup.sh && make deps tests hello check sdk
   ARTIFACTS: |
     out/*.zip
     out/sdk/*.tar.gz

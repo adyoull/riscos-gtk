@@ -1,8 +1,10 @@
 #!/bin/bash
-# check-host.sh [check]: the build machine's tools riscos-gtk needs, and
-# the Ubuntu 24.04 package for each one missing. With "check", also those
-# for the Linux (QEMU) tests. The riscos-crossdev container image is
-# meant to have all of them (docs/BUILDING.md). MIT licence.
+# check-host.sh [--missing] [check]: the build machine's tools riscos-gtk
+# needs, and the Ubuntu 24.04 package for each one missing. With "check",
+# also those for the Linux (QEMU) tests. --missing: just print the missing
+# packages' names (build/ci-setup.sh). MIT licence.
+list=
+[ "${1:-}" = --missing ] && { list=1; shift; }
 missing=
 need() {  # TEST PACKAGE
   eval "$1" > /dev/null 2>&1 || missing="$missing $2"
@@ -26,6 +28,10 @@ need 'python3 -c "import PIL"' python3-pil
 if [ "${1:-}" = check ]; then
   need 'command -v arm-linux-gnueabihf-gcc' gcc-arm-linux-gnueabihf
   need 'command -v arm-linux-gnueabihf-g++' g++-arm-linux-gnueabihf
+fi
+if [ -n "$list" ]; then
+  echo $missing
+  exit 0
 fi
 if [ -n "$missing" ]; then
   echo "check-host.sh: this machine lacks what riscos-gtk's build uses. On Ubuntu 24.04:" >&2

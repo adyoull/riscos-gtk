@@ -36,7 +36,7 @@ permissions:
   pull-requests: write
 
 env:
-  BUILD: make deps tests hello check sdk   # the same as in riscos-build.yml
+  BUILD: build/ci-setup.sh && make deps tests hello check sdk   # the same as in riscos-build.yml
 
 jobs:
   update:
@@ -83,7 +83,8 @@ jobs:
           IMAGE: ghcr.io/adyoull/riscos-crossdev:${{ steps.deps.outputs.crossdev }}
         run: |
           cp -a . "$RUNNER_TEMP/build"
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$RUNNER_TEMP/build":/src "$IMAGE" \
+          # as root (not --user): ci-setup.sh installs packages; the copy is thrown away
+          docker run --rm -e HOME=/tmp -v "$RUNNER_TEMP/build":/src "$IMAGE" \
             sh -c "$BUILD" 2>&1 | tee "$RUNNER_TEMP/build.log"
 
       - name: The pull request's text

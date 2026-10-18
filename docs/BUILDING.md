@@ -154,7 +154,10 @@ SMTP and IMAP server. Every suite must pass before a release.
 
 `.github/workflows/riscos-build.yml` builds, tests and makes the devkit
 on every push and pull request, in the riscos-crossdev image that
-`.riscos-deps` names: `make deps tests hello check sdk`. GTKTest, GTKHello
+`.riscos-deps` names: `build/ci-setup.sh && make deps tests hello check
+sdk`. `ci-setup.sh` installs the host packages the image lacks
+(riscos-crossdev 1.8.1's has no meson, python3-pil or shared-mime-info);
+once the image has them it does nothing. GTKTest, GTKHello
 and the devkit tarball are kept as the run's download. `dl/` is cached.
 
 `.github/workflows/riscos-deps-update.yml` checks every day for a newer
