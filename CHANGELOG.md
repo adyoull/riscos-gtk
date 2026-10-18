@@ -1,6 +1,19 @@
 # Changelog
 
-## Since RC6
+## 3.24.41-riscos1.0-rc7 (2026-10-18)
+- **Gnumeric is part of the release:** `Gnumeric-1.12.57-riscos7.zip`, a
+  direct download beside the other programs (`make-release.sh` builds it;
+  `GNUMERIC_VERSION`). riscos7 is riscos6 with its !Help no longer calling
+  it a test build. GTK, GLib and the icons changed since RC6, so every
+  program was rebuilt: L3afpad 0.8.18.1.11-riscos26, ClawsMail
+  4.4.0-riscos16, Geany 2.1-riscos5, mtPaint 3.50.14-riscos5, and the
+  test programs 3.24.41-riscos1.0-rc7.
+- **git in containers:** `build/env.sh` adds the repository and
+  riscos-crossdev to git's `safe.directory` for the build's own git
+  commands (through `GIT_CONFIG_COUNT`), so the devkit and the packages
+  name their commit when the checkout belongs to another user (GitHub's
+  container jobs stopped at `make sdk` with "dubious ownership", and
+  `build-app.sh` wrote "unknown" as the commit).
 - **File > Properties: Group showed rubbish (Gnumeric).** RISC OS has no
   /etc/group, and UnixLib's `getgrgid_r` (and `getpwuid_r`) then return
   -1 without setting the result pointer, which GLib read anyway. GLib now

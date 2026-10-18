@@ -14,7 +14,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-geany.sh: RISC OS only" >&2; exit 1; }
 V=2.1
-VERSION=${VERSION:-2.1-riscos4}
+VERSION=${VERSION:-2.1-riscos5}
 G=$SRC/geany-$V
 # GEANY_RELINK=1: only link and package again (Geany built already)
 if [ -z "${GEANY_RELINK:-}" ]; then

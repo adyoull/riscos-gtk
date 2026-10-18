@@ -4,7 +4,7 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: public beta (3.24.41-riscos1.0-rc6).** GTK
+**Status: public beta (3.24.41-riscos1.0-rc7).** GTK
 programs run on RISC OS as ordinary Wimp tasks:
 - **Windows:** Wimp windows with the Wimp's own furniture.
 - **Menus:** Wimp menus, opened with Menu anywhere in a window.
@@ -24,10 +24,10 @@ Two real programs come with it: **!L3afpad**, a text editor, and
 AcornSSL; HTML mail; links open in Iris or NetSurf). **!Geany**, the
 programmer's editor (Geany 2.1), is a demo of a large program built
 against the devkit, **!mtPaint** a painting program (mtPaint 3.50.14), and
-**!Gnumeric** a spreadsheet (Gnumeric 1.12.57, a test build). **!GTKThemeTest** shows every common widget, and
+**!Gnumeric** a spreadsheet (Gnumeric 1.12.57, new in RC7). **!GTKThemeTest** shows every common widget, and
 **!GTKGLTest** a GtkGLArea.
 
-- What RC6 contains, requirements, known issues and how to report problems:
+- What RC7 contains, requirements, known issues and how to report problems:
   [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md)
 - The Pi sign-off list: [docs/RC-TEST-PLAN.md](docs/RC-TEST-PLAN.md)
 - Building: [docs/BUILDING.md](docs/BUILDING.md)
@@ -56,7 +56,7 @@ cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
 make l3afpad claws themetest geany mtpaint gnumeric  # the programs, in out/
-make release RELEASE=3.24.41-riscos1.0-rc6    # programs + devkit + complete source + MANIFEST
+make release RELEASE=3.24.41-riscos1.0-rc7    # programs + devkit + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 
