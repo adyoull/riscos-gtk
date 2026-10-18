@@ -1,9 +1,11 @@
 # A port's build on GitHub, in the riscos-crossdev container image.
-# riscos-gtk's build on GitHub (copied from riscos-crossdev v1.8.1's ci/). The image
+# riscos-gtk's build on GitHub (copied from riscos-crossdev v1.8.2's ci/). The image
 # is the one for the riscos-crossdev release named in .riscos-deps at the
 # top of the repository (a line `riscos-crossdev v1.8`; see
 # riscos-deps-update.yml). Change BUILD to your build and test command, and
-# ARTIFACTS to what it makes.
+# ARTIFACTS to what it makes. PACKAGES: Ubuntu packages your build needs
+# that the image hasn't (docker/Dockerfile lists what it has); set the same
+# in riscos-deps-update.yml.
 #
 # From riscos-crossdev's ci/ (docs/CI.md). MIT licence.
 name: RISC OS build
@@ -15,11 +17,12 @@ on:
 
 env:
   # the libraries, GTKTest and GTKHello, the Linux (QEMU) tests, the devkit
-  # (ci-setup.sh adds the host packages the image doesn't have yet)
-  BUILD: build/ci-setup.sh && make deps tests hello check sdk
+  BUILD: make deps tests hello check sdk
   ARTIFACTS: |
     out/*.zip
     out/sdk/*.tar.gz
+  # the icon drawing (Pillow) and the MIME database (update-mime-database)
+  PACKAGES: "python3-pil shared-mime-info"
 
 jobs:
   pin:
@@ -46,6 +49,11 @@ jobs:
           path: dl
           key: riscos-gtk-dl-${{ hashFiles('build/SHA256SUMS.txt') }}
           restore-keys: riscos-gtk-dl-
+      - name: Packages this port needs
+        if: env.PACKAGES != ''
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends $PACKAGES
       - name: Build, check and test
         run: ${{ env.BUILD }}
       - uses: actions/upload-artifact@v7

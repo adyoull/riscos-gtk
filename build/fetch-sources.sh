@@ -54,13 +54,14 @@ get nettle_3.10.2.orig.tar.gz       $U/n/nettle/nettle_3.10.2.orig.tar.gz
 get libetpan_1.9.4.orig.tar.xz      https://archive.ubuntu.com/ubuntu/pool/universe/libe/libetpan/libetpan_1.9.4.orig.tar.xz
 # gumbo, the HTML parser of the litehtml viewer (Claws Mail's HTML mail)
 get gumbo-parser_0.12.0+dfsg.orig.tar.xz https://archive.ubuntu.com/ubuntu/pool/universe/g/gumbo-parser/gumbo-parser_0.12.0+dfsg.orig.tar.xz
-# Gnumeric, the spreadsheet (build/build-gnumeric.sh), and what it needs:
+# Gnumeric, the spreadsheet (build/build-gnumeric.sh; GOffice and Gnumeric in
+# universe), and what it needs:
 # libxml2, libxslt (GOffice's MathML), libgsf (structured files), GOffice
 get libxml2_2.9.14+dfsg.orig.tar.xz $U/libx/libxml2/libxml2_2.9.14+dfsg.orig.tar.xz
 get libxslt_1.1.39.orig.tar.xz      $U/libx/libxslt/libxslt_1.1.39.orig.tar.xz
 get libgsf_1.14.51.orig.tar.xz      $U/libg/libgsf/libgsf_1.14.51.orig.tar.xz
-get goffice_0.10.57.orig.tar.xz     $U/g/goffice/goffice_0.10.57.orig.tar.xz
-get gnumeric_1.12.57.orig.tar.xz    $U/g/gnumeric/gnumeric_1.12.57.orig.tar.xz
+get goffice_0.10.57.orig.tar.xz     https://archive.ubuntu.com/ubuntu/pool/universe/g/goffice/goffice_0.10.57.orig.tar.xz
+get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/g/gnumeric/gnumeric_1.12.57.orig.tar.xz
 # the MIME database every application carries (build/mkmime.sh)
 get shared-mime-info_2.4.orig.tar.bz2 $U/s/shared-mime-info/shared-mime-info_2.4.orig.tar.bz2
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip

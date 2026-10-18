@@ -51,7 +51,7 @@ esac
 if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h" ||
    [ -e "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.so" ]; then
   echo "env.sh: $GCCSDK_ENV is older than riscos-crossdev 1.3 (UnixLib 5.0.3.2," >&2
-  echo "  static only): use riscos-crossdev v1.8.1 (make prebuilt there)" >&2
+  echo "  static only): use riscos-crossdev v1.8.2 (make prebuilt there)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -68,7 +68,7 @@ fi
 export UNIXLIB_VERSION
 if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.3 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.3:" >&2
-  echo "  use riscos-crossdev v1.8.1 (or v1.4 and later), make prebuilt there" >&2
+  echo "  use riscos-crossdev v1.8.2 (or v1.4 and later), make prebuilt there" >&2
   return 1 2>/dev/null || exit 1
 fi
 

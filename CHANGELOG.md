@@ -2,15 +2,16 @@
 
 ## Since RC6
 - **Builds on GitHub, with a pull request when riscos-crossdev releases.**
-  `.riscos-deps` (`riscos-crossdev v1.8.1`) and the two workflows from
+  `.riscos-deps` (`riscos-crossdev v1.8.2`) and the two workflows from
   riscos-crossdev's `ci/`: `make deps tests hello check sdk` in the
   riscos-crossdev image on every push, and a daily check that opens a
   pull request, built and tested, when there's a newer riscos-crossdev.
-  The build now uses riscos-crossdev 1.8.1 (the same toolchain; devkit
+  The build now uses riscos-crossdev 1.8.2 (the same toolchain; devkit
   20.3.5-16). `build/check-host.sh` names any missing host package; GTK's
   host tools are no longer needed (the symbolic icons are drawn: 88 of
   them, including the emoji chooser's and the gestures). See
-  docs/BUILDING.md.
+  docs/BUILDING.md. GOffice and Gnumeric download from Ubuntu's universe
+  (their main URLs were wrong; the first GitHub run found it).
 - **RISC OS-style icons for every program.** The RISCOS icon theme now
   has riscos-gtk's own icons, drawn in the style of ClawsMail's, for all
   130 full-colour names it ships (folders, file types and discs too,

@@ -25,30 +25,30 @@ sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
 - GTK's host tools aren't needed: riscos-gtk draws its symbolic icons
   itself (it used gtk-encode-symbolic-svg, `libgtk-3-bin`, before).
 
-## 2. The toolchain: riscos-crossdev 1.8.1 (UnixLib 5.0.3.3)
+## 2. The toolchain: riscos-crossdev 1.8.2 (UnixLib 5.0.3.3)
 
 The release riscos-gtk is built with is named in `.riscos-deps`
-(`riscos-crossdev v1.8.1`).
+(`riscos-crossdev v1.8.2`).
 
 ```sh
-git clone -b v1.8.1 https://github.com/adyoull/riscos-crossdev
+git clone -b v1.8.2 https://github.com/adyoull/riscos-crossdev
 (cd riscos-crossdev && make prebuilt && make devkit)
 export RCD_DIR=$PWD/riscos-crossdev
 ```
 
 Or in riscos-crossdev's container image, which has the toolchain, the
-devkit and (from the release that adds them: see below) the host
-packages:
+devkit and the host packages but two (`apt-get install python3-pil
+shared-mime-info` first, as the workflows do):
 
 ```sh
-docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.8.1 make deps tests hello check sdk
+docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.8.2 make deps tests hello check sdk
 ```
 
-- **`make prebuilt`:** riscos-crossdev 1.8.1's toolchain is 1.4's: GCCSDK
+- **`make prebuilt`:** riscos-crossdev 1.8.2's toolchain is 1.4's: GCCSDK
   GCC 10.2 with **UnixLib 5.0.3.3**, built from the riscos-unixlib
   v5.0.3.3 release's `unixlib-riscos.diff`. It is static only, with
   PThreadTicker 0.03.
-- **`make devkit`:** riscos-mesa's devkit (20.3.5-16 in crossdev 1.8.1),
+- **`make devkit`:** riscos-mesa's devkit (20.3.5-16 in crossdev 1.8.2),
   in `riscos-crossdev/devkit/env`. Only !GTKGLTest and the OpenGL test
   need it.
 - **UnixLib check:** `build/env.sh` stops a RISC OS build whose
@@ -154,10 +154,9 @@ SMTP and IMAP server. Every suite must pass before a release.
 
 `.github/workflows/riscos-build.yml` builds, tests and makes the devkit
 on every push and pull request, in the riscos-crossdev image that
-`.riscos-deps` names: `build/ci-setup.sh && make deps tests hello check
-sdk`. `ci-setup.sh` installs the host packages the image lacks
-(riscos-crossdev 1.8.1's has no meson, python3-pil or shared-mime-info);
-once the image has them it does nothing. GTKTest, GTKHello
+`.riscos-deps` names: `make deps tests hello check sdk`, after installing
+`PACKAGES` (python3-pil and shared-mime-info: riscos-crossdev's image
+holds only what several ports share). GTKTest, GTKHello
 and the devkit tarball are kept as the run's download. `dl/` is cached.
 
 `.github/workflows/riscos-deps-update.yml` checks every day for a newer

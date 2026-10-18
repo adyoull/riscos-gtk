@@ -2,7 +2,7 @@
 # check-host.sh [--missing] [check]: the build machine's tools riscos-gtk
 # needs, and the Ubuntu 24.04 package for each one missing. With "check",
 # also those for the Linux (QEMU) tests. --missing: just print the missing
-# packages' names (build/ci-setup.sh). MIT licence.
+# packages' names. MIT licence.
 list=
 [ "${1:-}" = --missing ] && { list=1; shift; }
 missing=
