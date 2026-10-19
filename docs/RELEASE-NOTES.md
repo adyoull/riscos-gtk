@@ -1,20 +1,19 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 7)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 8)
 
-**Status: public beta.** RC7 is the fifth public beta build. It adds
-**Gnumeric**, the spreadsheet, as a download of its own beside the other
-programs. Every program now has RISC OS-style icons for its toolbars,
-menus and dialogue boxes, in place of GNOME's; programs know files' types
-from their names and contents; file names with accented letters or hard
-spaces show and work in the Save and Open boxes and the directory
-browser, whose Discs are the icon bar's on a real desktop. RC6's Menu,
-title bar, browser and mtPaint changes have been tested on a Raspberry
-Pi 4 (functionality confirmed), and Gnumeric's test builds have been
-run there; RC7's icons, Geany's Build and Execute and parts of RC5
-haven't been on real hardware yet: please report anything that goes
-wrong (see "Reporting problems" below). The final 3.24.41-riscos1.0
-will be this build with whatever the beta turns up fixed. Items marked
-*[Pi]* still need a check on real hardware
-([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
+**Status: public beta.** RC8 is the sixth public beta build. It fixes
+what RC7's Gnumeric showed on a Raspberry Pi: Insert > Chart had no
+chart types (the package lacked GOffice's chart type files), and a font
+chooser's Serif and Monospace looked the same as Sans. Programs now take
+their fonts from PackMan's FontConfig (UnixFC) when it's installed, and
+find its serif and monospaced fonts even when its config doesn't say
+which they are; the Log says which fonts each program found. Every
+program is rebuilt with the change. RC6's Menu, title bar, browser and
+mtPaint changes and Gnumeric have been run on a Raspberry Pi 4; RC7's
+icons, Geany's Build and Execute and parts of RC5 haven't been on real
+hardware yet: please report anything that goes wrong (see "Reporting
+problems" below). The final 3.24.41-riscos1.0 will be this build with
+whatever the beta turns up fixed. Items marked *[Pi]* still need a
+check on real hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
 
 ## What it is
 
@@ -30,24 +29,24 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos5): the GTK release it's built from
+**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos6): the GTK release it's built from
 (3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC7
+## What's in RC8
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos26.zip` | 0.8.18.1.11-riscos26 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos16.zip` | 4.4.0-riscos16 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos5.zip` | 2.1-riscos5 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos5.zip` | 3.50.14-riscos5 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.57-riscos7.zip` | 1.12.57-riscos7 | **New:** the spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `GTKThemeTest-3.24.41-riscos1.0-rc7.zip` | 3.24.41-riscos1.0-rc7 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc7.zip` | 3.24.41-riscos1.0-rc7 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc7.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc7-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.8.18.1.11-riscos27.zip` | 0.8.18.1.11-riscos27 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos17.zip` | 4.4.0-riscos17 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos6.zip` | 2.1-riscos6 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos6.zip` | 3.50.14-riscos6 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.57-riscos11.zip` | 1.12.57-riscos11 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
+| `GTKThemeTest-3.24.41-riscos1.0-rc8.zip` | 3.24.41-riscos1.0-rc8 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc8.zip` | 3.24.41-riscos1.0-rc8 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc8.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc8-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -195,8 +194,18 @@ release.
 - **Fonts:** with PackMan's FontConfig (UnixFC) installed, the
   system's fonts.conf, fonts and shared cache, with the program's own
   DejaVu fonts added; otherwise DejaVu Sans, shipped in each package,
-  with a cache in scrap. `*Set RISCOS_GTK_FONTS own` keeps to the
-  program's own. *[Pi]*
+  with a cache in scrap. Seen on the Pi with UnixFC. `*Set
+  RISCOS_GTK_FONTS own` keeps to the program's own.
+- **Serif, Monospace and Sans** (the names font choosers list first)
+  are the system's preferences when its config has them; otherwise
+  riscos-gtk's own: DejaVu Serif, DejaVu Sans Mono and DejaVu Sans, then
+  Liberation and FreeFont, whichever are installed. Without UnixFC,
+  Serif and Monospace look like Sans unless the program carries those
+  fonts (L3afpad and Geany carry DejaVu Sans Mono). *[Pi]*
+- **The Log says which fonts:** one line with the set-up, how many fonts
+  and families were found, the font folders, the config files read, and
+  what Sans, Serif and Monospace became (or why UnixFC wasn't used, e.g.
+  `UnixFC$Dir` not set because FontConfig hasn't been booted).
 
 **ClawsMail**
 - **HTML mail:** shown laid out, with its fonts, colours, tables and
@@ -246,7 +255,15 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC7
+## Known issues and limits in RC8
+
+- **New in RC8, not yet on the Pi** *[Pi]*: Gnumeric's Insert > Chart
+  types and trend lines (fixed by packaging GOffice's type files);
+  Serif and Monospace with UnixFC (riscos-gtk's fallback rules).
+- **Tested on the Pi (RC7 Gnumeric, 2026-10-18/19):** UnixFC's fonts
+  are used once FontConfig has been booted (24 fonts, DejaVu Sans, Serif
+  and Sans Mono); its config didn't map Serif and Monospace, which RC8
+  fixes.
 
 - **New in RC7, not yet on the Pi** *[Pi]*: the RISC OS-style icons;
   Gnumeric 1.12.57-riscos7 (riscos6's File > Properties fix, its own
@@ -309,6 +326,11 @@ release.
     built with riscos-crossdev 1.8.2. In GTK and GLib, so every program
     was rebuilt: L3afpad 0.8.18.1.11-riscos26, ClawsMail
     4.4.0-riscos16, Geany 2.1-riscos5, mtPaint 3.50.14-riscos5.
+  - RC8: Gnumeric's chart types; fonts: Serif and Monospace fallbacks
+    with UnixFC, the program's own fonts added file by file, the Log's
+    fonts line. In GTK, so every program was rebuilt: L3afpad
+    0.8.18.1.11-riscos27, ClawsMail 4.4.0-riscos17, Geany 2.1-riscos6,
+    mtPaint 3.50.14-riscos6, Gnumeric 1.12.57-riscos11.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -379,7 +401,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc7` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc8` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests
@@ -402,16 +424,16 @@ code against a fake RISC OS and Wimp:
 | gltest-fake (GtkGLArea on riscos-mesa's RISC OS libraries; at EIG 1 and EIG 0) | 9 + 9 |
 | gltest-nogl (GtkGLArea without riscos-mesa linked in) | 2 |
 | schemas-fake (GTK's schemas for a program that ships none) | 3 + 3 |
-| fontconfig-fake (UnixFC, own, forced) | 5 + 4 + 4 |
+| fontconfig-fake (UnixFC, own, forced, UnixFC without serif/monospace rules) | 8 + 6 + 6 + 8 |
 | browser-fake (the directory browser; the icon bar's discs; Latin-1 names) | 29 |
 | geany-fake (Geany 2.1: with the box and with the browser; Build and Execute) | 11 + 11 |
 | menuclick-fake (Menu anywhere; titled pop-ups; title bars on the screen) | 14 |
 | spawn-fake (programs started as tasks; throwback) | 17 |
 | mtpaint-fake (mtPaint: Menu, its Save and Open, pop-ups) | 12 |
-| gnumeric-fake (Gnumeric: functions, .ods and .xlsx, a chart, scrolling past a check box, file types, the grab, its RISC OS icons) | 13 |
+| gnumeric-fake (Gnumeric: functions, .ods and .xlsx, a chart, the chart types and trend lines, scrolling past a check box, file types, the grab, its RISC OS icons, the font chooser's Serif and Monospace with UnixFC) | 16 |
 | staticmodule-test (GModule plugins linked into a program) | 11 |
 
-All 469 pass at the RC commit.
+All 487 pass at the RC commit.
 
 On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 

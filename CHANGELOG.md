@@ -1,6 +1,10 @@
 # Changelog
 
-## Since RC7
+## 3.24.41-riscos1.0-rc8 (2026-10-19)
+- **Every program rebuilt** with the font changes below: L3afpad
+  0.8.18.1.11-riscos27, ClawsMail 4.4.0-riscos17, Geany 2.1-riscos6,
+  mtPaint 3.50.14-riscos6, Gnumeric 1.12.57-riscos11, and the test
+  programs 3.24.41-riscos1.0-rc8.
 - **With UnixFC, Serif and Monospace still looked like Sans.** On a Pi
   with PackMan's FontConfig the Log showed DejaVu Serif and Sans Mono
   installed, but "Serif DejaVu Sans, Monospace DejaVu Sans": the system's
