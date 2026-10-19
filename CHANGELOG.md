@@ -1,6 +1,18 @@
 # Changelog
 
 ## Since RC7
+- **With UnixFC, Serif and Monospace still looked like Sans.** On a Pi
+  with PackMan's FontConfig the Log showed DejaVu Serif and Sans Mono
+  installed, but "Serif DejaVu Sans, Monospace DejaVu Sans": the system's
+  config had no rules saying which fonts serif and monospace are
+  (fontconfig's conf.d, 60-latin.conf, didn't apply). GDK now adds its own
+  after the system's: sans-serif, serif and monospace get DejaVu Sans /
+  Serif / Sans Mono, then Liberation and FreeFont, right after the generic
+  name, so they're found when installed; a system that has its own
+  preferences still wins. The Log line also gives the number of config
+  files fontconfig read (the first three named), to show whether conf.d
+  loaded. Test `fontconfig-fake` bare: a UnixFC config without those
+  rules. Gnumeric 1.12.57-riscos11 (test build).
 - **Gnumeric: Insert > Chart had no chart types** ("cb_pending_plot_types_load:
   assertion 'doc != NULL ...' failed" in the Log, one per chart plugin). The
   package had each plugin's plugin.xml but not the files their services

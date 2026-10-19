@@ -5,6 +5,9 @@
  *   fontconfig-fake APPDIR OUTDIR unixfc    PackMan's FontConfig installed
  *   fontconfig-fake APPDIR OUTDIR own       not installed
  *   fontconfig-fake APPDIR OUTDIR forced    installed, RISCOS_GTK_FONTS=own
+ *   fontconfig-fake APPDIR OUTDIR bare      installed, but its config has no
+ *                                           rules for serif or monospace (as
+ *                                           a UnixFC whose conf.d didn't load)
  *
  * "Installed" is a stand-in made in OUTDIR: a fonts.conf listing a
  * "system" font folder (UnixFont) with the fonts named after the mode
@@ -135,15 +138,17 @@ main (int argc, char **argv)
       g_free (dst);
       g_free (base);
     }
-  text = g_strdup_printf ("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
-                          "<fontconfig>\n  <dir>%s</dir>\n  <cachedir>%s</cachedir>\n"
-                          "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>sans-serif</string></edit></match>\n"
-                          "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>mono</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>monospace</string></edit></match>\n"
-                          "  <alias><family>sans-serif</family><prefer><family>DejaVu Sans</family></prefer></alias>\n"
-                          "  <alias><family>serif</family><prefer><family>DejaVu Serif</family></prefer></alias>\n"
-                          "  <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>\n"
-                                                                              "</fontconfig>\n",
-                          sysfonts, cache);
+  {
+    gboolean bare = strcmp (mode, "bare") == 0;
+    text = g_strdup_printf ("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+                            "<fontconfig>\n  <dir>%s</dir>\n  <cachedir>%s</cachedir>\n%s</fontconfig>\n",
+                            sysfonts, cache, bare ? "" :
+                            "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>sans-serif</string></edit></match>\n"
+                            "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>mono</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>monospace</string></edit></match>\n"
+                            "  <alias><family>sans-serif</family><prefer><family>DejaVu Sans</family></prefer></alias>\n"
+                            "  <alias><family>serif</family><prefer><family>DejaVu Serif</family></prefer></alias>\n"
+                            "  <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>\n");
+  }
   conf = g_build_filename (fcfonts, "fonts.conf", NULL);
   g_file_set_contents (conf, text, -1, NULL);
   g_free (text);
@@ -178,7 +183,7 @@ main (int argc, char **argv)
     check (g_getenv ("FONTCONFIG_SYSROOT") == NULL, "another program's FONTCONFIG_SYSROOT is ignored");
     check (has_family ("DejaVu Sans"), "the program's own font (DejaVu Sans) is there");
     check (g_strcmp0 (sans, "DejaVu Sans") == 0, "Sans is DejaVu Sans");
-    if (strcmp (mode, "unixfc") == 0)
+    if (strcmp (mode, "unixfc") == 0 || strcmp (mode, "bare") == 0)
       {
         check (g_strcmp0 (now, conf) == 0, "UnixFC installed: its fonts.conf is used");
         check (has_family ("DejaVu Serif") && has_family ("DejaVu Sans Mono"),
@@ -186,7 +191,9 @@ main (int argc, char **argv)
         check (count_files (cache, ".cache-8") + count_files (cache, ".cache-9") >= 1,
                "and the font cache is the system's (UnixFC's cache folder)");
         check (g_strcmp0 (serif, "DejaVu Serif") == 0 && g_strcmp0 (mono, "DejaVu Sans Mono") == 0,
-               "a font chooser's Serif and Monospace are the system's DejaVu Serif and Sans Mono");
+               strcmp (mode, "bare") == 0
+               ? "its config has no serif or monospace rules: riscos-gtk's fallbacks give DejaVu Serif and Sans Mono"
+               : "a font chooser's Serif and Monospace are the system's DejaVu Serif and Sans Mono");
         check (app && app->nfont == own_files && own_files > 0,
                "every font file in the program's fonts folder is added as its own");
       }

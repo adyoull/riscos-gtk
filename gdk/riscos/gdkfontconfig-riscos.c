@@ -23,6 +23,13 @@
  *   FileCore doesn't change a folder's date when files are added, so a
  *   font cache made before (an older copy of the program) would hide new
  *   ones.
+ * - Fallback rules for the generic families, after the set-up's own:
+ *   sans-serif, serif and monospace get DejaVu Sans, DejaVu Serif and
+ *   DejaVu Sans Mono (then Liberation, FreeFont) appended right after
+ *   them, so a font chooser's Serif and Monospace find those fonts when
+ *   they're installed, even if the system's conf.d (fontconfig's
+ *   60-latin.conf) didn't load or lacks them. The system's own
+ *   preferences (which come first) still win.
  * - The Log gets one line saying what fontconfig has: the set-up, how
  *   many fonts and families (some named), the font folders, and what
  *   Sans, Serif and Monospace become.
@@ -127,6 +134,30 @@ match_family (FcConfig *config, const char *name)
   return family ? family : g_strdup ("(none)");
 }
 
+/* the generic families' fallbacks, appended after the set-up's rules;
+   "append" puts them right after the generic name, ahead of any
+   catch-all a config adds at the end */
+static const char generic_rules[] =
+  "<?xml version=\"1.0\"?>\n"
+  "<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+  "<fontconfig>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans</string></test>"
+  "<edit name=\"family\" mode=\"assign\" binding=\"same\"><string>sans-serif</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>mono</string></test>"
+  "<edit name=\"family\" mode=\"assign\" binding=\"same\"><string>monospace</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>system-ui</string></test>"
+  "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>sans-serif</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans-serif</string></test>"
+  "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Sans</string>"
+  "<string>Liberation Sans</string><string>FreeSans</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>serif</string></test>"
+  "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Serif</string>"
+  "<string>Liberation Serif</string><string>FreeSerif</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>monospace</string></test>"
+  "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Sans Mono</string>"
+  "<string>Liberation Mono</string><string>FreeMono</string></edit></match>\n"
+  "</fontconfig>\n";
+
 /* one Log line: what fontconfig has */
 static void
 log_fonts (FcConfig *config, const char *setup)
@@ -136,7 +167,8 @@ log_fonts (FcConfig *config, const char *setup)
   FcFontSet *fs = FcFontList (config, pat, os);
   FcFontSet *app = FcConfigGetFonts (config, FcSetApplication);
   GHashTable *seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-  GString *names = g_string_new (NULL), *dirs = g_string_new (NULL);
+  GString *names = g_string_new (NULL), *dirs = g_string_new (NULL), *confs = g_string_new (NULL);
+  int n_conf;
   FcStrList *dl;
   FcChar8 *dir;
   char *sans, *serif, *mono;
@@ -162,6 +194,18 @@ log_fonts (FcConfig *config, const char *setup)
     }
   if (g_hash_table_size (seen) > 8)
     g_string_append (names, ", ...");
+  n_conf = 0;
+  dl = FcConfigGetConfigFiles (config);
+  while (dl && (dir = FcStrListNext (dl)) != NULL)
+    {
+      if (n_conf < 3)
+        g_string_append_printf (confs, "%s%s", confs->len ? " " : "", dir);
+      n_conf++;
+    }
+  if (dl)
+    FcStrListDone (dl);
+  if (n_conf > 3)
+    g_string_append (confs, " ...");
   dl = FcConfigGetFontDirs (config);
   while (dl && (dir = FcStrListNext (dl)) != NULL)
     g_string_append_printf (dirs, "%s%s", dirs->len ? " " : "", dir);
@@ -171,14 +215,15 @@ log_fonts (FcConfig *config, const char *setup)
   serif = match_family (config, "Serif");
   mono = match_family (config, "Monospace");
   g_printerr ("riscos-gtk: fonts: %s: %d fonts (%d the program's own) in %u families (%s); "
-              "folders %s; Sans is %s, Serif %s, Monospace %s\n",
+              "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s\n",
               setup, n_fonts, app ? app->nfont : 0, g_hash_table_size (seen), names->str,
-              dirs->len ? dirs->str : "(none)", sans, serif, mono);
+              dirs->len ? dirs->str : "(none)", n_conf, confs->str, sans, serif, mono);
   g_free (sans);
   g_free (serif);
   g_free (mono);
   g_string_free (names, TRUE);
   g_string_free (dirs, TRUE);
+  g_string_free (confs, TRUE);
   g_hash_table_destroy (seen);
   if (fs)
     FcFontSetDestroy (fs);
@@ -243,6 +288,8 @@ _gdk_riscos_fontconfig_init (void)
       g_printerr ("riscos-gtk: fonts: no fontconfig set-up loaded\n");
       goto out;
     }
+  if (!FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) generic_rules, FcFalse))
+    g_printerr ("riscos-gtk: fonts: the generic families' fallback rules didn't load\n");
   add_own_fonts (config, own_fonts);
   FcConfigSetCurrent (config);
   log_fonts (config, setup);

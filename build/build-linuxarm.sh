@@ -327,7 +327,7 @@ if [ -n "${MTPAINT_LA:-}" ] && [ -f "$MTPAINT_LA/src/main.o" ]; then
 else
   echo; echo "=== linux-arm: mtpaint-fake skipped: no mtPaint build in MTPAINT_LA=${MTPAINT_LA:-}"
 fi
-for m in unixfc own forced; do
+for m in unixfc own forced bare; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
   run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf"
 done
