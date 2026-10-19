@@ -30,6 +30,12 @@
  *   they're installed, even if the system's conf.d (fontconfig's
  *   60-latin.conf) didn't load or lacks them. The system's own
  *   preferences (which come first) still win.
+ * - Emoji: pango asks for the family "emoji"; the fallbacks append the
+ *   colour emoji fonts (Noto Color Emoji...) and Symbola to it. Colour
+ *   emoji fonts are bitmaps (109 pixels high in Noto's case), which
+ *   fontconfig's 10-scale-bitmap-fonts.conf scales to the text's size;
+ *   when the set-up's config files don't include it, its rules are added
+ *   too, or an emoji is drawn ten times the size of the text around it.
  * - The Log gets one line saying what fontconfig has: the set-up, how
  *   many fonts and families (some named), the font folders, and what
  *   Sans, Serif and Monospace become.
@@ -156,11 +162,54 @@ static const char generic_rules[] =
   " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>monospace</string></test>"
   "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Sans Mono</string>"
   "<string>Liberation Mono</string><string>FreeMono</string></edit></match>\n"
+  " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>emoji</string></test>"
+  "<edit name=\"family\" mode=\"append\" binding=\"strong\"><string>Noto Color Emoji</string>"
+  "<string>Apple Color Emoji</string><string>Twitter Color Emoji</string><string>Twemoji</string>"
+  "<string>EmojiOne Mozilla</string><string>Emoji Two</string><string>JoyPixels</string>"
+  "<string>Noto Emoji</string><string>Symbola</string></edit></match>\n"
   "</fontconfig>\n";
+
+/* fontconfig's conf.d/10-scale-bitmap-fonts.conf (MIT, the fontconfig
+   authors): bitmap fonts, colour emoji among them, scaled to the size
+   asked for; added when the set-up's config didn't read it */
+static const char bitmap_scaling_rules[] =
+  "<?xml version=\"1.0\"?>\n"
+  "<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+  "<fontconfig>\n"
+  "<match target=\"font\"> <test name=\"outline\" compare=\"eq\"> <bool>false</bool> </test> <edit name=\"pixe"
+  "lsizefixupfactor\" mode=\"assign\"> <divide> <name target=\"pattern\">pixelsize</name> <name target=\"font"
+  "\" >pixelsize</name> </divide> </edit> </match> <match target=\"font\"> <test name=\"outline\" compare=\"e"
+  "q\"> <bool>false</bool> </test> <test name=\"scalable\" compare=\"eq\"> <bool>false</bool> </test> <test "
+  "name=\"hinting\" compare=\"eq\"> <bool>true</bool> </test> <edit name=\"scalingnotneeded\" mode=\"assign\"> "
+  "<and> <less> <name>pixelsizefixupfactor</name> <double>1.2</double> </less> <more> <name>pixelsizefi"
+  "xupfactor</name> <double>0.8</double> </more> </and> </edit> </match> <match target=\"font\"> <test na"
+  "me=\"scalingnotneeded\" compare=\"eq\"> <bool>true</bool> </test> <edit name=\"pixelsizefixupfactor\" mode"
+  "=\"assign\"> <double>1.0</double> </edit> </match> <match target=\"font\"> <test name=\"outline\" compare="
+  "\"eq\"> <bool>false</bool> </test> <test name=\"pixelsizefixupfactor\" compare=\"not_eq\"> <double>1.0</do"
+  "uble> </test> <edit name=\"matrix\" mode=\"assign\"> <times> <name>matrix</name> <matrix> <name>pixelsiz"
+  "efixupfactor</name> <double>0</double> <double>0</double> <name>pixelsizefixupfactor</name> </matrix"
+  "> </times> </edit> <edit name=\"size\" mode=\"assign\"> <divide> <name>size</name> <name>pixelsizefixupf"
+  "actor</name> </divide> </edit> </match>"
+  "</fontconfig>\n";
+
+static gboolean
+has_config_file (FcConfig *config, const char *leaf_part)
+{
+  FcStrList *l = FcConfigGetConfigFiles (config);
+  FcChar8 *f;
+  gboolean found = FALSE;
+
+  while (l && !found && (f = FcStrListNext (l)) != NULL)
+    if (strstr ((const char *) f, leaf_part) != NULL)
+      found = TRUE;
+  if (l)
+    FcStrListDone (l);
+  return found;
+}
 
 /* one Log line: what fontconfig has */
 static void
-log_fonts (FcConfig *config, const char *setup)
+log_fonts (FcConfig *config, const char *setup, gboolean scaling_added)
 {
   FcPattern *pat = FcPatternCreate ();
   FcObjectSet *os = FcObjectSetBuild (FC_FAMILY, NULL);
@@ -171,7 +220,7 @@ log_fonts (FcConfig *config, const char *setup)
   int n_conf;
   FcStrList *dl;
   FcChar8 *dir;
-  char *sans, *serif, *mono;
+  char *sans, *serif, *mono, *emoji;
   int i, n_fonts = 0;
 
   /* FcFontList gives one pattern per family here (only FC_FAMILY asked);
@@ -214,10 +263,13 @@ log_fonts (FcConfig *config, const char *setup)
   sans = match_family (config, "Sans");
   serif = match_family (config, "Serif");
   mono = match_family (config, "Monospace");
+  emoji = match_family (config, "emoji");
   g_printerr ("riscos-gtk: fonts: %s: %d fonts (%d the program's own) in %u families (%s); "
-              "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s\n",
+              "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s, emoji %s%s\n",
               setup, n_fonts, app ? app->nfont : 0, g_hash_table_size (seen), names->str,
-              dirs->len ? dirs->str : "(none)", n_conf, confs->str, sans, serif, mono);
+              dirs->len ? dirs->str : "(none)", n_conf, confs->str, sans, serif, mono, emoji,
+              scaling_added ? "; bitmap fonts scaled by riscos-gtk's rules" : "");
+  g_free (emoji);
   g_free (sans);
   g_free (serif);
   g_free (mono);
@@ -240,6 +292,7 @@ _gdk_riscos_fontconfig_init (void)
   char *saved_conf = own_conf ? g_strdup (own_conf) : NULL;
   char *setup = NULL;
   FcConfig *config = NULL;
+  gboolean scaling_added = FALSE;
 
   /* another program's settings mustn't redirect ours */
   g_unsetenv ("FONTCONFIG_SYSROOT");
@@ -288,11 +341,15 @@ _gdk_riscos_fontconfig_init (void)
       g_printerr ("riscos-gtk: fonts: no fontconfig set-up loaded\n");
       goto out;
     }
+  scaling_added = !has_config_file (config, "scale-bitmap-fonts");
   if (!FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) generic_rules, FcFalse))
     g_printerr ("riscos-gtk: fonts: the generic families' fallback rules didn't load\n");
+  if (scaling_added &&
+      !FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) bitmap_scaling_rules, FcFalse))
+    g_printerr ("riscos-gtk: fonts: the bitmap scaling rules didn't load\n");
   add_own_fonts (config, own_fonts);
   FcConfigSetCurrent (config);
-  log_fonts (config, setup);
+  log_fonts (config, setup, scaling_added);
   FcConfigDestroy (config);          /* FcConfigSetCurrent holds it */
 
 out:

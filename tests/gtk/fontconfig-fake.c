@@ -18,7 +18,12 @@
  * reads it as /<UnixFC$Dir>). APPDIR's own fonts (DejaVu Sans) are the
  * program's. With UnixFC, a font chooser's Serif and Monospace are the
  * system's DejaVu Serif and Sans Mono, and the program's own font is
- * added as an application font. Prints TAP; exit status = failures. MIT licence.
+ * added as an application font. If one of the system's fonts is a colour
+ * bitmap emoji font (Noto Color Emoji), an emoji drawn with 12 pt text
+ * must come out about the text's size: bitmap fonts are scaled by
+ * fontconfig's 10-scale-bitmap-fonts rules, which riscos-gtk adds when
+ * the system's config lacks them (otherwise the emoji is its bitmap's
+ * own size, 109 pixels). Prints TAP; exit status = failures. MIT licence.
  */
 #include <gtk/gtk.h>
 #include <fontconfig/fontconfig.h>
@@ -62,6 +67,39 @@ has_family (const char *family)
   FcObjectSetDestroy (os);
   FcPatternDestroy (pat);
   return found;
+}
+
+/* the ink heights of "M" and of an emoji in 12 pt Sans, and the emoji's
+   font's family */
+static void
+emoji_heights (int *text_h, int *emoji_h, char **family)
+{
+  PangoFontMap *map = pango_cairo_font_map_get_default ();
+  PangoContext *ctx = pango_font_map_create_context (map);
+  PangoFontDescription *d = pango_font_description_from_string ("Sans 12");
+  PangoLayout *l = pango_layout_new (ctx);
+  PangoRectangle ink;
+  PangoLayoutLine *line;
+
+  pango_layout_set_font_description (l, d);
+  pango_layout_set_text (l, "M", -1);
+  pango_layout_get_pixel_extents (l, &ink, NULL);
+  *text_h = ink.height;
+  pango_layout_set_text (l, "\xf0\x9f\x98\x80", -1);      /* U+1F600 */
+  pango_layout_get_pixel_extents (l, &ink, NULL);
+  *emoji_h = ink.height;
+  *family = NULL;
+  line = pango_layout_get_line_readonly (l, 0);
+  if (line && line->runs)
+    {
+      PangoGlyphItem *run = line->runs->data;
+      PangoFontDescription *fd = pango_font_describe (run->item->analysis.font);
+      *family = g_strdup (pango_font_description_get_family (fd));
+      pango_font_description_free (fd);
+    }
+  g_object_unref (l);
+  pango_font_description_free (d);
+  g_object_unref (ctx);
 }
 
 /* the family fontconfig gives for a name, after the config's aliases */
@@ -128,7 +166,18 @@ main (int argc, char **argv)
   for (i = 4; i < argc; i++)
     {
       char *data, *base = g_path_get_basename (argv[i]);
-      char *dst = g_build_filename (sysfonts, base, NULL);
+      /* a .conf (fontconfig's 10-scale-bitmap-fonts.conf) goes in the
+         stand-in's conf.d, for unixfc only: bare has no conf.d */
+      gboolean is_conf = g_str_has_suffix (base, ".conf");
+      char *confd = g_build_filename (fcfonts, "conf.d", NULL);
+      char *dst = g_build_filename (is_conf ? confd : sysfonts, base, NULL);
+      if (is_conf && strcmp (mode, "unixfc") != 0)
+        {
+          g_free (dst); g_free (base); g_free (confd);
+          continue;
+        }
+      g_mkdir_with_parents (confd, 0755);
+      g_free (confd);
       gsize len;
       if (g_file_get_contents (argv[i], &data, &len, NULL))
         {
@@ -147,7 +196,11 @@ main (int argc, char **argv)
                             "  <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>mono</string></test><edit name=\"family\" mode=\"assign\" binding=\"same\"><string>monospace</string></edit></match>\n"
                             "  <alias><family>sans-serif</family><prefer><family>DejaVu Sans</family></prefer></alias>\n"
                             "  <alias><family>serif</family><prefer><family>DejaVu Serif</family></prefer></alias>\n"
-                            "  <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>\n");
+                            "  <alias><family>monospace</family><prefer><family>DejaVu Sans Mono</family></prefer></alias>\n"
+                            /* conf.d's 60-generic.conf: pango asks for "emoji"; but not
+                               10-scale-bitmap-fonts.conf */
+                            "  <alias binding=\"same\"><family>emoji</family><prefer><family>Noto Color Emoji</family></prefer></alias>\n"
+                            "  <include ignore_missing=\"yes\">conf.d</include>\n");
   }
   conf = g_build_filename (fcfonts, "fonts.conf", NULL);
   g_file_set_contents (conf, text, -1, NULL);
@@ -196,6 +249,20 @@ main (int argc, char **argv)
                : "a font chooser's Serif and Monospace are the system's DejaVu Serif and Sans Mono");
         check (app && app->nfont == own_files && own_files > 0,
                "every font file in the program's fonts folder is added as its own");
+        if (has_family ("Noto Color Emoji"))
+          {
+            int th, eh;
+            char *ef;
+            emoji_heights (&th, &eh, &ef);
+            printf ("# emoji: %s, %d pixels high; M %d pixels\n", ef, eh, th);
+            check (g_strcmp0 (ef, "Noto Color Emoji") == 0 && eh > th / 2 && eh < 3 * th,
+                   strcmp (mode, "bare") == 0
+                   ? "an emoji from a colour bitmap font is the text's size (riscos-gtk's scaling rules)"
+                   : "an emoji from a colour bitmap font is the text's size (the system's scaling rules, not scaled twice)");
+            g_free (ef);
+          }
+        else
+          printf ("# no Noto Color Emoji to try (not on this machine)\n");
       }
     else
       {

@@ -329,7 +329,10 @@ else
 fi
 for m in unixfc own forced bare; do
   rm -rf "$FCT/$m"; mkdir -p "$FCT/$m"
-  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf"
+  # a colour bitmap emoji font, where the host has one (Ubuntu's fonts-noto-color-emoji)
+  EMO=; [ -f /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ] && EMO=/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf
+  [ -z "$EMO" ] || EMO="$EMO $SRC/fontconfig-2.14.1/conf.d/10-scale-bitmap-fonts.conf"
+  run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf" $EMO
 done
 run toolsprites-fake
 run printvec-fake

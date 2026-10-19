@@ -1,5 +1,21 @@
 # Changelog
 
+## Since RC8
+- **Emoji were much bigger than the text around them.** Colour emoji
+  fonts (Noto Color Emoji and the like, installed in UnixFont through
+  PackMan's FontConfig) are bitmaps, 109 pixels high in Noto's case;
+  fontconfig scales bitmap fonts to the size asked for with its
+  `conf.d/10-scale-bitmap-fonts.conf`, which a UnixFC set-up that doesn't
+  read conf.d lacks, so an emoji came out ten times the size of 12 pt
+  text. GDK now adds those rules when the set-up's config files don't
+  include them (never twice), and appends the colour emoji fonts and
+  Symbola to the "emoji" family pango asks for, for a config without
+  conf.d's 60-generic.conf. The Log's fonts line says which font emoji
+  get, and when riscos-gtk's scaling rules were added. Test
+  `fontconfig-fake`: an emoji from Noto Color Emoji next to 12 pt text,
+  with the system's scaling rules and without (where the host has the
+  font). `gdk/riscos/gdkfontconfig-riscos.c`.
+
 ## 3.24.41-riscos1.0-rc8 (2026-10-19)
 - **Every program rebuilt** with the font changes below: L3afpad
   0.8.18.1.11-riscos27, ClawsMail 4.4.0-riscos17, Geany 2.1-riscos6,
