@@ -1,6 +1,10 @@
 # Changelog
 
-## Since RC8
+## 3.24.41-riscos1.0-rc9 (2026-10-20)
+- **Every program rebuilt** with the emoji change below: L3afpad
+  0.8.18.1.11-riscos28, ClawsMail 4.4.0-riscos18, Geany 2.1-riscos7,
+  mtPaint 3.50.14-riscos7, Gnumeric 1.12.57-riscos12, and the test
+  programs 3.24.41-riscos1.0-rc9.
 - **Emoji were much bigger than the text around them.** Colour emoji
   fonts (Noto Color Emoji and the like, installed in UnixFont through
   PackMan's FontConfig) are bitmaps, 109 pixels high in Noto's case;

@@ -101,7 +101,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.41-riscos1.0-rc8     # out/release/3.24.41-riscos1.0-rc8/
+make release RELEASE=3.24.41-riscos1.0-rc9     # out/release/3.24.41-riscos1.0-rc9/
 ```
 
 `make gltest` builds !GTKGLTest, a GtkGLArea test, with riscos-mesa
