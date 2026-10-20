@@ -1,18 +1,18 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 9)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 10)
 
-**Status: public beta.** RC9 is the seventh public beta build. It fixes
-emoji that came out much bigger than the text around them: colour emoji
-fonts (Noto Color Emoji and the like, installed through PackMan's
-FontConfig) are bitmaps, and are now scaled to the text's size. Every
-program is rebuilt with the change. RC8 fixed Gnumeric's Insert > Chart
-and made Serif and Monospace find the system's fonts. RC6's Menu, title
-bar, browser and mtPaint changes and Gnumeric have been run on a
-Raspberry Pi 4; RC7's icons, Geany's Build and Execute and parts of RC5
-haven't been on real hardware yet: please report anything that goes
-wrong (see "Reporting problems" below). The final 3.24.41-riscos1.0
-will be this build with whatever the beta turns up fixed. Items marked
-*[Pi]* still need a check on real hardware
-([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
+**Status: public beta.** RC10 is the eighth public beta build. It adds
+colour emoji: an optional PackMan font package, TTF-Noto-Color-Emoji,
+for machines with FontConfig, and in ClawsMail Message > Insert emoji...
+to type them. GTK's pop-overs (the emoji chooser among them) now appear
+on RISC OS; they never did before, so every program is rebuilt. RC9
+scaled colour emoji to the text's size; RC8 fixed Gnumeric's Insert >
+Chart and Serif and Monospace. RC6's Menu, title bar, browser and mtPaint
+changes and Gnumeric have been run on a Raspberry Pi 4; RC7's icons,
+Geany's Build and Execute and parts of RC5 haven't been on real hardware
+yet: please report anything that goes wrong (see "Reporting problems"
+below). The final 3.24.41-riscos1.0 will be this build with whatever the
+beta turns up fixed. Items marked *[Pi]* still need a check on real
+hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
 
 ## What it is
 
@@ -28,24 +28,25 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos7): the GTK release it's built from
+**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos8): the GTK release it's built from
 (3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC9
+## What's in RC10
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos28.zip` | 0.8.18.1.11-riscos28 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos18.zip` | 4.4.0-riscos18 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos7.zip` | 2.1-riscos7 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos7.zip` | 3.50.14-riscos7 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.57-riscos12.zip` | 1.12.57-riscos12 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `GTKThemeTest-3.24.41-riscos1.0-rc9.zip` | 3.24.41-riscos1.0-rc9 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc9.zip` | 3.24.41-riscos1.0-rc9 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc9.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc9-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.8.18.1.11-riscos29.zip` | 0.8.18.1.11-riscos29 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos19.zip` | 4.4.0-riscos19 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos8.zip` | 2.1-riscos8 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos8.zip` | 3.50.14-riscos8 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.57-riscos13.zip` | 1.12.57-riscos13 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
+| `GTKThemeTest-3.24.41-riscos1.0-rc10.zip` | 3.24.41-riscos1.0-rc10 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc10.zip` | 3.24.41-riscos1.0-rc10 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **New, optional:** a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc10.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc10-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -206,10 +207,17 @@ release.
   what Sans, Serif and Monospace became (or why UnixFC wasn't used, e.g.
   `UnixFC$Dir` not set because FontConfig hasn't been booted), and which
   font emoji get.
-- **Emoji:** from a colour emoji font in UnixFont (Noto Color Emoji,
-  Twemoji...) when one is installed, scaled to the text's size (the
-  system's fontconfig rules when it has them, riscos-gtk's copy
-  otherwise); without one, DejaVu Sans's plain emoji. *[Pi]*
+- **Emoji:** from a colour emoji font in UnixFont (the release's
+  TTF-Noto-Color-Emoji package, or Twemoji...) when one is installed,
+  scaled to the text's size (the system's fontconfig rules when it has
+  them, riscos-gtk's copy otherwise); without one, DejaVu Sans's plain
+  emoji or boxes with the code in, and the Log's fonts line says to
+  install the package. *[Pi]*
+- **Typing emoji:** GTK's emoji chooser (Ctrl-. in a text field, or the
+  field's menu > Insert Emoji) and ClawsMail's Message > Insert emoji...
+  in the compose window. *[Pi]*
+- **Pop-overs** (GtkPopover: the emoji chooser, menu buttons' pop-overs)
+  are shown; before RC10 they never appeared. *[Pi]*
 
 **ClawsMail**
 - **HTML mail:** shown laid out, with its fonts, colours, tables and
@@ -259,7 +267,12 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC9
+## Known issues and limits in RC10
+
+- **New in RC10, not yet on the Pi** *[Pi]*: the emoji package with
+  PackMan; ClawsMail's Insert emoji...; pop-overs in every program.
+- **Recently used emoji** aren't kept between runs (GTK's settings are
+  kept in memory).
 
 - **New in RC9, not yet on the Pi** *[Pi]*: colour emoji at the text's
   size.
@@ -342,6 +355,10 @@ release.
     program was rebuilt: L3afpad 0.8.18.1.11-riscos28, ClawsMail
     4.4.0-riscos18, Geany 2.1-riscos7, mtPaint 3.50.14-riscos7, Gnumeric
     1.12.57-riscos12.
+  - RC10: the optional TTF-Noto-Color-Emoji package; pop-overs shown;
+    ClawsMail's Insert emoji.... In GTK, so every program was rebuilt:
+    L3afpad 0.8.18.1.11-riscos29, ClawsMail 4.4.0-riscos19, Geany
+    2.1-riscos8, mtPaint 3.50.14-riscos8, Gnumeric 1.12.57-riscos13.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -412,7 +429,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc9` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc10` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests
@@ -430,12 +447,12 @@ code against a fake RISC OS and Wimp:
 | toolsprites-fake | 3 |
 | printvec-fake | 7 |
 | l3afpad-fake | 44 |
-| claws-fake | 37 |
+| claws-fake (and Insert emoji: the chooser opens, the emoji goes in) | 41 |
 | template-fake (the devkit's template; at EIG 1 and EIG 0) | 9 + 9 |
 | gltest-fake (GtkGLArea on riscos-mesa's RISC OS libraries; at EIG 1 and EIG 0) | 9 + 9 |
 | gltest-nogl (GtkGLArea without riscos-mesa linked in) | 2 |
 | schemas-fake (GTK's schemas for a program that ships none) | 3 + 3 |
-| fontconfig-fake (UnixFC, own, forced, UnixFC without serif/monospace rules; emoji size where the host has Noto Color Emoji) | 9 + 6 + 6 + 9 |
+| fontconfig-fake (UnixFC, own, forced, UnixFC without serif/monospace rules; the emoji font's size) | 9 + 7 + 7 + 9 |
 | browser-fake (the directory browser; the icon bar's discs; Latin-1 names) | 29 |
 | geany-fake (Geany 2.1: with the box and with the browser; Build and Execute) | 11 + 11 |
 | menuclick-fake (Menu anywhere; titled pop-ups; title bars on the screen) | 14 |
@@ -444,7 +461,7 @@ code against a fake RISC OS and Wimp:
 | gnumeric-fake (Gnumeric: functions, .ods and .xlsx, a chart, the chart types and trend lines, scrolling past a check box, file types, the grab, its RISC OS icons, the font chooser's Serif and Monospace with UnixFC) | 16 |
 | staticmodule-test (GModule plugins linked into a program) | 11 |
 
-All 489 pass at the RC commit.
+All 495 pass at the RC commit.
 
 On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 
@@ -456,6 +473,8 @@ On the Pi: the sign-off list is [RC-TEST-PLAN.md](RC-TEST-PLAN.md).
 - **Geany:** GPL 2, by the Geany contributors.
 - **mtPaint:** GPL 3, by Mark Tyler and Dmitry Groshev.
 - **Gnumeric and GOffice:** GPL 2 or 3, by the Gnumeric developers.
+- **Noto Color Emoji** (the optional package): SIL Open Font Licence
+  1.1, Google.
 - **libgsf:** LGPL 2.1; **libxml2, libxslt:** MIT (in Gnumeric).
 - **shared-mime-info's database:** GPL 2 or later.
 - **Mesa** (GTKGLTest, through riscos-mesa): MIT.

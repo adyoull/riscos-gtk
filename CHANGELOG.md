@@ -1,6 +1,11 @@
 # Changelog
 
-## Since 3.24.41-riscos1.0-rc9
+## 3.24.41-riscos1.0-rc10 (2026-10-20)
+- **Every program rebuilt** with the pop-over fix below: L3afpad
+  0.8.18.1.11-riscos29, ClawsMail 4.4.0-riscos19, Geany 2.1-riscos8,
+  mtPaint 3.50.14-riscos8, Gnumeric 1.12.57-riscos13, and the test
+  programs 3.24.41-riscos1.0-rc10; with the optional
+  TTF-Noto-Color-Emoji-2.051.0.1-1 package.
 - **Colour emoji: an optional font package.** Without an emoji font on
   the machine, emoji came out as boxes with their code in, or as DejaVu's
   plain black glyphs (seen in ClawsMail on the Pi). The release now has
