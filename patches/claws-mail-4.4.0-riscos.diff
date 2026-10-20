@@ -965,6 +965,92 @@ diff -ruN a/src/common/utils.c b/src/common/utils.c
  
  #ifndef G_OS_WIN32
  	gchar buf[BUFFSIZE];
+diff -ruN a/src/compose.c b/src/compose.c
+--- a/src/compose.c	2025-10-08 06:28:32.000000000 +0100
++++ b/src/compose.c	2026-10-20 08:24:08.385233925 +0100
+@@ -430,6 +430,10 @@
+ 					 gpointer	 data);
+ static void compose_replace_sig_cb	(GtkAction	*action,
+ 					 gpointer	 data);
++#ifdef __riscos
++static void compose_insert_emoji_cb	(GtkAction	*action,
++					 gpointer	 data);
++#endif
+ 
+ static void compose_close_cb		(GtkAction	*action,
+ 					 gpointer	 data);
+@@ -630,6 +634,10 @@
+ 	{"Message/InsertFile",            NULL, N_("_Insert file"), "<control>I", NULL, G_CALLBACK(compose_insert_file_cb) },
+ 	{"Message/InsertSig",             NULL, N_("Insert si_gnature"), "<control>G", NULL, G_CALLBACK(compose_insert_sig_cb) },
+ 	{"Message/ReplaceSig",            NULL, N_("_Replace signature"), NULL, NULL, G_CALLBACK(compose_replace_sig_cb) },
++#ifdef __riscos
++	/* riscos-gtk: GTK's emoji chooser, for the field being typed in */
++	{"Message/InsertEmoji",           NULL, N_("Insert _emoji..."), "<control>period", NULL, G_CALLBACK(compose_insert_emoji_cb) },
++#endif
+ 	/* {"Message/---",                NULL, "---", NULL, NULL, NULL }, */
+ 	{"Message/Save",                  NULL, N_("_Save"), "<control>S", NULL, G_CALLBACK(compose_save_cb) }, /*COMPOSE_KEEP_EDITING*/
+ 	/* {"Message/---",                NULL, "---", NULL, NULL, NULL }, */
+@@ -2600,6 +2608,9 @@
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Message/AttachFile", FALSE);
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Message/InsertSig", FALSE);
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Message/ReplaceSig", FALSE);
++#ifdef __riscos
++	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Message/InsertEmoji", FALSE);
++#endif
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Edit", FALSE);
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Options", FALSE);
+ 	cm_menu_set_sensitive_full(compose->ui_manager, "Menu/Tools/ShowRuler", FALSE);
+@@ -7896,6 +7907,9 @@
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "InsertFile", "Message/InsertFile", GTK_UI_MANAGER_MENUITEM)
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "InsertSig", "Message/InsertSig", GTK_UI_MANAGER_MENUITEM)
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "ReplaceSig", "Message/ReplaceSig", GTK_UI_MANAGER_MENUITEM)
++#ifdef __riscos
++	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "InsertEmoji", "Message/InsertEmoji", GTK_UI_MANAGER_MENUITEM)
++#endif
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "Separator2", "Message/---", GTK_UI_MANAGER_SEPARATOR)
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "Save", "Message/Save", GTK_UI_MANAGER_MENUITEM)
+ 	MENUITEM_ADDUI_MANAGER(compose->ui_manager, "/Menu/Message", "Separator3", "Message/---", GTK_UI_MANAGER_SEPARATOR)
+@@ -9902,6 +9916,9 @@
+ 	"Menu/Message/InsertFile",
+ 	"Menu/Message/InsertSig",
+ 	"Menu/Message/ReplaceSig",
++#ifdef __riscos
++	"Menu/Message/InsertEmoji",
++#endif
+ 	"Menu/Message/Save",
+ 	"Menu/Message/Print",
+ 	"Menu/Edit",
+@@ -10736,6 +10753,30 @@
+ 	compose_insert_sig(compose, TRUE);
+ }
+ 
++#ifdef __riscos
++/* riscos-gtk: Message > Insert emoji... opens GTK's emoji chooser at the
++   caret of the field being typed in (the Subject line, a header field),
++   or of the message text otherwise. The chosen emoji is typed in there. */
++static void compose_insert_emoji_cb(GtkAction *action, gpointer data)
++{
++	Compose *compose = (Compose *)data;
++	GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(compose->window));
++	gboolean usable = FALSE;
++
++	if (focus && gtk_widget_is_sensitive(focus) && gtk_widget_get_mapped(focus)) {
++		if (GTK_IS_TEXT_VIEW(focus))
++			usable = gtk_text_view_get_editable(GTK_TEXT_VIEW(focus));
++		else if (GTK_IS_ENTRY(focus))
++			usable = gtk_editable_get_editable(GTK_EDITABLE(focus));
++	}
++	if (!usable)
++		focus = compose->text;
++	if (!gtk_widget_has_focus(focus))
++		gtk_widget_grab_focus(focus);
++	g_signal_emit_by_name(focus, "insert-emoji");
++}
++#endif
++
+ static gint compose_delete_cb(GtkWidget *widget, GdkEventAny *event,
+ 			      gpointer data)
+ {
 diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
 --- a/src/etpan/etpan-ssl.c	2025-09-29 06:32:17.000000000 +0100
 +++ b/src/etpan/etpan-ssl.c	2026-10-09 10:31:41.830653021 +0100

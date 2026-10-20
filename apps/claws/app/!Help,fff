@@ -70,6 +70,19 @@ HTML mail
 - Menu over the message gives the window's menu; over a link, its
   first entry is "Link >" (Open Link, Copy Link).
 
+Emoji
+- Emoji in messages are shown in colour, at the size of the text, once
+  a colour emoji font is installed for FontConfig: install PackMan's
+  FontConfig and riscos-gtk's TTF-Noto-Color-Emoji package (on the
+  riscos-gtk release page and in PackMan). Without it, emoji show as
+  boxes with their code in, or as plain black shapes.
+- To put one in a message you're writing: Message > Insert emoji... in
+  the message window (or Ctrl-.). A chooser opens at the caret: pick a
+  group from the row of icons along its foot, or type part of a name in
+  its search field, and click the emoji. It goes into the field you were
+  typing in: the message, or the Subject line. Recently used emoji are
+  kept at the start while ClawsMail runs.
+
 Links
 - Clicking a link (in HTML or plain text mail) sends it to your web
   browser through RISC OS's URI handler. If neither Iris nor NetSurf is

@@ -104,6 +104,13 @@ make l3afpad themetest claws                 # out/<Program>-<version>.zip
 make release RELEASE=3.24.41-riscos1.0-rc9     # out/release/3.24.41-riscos1.0-rc9/
 ```
 
+`make emoji` makes `out/TTF-Noto-Color-Emoji-<version>.zip`, the optional
+colour emoji font as a PackMan package: Noto Color Emoji in
+`Apps/Fonts/!UnixFont/truetype/noto-color-emoji`, depending on UnixFont
+and FontConfig, with `fc-cache` triggers, as PackMan's TTF-DejaVu-Core.
+The programs don't carry it; they find it through FontConfig.
+
+
 `make gltest` builds !GTKGLTest, a GtkGLArea test, with riscos-mesa
 linked in. It needs riscos-mesa's devkit (20.3.5-15 or later) in
 `MESA_DEVKIT`. The default is `$RCD_DIR/devkit/env`, where crossdev's

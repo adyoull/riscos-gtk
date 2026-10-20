@@ -153,12 +153,24 @@ provider offers them.
 | 9.1 | With a colour emoji font installed in UnixFont (Noto Color Emoji from PackMan): an emoji typed or pasted into L3afpad, or in a ClawsMail message, is about the size of the text around it; the Log's fonts line names the emoji font | new | |
 | 9.2 | Without one: emoji show as DejaVu Sans's plain glyphs, the text's size | new | |
 
-## 10. Packaging and licences
+## 10. New since RC9
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 10.1 | Each !Help has the right version, requirements and licences | — | |
-| 10.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
-| 10.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
+| 10.1 | FontConfig installed, then TTF-Noto-Color-Emoji (PackMan, or the release zip copied into !UnixFont.truetype): a message with emoji (smileys, flags, a family, a skin tone) shows them in colour at the text's size in ClawsMail, not as boxes with their code in or as plain black glyphs; the Log's fonts line says emoji Noto Color Emoji | 9.2 showed boxes (photo) | |
+| 10.1a | Without the package: the Log's fonts line ends "for colour emoji install PackMan's TTF-Noto-Color-Emoji (it needs FontConfig)" | new | |
+| 10.1b | PackMan installs TTF-Noto-Color-Emoji with UnixFont and FontConfig, runs fc-cache, and removes it again | new | |
+| 10.2 | ClawsMail's message window: Message > Insert emoji... (and Ctrl-.) opens the emoji chooser at the caret; a group button and the search field work; the emoji clicked goes into the message text; with the caret in the Subject line, into the subject | new | |
+| 10.3 | The message sent with an emoji in its text and subject arrives right in another mail program | new | |
+| 10.4 | The chooser on a long message scrolled down, and in a small message window: it opens where the caret is and fits | new | |
+| 10.5 | In another program's text field (L3afpad's text; not Geany's editor, which is Scintilla): Ctrl-. or the field's menu > Insert Emoji opens the same chooser (pop-overs were never shown before) | new | |
+
+## 11. Packaging and licences
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 11.1 | Each !Help has the right version, requirements and licences (LicenceEmoji in fonts) | — | |
+| 11.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
+| 11.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
 
 Signed off by: ____________  Date: ____________

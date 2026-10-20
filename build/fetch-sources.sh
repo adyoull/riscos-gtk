@@ -68,6 +68,12 @@ get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/unive
 # the MIME database every application carries (build/mkmime.sh)
 get shared-mime-info_2.4.orig.tar.bz2 $U/s/shared-mime-info/shared-mime-info_2.4.orig.tar.bz2
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip
+# Noto Color Emoji 2.051 (SIL Open Font Licence 1.1), the colour emoji font
+# every program carries: the font and its licence from the noto-emoji
+# repository at the v2.051 tag (Ubuntu's deb is zstd-compressed and built
+# from the source tarball, 150 MB)
+get NotoColorEmoji-2.051.ttf        https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/NotoColorEmoji.ttf
+get NotoColorEmoji-2.051-OFL.txt    https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/LICENSE
 # Every file present must match; all but GTK (not built yet) must be there.
 sha256sum -c --ignore-missing "$REPO_DIR/build/SHA256SUMS.txt"
 for f in $(awk '{print $2}' "$REPO_DIR/build/SHA256SUMS.txt" | grep -v '^gtk+3.0_'); do

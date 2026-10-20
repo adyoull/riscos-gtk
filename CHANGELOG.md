@@ -1,5 +1,37 @@
 # Changelog
 
+## Since 3.24.41-riscos1.0-rc9
+- **Colour emoji: an optional font package.** Without an emoji font on
+  the machine, emoji came out as boxes with their code in, or as DejaVu's
+  plain black glyphs (seen in ClawsMail on the Pi). The release now has
+  `TTF-Noto-Color-Emoji-2.051.0.1-1.zip`, a PackMan package laid out as
+  PackMan's own font packages (TTF-DejaVu-Core): Noto Color Emoji 2.051
+  (SIL Open Font Licence 1.1) in `!UnixFont.truetype.noto-color-emoji`,
+  depending on UnixFont and FontConfig, with triggers that run `fc-cache`.
+  The programs find it through FontConfig (UnixFC), as other fontconfig
+  programs on the machine do; GDK's rules (RC9) put it in the "emoji"
+  family and scale it to the text's size. The programs don't carry the
+  font (10 MB each). Without it, the Log's fonts line now ends by saying
+  to install the package. `build/build-emoji.sh`, `make emoji`; the font
+  is fetched by `fetch-sources.sh` from the noto-emoji repository's
+  v2.051 tag. Test `fontconfig-fake`: the system's emoji font now always
+  tried (the downloaded font, as the package installs it), and not there
+  without UnixFC.
+- **Pop-overs were never shown.** A GtkPopover (GtkEntry's and
+  GtkTextView's emoji chooser, from Ctrl-. or "Insert Emoji" in a text
+  field's menu, and GtkMenuButton pop-overs) stayed 1x1 and unseen: a
+  popover is sized and placed when its window is laid out, and the
+  resize queued on the popover itself didn't reach the window. GtkWindow
+  now sizes and places a popover itself whenever its position or size
+  is set (GTK patch, gtk/gtkwindow.c, `_gtk_window_set_popover_position`).
+  Every program gets this with its next build.
+- **ClawsMail 4.4.0-riscos19: Message > Insert emoji... (^.)** in the
+  compose window opens GTK's emoji chooser at the caret of the field
+  being typed in (the message, the Subject line or another header
+  field), with the emoji grouped and a search field; the one clicked is
+  typed in. Test `claws-fake`: the item is there, the chooser opens and
+  is laid out (488x330, shown), the emoji picked goes into the field.
+
 ## 3.24.41-riscos1.0-rc9 (2026-10-20)
 - **Every program rebuilt** with the emoji change below: L3afpad
   0.8.18.1.11-riscos28, ClawsMail 4.4.0-riscos18, Geany 2.1-riscos7,

@@ -31,7 +31,10 @@
  *   60-latin.conf) didn't load or lacks them. The system's own
  *   preferences (which come first) still win.
  * - Emoji: pango asks for the family "emoji"; the fallbacks append the
- *   colour emoji fonts (Noto Color Emoji...) and Symbola to it. Colour
+ *   colour emoji fonts (Noto Color Emoji...) and Symbola to it. Programs
+ *   don't carry an emoji font: riscos-gtk's optional PackMan package
+ *   TTF-Noto-Color-Emoji puts Noto Color Emoji in UnixFont (so it needs
+ *   FontConfig, UnixFC); without one the Log line says so. Colour
  *   emoji fonts are bitmaps (109 pixels high in Noto's case), which
  *   fontconfig's 10-scale-bitmap-fonts.conf scales to the text's size;
  *   when the set-up's config files don't include it, its rules are added
@@ -265,10 +268,13 @@ log_fonts (FcConfig *config, const char *setup, gboolean scaling_added)
   mono = match_family (config, "Monospace");
   emoji = match_family (config, "emoji");
   g_printerr ("riscos-gtk: fonts: %s: %d fonts (%d the program's own) in %u families (%s); "
-              "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s, emoji %s%s\n",
+              "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s, emoji %s%s%s\n",
               setup, n_fonts, app ? app->nfont : 0, g_hash_table_size (seen), names->str,
               dirs->len ? dirs->str : "(none)", n_conf, confs->str, sans, serif, mono, emoji,
-              scaling_added ? "; bitmap fonts scaled by riscos-gtk's rules" : "");
+              scaling_added ? "; bitmap fonts scaled by riscos-gtk's rules" : "",
+              /* no emoji font: say where colour emoji come from */
+              strstr (emoji, "Emoji") == NULL && strstr (emoji, "Symbola") == NULL
+              ? "; for colour emoji install PackMan's TTF-Noto-Color-Emoji (it needs FontConfig)" : "");
   g_free (emoji);
   g_free (sans);
   g_free (serif);

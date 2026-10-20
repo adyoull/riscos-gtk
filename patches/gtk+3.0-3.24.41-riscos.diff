@@ -53,6 +53,50 @@ diff -ruN a/gdk/meson.build b/gdk/meson.build
    if get_variable('@0@_enabled'.format(backend))
      subdir(backend)
      gdk_deps += get_variable('gdk_@0@_deps'.format(backend))
+diff -ruN a/gtk/gtkwindow.c b/gtk/gtkwindow.c
+--- a/gtk/gtkwindow.c	2024-01-24 01:14:34.000000000 +0000
++++ b/gtk/gtkwindow.c	2026-10-20 09:53:23.185483938 +0100
+@@ -12622,6 +12622,9 @@
+     {
+       popover_realize (popover, data, window);
+       popover_map (popover, data);
++#ifdef GDK_WINDOWING_RISCOS
++      need_resize = TRUE;          /* size and place it now: below */
++#endif
+     }
+ 
+   if (need_resize)
+@@ -12634,6 +12637,30 @@
+       popover_get_rect (data, window, &new_size);
+       gdk_window_move (data->window, new_size.x, new_size.y);
+     }
++
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: a popover is sized and placed when its window is laid
++     out (popover_size_allocate, from the window's size allocation). The
++     resize queued on the popover above often doesn't get that far here
++     (the popover was already marked as needing a resize while it was
++     hidden, so the request stops at it), and the popover then stays 1x1
++     and is never drawn (GtkEntry's and GtkTextView's emoji chooser). So
++     it is sized and placed here, whenever it is placed or changes size.
++     popover_size_allocate comes back here through
++     gtk_popover_update_position; the guard stops that going round. */
++  {
++    static gboolean placing;
++
++    if (!placing && data->window && (need_resize || need_move) &&
++        gtk_widget_is_visible (popover) &&
++        gtk_widget_get_realized (GTK_WIDGET (window)))
++      {
++        placing = TRUE;
++        popover_size_allocate (popover, data, window);
++        placing = FALSE;
++      }
++  }
++#endif
+ }
+ 
+ void
 diff -ruN a/meson.build b/meson.build
 --- a/meson.build	2024-01-24 01:14:34.000000000 +0000
 +++ b/meson.build	2026-10-04 09:42:24.481197767 +0100

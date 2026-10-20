@@ -5,7 +5,8 @@
 # Needs the libraries already built (make deps) with the same toolchain.
 # Writes out/release/<RELEASE>/:
 #   L3afpad-<v>.zip, ClawsMail-<v>.zip, Geany-<v>.zip, mtPaint-<v>.zip,
-#   Gnumeric-<v>.zip,
+#   Gnumeric-<v>.zip, TTF-Noto-Color-Emoji-<v>.zip (the optional emoji
+#   font, a PackMan package: build-emoji.sh),
 #   GTKThemeTest-<v>.zip, GTKGLTest-<v>.zip (needs riscos-mesa's devkit:
 #   MESA_DEVKIT, default $RCD_DIR/devkit/env)
 #   riscos-gtk-sdk-<RELEASE>.tar.gz   the devkit (build/make-sdk.sh)
@@ -50,12 +51,15 @@ VERSION=$GLV build/build-gltest.sh
 VERSION=$GYV build/build-geany.sh
 VERSION=$MPV build/build-mtpaint.sh
 VERSION=$GNV build/build-gnumeric.sh
+build/build-emoji.sh
+EMV=$(sed -n 's/^VERSION=\${VERSION:-\$FONT_VERSION\(.*\)}$/\1/p' build/build-emoji.sh)
+EMV=$(sed -n 's/^FONT_VERSION=//p' build/build-emoji.sh)$EMV
 
 R=$REPO_DIR/out/release/$RELEASE
 rm -rf "$R"; mkdir -p "$R"
 cp "out/L3afpad-$L3V.zip" "out/GTKThemeTest-$TTV.zip" "out/ClawsMail-$CMV.zip" \
    "out/GTKGLTest-$GLV.zip" "out/Geany-$GYV.zip" "out/mtPaint-$MPV.zip" \
-   "out/Gnumeric-$GNV.zip" "$R/"
+   "out/Gnumeric-$GNV.zip" "out/TTF-Noto-Color-Emoji-$EMV.zip" "$R/"
 # the devkit, for other developers' programs (build/make-sdk.sh)
 SOURCE_URL=$SOURCE_URL "$HERE/make-sdk.sh" "$RELEASE"
 cp "out/sdk/riscos-gtk-sdk-$RELEASE.tar.gz" "$R/"

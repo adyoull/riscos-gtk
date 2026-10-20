@@ -272,6 +272,8 @@ main (int argc, char **argv)
         check (!has_family ("DejaVu Serif"), "and the system's fonts aren't");
         check (g_strcmp0 (serif, "DejaVu Sans") == 0,
                "Serif falls back to DejaVu Sans without UnixFC");
+        check (!has_family ("Noto Color Emoji"),
+               "and the system's colour emoji font isn't there (it comes only through UnixFC)");
       }
     g_free (sans); g_free (serif); g_free (mono); g_free (own_dir);
   }

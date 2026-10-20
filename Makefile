@@ -10,6 +10,9 @@
 #   make geany      out/Geany-<v>.zip: the Geany 2.1 demo
 #   make mtpaint    out/mtPaint-<v>.zip: mtPaint 3.50.14
 #   make gnumeric   out/Gnumeric-<v>.zip: Gnumeric 1.12.57 (a test build)
+#   make emoji      out/TTF-Noto-Color-Emoji-<v>.zip: the optional colour
+#                   emoji font, a PackMan package for UnixFont (needs
+#                   FontConfig; build/build-emoji.sh)
 #   make gltest     out/GTKGLTest-<v>.zip: GtkGLArea with riscos-mesa (needs
 #                   its devkit in MESA_DEVKIT, default $RCD_DIR/devkit/env)
 #   make sdk        out/sdk/riscos-gtk-sdk-<RELEASE or dev-commit>.tar.gz:
@@ -56,6 +59,10 @@ mtpaint: deps
 gnumeric: deps
 	build/build-gnumeric.sh
 
+emoji:
+	build/fetch-sources.sh
+	build/build-emoji.sh
+
 check:
 	build/check-host.sh check
 	build/build-linuxarm.sh
@@ -69,4 +76,4 @@ sdk: deps
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps tests hello l3afpad themetest claws gltest geany mtpaint gnumeric check release sdk clean
+.PHONY: all deps tests hello l3afpad themetest claws gltest geany mtpaint gnumeric emoji check release sdk clean

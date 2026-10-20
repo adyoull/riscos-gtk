@@ -246,6 +246,60 @@ dump_shot (const char *name)
 
 static int sent_files, queue_files = -1;
 
+/* Message > Insert emoji... in the compose window: GTK's emoji chooser
+   opens on the field being typed in, and the emoji picked goes in there */
+static int emoji_step, emoji_menu = -1, emoji_chooser = -1, emoji_inserted = -1, emoji_drawn = -1;
+static GtkWidget *emoji_field, *emoji_popover;
+
+/* a menu item (in a menu bar, hidden or not, or its submenus) whose label,
+   without its mnemonic underscore, is text */
+static GtkWidget *
+find_menu_item (GtkWidget *w, const char *text)
+{
+  GList *kids, *l;
+  GtkWidget *r = NULL;
+
+  if (GTK_IS_MENU_ITEM (w))
+    {
+      const char *label = gtk_menu_item_get_label (GTK_MENU_ITEM (w));
+      GtkWidget *sub = gtk_menu_item_get_submenu (GTK_MENU_ITEM (w));
+      if (label)
+        {
+          char plain[128];
+          int i, j;
+          for (i = j = 0; label[i] && j < (int) sizeof plain - 1; i++)
+            if (label[i] != '_')
+              plain[j++] = label[i];
+          plain[j] = 0;
+          if (strcmp (plain, text) == 0)
+            return w;
+        }
+      return sub ? find_menu_item (sub, text) : NULL;
+    }
+  if (!GTK_IS_CONTAINER (w))
+    return NULL;
+  kids = gtk_container_get_children (GTK_CONTAINER (w));
+  for (l = kids; l && !r; l = l->next)
+    r = find_menu_item (l->data, text);
+  g_list_free (kids);
+  return r;
+}
+
+static char *
+field_text (GtkWidget *f)
+{
+  if (GTK_IS_ENTRY (f))
+    return g_strdup (gtk_entry_get_text (GTK_ENTRY (f)));
+  if (GTK_IS_TEXT_VIEW (f))
+    {
+      GtkTextIter a, b;
+      GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (f));
+      gtk_text_buffer_get_bounds (buf, &a, &b);
+      return gtk_text_buffer_get_text (buf, &a, &b, FALSE);
+    }
+  return g_strdup ("");
+}
+
 /* RISC OS behaviour: Claws Mail starts on the icon bar (no main window
    until Select on the icon); closing the main window hides it and leaves
    Claws Mail running on the icon bar */
@@ -605,6 +659,10 @@ finish (void)
   check (strcmp (fake_acornssl_host, "localhost") == 0,
          "the server's name is given to AcornSSL (SNI, and its certificate check)");
   check (compose_seen && send_pressed, "the compose window opens (--compose); Send is pressed");
+  check (emoji_menu == 1, "the compose window's Message menu has Insert emoji...");
+  check (emoji_chooser == 1, "Insert emoji... opens GTK's emoji chooser on the field being typed in");
+  check (emoji_drawn == 1, "the chooser is laid out (bigger than 200x200) and shown, not left 1x1");
+  check (emoji_inserted == 1, "an emoji picked in the chooser is typed into that field");
   check (strstr (server_log, "SMTP STARTTLS") != NULL && strstr (server_log, "SMTP MAIL FROM") != NULL,
          "SMTP: STARTTLS, then the message (the server refuses MAIL before STARTTLS)");
   check (smtp_files == 1 && strstr (smtp_text, "Subject: Reply from Claws") != NULL &&
@@ -983,7 +1041,65 @@ hook (int reason)
         {
           GtkWidget *send = find_button (w, "Send");
           compose_seen = 1;
-          dump_shot ("compose");
+          if (emoji_step == 0)
+            {
+              /* Message > Insert emoji...: the chooser on the focused field */
+              GtkWidget *item = find_menu_item (w, "Insert emoji...");
+              dump_shot ("compose");
+              emoji_menu = item != NULL;
+              emoji_step = 1;
+              if (item)
+                {
+                  /* the field typed in: the chooser opens on it (and takes
+                     the focus for its search field) */
+                  emoji_field = gtk_window_get_focus (GTK_WINDOW (w));
+                  gtk_menu_item_activate (GTK_MENU_ITEM (item));
+                  emoji_popover = emoji_field
+                    ? g_object_get_data (G_OBJECT (emoji_field), "gtk-emoji-chooser") : NULL;
+                  emoji_chooser = emoji_popover && GTK_IS_POPOVER (emoji_popover)
+                                  && gtk_widget_get_visible (emoji_popover);
+                  printf ("# emoji: the field %s, its chooser %s\n",
+                          emoji_field ? G_OBJECT_TYPE_NAME (emoji_field) : "(none)",
+                          emoji_chooser == 1 ? "open" : "not open");
+                  if (emoji_popover && emoji_chooser != 1)
+                    gtk_popover_popdown (GTK_POPOVER (emoji_popover));
+                }
+              break;          /* let it draw */
+            }
+          if (emoji_step >= 1 && emoji_step < 6)
+            {
+              emoji_step++;           /* a few polls for it to be drawn */
+              break;
+            }
+          if (emoji_step == 6)
+            {
+              /* the chooser drawn; pick an emoji (as a click on one does) */
+              emoji_step = 7;
+              if (emoji_popover)
+                {
+                  GtkAllocation al;
+                  GdkWindow *pw = gtk_widget_get_window (emoji_popover);
+                  gtk_widget_get_allocation (emoji_popover, &al);
+                  printf ("# emoji chooser: %dx%d at %d,%d; mapped %d; its GdkWindow %s, viewable %d\n",
+                          al.width, al.height, al.x, al.y, gtk_widget_get_mapped (emoji_popover),
+                          pw ? "yes" : "none", pw ? gdk_window_is_viewable (pw) : -1);
+                  /* laid out and shown (it stayed 1x1 and unseen until
+                     GtkWindow's popover position change relaid out the window) */
+                  emoji_drawn = al.width > 200 && al.height > 200 && pw && gdk_window_is_viewable (pw);
+                }
+              if (emoji_chooser == 1)
+                {
+                  char *before = field_text (emoji_field), *after;
+                  dump_shot ("compose-emoji");
+                  g_signal_emit_by_name (emoji_popover, "emoji-picked", "\xF0\x9F\x98\x80");
+                  after = field_text (emoji_field);
+                  emoji_inserted = strstr (after, "\xF0\x9F\x98\x80") != NULL && strlen (after) > strlen (before);
+                  gtk_popover_popdown (GTK_POPOVER (emoji_popover));
+                  g_free (before);
+                  g_free (after);
+                }
+              break;
+            }
           if (send)
             {
               /* first: sending runs the main loop inside "clicked",
