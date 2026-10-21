@@ -1,18 +1,20 @@
 # riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 10)
 
-**Status: public beta.** RC10 is the eighth public beta build. It adds
-colour emoji: an optional PackMan font package, TTF-Noto-Color-Emoji,
-for machines with FontConfig, and in ClawsMail Message > Insert emoji...
-to type them. GTK's pop-overs (the emoji chooser among them) now appear
-on RISC OS; they never did before, so every program is rebuilt. RC9
-scaled colour emoji to the text's size; RC8 fixed Gnumeric's Insert >
-Chart and Serif and Monospace. RC6's Menu, title bar, browser and mtPaint
-changes and Gnumeric have been run on a Raspberry Pi 4; RC7's icons,
-Geany's Build and Execute and parts of RC5 haven't been on real hardware
-yet: please report anything that goes wrong (see "Reporting problems"
-below). The final 3.24.41-riscos1.0 will be this build with whatever the
-beta turns up fixed. Items marked *[Pi]* still need a check on real
-hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
+**Status: public beta.** RC11 is the ninth public beta build. Windows
+are drawn faster: GTK's backend now copies and plots only the parts of a
+window that changed, not the whole window each time, so typing,
+scrolling and highlights under the pointer keep up better, and
+programs start sooner with themes that have translation tables
+(Raspberry). Every program is rebuilt. RC10 added colour emoji (an
+optional PackMan font package, TTF-Noto-Color-Emoji) and GTK's
+pop-overs; RC9 scaled emoji to the text's size; RC8 fixed Gnumeric's
+Insert > Chart and Serif and Monospace. RC6's Menu, title bar, browser
+and mtPaint changes and Gnumeric have been run on a Raspberry Pi 4;
+RC7's icons, Geany's Build and Execute and parts of RC5 haven't been on
+real hardware yet: please report anything that goes wrong (see
+"Reporting problems" below). The final 3.24.41-riscos1.0 will be this
+build with whatever the beta turns up fixed. Items marked *[Pi]* still
+need a check on real hardware ([RC-TEST-PLAN.md](RC-TEST-PLAN.md)).
 
 ## What it is
 
@@ -28,25 +30,25 @@ GTK 3.24.41 for RISC OS. GTK programs run as ordinary Wimp tasks:
 The libraries are statically linked into each program; there is no
 shared GTK module to install.
 
-**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos8): the GTK release it's built from
+**Version:** `3.24.41-riscos1.0` (the programs number themselves the same way: their own version and `-riscosN`, e.g. Geany 2.1-riscos9): the GTK release it's built from
 (3.24.41), the riscos-gtk revision (riscos1) and a point release (.0;
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC10
+## What's in RC11
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos29.zip` | 0.8.18.1.11-riscos29 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos19.zip` | 4.4.0-riscos19 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos8.zip` | 2.1-riscos8 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos8.zip` | 3.50.14-riscos8 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.57-riscos13.zip` | 1.12.57-riscos13 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `GTKThemeTest-3.24.41-riscos1.0-rc10.zip` | 3.24.41-riscos1.0-rc10 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc10.zip` | 3.24.41-riscos1.0-rc10 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
-| `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **New, optional:** a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc10.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc10-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `L3afpad-0.8.18.1.11-riscos30.zip` | 0.8.18.1.11-riscos30 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos20.zip` | 4.4.0-riscos20 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos9.zip` | 2.1-riscos9 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos9.zip` | 3.50.14-riscos9 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.57-riscos14.zip` | 1.12.57-riscos14 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
+| `GTKThemeTest-3.24.41-riscos1.0-rc11.zip` | 3.24.41-riscos1.0-rc11 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc11.zip` | 3.24.41-riscos1.0-rc11 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **Optional** (unchanged since RC10): a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc11.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc11-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -72,7 +74,9 @@ release.
 
 **Windows and drawing**
 - **Windows:** each GTK window is a Wimp window. GTK draws into a 32bpp
-  sprite and the backend plots it.
+  sprite and the backend plots it: only the parts GTK repainted since
+  the last update, so typing or a highlight doesn't replot the whole
+  window. *[Pi]*
 - **Colours:** right on both TRGB and TBGR screens.
 - **High resolution (EX0 EY0, 180 dpi) modes:** windows, text and
   widgets are their usual size and drawn at the screen's resolution
@@ -267,7 +271,12 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC10
+## Known issues and limits in RC11
+
+- **New in RC11, not yet signed off on the Pi** *[Pi]*: only the changed
+  parts of a window are drawn (a test build of L3afpad felt quicker);
+  anything left undrawn after typing, scrolling or a window coming back
+  into view would be a fault in this.
 
 - **New in RC10, not yet on the Pi** *[Pi]*: the emoji package with
   PackMan; ClawsMail's Insert emoji...; pop-overs in every program.
@@ -359,6 +368,11 @@ release.
     ClawsMail's Insert emoji.... In GTK, so every program was rebuilt:
     L3afpad 0.8.18.1.11-riscos29, ClawsMail 4.4.0-riscos19, Geany
     2.1-riscos8, mtPaint 3.50.14-riscos8, Gnumeric 1.12.57-riscos13.
+  - RC11: only the changed parts of a window copied and plotted; a
+    faster search for a theme's translation tables. In GTK, so every
+    program was rebuilt: L3afpad 0.8.18.1.11-riscos30, ClawsMail
+    4.4.0-riscos20, Geany 2.1-riscos9, mtPaint 3.50.14-riscos9, Gnumeric
+    1.12.57-riscos14.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -429,7 +443,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc10` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc11` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests

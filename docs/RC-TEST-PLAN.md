@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc10 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc11 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.41-riscos1.0-rc10 (the backend and theme)
+## 2. GTKThemeTest 3.24.41-riscos1.0-rc11 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -50,7 +50,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.8.18.1.11-riscos29
+## 3. L3afpad 0.8.18.1.11-riscos30
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 4.4.0-riscos19
+## 4. ClawsMail 4.4.0-riscos20
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -107,7 +107,7 @@ provider offers them.
 | 5.4 | Drag a directory from the Filer onto the browser: it's shown | new | |
 | 5.5 | With PackMan's FontConfig installed: the Log says "fonts: the system's (UnixFC)"; text looks as before; a second start is quick | new | |
 | 5.6 | GTKGLTest: the triangle spins; the frame rate shows; `*Set GDK_GL gles` also works | new | |
-| 5.7 | Geany 2.1-riscos8: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
+| 5.7 | Geany 2.1-riscos9: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
 | 5.8 | Geany: File > Open (box and browser), File > Save As (box), Edit > Preferences, Quit with an unsaved document asks | new | |
 | 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
 
@@ -117,7 +117,7 @@ provider offers them.
 |---|---|---|---|
 | 6.1 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | Pass (2026-10-11) |
 | 6.2 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | Pass (2026-10-11) |
-| 6.3 | Geany 2.1-riscos8 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
+| 6.3 | Geany 2.1-riscos9 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
 | 6.4 | Geany: Build > Make on a long build, then Build > Stop: it ends | new | |
 | 6.5 | Geany with the DDE (!SetPaths run): a folder with c.hello containing an error, open hello.c, Set Build Commands Compile to `cc -throwback -c c.%e -o o.%e`, Compile: the error in the Compiler tab, clicking goes to the line; StrongED gets throwback again afterwards | new | |
 | 6.6 | The directory browser's Discs: the same discs and mounts as the icon bar (no extra filing systems); with a LanMan98 mount, clicking it shows the share; a USB stick plugged in appears the next time the browser opens | new | Discs as the icon bar: pass; LanMan98 mount: fails (2026-10-11) |
@@ -127,7 +127,7 @@ provider offers them.
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 7.1 | Gnumeric 1.12.57-riscos13: starts with a new workbook and an icon bar icon; type numbers and `=SUM(A1:A3)`, `=AVERAGE(...)`: right results | yes (test builds) | |
+| 7.1 | Gnumeric 1.12.57-riscos14: starts with a new workbook and an icon bar icon; type numbers and `=SUM(A1:A3)`, `=AVERAGE(...)`: right results | yes (test builds) | |
 | 7.2 | Gnumeric: File > Save As `Test.xlsx`, then `Test.ods` (Save box, also dragging its icon to a Filer window); File > Open each again (Open box and Browse...): the same cells | changed | |
 | 7.3 | Gnumeric: drop a .xlsx and a CSV on its window and on its icon bar icon; double-click a CSV in the Filer while it's loaded: each opens | changed | |
 | 7.4 | Gnumeric: Insert > Chart, a bar chart of the cells: drawn; scroll the sheet past it and past a check box (Insert > Check box): it keeps working | changed | |
@@ -165,12 +165,23 @@ provider offers them.
 | 10.4 | The chooser on a long message scrolled down, and in a small message window: it opens where the caret is and fits | new | |
 | 10.5 | In another program's text field (L3afpad's text; not Geany's editor, which is Scintilla): Ctrl-. or the field's menu > Insert Emoji opens the same chooser (pop-overs were never shown before) | new | |
 
-## 11. Packaging and licences
+## 11. New in RC11
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 11.1 | Each !Help has the right version, requirements and licences (LicenceEmoji in fonts) | — | |
-| 11.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
-| 11.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
+| 11.1 | Typing quickly in a large L3afpad window, and in Geany and ClawsMail's message window: keeps up; the text, the caret and the lines around it look right (no strips left over) | L3afpad test build: snappier | |
+| 11.2 | Scrolling a long text, a Gnumeric sheet and ClawsMail's message list; moving the pointer over buttons and menus: everything is redrawn right | new | |
+| 11.3 | A window covered by another, or iconised, while it changes (a ClawsMail fetch, a Gnumeric recalculation), then brought back: it shows the new state | new | |
+| 11.4 | The resize grip in the bottom right corner stays drawn while typing and scrolling near it | new | |
+| 11.5 | In an EX0 EY0 mode: 11.1 and 11.2 look right too | new | |
+| 11.6 | With the Raspberry theme (or another with translation tables): programs start a little faster than RC10; the scroll bars and title bars look as before | new | |
+
+## 12. Packaging and licences
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 12.1 | Each !Help has the right version, requirements and licences (LicenceEmoji in fonts) | — | |
+| 12.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
+| 12.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
 
 Signed off by: ____________  Date: ____________

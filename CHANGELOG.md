@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 3.24.41-riscos1.0-rc11 (2026-10-21)
+- **Every program rebuilt** with the drawing change below: L3afpad
+  0.8.18.1.11-riscos30, ClawsMail 4.4.0-riscos20, Geany 2.1-riscos9,
+  mtPaint 3.50.14-riscos9, Gnumeric 1.12.57-riscos14, and the test
+  programs 3.24.41-riscos1.0-rc11. TTF-Noto-Color-Emoji-2.051.0.1-1 is
+  unchanged.
 - **Only what changed is copied and plotted.** Each update of a window
   copied every pixel into its sprite (red and blue swapped, on the usual
   TBGR desktop) and had the Wimp plot the whole window, so one key typed

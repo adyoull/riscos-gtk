@@ -13,7 +13,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-mtpaint.sh: RISC OS only" >&2; exit 1; }
 V=3.50.14
-VERSION=${VERSION:-3.50.14-riscos8}
+VERSION=${VERSION:-3.50.14-riscos9}
 M=$SRC/mtpaint-$V
 rm -rf "$M" "$SRC/mtPaint-"*
 tar -xzf "$DL/mtpaint_$V.orig.tar.gz" -C "$SRC"
