@@ -125,11 +125,17 @@ update_dirty_windows_and_sync (void)
 
       if (impl->dirty)
 	{
+	  cairo_region_t *damage = impl->damage;
+
 	  impl->dirty = FALSE;
+	  impl->damage = NULL;
 	  updated_surface = TRUE;
 	  _gdk_riscos_server_window_update (display->server,
 					      impl->id,
-					      impl->surface);
+					      impl->surface,
+					      damage);
+	  if (damage)
+	    cairo_region_destroy (damage);
 	}
     }
 
@@ -197,6 +203,7 @@ gdk_window_impl_riscos_finalize (GObject *object)
     g_object_unref (impl->cursor);
 
   g_hash_table_destroy (impl->device_cursor);
+  g_clear_pointer (&impl->damage, cairo_region_destroy);
 
   riscos_display->toplevels = g_list_remove (riscos_display->toplevels, impl);
 
@@ -554,8 +561,9 @@ gdk_window_riscos_move_resize (GdkWindow *window,
 	{
 	  size_changed = TRUE;
 
-	  /* Resize clears the content */
+	  /* Resize clears the content: all of it is copied and plotted */
 	  impl->dirty = TRUE;
+	  g_clear_pointer (&impl->damage, cairo_region_destroy);
 	  impl->last_synced = FALSE;
 
 	  window->width = width;
@@ -1322,11 +1330,26 @@ gdk_riscos_window_get_input_shape (GdkWindow *window)
   return NULL;
 }
 
+/* riscos-gtk: remember what was repainted. Until the next update the
+   areas are added together; a window already dirty with no area (the
+   whole of it: first map, resize) stays whole. */
 static void
 gdk_riscos_window_end_paint (GdkWindow *window)
 {
   GdkWindowImplRiscos *impl;
+  cairo_region_t *painted;
+
   impl = GDK_WINDOW_IMPL_RISCOS (window->impl);
+  painted = gdk_window_get_current_paint_region (window);
+  if (!impl->dirty)
+    impl->damage = painted;
+  else if (impl->damage)
+    {
+      cairo_region_union (impl->damage, painted);
+      cairo_region_destroy (painted);
+    }
+  else
+    cairo_region_destroy (painted);
   impl->dirty = TRUE;
 }
 

@@ -652,15 +652,22 @@ tool_area (void)
    gives a table of pointers (to the sprites it knows by name), other
    sprites from the same Tools file (the translation tables) aren't in the
    table but lie among them, the file having been loaded as one area. */
+static const int *span_scan (const char *name, const char *lo, const char *hi);
+
+typedef struct { const char *lo, *hi; char name[16]; const int *spr; } SpanHit;
+
 static const int *
 span_find (const char *name)
 {
-  const char *lo = NULL, *hi = NULL, *p;
+  static SpanHit cache[6];
+  static unsigned int next;
+  const char *lo = NULL, *hi = NULL;
+  SpanHit *slot;
   static const char *const known[] = { "uicon", "dicon", "vwellt", "vbarmid", "sicon", "bicon",
                                        "uicon22", "dicon22", "vwellt22", "vbarmid22", "sicon22" };
-  size_t i, len = strlen (name);
+  size_t i;
 
-  if (tool_how == 1 || tool_how == 2)
+  if (tool_how == 1 || tool_how == 2 || strlen (name) > 12)
     return NULL;                  /* searched already: the whole area or block */
   for (i = 0; i < G_N_ELEMENTS (known); i++)
     {
@@ -674,6 +681,35 @@ span_find (const char *name)
     }
   if (lo == NULL)
     return NULL;
+  /* each tool sprite asks for its translation table: the last answers
+     for these sprites (where they lie) are kept; a sprite found is checked
+     it is still there */
+  for (i = 0; i < G_N_ELEMENTS (cache); i++)
+    if (cache[i].lo == lo && cache[i].hi == hi && !strcmp (cache[i].name, name))
+      {
+        const int *spr = cache[i].spr;
+        if (spr == NULL ||
+            (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 && looks_like_sprite (spr)))
+          return spr;
+        cache[i].lo = NULL;
+      }
+  slot = &cache[next++ % G_N_ELEMENTS (cache)];
+  slot->lo = lo;
+  slot->hi = hi;
+  g_strlcpy (slot->name, name, sizeof slot->name);
+  slot->spr = span_scan (name, lo, hi);
+  return slot->spr;
+}
+
+static const int *
+span_scan (const char *name, const char *lo, const char *hi)
+{
+  const char *p;
+  char first, FIRST;
+  size_t len = strlen (name);
+
+  first = g_ascii_tolower (name[0]);
+  FIRST = g_ascii_toupper (name[0]);
   /* the tables may come before or after the window sprites in the file */
   lo = (gsize) lo > 0x8000 + 64 * 1024 ? lo - 64 * 1024 : lo;
   hi = (gsize) hi < 0xFFFFFFFFu - 64 * 1024 ? hi + 64 * 1024 : hi;
@@ -684,6 +720,8 @@ span_find (const char *name)
       const int *spr;
       if (((gsize) p & 4095) == 0 && !readable (p, 4096))
         break;
+      if (p[4] != first && p[4] != FIRST)
+        continue;                 /* most words: not even the first letter */
       spr = (const int *) p;
       if (g_ascii_strncasecmp (p + 4, name, 12) == 0 && (len == 12 || p[4 + len] == 0) &&
           looks_like_sprite (spr) && readable (spr, spr[0]))

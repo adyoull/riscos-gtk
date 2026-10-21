@@ -126,6 +126,11 @@ drag (GtkWidget *from, int tx, int ty)
   rect (from, &x, &y, &wd, &ht);
   sx = x + 24;                 /* on the (selected) text */
   sy = y + ht / 2;
+  /* longer than GTK's double-click time after the last click, so the
+     press starts a drag, not a word selection (the timing otherwise
+     depends on how fast the steps before it ran) */
+  add (FAKE_SLEEP, 250, 0, 0);
+  add (FAKE_SLEEP, 250, 0, 0);
   add (FAKE_MOVE, sx, sy, 0);
   add (6, sx, sy, 4);
   nulls (3);

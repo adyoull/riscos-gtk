@@ -66,7 +66,8 @@ cairo_surface_t   *_gdk_riscos_server_create_surface           (int             
 								  int                 height);
 void               _gdk_riscos_server_window_update            (GdkRiscosServer  *server,
 								  gint                id,
-								  cairo_surface_t    *surface);
+								  cairo_surface_t    *surface,
+								  const cairo_region_t *damage);
 gboolean           _gdk_riscos_server_window_move_resize       (GdkRiscosServer  *server,
 								  gint                id,
 								  gboolean            with_move,

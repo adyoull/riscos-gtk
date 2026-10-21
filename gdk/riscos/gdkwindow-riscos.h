@@ -78,6 +78,10 @@ struct _GdkWindowImplRiscos
   gint8 toplevel_window_type;
   gboolean dirty;
   gboolean last_synced;
+  /* riscos-gtk: what GTK repainted since the last update (window
+     coordinates), so only that is copied into the sprite and plotted;
+     NULL while dirty: the whole window (first map, resize) */
+  cairo_region_t *damage;
 
   GdkGeometry geometry_hints;
   GdkWindowHints geometry_hints_mask;

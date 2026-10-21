@@ -779,17 +779,21 @@ _gdk_riscos_server_window_set_grip_column (GdkRiscosServer *server, gint id, int
   w->grip_top = y >= 0 && y < w->height ? y + 1 : 0;
 }
 
-static void
-paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x);
+static gboolean
+paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x,
+               cairo_rectangle_int_t *rect);
 
-static void
-paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface)
+static gboolean
+paint_grip (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface,
+            cairo_rectangle_int_t *rect)
 {
-  paint_grip_at (server, w, surface, grip_left (server, w));
+  return paint_grip_at (server, w, surface, grip_left (server, w), rect);
 }
 
-static void
-paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x)
+/* rect (may be NULL): where it went, GDK pixels */
+static gboolean
+paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surface, int x,
+               cairo_rectangle_int_t *rect)
 {
   int sw = surface_w (surface), sh = surface_h (surface);
   int gw = grip_width (server, w), gh = server->grip_h;
@@ -797,7 +801,14 @@ paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surfac
   cairo_t *cr;
 
   if (x < 0 || y < 0 || x + gw > sw)
-    return;
+    return FALSE;
+  if (rect)
+    {
+      rect->x = x;
+      rect->y = y;
+      rect->width = gw;
+      rect->height = gh;
+    }
   cr = cairo_create (surface);
   if (server->grip)
     {
@@ -836,6 +847,7 @@ paint_grip_at (GdkRiscosServer *server, RiscosWindow *w, cairo_surface_t *surfac
     }
   cairo_destroy (cr);
   cairo_surface_flush (surface);
+  return TRUE;
 }
 
 static void
@@ -978,6 +990,8 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
     }
 }
 
+static void sync_sprite_if_stale (cairo_surface_t *surface);
+
 static void
 handle_redraw (GdkRiscosServer *server, int *block)
 {
@@ -988,7 +1002,10 @@ handle_redraw (GdkRiscosServer *server, int *block)
   if (swi (Wimp_RedrawWindow, &r) != NULL)
     return;
   if (w)
-    plot_rectangles (server, w, block, r.r[0]);
+    {
+      sync_sprite_if_stale (w->surface);
+      plot_rectangles (server, w, block, r.r[0]);
+    }
   else
     while (r.r[0])
       {
@@ -1683,6 +1700,8 @@ typedef struct
   int *area;          /* sprite area holding the "gtk" sprite */
   guint32 *pixels;    /* the sprite's pixels */
   gboolean swap;      /* TBGR sprite: copy from cairo's buffer, swapping R/B */
+  gboolean stale;     /* TBGR sprite: parts not copied yet (new, or updates
+                         left while the window was closed) */
 } RiscosSprite;
 
 static void
@@ -1703,6 +1722,7 @@ sync_sprite (cairo_surface_t *surface)
 
   if (s == NULL || !s->swap)
     return;
+  s->stale = FALSE;
   src = (const guint32 *) cairo_image_surface_get_data (surface);
   dst = s->pixels;
   n = cairo_image_surface_get_width (surface) * cairo_image_surface_get_height (surface);
@@ -1711,6 +1731,75 @@ sync_sprite (cairo_surface_t *surface)
       guint32 p = *src++;
       *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
     }
+}
+
+/* Copy only what GTK repainted (GDK pixels; NULL: all of it). A stale
+   sprite is copied whole. */
+static void
+sync_sprite_region (cairo_surface_t *surface, const cairo_region_t *damage)
+{
+  RiscosSprite *s = cairo_surface_get_user_data (surface, &_gdk_riscos_sprite_data_key);
+  const guint8 *data;
+  double sx = 1, sy = 1;
+  int sw, sh, stride, i, n;
+
+  if (s == NULL || !s->swap)
+    return;
+  if (damage == NULL || s->stale)
+    {
+      sync_sprite (surface);
+      return;
+    }
+  data = cairo_image_surface_get_data (surface);
+  stride = cairo_image_surface_get_stride (surface);
+  sw = cairo_image_surface_get_width (surface);
+  sh = cairo_image_surface_get_height (surface);
+  cairo_surface_get_device_scale (surface, &sx, &sy);
+  n = cairo_region_num_rectangles (damage);
+  for (i = 0; i < n; i++)
+    {
+      cairo_rectangle_int_t rc;
+      int x0, y0, x1, y1, y;
+
+      cairo_region_get_rectangle (damage, i, &rc);
+      x0 = MAX (0, (int) (rc.x * sx));
+      y0 = MAX (0, (int) (rc.y * sy));
+      x1 = MIN (sw, (int) ((rc.x + rc.width) * sx + 0.999));
+      y1 = MIN (sh, (int) ((rc.y + rc.height) * sy + 0.999));
+      for (y = y0; y < y1; y++)
+        {
+          const guint32 *src = (const guint32 *) (data + y * stride) + x0;
+          guint32 *dst = s->pixels + y * sw + x0;
+          int k = x1 - x0;
+          while (k-- > 0)
+            {
+              guint32 p = *src++;
+              *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
+            }
+        }
+    }
+}
+
+/* Before the Wimp's redraw plots it: copy anything not copied yet */
+static void
+sync_sprite_if_stale (cairo_surface_t *surface)
+{
+  RiscosSprite *s = surface ? cairo_surface_get_user_data (surface, &_gdk_riscos_sprite_data_key) : NULL;
+
+  if (s && s->stale)
+    {
+      cairo_surface_flush (surface);
+      sync_sprite (surface);
+    }
+}
+
+static void
+mark_sprite_stale (cairo_surface_t *surface)
+{
+  RiscosSprite *s = cairo_surface_get_user_data (surface, &_gdk_riscos_sprite_data_key);
+
+  if (s && s->swap)
+    s->stale = TRUE;
 }
 
 static int
@@ -1771,6 +1860,7 @@ create_surface_dev (int width, int height)
   rs->area = area;
   rs->pixels = (guint32 *) (sprite + ((int *) sprite)[8]);
   rs->swap = swap;
+  rs->stale = swap;
   if (swap)
     surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24, width, height);
   else
@@ -1814,14 +1904,19 @@ _gdk_riscos_server_get_scale (void)
   return the_server && the_server->scale ? the_server->scale : _gdk_riscos_scale_factor ();
 }
 
+/* Show what GTK drew. damage (window coordinates, GDK pixels) is what was
+   repainted since the last update: only that is copied into the sprite
+   and plotted. NULL: all of it (first map, resize). */
 void
 _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
-                                  cairo_surface_t *surface)
+                                  cairo_surface_t *surface,
+                                  const cairo_region_t *damage)
 {
   RiscosWindow *w = window_by_id (server, id);
+  cairo_region_t *area = NULL;
   int block[11];
   _kernel_swi_regs r;
-  int width, height;
+  int width, height, i, n;
 
   if (w == NULL || surface == NULL)
     return;
@@ -1831,24 +1926,61 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
       if (w->surface)
         cairo_surface_destroy (w->surface);
       w->surface = surface;
+      damage = NULL;
     }
   if (!w->visible)
-    return;
+    {
+      /* the next update or redraw copies all of it */
+      mark_sprite_stale (surface);
+      return;
+    }
   cairo_surface_flush (surface);
-  if (has_grip (server, w) && w->strip == 0)
-    paint_grip (server, w, surface);
   width = surface_w (surface);
   height = surface_h (surface);
-  sync_sprite (surface);
-  block[0] = w->handle;
-  block[1] = 0;
-  block[2] = -(height << server->yeig);
-  block[3] = width << server->xeig;
-  block[4] = 0;
-  r.r[1] = (int) block;
-  if (swi (Wimp_UpdateWindow, &r) != NULL)
-    return;
-  plot_rectangles (server, w, block, r.r[0]);
+  if (damage)
+    {
+      cairo_rectangle_int_t all = { 0, 0, width, height };
+      area = cairo_region_copy (damage);
+      cairo_region_intersect_rectangle (area, &all);
+    }
+  if (has_grip (server, w) && w->strip == 0)
+    {
+      cairo_rectangle_int_t g;
+      /* painted again where GTK painted over it */
+      if (paint_grip (server, w, surface, &g) && area
+          && cairo_region_contains_rectangle (area, &g) != CAIRO_REGION_OVERLAP_OUT)
+        cairo_region_union_rectangle (area, &g);
+    }
+  if (area && cairo_region_is_empty (area))
+    {
+      cairo_region_destroy (area);
+      return;
+    }
+  sync_sprite_region (surface, area);
+  /* one Wimp update per area, or one round them all when there are many */
+  n = area ? cairo_region_num_rectangles (area) : 1;
+  if (n > 8)
+    n = 1;
+  for (i = 0; i < n; i++)
+    {
+      cairo_rectangle_int_t rc = { 0, 0, width, height };
+
+      if (area && cairo_region_num_rectangles (area) > 8)
+        cairo_region_get_extents (area, &rc);
+      else if (area)
+        cairo_region_get_rectangle (area, i, &rc);
+      block[0] = w->handle;
+      block[1] = rc.x << server->xeig;
+      block[2] = -((rc.y + rc.height) << server->yeig);
+      block[3] = (rc.x + rc.width) << server->xeig;
+      block[4] = -(rc.y << server->yeig);
+      r.r[1] = (int) block;
+      if (swi (Wimp_UpdateWindow, &r) != NULL)
+        break;
+      plot_rectangles (server, w, block, r.r[0]);
+    }
+  if (area)
+    cairo_region_destroy (area);
 }
 
 gboolean
@@ -1924,7 +2056,7 @@ _gdk_riscos_server_window_set_strip (GdkRiscosServer *server, gint id, cairo_sur
           cairo_destroy (cr);
           cairo_surface_flush (surface);
           if (has_grip (server, w))
-            paint_grip_at (server, w, surface, 0);
+            paint_grip_at (server, w, surface, 0, NULL);
           sync_sprite (surface);
           w->strip_surface = surface;
         }

@@ -134,6 +134,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# Only what GTK repainted is copied and plotted, and the screen stays right
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/damage-fake.c" \
+  -o "$REPO_DIR/out/damage-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # GLib's static module registry with tools/mkstaticmodules.py: two
 # plugins with the same symbol names linked into one program
 SMT=$REPO_DIR/out/staticmodule-linuxarm; rm -rf "$SMT"; mkdir -p "$SMT"
@@ -306,6 +313,9 @@ else
   echo; echo "=== linux-arm: gnumeric-fake skipped: run build-gnumeric.sh for this target first"
 fi
 run menuclick-fake "$HA"
+run damage-fake "$HA"
+run damage-fake "$HA" trgb
+FAKE_EIG=0 run damage-fake "$HA"
 run spawn-fake "$HA"
 run staticmodule-test
 # mtPaint (the port) on the fake desktop: Menu everywhere, its RISC OS save

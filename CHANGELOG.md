@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+- **Only what changed is copied and plotted.** Each update of a window
+  copied every pixel into its sprite (red and blue swapped, on the usual
+  TBGR desktop) and had the Wimp plot the whole window, so one key typed
+  cost a full-window copy and plot. GDK now keeps what GTK repainted
+  since the last update (the paint regions, joined) and copies and
+  plots only those rectangles (one Wimp_UpdateWindow each, or round them
+  all when there are more than 8); the first showing, a resize and a new
+  surface still do the whole window. A window's sprite left out of date
+  while it was closed is copied whole before the Wimp next redraws it.
+  The resize grip is plotted again only where GTK painted over it.
+  Measured on the fake RISC OS (instruction counts, `tools/profile`):
+  a character typed into a text view, 70.7 M -> 13.2 M; the copy itself
+  3.5 M -> 0.3 M. Every program benefits: typing, the text cursor,
+  highlights under the pointer, progress bars.
+- **Faster start-up with a theme's translation tables.** Looking for a
+  tool sprite's translation table (RISC OS 5 themes such as Raspberry)
+  scanned up to a few hundred KB of the Wimp's memory with a full name
+  compare at every word, once for each tool sprite. It now checks the
+  first letter before the full compare, and keeps the answers for the
+  same sprites (a sprite found is checked to be still there). Start-up
+  of the profile window: 994 M -> 526 M instructions, with item 1.
+- Tests: `damage-fake` (TBGR, TRGB and EX0 EY0): a key typed updates
+  under a quarter of the window, and the screen then matches what GTK
+  draws and a whole redraw, also after a change while the window was
+  closed. `edittest-fake` waits longer than the double-click time before
+  its drags (it depended on how fast the steps before it ran).
+  `tools/profile/prof_gtk.c`: events go to the window that's open, the
+  clicks are in window coordinates, the cursor doesn't blink, and the
+  run says how many characters the text has (the keys now land).
+
 ## 3.24.41-riscos1.0-rc10 (2026-10-20)
 - **Every program rebuilt** with the pop-over fix below: L3afpad
   0.8.18.1.11-riscos29, ClawsMail 4.4.0-riscos19, Geany 2.1-riscos8,

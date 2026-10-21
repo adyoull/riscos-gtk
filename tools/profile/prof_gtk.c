@@ -24,7 +24,7 @@
 
 static GtkWidget *win, *view, *entry;
 static const char *mode;
-static int n, done, stage, waits, drawn;
+static int n, done, stage, waits, drawn, chars;
 
 static void
 add (int reason, int a, int b, int c)
@@ -54,7 +54,6 @@ on_draw (GtkWidget *w, cairo_t *cr, gpointer d)
 static void
 hook (int reason)
 {
-  GtkAllocation a;
 
   if (fake_wimp_script_pos () < fake_wimp_script_len - 1)
     return;
@@ -62,11 +61,20 @@ hook (int reason)
     {
       if (win && gtk_widget_get_mapped (win) && drawn > 0 && fake_plots > 0)
         {
+          int i, best = -1, tx = 0, ty = 0;
           stage = 1;
-          /* the caret in the text */
-          gtk_widget_get_allocation (view, &a);
-          add (FAKE_MOVE, a.x + 40, a.y + 40, 0);
-          add (6, a.x + 40, a.y + 40, 4);
+          /* events to the window that's open (the newest made may be
+             another, never opened) */
+          for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+            if (fake_windows[i].handle && (best < 0 || fake_windows[i].stack > fake_windows[best].stack))
+              best = i;
+          if (best >= 0)
+            fake_target_window = fake_windows[best].handle;
+          /* the caret in the text (window coordinates: the view is in
+             the scrolled window's own GdkWindow) */
+          gtk_widget_translate_coordinates (view, win, 40, 40, &tx, &ty);
+          add (FAKE_MOVE, tx, ty, 0);
+          add (6, tx, ty, 4);
           add (FAKE_RELEASE, 0, 0, 0);
           settle ();
         }
@@ -81,6 +89,7 @@ hook (int reason)
       if (strcmp (mode, "start") == 0 || done >= n)
         {
           stage = 2;
+          chars = gtk_text_buffer_get_char_count (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
           gtk_main_quit ();
           return;
         }
@@ -93,9 +102,10 @@ hook (int reason)
         add (8, 0x19E, 0, 0);           /* Shift-Down: Page Down */
       else if (strcmp (mode, "menu") == 0)
         {
-          gtk_widget_get_allocation (view, &a);
-          add (FAKE_MOVE, a.x + 100, a.y + 100, 0);
-          add (6, a.x + 100, a.y + 100, 2);   /* Menu */
+          int tx = 0, ty = 0;
+          gtk_widget_translate_coordinates (view, win, 100, 100, &tx, &ty);
+          add (FAKE_MOVE, tx, ty, 0);
+          add (6, tx, ty, 2);                 /* Menu */
           add (FAKE_RELEASE, 0, 0, 0);
           settle ();
           add (8, 27, 0, 0);                  /* Escape */
@@ -121,6 +131,8 @@ main (int argc, char **argv)
   fake_wimp_nulls = 40;
   fake_wimp_hook = hook;
   gtk_init (&argc, &argv);
+  /* no blinking: each blink would be counted as part of the action */
+  g_object_set (gtk_settings_get_default (), "gtk-cursor-blink", FALSE, NULL);
 
   win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (win), "Profile");
@@ -157,6 +169,6 @@ main (int argc, char **argv)
   gtk_widget_show_all (win);
   gtk_widget_grab_focus (view);
   gtk_main ();
-  printf ("prof_gtk %s: %d done, %d draws\n", mode, done, drawn);
+  printf ("prof_gtk %s: %d done, %d draws, %d characters\n", mode, done, drawn, chars);
   return 0;
 }

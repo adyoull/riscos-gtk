@@ -27,6 +27,7 @@
 
 fake_screen_t fake_screen;
 fake_window_t fake_windows[FAKE_MAX_WINDOWS];
+int fake_update_rect[4];
 int fake_vsyncs, fake_update_calls, fake_redraw_calls, fake_plots;
 int fake_sprite_creates;
 int fake_force_redraws, fake_force_rect[5], fake_scaled_plots;
@@ -1227,6 +1228,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         fake_update_calls++;
         memcpy(wa, &block[1], sizeof wa);
         r.r[0] = start_redraw(block, w, wa);
+        memcpy(fake_update_rect, &block[7], sizeof fake_update_rect);
         break;
     }
     case 0x400D1:   /* Wimp_ForceRedraw */
