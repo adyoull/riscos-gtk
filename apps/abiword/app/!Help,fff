@@ -1,0 +1,45 @@
+AbiWord @VERSION@ - the word processor (GTK 3) for RISC OS
+
+AbiWord 3.0.8 by the AbiWord developers (GPL version 2 or later), on GTK
+3 through riscos-gtk's RISC OS backend: styles, tables, headers and
+footers, footnotes, lists, pictures and page layout, with OpenDocument
+(.odt), Word (.doc, .docx), RTF, HTML, plain text and AbiWord's own .abw
+files.
+
+This is a first test build: not everything has been tried on RISC OS yet,
+so please report what goes wrong (see riscos-gtk's release notes).
+
+Using it
+- Run it: AbiWord opens a new document and puts its icon on the icon bar.
+  Or drop a document on !AbiWord in a Filer window.
+- The icon bar icon: Select brings AbiWord's window to the front; Menu
+  gives Info, Choices... (AbiWord's Preferences) and Quit.
+- Files dropped on the icon bar icon, or Word files double-clicked in the
+  Filer while AbiWord is loaded, open in a window of their own (or in the
+  new, empty document if nothing has been typed in it).
+- Click Menu over a window for AbiWord's menus.
+- File > Save As: a RISC OS Save box (the format is chosen from the name,
+  e.g. .odt, .docx, .rtf, .abw); File > Open: an Open box.
+- AbiWord's settings are kept in <Choices$Write>.AbiWord.
+
+Not in this build: spelling and grammar checking, the thesaurus,
+collaboration, equations (MathML), WordPerfect and Works files, PDF
+import, SVG pictures, help.
+
+Messages
+AbiWord's messages go to <Wimp$ScrapDir>.AbiWord.Log.
+
+Needs
+RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
+Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
+(PackMan). PThreadTicker is included.
+Fonts: AbiWord carries DejaVu Sans. For other fonts (Serif, Monospace and
+your own), install FontConfig and fonts from PackMan: AbiWord then uses
+the system's fonts, as other FontConfig programs do. The Log's "fonts:"
+line says which fonts it found.
+
+Licences
+AbiWord and wv: GPL version 2 or later (Licence). GTK, GLib and the
+other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
+libxslt: MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
+Source.

@@ -1,0 +1,67 @@
+riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
+- no X11: configure.ac doesn't ask for x11; ap_UnixApp.cpp parses
+  --geometry itself instead of XParseGeometry (ABI_RISCOS).
+- xap_UnixFrameImpl.cpp: a window's zoom updater (an idle) is removed
+  when the window goes, whatever m_bDoZoomUpdate says (it crashed on a
+  window closed just after a resize).
+--- a/configure.ac	2026-10-23 17:40:25.387242545 +0100
++++ b/configure.ac	2026-10-23 17:40:25.393131005 +0100
+@@ -738,7 +738,7 @@
+ else
+ 	SYSTEM_CFLAGS=$PNG_CFLAGS
+ 	SYSTEM_LIBS="$PNG_LIBS -ljpeg"
+-	deps_pkgs="$deps_pkgs $gtk_pkgs x11"
++	deps_pkgs="$deps_pkgs $gtk_pkgs"
+ fi
+ 
+ PKG_CHECK_MODULES(DEPS,[$deps_pkgs])
+--- a/src/wp/ap/gtk/ap_UnixApp.cpp	2026-02-18 03:16:18.000000000 +0000
++++ b/src/wp/ap/gtk/ap_UnixApp.cpp	2026-10-23 18:06:05.232639274 +0100
+@@ -43,7 +43,9 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <signal.h>
++#ifndef ABI_RISCOS
+ #include <X11/Xlib.h>
++#endif
+ #include <glib.h>
+ #include <gsf/gsf-output-memory.h>
+ 
+@@ -1447,7 +1449,22 @@
+ 		guint width = 0;
+ 		guint height = 0;
+ 		
++#ifdef ABI_RISCOS
++		/* riscos-gtk: no Xlib; WIDTHxHEIGHT[+X+Y] or +X+Y */
++		{
++			const char *g = Args->m_sGeometry;
++			unsigned int w = 0, h = 0;
++			int px, py, n = 0;
++			if (sscanf(g, "%ux%u%n", &w, &h, &n) == 2) {
++				width = w; height = h; g += n;
++			}
++			if (sscanf(g, "+%d+%d", &px, &py) == 2) {
++				x = px; y = py;
++			}
++		}
++#else
+ 		XParseGeometry(Args->m_sGeometry, &x, &y, &width, &height);
++#endif
+ 		
+ 		// use both by default
+ 		UT_uint32 f = (XAP_UnixApp::GEOMETRY_FLAG_SIZE
+--- a/src/af/xap/gtk/xap_UnixFrameImpl.cpp
++++ b/src/af/xap/gtk/xap_UnixFrameImpl.cpp
+@@ -673,7 +673,11 @@
+ 
+ XAP_UnixFrameImpl::~XAP_UnixFrameImpl()
+ {
+-	if(m_bDoZoomUpdate) {
++	/* riscos-gtk: the zoom updater idle is queued while m_bDoZoomUpdate is
++	   still false (_fe::configure_event), so remove it whenever it's
++	   there: closing a window just after it was resized ran it on the
++	   deleted frame */
++	if(m_iZoomUpdateID) {
+ 		g_source_remove(m_iZoomUpdateID);
+ 	}
+ 

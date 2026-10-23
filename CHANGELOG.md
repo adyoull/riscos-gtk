@@ -1,5 +1,24 @@
 # Changelog
 
+## Since 3.24.41-riscos1.0-rc11
+- **AbiWord 3.0.8, a first test build** (`make abiword`,
+  `build/build-abiword.sh`; not in a release yet): the word processor,
+  with its file format plugins linked in (OpenDocument, Word .docx and
+  .doc, RTF, HTML, DocBook, LaTeX, EPUB and others). Built from Debian's
+  3.0.8 source with Debian's patches (`patches/abiword-3.0.8-debian`)
+  and `patches/abiword-3.0.8-riscos.diff`: no X11; a crash when a window
+  closed just after a resize (its zoom updater was left queued) fixed.
+  Needs wv 1.2.9 (Word 97-2003 files) and Boost's headers, both built by
+  the script, and autoconf-archive on the build machine. Spelling isn't
+  in yet. The icon bar, Choices..., Word files double-clicked and files
+  dropped on the icon are handled by `apps/abiword/riscos-abiword.cpp`.
+- librsvg's stand-in also has `rsvg_handle_new`, `_write` and `_close`
+  (AbiWord's SVG pictures; they still aren't shown).
+- Tests: `abiword-fake` (keys typed into the document; .odt, .docx,
+  .html, .abw saved and opened again; .rtf, .doc and .txt when the test
+  machine has an ISO-8859-1 converter; the icon bar; File > Quit).
+  `fake_riscos.h` can be included from C++.
+
 ## 3.24.41-riscos1.0-rc11 (2026-10-21)
 - **Every program rebuilt** with the drawing change below: L3afpad
   0.8.18.1.11-riscos30, ClawsMail 4.4.0-riscos20, Geany 2.1-riscos9,

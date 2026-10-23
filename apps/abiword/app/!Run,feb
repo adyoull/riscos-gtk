@@ -1,0 +1,22 @@
+| !Run for !AbiWord - AbiWord, the word processor (GTK 3), on RISC OS
+| A UnixLib program converted to Absolute (AIF), statically linked with GTK
+| 3.24.41 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,
+| ARMEABISupport and Iconv (PackMan). It runs as a normal Wimp task.
+Set AbiWord$Dir <Obey$Dir>
+IconSprites <AbiWord$Dir>.!Sprites
+RMEnsure SharedUnixLibrary 1.16 IfThere System:Modules.SharedULib Then RMLoad System:Modules.SharedULib
+RMEnsure SharedUnixLibrary 1.16 Error AbiWord needs SharedUnixLibrary 1.16 or later. Install it with PackMan.
+RMEnsure ARMEABISupport 0 IfThere System:Modules.ARMEABISupport Then RMLoad System:Modules.ARMEABISupport
+RMEnsure ARMEABISupport 0 Error AbiWord needs the ARMEABISupport module. Install it with PackMan.
+RMEnsure PThreadTicker 0.01 IfThere System:Modules.PThrTicker Then RMLoad System:Modules.PThrTicker
+RMEnsure PThreadTicker 0.01 RMLoad <AbiWord$Dir>.PThrTicker
+| The font cache and the Log go in the scrap directory.
+CDir <Wimp$ScrapDir>.AbiWord
+| fontconfig keeps its cache here (fonts/fonts.conf names it): make it
+| now, as fontconfig may not manage to on RISC OS
+CDir <Wimp$ScrapDir>.AbiWord.fontcache
+| The WimpSlot holds the program; the C heap grows it as needed (no
+| dynamic area, so no logical address space is reserved).
+WimpSlot -min @SLOT@K -max @SLOT@K
+| A file dropped on the application (or given here) is opened.
+Run <AbiWord$Dir>.abiword %*0

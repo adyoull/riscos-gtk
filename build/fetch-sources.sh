@@ -65,6 +65,13 @@ get libxslt_1.1.39.orig.tar.xz      $U/libx/libxslt/libxslt_1.1.39.orig.tar.xz
 get libgsf_1.14.51.orig.tar.xz      $U/libg/libgsf/libgsf_1.14.51.orig.tar.xz
 get goffice_0.10.57.orig.tar.xz     https://archive.ubuntu.com/ubuntu/pool/universe/g/goffice/goffice_0.10.57.orig.tar.xz
 get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/g/gnumeric/gnumeric_1.12.57.orig.tar.xz
+# AbiWord, the word processor (build/build-abiword.sh; universe), and what
+# it needs besides Gnumeric's libraries: wv (Word 97-2003 files) and
+# Boost's headers. AbiWord 3.0.8 is Debian's (+ds: the .git files left
+# out), newer than Ubuntu 24.04's 3.0.5
+get abiword_3.0.8+ds.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/a/abiword/abiword_3.0.8+ds.orig.tar.xz
+get wv_1.2.9.orig.tar.gz            https://archive.ubuntu.com/ubuntu/pool/universe/w/wv/wv_1.2.9.orig.tar.gz
+get boost1.83_1.83.0.orig.tar.xz    $U/b/boost1.83/boost1.83_1.83.0.orig.tar.xz
 # the MIME database every application carries (build/mkmime.sh)
 get shared-mime-info_2.4.orig.tar.bz2 $U/s/shared-mime-info/shared-mime-info_2.4.orig.tar.bz2
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip

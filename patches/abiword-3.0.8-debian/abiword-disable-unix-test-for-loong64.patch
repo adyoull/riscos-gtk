@@ -1,0 +1,19 @@
+Description: disable unix test for loong64
+Author: zhangdandan <zhangdandan@loongson.cn>
+Reviewed-by: Gianfranco Costamagna <locutusofborg@debian.org>
+Origin: other, https://bugs.debian.org/1058667
+Bug-Debian: https://bugs.debian.org/1058667
+Last-Update: 2026-02-18
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/configure.ac
++++ b/configure.ac
+@@ -1187,7 +1187,7 @@
+ 
+ AM_CONDITIONAL(HAVE_INTROSPECTION, test "x$found_introspection" = "xyes")
+ 
+-AM_CONDITIONAL([DISABLE_WP_UNIX_TEST], test $DEB_BUILD_ARCH && echo "armel mipsel hppa ppc64 riscv64 sparc64 x32 " | grep -o "$DEB_BUILD_ARCH ")
++AM_CONDITIONAL([DISABLE_WP_UNIX_TEST], test $DEB_BUILD_ARCH && echo "armel loong64 mipsel hppa ppc64 riscv64 sparc64 x32 " | grep -o "$DEB_BUILD_ARCH ")
+ 
+ AC_OUTPUT(
+   libabiword.pc

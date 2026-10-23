@@ -13,6 +13,7 @@ need 'command -v meson' meson
 need 'command -v ninja' ninja-build
 need 'command -v pkg-config' pkg-config
 need 'command -v automake' automake
+need 'test -f /usr/share/aclocal/ax_check_compile_flag.m4' autoconf-archive
 need 'command -v libtoolize' libtool
 need 'command -v cmake' cmake
 need 'command -v gperf' gperf

@@ -11,11 +11,13 @@ This was built on Ubuntu 24.04, x86-64.
 
 ```sh
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
-    gperf cmake curl unzip xz-utils python3-packaging python3-pil \
+    autoconf-archive gperf cmake curl unzip xz-utils python3-packaging python3-pil \
     libglib2.0-dev-bin shared-mime-info libgdk-pixbuf2.0-bin \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
 
+- `autoconf-archive`: AbiWord's configure is made again (autoreconf) after
+  its patches, and uses its macros.
 - `libglib2.0-dev-bin` provides glib-compile-resources and
   glib-compile-schemas; `shared-mime-info` update-mime-database
   (`build/mkmime.sh`); `python3-pil` the icon drawing;

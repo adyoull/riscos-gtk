@@ -3,6 +3,10 @@
 
 #include <kernel.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define FAKE_MAX_WINDOWS 16
 
 typedef struct {
@@ -162,5 +166,9 @@ extern char fake_acornssl_host[256];
 /* The fake filing systems (OS_FSControl 33) and type names (18) */
 const char *fake_fs_name(int no);
 void fake_type_name(int type, int *r2, int *r3);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

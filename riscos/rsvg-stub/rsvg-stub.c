@@ -42,3 +42,23 @@ rsvg_handle_render_cairo (RsvgHandle *handle, cairo_t *cr)
 {
   return FALSE;
 }
+
+RsvgHandle *
+rsvg_handle_new (void)
+{
+  return (RsvgHandle *) g_object_new (G_TYPE_OBJECT, NULL);
+}
+
+gboolean
+rsvg_handle_write (RsvgHandle *handle, const guchar *buf, gsize count, GError **error)
+{
+  g_set_error_literal (error, RSVG_ERROR, 0, "SVG pictures can't be shown on RISC OS yet");
+  return FALSE;
+}
+
+gboolean
+rsvg_handle_close (RsvgHandle *handle, GError **error)
+{
+  g_set_error_literal (error, RSVG_ERROR, 0, "SVG pictures can't be shown on RISC OS yet");
+  return FALSE;
+}

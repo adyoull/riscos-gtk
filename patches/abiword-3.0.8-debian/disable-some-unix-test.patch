@@ -1,0 +1,36 @@
+Description: Disable test src/wp/test/unix on several platforms
+ This test times out
+ on armel, mipsel, hppa, ppc64, riscv64, sparc64 and x32.
+ Disabling it allows abiword package to be built on those platforms.
+Author: Eric Long <i@hack3r.moe>
+Reviewed-by: Jeremy Bicha <jeremy.bicha@canonical.com>
+Origin: other, https://bugs.debian.org/1018753
+Bug-Debian: https://bugs.debian.org/1018753
+Last-Update: 2026-02-18
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/configure.ac
++++ b/configure.ac
+@@ -1187,6 +1187,8 @@
+ 
+ AM_CONDITIONAL(HAVE_INTROSPECTION, test "x$found_introspection" = "xyes")
+ 
++AM_CONDITIONAL([DISABLE_WP_UNIX_TEST], test $DEB_BUILD_ARCH && echo "armel mipsel hppa ppc64 riscv64 sparc64 x32 " | grep -o "$DEB_BUILD_ARCH ")
++
+ AC_OUTPUT(
+   libabiword.pc
+   Makefile
+--- a/src/wp/test/Makefile.am
++++ b/src/wp/test/Makefile.am
+@@ -18,5 +18,10 @@
+ 
+ #include $(top_srcdir)/includes.mk
+ 
+-SUBDIRS= xp @PLATFORM@
++if DISABLE_WP_UNIX_TEST
++SUBDIRS = xp
++DIST_SUBDIRS = xp
++else
++SUBDIRS = xp @PLATFORM@
+ DIST_SUBDIRS = unix xp
++endif

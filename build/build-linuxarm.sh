@@ -312,6 +312,25 @@ if [ -f "$SRC/gnumeric-libs.txt" ]; then
 else
   echo; echo "=== linux-arm: gnumeric-fake skipped: run build-gnumeric.sh for this target first"
 fi
+# AbiWord (the port) on the fake desktop: typing, its file formats (the
+# built-in plugins), the icon bar. Needs build-abiword.sh run for this
+# target first ($SRC/abiword-build.txt)
+if [ -f "$SRC/abiword-build.txt" ]; then
+  . "$SRC/abiword-build.txt"
+  ABT=$REPO_DIR/out/abiword-linuxarm
+  rm -rf "$ABT"; mkdir -p "$ABT/out"
+  cp -r "$HA"/. "$ABT/"; cp -rn "$SRC/abiword-app/share"/. "$ABT/share/"
+  $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS -DABI_RISCOS_TEST $AB_CFLAGS \
+    -c "$REPO_DIR/apps/abiword/riscos-abiword.cpp" -o "$ABT/riscos-abiword.o"
+  $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS $AB_CFLAGS \
+    -c "$REPO_DIR/tests/gtk/abiword-fake.cpp" -o "$ABT/abiword-fake.o"
+  $CXX -no-pie "$ABT/abiword-fake.o" "$ABT/riscos-abiword.o" $AB_LIBS -o "$REPO_DIR/out/abiword-fake-linuxarm" \
+    -Wl,-Bstatic $(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') -ljpeg \
+    -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+  run abiword-fake "$ABT" "$ABT/out"
+else
+  echo; echo "=== linux-arm: abiword-fake skipped: run build-abiword.sh for this target first"
+fi
 run menuclick-fake "$HA"
 run damage-fake "$HA"
 run damage-fake "$HA" trgb

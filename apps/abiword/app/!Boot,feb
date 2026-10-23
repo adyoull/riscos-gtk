@@ -1,0 +1,3 @@
+| !Boot for !AbiWord
+IconSprites <Obey$Dir>.!Sprites
+Set AbiWord$Dir <Obey$Dir>

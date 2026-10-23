@@ -1,0 +1,8 @@
+Debian's patches for AbiWord 3.0.8 (abiword_3.0.8+ds-2.debian.tar.xz,
+debian/patches), applied in the order of `series` before
+../abiword-3.0.8-riscos.diff: upstream fixes (throw specifiers, autosave,
+the Ctrl-, subscript key, smooth scrolling, enchant 2), MIME types and the
+tests. Left out: drop-outdated-libgcrypt.m4.diff (AbiWord's own
+libgcrypt.m4 is kept, so autoreconf needs no libgcrypt on the build
+machine). Each patch carries its own DEP-3 header (author, origin). GPL,
+as AbiWord.

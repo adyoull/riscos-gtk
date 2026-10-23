@@ -1,0 +1,27 @@
+Description: use locally configured libtool
+Author: Helmut Grohne <helmut@subdivi.de>
+Bug-Debian: https://bugs.debian.org/1122138
+Last-Update: 2025-12-07
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/wp/test/unix/testwrap.sh.in
++++ b/src/wp/test/unix/testwrap.sh.in
+@@ -5,5 +5,5 @@
+ G_SLICE=always-malloc
+ export G_SLICE
+ 
+-exec libtool --mode=execute @VALGRIND@ --leak-check=full --log-file=tf-vgdump ./AbiWord-test
++exec ${LIBTOOL:-libtool} --mode=execute @VALGRIND@ --leak-check=full --log-file=tf-vgdump ./AbiWord-test
+ 
+--- a/src/wp/test/unix/Makefile.am
++++ b/src/wp/test/unix/Makefile.am
+@@ -16,6 +16,9 @@
+ ## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  
+ ## 02110-1301 USA.
+ 
++# used by testwrap.sh
++export LIBTOOL
++
+ TESTS = testwrap.sh
+ 
+ check_SCRIPTS = testwrap.sh-stamp testwrap.sh
