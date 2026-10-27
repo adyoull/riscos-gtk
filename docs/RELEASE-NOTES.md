@@ -1,11 +1,13 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 10)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 12)
 
-**Status: public beta.** RC11 is the ninth public beta build. Windows
-are drawn faster: GTK's backend now copies and plots only the parts of a
-window that changed, not the whole window each time, so typing,
-scrolling and highlights under the pointer keep up better, and
-programs start sooner with themes that have translation tables
-(Raspberry). Every program is rebuilt. RC10 added colour emoji (an
+**Status: public beta.** RC12 is the tenth public beta build. Every
+GTK program now has the desktop's own fonts: Homerton, Trinity, Corpus
+and any outline font in !Fonts are in its font lists and drawn as the
+desktop draws them; a document's Times New Roman, Arial or Courier New
+gets the same kind of font, not DejaVu Sans; Left Alt and a letter
+opens that menu (Alt+F for File); and older programs' stock toolbar
+icons are found. Every program is rebuilt. RC11 drew only the changed
+parts of a window; RC10 added colour emoji (an
 optional PackMan font package, TTF-Noto-Color-Emoji) and GTK's
 pop-overs; RC9 scaled emoji to the text's size; RC8 fixed Gnumeric's
 Insert > Chart and Serif and Monospace. RC6's Menu, title bar, browser
@@ -35,24 +37,25 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC11
+## What's in RC12
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos30.zip` | 0.8.18.1.11-riscos30 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos20.zip` | 4.4.0-riscos20 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos9.zip` | 2.1-riscos9 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos9.zip` | 3.50.14-riscos9 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.57-riscos14.zip` | 1.12.57-riscos14 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `GTKThemeTest-3.24.41-riscos1.0-rc11.zip` | 3.24.41-riscos1.0-rc11 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc11.zip` | 3.24.41-riscos1.0-rc11 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `L3afpad-0.8.18.1.11-riscos31.zip` | 0.8.18.1.11-riscos31 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos21.zip` | 4.4.0-riscos21 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos10.zip` | 2.1-riscos10 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos10.zip` | 3.50.14-riscos10 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.57-riscos15.zip` | 1.12.57-riscos15 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
+| `GTKThemeTest-3.24.41-riscos1.0-rc12.zip` | 3.24.41-riscos1.0-rc12 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc12.zip` | 3.24.41-riscos1.0-rc12 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
 | `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **Optional** (unchanged since RC10): a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc11.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc11-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc12.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc12-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
-release.
+release. AbiWord (3.0.8-riscos1-test5) is a separate test build until it
+has been on the Pi.
 
 ## Requirements
 
@@ -114,6 +117,10 @@ release.
   dotted separators and a short-cut column.
 - **Menu bar:** a program's menu bar becomes a Menu-click menu, as RISC
   OS programs have, and is not drawn in the window.
+- **Left Alt and a letter** opens the menu bar title with that underlined
+  letter (Alt+F for File, Alt+E for Edit) as a Wimp menu at the window's
+  top left; F10 opens the whole menu there. A letter no title has still
+  types its character; Right Alt (AltGr) types as before. *[Pi]*
 - **One menu per window:** Menu anywhere in a window gives the same menu,
   even over things that use the mouse buttons themselves (a paint
   program's canvas, toolbars); tool windows without a menu give their
@@ -193,8 +200,23 @@ release.
   cut, copy, paste, undo, find, zoom, text formatting, warnings...) at
   16 to 48 pixels, and for the small one-colour icons widgets use
   (arrows, a field's clear button, the file chooser's places). Gnumeric's
-  and Geany's own toolbar icons are drawn the same way. GNOME's Adwaita
+  and Geany's own toolbar icons are drawn the same way. Older programs
+  that ask for GTK's stock names (gtk-new, gtk-bold...) get the same
+  icons. GNOME's Adwaita
   icons remain for the few names not drawn (emoji pictures). *[Pi]*
+- **The desktop's own fonts:** Homerton, Trinity, Corpus and every
+  outline font in !Fonts (Sassoon, NewHall, Selwyn...) are in every
+  program's font lists and drawn as the desktop draws them, bold and
+  italic choosing the right faces. The first start makes copies of them
+  for fontconfig in `<Choices$Write>.GTK.FontCache` (about a second;
+  again only when a font changes); the Log says how many. Fonts without
+  outlines are left out. `*Set RISCOS_GTK_RISCOS_FONTS 0` turns it off.
+  Kerning isn't used yet. *[Pi]*
+- **Documents' fonts:** a family the machine doesn't have (Times New
+  Roman, Arial, Courier New, Calibri, Georgia, Verdana...) gets its
+  metric-compatible stand-in (Liberation, Carlito, Caladea) when
+  installed, otherwise a font of the same kind (serif, sans-serif,
+  monospace), not always DejaVu Sans. *[Pi]*
 - **Fonts:** with PackMan's FontConfig (UnixFC) installed, the
   system's fonts.conf, fonts and shared cache, with the program's own
   DejaVu fonts added; otherwise DejaVu Sans, shipped in each package,
@@ -203,9 +225,10 @@ release.
 - **Serif, Monospace and Sans** (the names font choosers list first)
   are the system's preferences when its config has them; otherwise
   riscos-gtk's own: DejaVu Serif, DejaVu Sans Mono and DejaVu Sans, then
-  Liberation and FreeFont, whichever are installed. Without UnixFC,
-  Serif and Monospace look like Sans unless the program carries those
-  fonts (L3afpad and Geany carry DejaVu Sans Mono). *[Pi]*
+  Liberation and FreeFont, whichever are installed, then the desktop's
+  Homerton, Trinity and Corpus. So without UnixFC, Serif is Trinity and
+  Monospace is Corpus (L3afpad and Geany carry DejaVu Sans Mono, which
+  comes first). *[Pi]*
 - **The Log says which fonts:** one line with the set-up, how many fonts
   and families were found, the font folders, the config files read, and
   what Sans, Serif and Monospace became (or why UnixFC wasn't used, e.g.
@@ -271,7 +294,13 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC11
+## Known issues and limits in RC12
+
+- **New in RC12, not yet signed off on the Pi** *[Pi]*: the desktop's
+  fonts (tried on RISC OS on Linux: the ROM's fonts and HardDisc4's
+  !Fonts, 22 faces made in about a second, then read from the cache);
+  documents' font families; Left Alt menus. No kerning for the desktop's
+  fonts yet.
 
 - **New in RC11, not yet signed off on the Pi** *[Pi]*: only the changed
   parts of a window are drawn (a test build of L3afpad felt quicker);
@@ -373,6 +402,12 @@ release.
     program was rebuilt: L3afpad 0.8.18.1.11-riscos30, ClawsMail
     4.4.0-riscos20, Geany 2.1-riscos9, mtPaint 3.50.14-riscos9, Gnumeric
     1.12.57-riscos14.
+  - RC12: the desktop's own fonts (Font Manager outlines as OpenType
+    copies); documents' font families mapped to the same kind of font;
+    Left Alt menus; GTK stock ids as icon names. In GTK, so every program
+    was rebuilt: L3afpad 0.8.18.1.11-riscos31, ClawsMail 4.4.0-riscos21,
+    Geany 2.1-riscos10, mtPaint 3.50.14-riscos10, Gnumeric
+    1.12.57-riscos15.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -443,7 +478,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc11` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc12` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests

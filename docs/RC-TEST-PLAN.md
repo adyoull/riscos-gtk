@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc11 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc12 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.41-riscos1.0-rc11 (the backend and theme)
+## 2. GTKThemeTest 3.24.41-riscos1.0-rc12 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -50,7 +50,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.8.18.1.11-riscos30
+## 3. L3afpad 0.8.18.1.11-riscos31
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 4.4.0-riscos20
+## 4. ClawsMail 4.4.0-riscos21
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -107,7 +107,7 @@ provider offers them.
 | 5.4 | Drag a directory from the Filer onto the browser: it's shown | new | |
 | 5.5 | With PackMan's FontConfig installed: the Log says "fonts: the system's (UnixFC)"; text looks as before; a second start is quick | new | |
 | 5.6 | GTKGLTest: the triangle spins; the frame rate shows; `*Set GDK_GL gles` also works | new | |
-| 5.7 | Geany 2.1-riscos9: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
+| 5.7 | Geany 2.1-riscos10: starts with its window and an icon bar icon; a C file dropped on it opens highlighted, with its functions in the Symbols list | new | |
 | 5.8 | Geany: File > Open (box and browser), File > Save As (box), Edit > Preferences, Quit with an unsaved document asks | new | |
 | 5.9 | Geany: settings kept in `<Choices$Write>.geany` after a restart | new | |
 
@@ -117,7 +117,7 @@ provider offers them.
 |---|---|---|---|
 | 6.1 | mtPaint: Menu over the picture, the toolbars and the palette gives its menu; Adjust paints with colour B | new | Pass (2026-10-11) |
 | 6.2 | mtPaint: View > Pan Window and the Pattern Chooser (click the pattern in the toolbar) have a title bar; the close icon closes them and they open again | new | Pass (2026-10-11) |
-| 6.3 | Geany 2.1-riscos9 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
+| 6.3 | Geany 2.1-riscos10 with GCC installed: a hello.c with an error, Build > Compile: the error in the Compiler tab, clicking it goes to the line; fix it, Build > Build, then Build > Execute: a task window with its output and "(program exited with code: 0)"; the desktop keeps running throughout | new | |
 | 6.4 | Geany: Build > Make on a long build, then Build > Stop: it ends | new | |
 | 6.5 | Geany with the DDE (!SetPaths run): a folder with c.hello containing an error, open hello.c, Set Build Commands Compile to `cc -throwback -c c.%e -o o.%e`, Compile: the error in the Compiler tab, clicking goes to the line; StrongED gets throwback again afterwards | new | |
 | 6.6 | The directory browser's Discs: the same discs and mounts as the icon bar (no extra filing systems); with a LanMan98 mount, clicking it shows the share; a USB stick plugged in appears the next time the browser opens | new | Discs as the icon bar: pass; LanMan98 mount: fails (2026-10-11) |
@@ -127,7 +127,7 @@ provider offers them.
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 7.1 | Gnumeric 1.12.57-riscos14: starts with a new workbook and an icon bar icon; type numbers and `=SUM(A1:A3)`, `=AVERAGE(...)`: right results | yes (test builds) | |
+| 7.1 | Gnumeric 1.12.57-riscos15: starts with a new workbook and an icon bar icon; type numbers and `=SUM(A1:A3)`, `=AVERAGE(...)`: right results | yes (test builds) | |
 | 7.2 | Gnumeric: File > Save As `Test.xlsx`, then `Test.ods` (Save box, also dragging its icon to a Filer window); File > Open each again (Open box and Browse...): the same cells | changed | |
 | 7.3 | Gnumeric: drop a .xlsx and a CSV on its window and on its icon bar icon; double-click a CSV in the Filer while it's loaded: each opens | changed | |
 | 7.4 | Gnumeric: Insert > Chart, a bar chart of the cells: drawn; scroll the sheet past it and past a check box (Insert > Check box): it keeps working | changed | |
@@ -176,12 +176,25 @@ provider offers them.
 | 11.5 | In an EX0 EY0 mode: 11.1 and 11.2 look right too | new | |
 | 11.6 | With the Raspberry theme (or another with translation tables): programs start a little faster than RC10; the scroll bars and title bars look as before | new | |
 
-## 12. Packaging and licences
+## 12. New in RC12
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
-| 12.1 | Each !Help has the right version, requirements and licences (LicenceEmoji in fonts) | — | |
-| 12.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
-| 12.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
+| 12.1 | The first start of any program (L3afpad, say): the Log has `riscos-gtk: fonts: N RISC OS faces (N made now in S s ...)`; note N and S. `<Choices$Write>.GTK.FontCache` has an .otf file for each face and an Index | RISC OS on Linux: 22 faces in 1.3 s | |
+| 12.2 | The next start, and a second program: "0 made now" | RISC OS on Linux | |
+| 12.3 | L3afpad's Choices > Font, Gnumeric's Format > Cells > Font: Homerton, Trinity, Corpus and the fonts in !Fonts are listed; chosen, they look as the desktop draws them; Bold, Italic and Bold Italic choose the right faces | RISC OS on Linux (AbiWord) | |
+| 12.4 | Add a font to !Fonts (or change one), start a program: it's made and listed; a font that has no outlines is left out and the Log says so | new | |
+| 12.5 | Without FontConfig booted: Gnumeric's Serif is Trinity and Monospace is Corpus; with FontConfig booted, its own Serif and Monospace fonts come first, as before | new | |
+| 12.6 | A Gnumeric sheet saved by Excel or LibreOffice using Times New Roman, Arial and Courier New: serif, sans and monospaced faces, not all DejaVu Sans | new | |
+| 12.7 | Left Alt+F, Alt+E... in Gnumeric, Geany, ClawsMail and mtPaint: that menu opens at the window's top left; F10 opens the whole menu; Alt and a letter in a text field of L3afpad still types its character; Right Alt (AltGr) types as before | new | |
+| 12.8 | `*Set RISCOS_GTK_RISCOS_FONTS 0`, then start a program: the Log says the desktop's fonts are off and they aren't listed | new | |
+
+## 13. Packaging and licences
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 13.1 | Each !Help has the right version, requirements and licences (LicenceEmoji in fonts) | — | |
+| 13.2 | `MANIFEST.txt` SHA-256s match the zips | — | |
+| 13.3 | The source tar unpacks and `make deps release` (BUILDING.md) rebuilds zips that work the same | — | |
 
 Signed off by: ____________  Date: ____________

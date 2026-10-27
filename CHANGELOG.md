@@ -1,6 +1,12 @@
 # Changelog
 
-## Since 3.24.41-riscos1.0-rc11
+## 3.24.41-riscos1.0-rc12 (2026-10-27)
+- **Every program rebuilt** with the font, menu and icon changes below:
+  L3afpad 0.8.18.1.11-riscos31, ClawsMail 4.4.0-riscos21, Geany
+  2.1-riscos10, mtPaint 3.50.14-riscos10, Gnumeric 1.12.57-riscos15, and
+  the test programs 3.24.41-riscos1.0-rc12. TTF-Noto-Color-Emoji-2.051.0.1-1
+  is unchanged. AbiWord stays a separate test build (3.0.8-riscos1-test5)
+  until it has been on the Pi.
 - **Fonts documents name are drawn in the right kind of font.** A
   document's Times New Roman, Arial, Courier New, Calibri, Georgia,
   Verdana... (and RISC OS's Trinity, Homerton, Corpus) became DejaVu Sans
