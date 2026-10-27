@@ -10,6 +10,9 @@
  *     each opens again with the text in it;
  *   - a file opened through the icon bar (riscos-gtk's open_file handler)
  *     gets a window of its own when the current one has been typed in;
+ *   - its toolbar's icons and its application icon are the RISC OS style
+ *     ones (the RISCOS theme and ICON_PACK=abiword), the standard buttons
+ *     (GTK stock ids used as icon names) included;
  *   - closing the windows quits.
  *   abiword-fake APPDIR OUTDIR
  * APPDIR is the packaged !AbiWord's folders (share, fonts) for the
@@ -29,6 +32,7 @@
 
 #include "xap_App.h"
 #include "xap_Frame.h"
+#include "xap_UnixFrameImpl.h"
 #include "fv_View.h"
 #include "pd_Document.h"
 #include "ie_exp.h"
@@ -236,6 +240,59 @@ check_spelling (void)
   printf ("# spelling: en-GB %s, en-ZZ (Choices) %s\n", gb ? "loaded" : "missing", zz ? "loaded" : "missing");
 }
 
+/* the icon theme's file for NAME at SIZE, if it's the RISCOS theme's */
+static gboolean
+riscos_icon (const char *name, int size)
+{
+  GtkIconInfo *info = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_default (), name, size,
+                                                  (GtkIconLookupFlags) 0);
+  const char *file = info ? gtk_icon_info_get_filename (info) : NULL;
+  gboolean ok = file && strstr (file, "/icons/RISCOS/") != NULL;
+
+  if (!ok)
+    printf ("# icon %s: %s\n", name, file ? file : info ? "(built in)" : "not found");
+  if (info)
+    g_object_unref (info);
+  return ok;
+}
+
+static int toolbar_buttons, toolbar_riscos, stock_ok, own_ok, app_icon_ok;
+
+static void
+toolbar_icons (GtkWidget *w, gpointer)
+{
+  if (GTK_IS_TOOL_BUTTON (w))
+    {
+      const char *name = gtk_tool_button_get_icon_name (GTK_TOOL_BUTTON (w));
+      GtkWidget *image = gtk_tool_button_get_icon_widget (GTK_TOOL_BUTTON (w));
+
+      if (!name && image && GTK_IS_IMAGE (image)
+          && gtk_image_get_storage_type (GTK_IMAGE (image)) == GTK_IMAGE_ICON_NAME)
+        gtk_image_get_icon_name (GTK_IMAGE (image), &name, NULL);
+      if (name)
+        {
+          toolbar_buttons++;
+          toolbar_riscos += riscos_icon (name, 24);
+        }
+    }
+  if (GTK_IS_CONTAINER (w))
+    gtk_container_forall (GTK_CONTAINER (w), toolbar_icons, NULL);
+}
+
+static void
+check_icons (XAP_Frame *frame)
+{
+  GtkWidget *top = static_cast<XAP_UnixFrameImpl *> (frame->getFrameImpl ())->getTopLevelWindow ();
+
+  stock_ok = riscos_icon ("gtk-new", 24) && riscos_icon ("gtk-bold", 24)
+             && riscos_icon ("gtk-spell-check", 16) && riscos_icon ("gtk-select-font", 24);
+  own_ok = riscos_icon ("tb_lists_bullets", 24) && riscos_icon ("tb_insert_table", 24)
+           && riscos_icon ("tb_text_fgcolor", 16);
+  app_icon_ok = riscos_icon ("abiword", 48);
+  toolbar_icons (top, NULL);
+  printf ("# toolbars: %d of %d buttons' icons from the RISCOS theme\n", toolbar_riscos, toolbar_buttons);
+}
+
 static gboolean
 do_files (gpointer)
 {
@@ -260,6 +317,7 @@ do_files (gpointer)
   if (getenv ("UnixFC$Dir"))
     check_fonts (view);
   check_spelling ();
+  check_icons (f);
   check_txt (doc);
   for (i = 0; i < N_FORMATS; i++)
     {
@@ -492,6 +550,11 @@ main (int argc, char **argv)
   check (spell_gb_ok, "spelling: British English words pass (the program's en_GB dictionary)");
   check (spell_bad_ok, "and a misspelt word is caught");
   check (spell_choices_ok, "a dictionary added to <Choices$Write>.GTK.Dictionaries is found");
+  check (stock_ok, "GTK's stock ids as icon names (gtk-new...) are the RISCOS theme's icons");
+  check (own_ok, "AbiWord's own toolbar icons (tb_*) are drawn in the RISC OS style");
+  check (app_icon_ok, "and its application icon (\"abiword\", the windows' and About box's)");
+  check (toolbar_buttons > 20 && toolbar_riscos == toolbar_buttons,
+         "every toolbar button's icon is a RISC OS style one");
   check (iconbar_ok && frames_after == frames_before + 1,
          "a file dropped on the icon bar icon opens in a window of its own");
   check (stage == 3, "File > Quit with the documents saved quits AbiWord");

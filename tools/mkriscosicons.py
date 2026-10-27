@@ -14,7 +14,7 @@ the dialogue box symbols: gtk/riscos/gtkriscostheme.c).
 
     mkriscosicons.py FONTDIR THEMEDIR [SHEET.png]
     mkriscosicons.py --pack NAME FONTDIR THEMEDIR [SHEET.png]
-      a program's own icons (tools/riscosicons_apps.py: gnumeric, geany)
+      a program's own icons (tools/riscosicons_apps.py: gnumeric, geany, abiword)
       into its RISCOS theme
 
 FONTDIR has DejaVu's TTFs (for the letters on the text-format icons).
@@ -807,7 +807,9 @@ def draw_pack(name, fontdir, themedir, sizes=SIZES):
     theme (made by build/mkicons.py): listed in index.theme and README"""
     import riscosicons_apps as apps
     FONTS["dir"] = fontdir
-    apps.setup(font, {"plus": plus, "minus": minus, "chain": chain, "floppy": floppy})
+    std = {n: f for n, _c, f in ICONS}
+    apps.setup(font, {"plus": plus, "minus": minus, "chain": chain, "floppy": floppy,
+                      "std": lambda n: std[n]})
     icons = apps.PACKS[name]
     dirs = set()
     for n, ctx, f in icons:

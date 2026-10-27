@@ -929,3 +929,139 @@ diff -ruN a/gdk/gdkwindow.c b/gdk/gdkwindow.c
        return;
      }
  G_GNUC_END_IGNORE_DEPRECATIONS
+diff -ruN a/gtk/gtkicontheme.c b/gtk/gtkicontheme.c
+--- a/gtk/gtkicontheme.c	2026-10-27 15:47:39.858464776 +0000
++++ b/gtk/gtkicontheme.c	2026-10-27 15:47:39.887746242 +0000
+@@ -2064,6 +2064,112 @@
+                                                size, 1, flags);
+ }
+ 
++#ifdef GDK_WINDOWING_RISCOS
++/* riscos-gtk: GTK's stock ids ("gtk-new") used as icon names, as older
++   programs do (AbiWord's toolbars, gtk_image_new_from_icon_name), found
++   as the freedesktop.org names the stock items have (as
++   deprecated/gtkiconfactory.c's), when the theme hasn't the stock id */
++static const struct { const char *stock, *name; } riscos_stock_names[] = {
++    { "gtk-about", "help-about" },
++    { "gtk-add", "list-add" },
++    { "gtk-bold", "format-text-bold" },
++    { "gtk-cdrom", "media-optical" },
++    { "gtk-clear", "edit-clear" },
++    { "gtk-close", "window-close" },
++    { "gtk-copy", "edit-copy" },
++    { "gtk-cut", "edit-cut" },
++    { "gtk-delete", "edit-delete" },
++    { "gtk-dialog-authentication", "dialog-password" },
++    { "gtk-dialog-error", "dialog-error" },
++    { "gtk-dialog-info", "dialog-information" },
++    { "gtk-dialog-question", "dialog-question" },
++    { "gtk-dialog-warning", "dialog-warning" },
++    { "gtk-directory", "folder" },
++    { "gtk-execute", "system-run" },
++    { "gtk-file", "text-x-generic" },
++    { "gtk-find", "edit-find" },
++    { "gtk-find-and-replace", "edit-find-replace" },
++    { "gtk-floppy", "media-floppy" },
++    { "gtk-fullscreen", "view-fullscreen" },
++    { "gtk-go-back", "go-previous" },
++    { "gtk-go-down", "go-down" },
++    { "gtk-go-forward", "go-next" },
++    { "gtk-go-up", "go-up" },
++    { "gtk-goto-bottom", "go-bottom" },
++    { "gtk-goto-first", "go-first" },
++    { "gtk-goto-last", "go-last" },
++    { "gtk-goto-top", "go-top" },
++    { "gtk-harddisk", "drive-harddisk" },
++    { "gtk-help", "help-contents" },
++    { "gtk-home", "go-home" },
++    { "gtk-indent", "format-indent-more" },
++    { "gtk-info", "dialog-information" },
++    { "gtk-italic", "format-text-italic" },
++    { "gtk-jump-to", "go-jump" },
++    { "gtk-justify-center", "format-justify-center" },
++    { "gtk-justify-fill", "format-justify-fill" },
++    { "gtk-justify-left", "format-justify-left" },
++    { "gtk-justify-right", "format-justify-right" },
++    { "gtk-leave-fullscreen", "view-restore" },
++    { "gtk-media-forward", "media-seek-forward" },
++    { "gtk-media-next", "media-skip-forward" },
++    { "gtk-media-pause", "media-playback-pause" },
++    { "gtk-media-play", "media-playback-start" },
++    { "gtk-media-previous", "media-skip-backward" },
++    { "gtk-media-record", "media-record" },
++    { "gtk-media-rewind", "media-seek-backward" },
++    { "gtk-media-stop", "media-playback-stop" },
++    { "gtk-missing-image", "image-missing" },
++    { "gtk-network", "network-idle" },
++    { "gtk-new", "document-new" },
++    { "gtk-ok", "dialog-ok" },
++    { "gtk-open", "document-open" },
++    { "gtk-paste", "edit-paste" },
++    { "gtk-preferences", "preferences-system" },
++    { "gtk-print", "document-print" },
++    { "gtk-print-error", "printer-error" },
++    { "gtk-print-paused", "printer-paused" },
++    { "gtk-print-preview", "document-print-preview" },
++    { "gtk-print-report", "printer-info" },
++    { "gtk-print-warning", "printer-warning" },
++    { "gtk-properties", "document-properties" },
++    { "gtk-quit", "application-exit" },
++    { "gtk-redo", "edit-redo" },
++    { "gtk-refresh", "view-refresh" },
++    { "gtk-remove", "list-remove" },
++    { "gtk-revert-to-saved", "document-revert" },
++    { "gtk-save", "document-save" },
++    { "gtk-save-as", "document-save-as" },
++    { "gtk-select-all", "edit-select-all" },
++    { "gtk-select-font", "font-x-generic" },
++    { "gtk-sort-ascending", "view-sort-ascending" },
++    { "gtk-sort-descending", "view-sort-descending" },
++    { "gtk-spell-check", "tools-check-spelling" },
++    { "gtk-stop", "process-stop" },
++    { "gtk-strikethrough", "format-text-strikethrough" },
++    { "gtk-underline", "format-text-underline" },
++    { "gtk-undo", "edit-undo" },
++    { "gtk-unindent", "format-indent-less" },
++    { "gtk-zoom-100", "zoom-original" },
++    { "gtk-zoom-fit", "zoom-fit-best" },
++    { "gtk-zoom-in", "zoom-in" },
++    { "gtk-zoom-out", "zoom-out" },
++};
++
++static const gchar *
++riscos_stock_icon_name (const gchar *icon_name)
++{
++  guint i;
++
++  if (strncmp (icon_name, "gtk-", 4) != 0)
++    return NULL;
++  for (i = 0; i < G_N_ELEMENTS (riscos_stock_names); i++)
++    if (strcmp (icon_name, riscos_stock_names[i].stock) == 0)
++      return riscos_stock_names[i].name;
++  return NULL;
++}
++#endif
++
+ /**
+  * gtk_icon_theme_lookup_icon_for_scale:
+  * @icon_theme: a #GtkIconTheme
+@@ -2101,6 +2207,19 @@
+ 
+   GTK_NOTE (ICONTHEME, g_message ("looking up icon %s for scale %d", icon_name, scale));
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  {
++    const gchar *stock_name = riscos_stock_icon_name (icon_name);
++
++    if (stock_name)
++      {
++        const gchar *names[3] = { icon_name, stock_name, NULL };
++
++        return choose_icon (icon_theme, names, size, scale, flags);
++      }
++  }
++#endif
++
+   if (flags & GTK_ICON_LOOKUP_GENERIC_FALLBACK)
+     {
+       gchar **names, **nonsymbolic_names;

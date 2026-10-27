@@ -50,5 +50,6 @@ AbiWord and wv: GPL version 2 or later (Licence). enchant: LGPL 2.1 or
 later; hunspell: LGPL/MPL/GPL; the British English dictionary: LGPL
 (share.hunspell.LicenceDictionary). GTK, GLib and the
 other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
-libxslt: MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
+libxslt: MIT. The RISC OS style icons (the application's, the
+toolbars': riscos-gtk's own drawings): MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
 Source.

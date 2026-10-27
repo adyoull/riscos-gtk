@@ -134,9 +134,8 @@ make -C "$AB" install-data DESTDIR="$I" > /dev/null 2>&1 || make -C "$AB" instal
 D=$APP/share/abiword-3.0
 mkdir -p "$D"
 (cd "$I$PREFIX/share/abiword-3.0" && cp -r ui templates xsltml omml_xslt mime-info system.profile readme.abw "$D/")
-mkdir -p "$APP/share/icons"
-(cd "$I$PREFIX/share/icons" && find hicolor -name '*.png' | while read -r f; do
-  mkdir -p "$APP/share/icons/$(dirname "$f")"; cp "$f" "$APP/share/icons/$f"; done)
+# (no hicolor icons: the application icon, "abiword", is drawn in the
+# RISC OS style with the toolbar's: ICON_PACK=abiword, below)
 cp "$AB/COPYING" "$APP/Licence,fff"   # GPL 2
 # the British English dictionary (hunspell finds it through XDG_DATA_DIRS:
 # /<AbiWord$Dir>/share); others go in <Choices$Write>.GTK.Dictionaries
@@ -153,4 +152,6 @@ $CXX -std=c++11 $RO_CFLAGS -Wall -Wno-deprecated-declarations $RISCOS_FLAGS $AB_
   -DRISCOS_PORT_VERSION=\"$VERSION\" -c "$REPO_DIR/apps/abiword/riscos-abiword.cpp" -o "$SRC/riscos-abiword.o"
 $CXX -std=c++11 $RO_CFLAGS "$SRC/riscos-abiword.o" "$LIBABI" -o "$SRC/abiword-prog" -static $AB_LDLIBS
 export PREBUILT=$SRC/abiword-prog
-exec "$HERE/build-app.sh" AbiWord abiword "$VERSION" "$APP"
+# the toolbar's own icons and the application icon in the RISC OS style
+# (tools/riscosicons_apps.py)
+ICON_PACK=abiword exec "$HERE/build-app.sh" AbiWord abiword "$VERSION" "$APP"

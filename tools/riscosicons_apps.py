@@ -2,7 +2,7 @@
 style, for tools/mkriscosicons.py --pack NAME.
 
 A program's own icon names (Gnumeric's gnumeric-*, Geany's geany-* and
-classviewer-*) drawn as riscos-gtk's RISCOS theme draws the standard
+classviewer-*, AbiWord's tb_*) drawn as riscos-gtk's RISCOS theme draws the standard
 ones; build/build-app.sh (ICON_PACK=NAME) puts them into that program's
 RISCOS theme, which GTK searches before the program's own (hicolor or
 resource) icons. Original drawings, on the 24-unit grid. Fill patterns
@@ -16,7 +16,7 @@ from riscosdraw import (K, K2, WHITE, PAPER, PAPER2, CREAM, FLAP, FLAP2, GREY, G
                         GREY3, RED, RED2, GREEN, GREEN2, BLUE, BLUE2, LBLUE, YELLOW, YELLOW2,
                         ORANGE, ORANGE2, BROWN, BROWN2, GOLD, GOLD2, PINK, PINK2,
                         envelope, sheet, arrow, pencil, padlock, clock, tick, cross, badge,
-                        gear, folder, paperclip)
+                        gear, folder, paperclip, Icon)
 
 PACKS = {}
 _font = {}
@@ -41,9 +41,9 @@ def font(name):
 def pack(name, context="actions"):
     lst = PACKS.setdefault(name, [])
 
-    def reg(icon_name):
+    def reg(icon_name, ctx=context):
         def deco(f):
-            lst.append((icon_name, context, f))
+            lst.append((icon_name, ctx, f))
             return f
         return deco
     return reg
@@ -375,3 +375,312 @@ ge("geany-build")(lambda c: (gear(c, 10, 10, 7.5), gear(c, 17, 17, 5, (CREAM, FL
 ge("geany-save-all")(lambda c: (floppy(c, 7.5, 2.5, 21.5, 16.5), floppy(c, 2.5, 7.5, 16.5, 21.5)))
 ge("geany-close-all")(lambda c: (c.rect(8.5, 2.5, 21.5, 15.5, (WHITE, GREY)), c.rect(2.5, 8.5, 15.5, 21.5, (WHITE, GREY)),
                                   cross(c, 6, 12, 12, 18, GREY3)))
+
+
+# ---- AbiWord ----
+# Its toolbar's own icons (AbiWord's tb_* names: src/wp/ap/gtk/
+# ap_UnixStockIcons.cpp; the standard buttons use GTK's stock ids, drawn
+# by the RISCOS theme) and the application icon ("abiword", the windows'
+# and About box's; tools/mkabiwordsprites.py makes !AbiWord's sprites from
+# the same drawing).
+
+ab = pack("abiword")
+TEXT = (40, 40, 40, 255)
+INK = BLUE2
+
+
+def page(c, x0=4.5, y0=2.5, x1=19.5, y1=21.5, fold=4):
+    sheet(c, x0, y0, x1, y1, False, fold)
+
+
+def text_rows(c, x0, x1, ys, col=GREY3, w=1.4):
+    for y in ys:
+        c.line([(x0, y), (x1, y)], col, w)
+
+
+def letter(c, x, y, s, size, f="DejaVuSerif-Bold.ttf", col=TEXT):
+    c.text(x, y, s, size, font(f), col, anchor="mm")
+
+
+def nib(c, x0, y0, x1, y1, body=(GOLD, GOLD2), w=0.3, ow=1.0):
+    """a pen nib, its point at (x0, y0), its shoulder at (x1, y1)"""
+    dx, dy = x1 - x0, y1 - y0
+    L = math.hypot(dx, dy)
+    ux, uy = dx / L, dy / L
+    nx, ny = -uy, ux
+    w = L * w
+    m = 0.6
+    c.poly([(x0, y0),
+            (x0 + dx * m + nx * w, y0 + dy * m + ny * w),
+            (x1 + nx * w * 0.75, y1 + ny * w * 0.75),
+            (x1 - nx * w * 0.75, y1 - ny * w * 0.75),
+            (x0 + dx * m - nx * w, y0 + dy * m - ny * w)], body, K, ow)
+    c.line([(x0 + ux * L * 0.08, y0 + uy * L * 0.08), (x0 + dx * 0.5, y0 + dy * 0.5)], K, ow * 0.8)
+    cx, cy = x0 + dx * 0.55, y0 + dy * 0.55
+    r = max(0.8, L * 0.05)
+    c.ellipse(cx - r, cy - r, cx + r, cy + r, K, None)
+
+
+def app_logo(c, small=False):
+    """the application: a page of writing, its first letter a blue capital
+    A, and a gold pen nib writing the last line in blue ink (on a 34-unit
+    grid, as a RISC OS application sprite; 17 for the small one)"""
+    if small:
+        c.poly([(2.5, 1.5), (10.5, 1.5), (13.5, 4.5), (13.5, 15.5), (2.5, 15.5)], (WHITE, PAPER2))
+        c.poly([(10.5, 1.5), (10.5, 4.5), (13.5, 4.5)], GREY, K)
+        c.rect(4, 3, 8, 7, (BLUE, BLUE2), None)
+        text_rows(c, 4, 11.5, (9, 11), GREY2, 1)
+        c.line([(4, 13.5), (7.5, 13.5)], INK, 1)
+        nib(c, 8, 13.5, 15.5, 6, w=0.32, ow=0.8)
+        return
+    c.poly([(5.5, 2.5), (19.5, 2.5), (25.5, 8.5), (25.5, 31.5), (5.5, 31.5)], (WHITE, PAPER2))
+    c.poly([(19.5, 2.5), (19.5, 8.5), (25.5, 8.5)], GREY, K)
+    c.rect(8.5, 5.5, 15.5, 12.5, (BLUE, BLUE2), BLUE2, 0.8)
+    c.text(12, 9.2, "A", 7, font("DejaVuSerif-Bold.ttf"), WHITE, anchor="mm")
+    text_rows(c, 17.5, 18.5, (6.5, 8.5), GREY2, 1)
+    text_rows(c, 17.5, 22.5, (10.5, 12.5), GREY2, 1)
+    text_rows(c, 8.5, 22.5, (15.5, 17.5, 19.5, 21.5), GREY2, 1)
+    text_rows(c, 8.5, 18.5, (23.5,), GREY2, 1)
+    c.line([(8.5, 26.5), (16, 26.5)], INK, 1.2)
+    nib(c, 16.5, 26.5, 30, 13, w=0.27)
+
+
+def app_icon(size, k=1):
+    """the application sprite: size 34 (or 17, the small one), k times
+    bigger"""
+    c = Icon(size, size, k)
+    app_logo(c, size < 34)
+    return c.image()
+
+
+ab("abiword", "apps")(lambda c: app_logo_on(c))
+# the same meanings as the theme's standard icons
+for name, std_name in (("tb_insert_graphic", "insert-image"), ("tb_hyperlink", "insert-link"),
+                       ("tb_anchor", "bookmark-new")):
+    ab(name)(lambda c, n=std_name: std(n)(c))
+
+
+def app_logo_on(c):
+    """draw the logo into c, a 24-unit Icon: scaled from its own grid"""
+    small = c.k * 24 <= 20
+    unit = 17 if small else 34
+    k = c.k * 24 / unit
+    sub = Icon(unit, unit, k)
+    app_logo(sub, small)
+    c.im.alpha_composite(sub.im)          # the same size: 24 * c.k = unit * k
+
+
+def cols_icon(n):
+    def f(c):
+        page(c, 2.5, 2.5, 21.5, 21.5, 0)
+        gap = 2.5
+        w = (21.5 - 2.5 - 4 - gap * (n - 1)) / n
+        for i in range(n):
+            x = 4.5 + i * (w + gap)
+            for y in (5.5, 9, 12.5, 16, 19):
+                c.line([(x, y), (x + w, y)], GREY3, 1.4)
+    return f
+
+
+for n in (1, 2, 3):
+    ab("tb_%dcolumn" % n)(cols_icon(n))
+
+
+def para_mark(c, x, y, size, col=BLUE2):
+    letter(c, x, y, "¶", size, "DejaVuSans-Bold.ttf", col)
+
+
+ab("tb_view_showpara")(lambda c: para_mark(c, 12, 12.5, 19))
+
+
+def list_icon(kind):
+    def f(c):
+        page(c, 3.5, 2.5, 20.5, 21.5, 0)
+        for i, y in enumerate((7, 12, 17)):
+            if kind == "bullets":
+                c.ellipse(5.5, y - 1.5, 8.5, y + 1.5, BLUEA, None)
+            else:
+                c.text(7, y, str(i + 1), 5.5, font("DejaVuSans-Bold.ttf"), BLUE2, anchor="mm")
+            c.line([(10.5, y), (18.5, y)], GREY3, 1.4)
+    return f
+
+
+ab("tb_lists_bullets")(list_icon("bullets"))
+ab("tb_lists_numbers")(list_icon("numbers"))
+
+
+def colour_letter(bar, back=None):
+    def f(c):
+        if back:
+            c.rect(3.5, 2.5, 20.5, 16.5, back, None)
+        letter(c, 12, 9.5, "A", 15, "DejaVuSerif-Bold.ttf")
+        c.rect(3.5, 17.5, 20.5, 21.5, bar, K, 1)
+    return f
+
+
+ab("tb_text_fgcolor")(colour_letter(REDA))
+ab("tb_text_bgcolor")(colour_letter((YELLOW, YELLOW2), ((255, 245, 150, 255), (255, 235, 100, 255))))
+ab("tb_stock_paint")(lambda c: (c.line([(19.5, 3.5), (11, 12)], K, 3.4), c.line([(19.5, 3.5), (11, 12)], BROWN, 1.6),
+                                 c.poly([(9, 10), (13.5, 14.5), (10, 19), (4, 21), (6, 15)], (YELLOW, ORANGE))))
+
+# tables
+T = (3.5, 4.5, 20.5, 19.5)
+
+
+def table(c, x0=3.5, y0=4.5, x1=20.5, y1=19.5, cols=3, rows=3):
+    grid(c, x0, y0, x1, y1, cols, rows, outline=K2)
+    c.rect(x0, y0, x1, y0 + (y1 - y0) / rows, HEAD, None)
+    grid(c, x0, y0, x1, y1, cols, rows, fill=None, outline=K2)
+
+
+ab("tb_insert_table")(lambda c: (table(c, 2.5, 3.5, 17.5, 17.5), plus(c, 18, 18, 4.5)))
+
+
+def rowcol(row, add):
+    def f(c):
+        table(c, 2.5, 3.5, 18.5, 19.5)
+        x0, y0, x1, y1 = 2.5, 3.5, 18.5, 19.5
+        if row:
+            y = y0 + 2 * (y1 - y0) / 3
+            c.rect(x0, y - (y1 - y0) / 3, x1, y, HILITE, K2, 1)
+        else:
+            x = x0 + (x1 - x0) / 3
+            c.rect(x, y0, x + (x1 - x0) / 3, y1, HILITE, K2, 1)
+        (plus if add else minus)(c, 18.5, 18.5, 4.5)
+    return f
+
+
+ab("tb_add_row")(rowcol(True, True))
+ab("tb_add_column")(rowcol(False, True))
+ab("tb_delete_row")(rowcol(True, False))
+ab("tb_delete_column")(rowcol(False, False))
+ab("tb_merge_cells")(lambda c: (table(c), c.rect(3.5, 9.5, 20.5, 14.5, HILITE, K, 1),
+                                 arrow(c, 4.5, 9.5, 10.5, 14.5, "right", BLUEA),
+                                 arrow(c, 13.5, 9.5, 19.5, 14.5, "left", BLUEA)))
+ab("tb_split_cells")(lambda c: (table(c), c.rect(3.5, 9.5, 20.5, 14.5, HILITE, K, 1),
+                                 c.line([(12, 9.5), (12, 14.5)], K, 1.2),
+                                 arrow(c, 3.5, 9.5, 9.5, 14.5, "left", BLUEA),
+                                 arrow(c, 14.5, 9.5, 20.5, 14.5, "right", BLUEA)))
+for side, d in (("left", "left"), ("right", "right"), ("above", "up"), ("below", "down")):
+    ab("abiword-merge" + side)(lambda c, d=d: (table(c), arrow(c, 7.5, 8, 16.5, 16, d, BLUEA)))
+
+# text: lines over, under, through; super- and subscripts
+ab("tb_text_overline")(lambda c: (letter(c, 12, 13.5, "O", 15), c.line([(5, 3.5), (19, 3.5)], K, 1.6)))
+ab("abiword-fmt-topline")(lambda c: (c.rect(3.5, 7.5, 20.5, 20.5, None, GREY2, 1), letter(c, 12, 14.5, "ab", 10),
+                                      c.line([(3.5, 4.5), (20.5, 4.5)], K, 1.6)))
+ab("abiword-fmt-bottomline")(lambda c: (c.rect(3.5, 3.5, 20.5, 16.5, None, GREY2, 1), letter(c, 12, 10, "ab", 10),
+                                         c.line([(3.5, 19.5), (20.5, 19.5)], K, 1.6)))
+ab("tb_text_superscript")(lambda c: (letter(c, 9, 13.5, "x", 16, "DejaVuSerif-Italic.ttf"),
+                                     letter(c, 18, 6, "2", 9, "DejaVuSans-Bold.ttf", BLUE2)))
+ab("tb_text_subscript")(lambda c: (letter(c, 9, 10.5, "x", 16, "DejaVuSerif-Italic.ttf"),
+                                   letter(c, 18, 18, "2", 9, "DejaVuSans-Bold.ttf", BLUE2)))
+ab("tb_symbol")(lambda c: letter(c, 12, 12, "Ω", 18, "DejaVuSerif-Bold.ttf", BLUE2))
+
+# spacing
+
+
+def spacing(gap, mark=None):
+    def f(c):
+        y = 4.5
+        while y < 20.5:
+            c.line([(4, y), (20, y)], GREY3, 1.6)
+            y += gap
+        if mark:
+            mark(c)
+    return f
+
+
+ab("tb_line_single_space")(spacing(3.5))
+ab("tb_line_middle_space")(spacing(5))
+ab("tb_line_double_space")(spacing(7))
+
+
+def before(points):
+    def f(c):
+        if points:
+            arrow(c, 3, 2, 8, 9.5, "down", BLUEA)
+            c.text(14.5, 5.5, "12", 6.5, font("DejaVuSans-Bold.ttf"), BLUE2, anchor="mm")
+        else:
+            c.text(12, 5.5, "0", 7, font("DejaVuSans-Bold.ttf"), BLUE2, anchor="mm")
+        c.line([(3, 10.5), (21, 10.5)], GREY2, 0.8)
+        text_rows(c, 4, 20, (13, 16, 19), GREY3, 1.4)
+    return f
+
+
+ab("tb_para_0before")(before(False))
+ab("tb_para_12before")(before(True))
+
+# direction
+
+
+def direction(rtl, dom=False):
+    def f(c):
+        para_mark(c, 7 if rtl else 17, 8, 12, BLUE2 if not dom else RED2)
+        text_rows(c, 4, 20, (15,), GREY3, 1.4)
+        arrow(c, 4, 17, 20, 22.5, "left" if rtl else "right", GREENA if not dom else REDA)
+        if not dom:
+            c.line([(11.5 if rtl else 12.5, 3), (11.5 if rtl else 12.5, 12.5)], K, 1.2)
+    return f
+
+
+ab("tb_text_direction_ltr")(direction(False))
+ab("tb_text_direction_rtl")(direction(True))
+ab("tb_text_dom_direction_rtl")(direction(True, True))
+
+# headers and footers
+
+
+def hf(header, remove):
+    def f(c):
+        page(c, 4.5, 2.5, 19.5, 21.5)
+        y0, y1 = (3.5, 7.5) if header else (16.5, 20.5)
+        c.rect(5.5, y0, 18.5 if header else 18.5, y1, HEAD, None)
+        text_rows(c, 7, 13, ((y0 + y1) / 2,), BLUE2, 1.2)
+        text_rows(c, 7, 17, (10, 12.5) if header else (6, 8.5, 11), GREY2, 1)
+        if remove:
+            cross(c, 14, 14, 22, 22) if header else cross(c, 14, 2, 22, 10)
+        else:
+            pencil(c, 12, 21, 22.5, 10.5) if header else pencil(c, 12, 12.5, 22.5, 2)
+    return f
+
+
+ab("tb_edit_editheader")(hf(True, False))
+ab("tb_edit_editfooter")(hf(False, False))
+ab("tb_edit_removeheader")(hf(True, True))
+ab("tb_edit_removefooter")(hf(False, True))
+
+# revisions (changes marked)
+
+
+def revised(c):
+    page(c, 3.5, 2.5, 18.5, 21.5)
+    text_rows(c, 5.5, 14.5, (7, 15), GREY3, 1.2)
+    text_rows(c, 5.5, 16, (11,), RED, 1.4)
+    c.line([(5.5, 19), (12, 19)], BLUE2, 1.2)
+
+
+ab("tb_revision_new")(lambda c: (revised(c), plus(c, 18.5, 18.5, 4.5)))
+ab("tb_revision_select")(lambda c: (revised(c), c.rect(12.5, 12.5, 22.5, 22.5, (WHITE, GREY), K),
+                                    [c.line([(14.5, y), (20.5, y)], K2, 1) for y in (15.5, 17.5, 19.5)]))
+ab("tb_revision_show_final")(lambda c: (page(c, 3.5, 2.5, 18.5, 21.5), text_rows(c, 5.5, 14.5, (7, 11, 15, 19), GREY3, 1.2),
+                                        tick(c, 13, 13, 22.5, 21.5)))
+ab("tb_revision_find_prev")(lambda c: (revised(c), arrow(c, 13, 13, 22.5, 22, "left", GREENA)))
+ab("tb_revision_find_next")(lambda c: (revised(c), arrow(c, 13, 13, 22.5, 22, "right", GREENA)))
+
+# semantic items (RDF: a contact, an event, a place tagged in the text)
+
+
+def tag(c, x0=2.5, y0=6.5, x1=17.5, y1=15.5, fill=((255, 230, 160, 255), (240, 190, 80, 255))):
+    my = (y0 + y1) / 2
+    c.poly([(x0 + 4, y0), (x1, y0), (x1, y1), (x0 + 4, y1), (x0, my)], fill)
+    c.ellipse(x0 + 3, my - 1.2, x0 + 5.4, my + 1.2, WHITE, K, 0.8)
+
+
+ab("tb_semitem_this")(lambda c: (tag(c, 3.5, 7.5, 20.5, 16.5), text_rows(c, 10, 18, (12,), GREY3, 1.2)))
+ab("tb_semitem_next")(lambda c: (tag(c), arrow(c, 13, 13, 22.5, 22, "right", GREENA)))
+ab("tb_semitem_prev")(lambda c: (tag(c), arrow(c, 13, 13, 22.5, 22, "left", GREENA)))
+ab("tb_semitem_edit")(lambda c: (tag(c), pencil(c, 12, 21.5, 22.5, 11)))
+ab("tb_semitem_stylesheet_apply")(lambda c: (tag(c), c.line([(21.5, 12.5), (16, 18)], K, 2.6),
+                                             c.line([(21.5, 12.5), (16, 18)], BROWN, 1.2),
+                                             c.poly([(14.5, 16.5), (17.5, 19.5), (15, 22.5), (11, 23), (12.5, 19)],
+                                                    (YELLOW, ORANGE))))

@@ -173,7 +173,7 @@ theme/icons-list.txt.
 
 Update (2026-10-17, later): all 130 full-colour names, 72 symbolic ones
 (drawn black as GTK's .symbolic.png, coloured by GTK) and programs' own
-icons (Gnumeric, Geany: `tools/riscosicons_apps.py`, `ICON_PACK` in
+icons (Gnumeric, Geany, AbiWord: `tools/riscosicons_apps.py`, `ICON_PACK` in
 build-app.sh; they go in the program's RISCOS theme, which GTK searches
 before the program's hicolor and resource icons). Left as they are:
 Adwaita's emoji, gesture and use symbolic icons (rarely seen) and

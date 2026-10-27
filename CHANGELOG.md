@@ -22,6 +22,21 @@
   no dlopen). Dictionaries in `<Choices$Write>.GTK.Dictionaries` serve
   every program; personal word lists in `<Choices$Write>.GTK.Enchant`;
   programs carry the British English dictionary (LibreOffice's, LGPL).
+- **GTK's stock ids work as icon names.** Older programs ask the icon
+  theme for "gtk-new", "gtk-bold"... (AbiWord's whole standard toolbar
+  does); no theme has those names, so the buttons had no pictures. The
+  icon theme now looks up a stock id's freedesktop.org name (document-new,
+  format-text-bold...: GTK's own stock table) when the theme hasn't the
+  stock id itself, and so gets the RISCOS theme's icons. Every program.
+- **AbiWord test3: RISC OS icons.** An original RISC OS style application
+  icon (a page of writing with a blue capital and a gold pen nib:
+  `!Sprites`, `!Sprites11`, `tools/mkabiwordsprites.py`), also the
+  windows' and the About box's icon ("abiword" in the RISCOS theme; the
+  About box looked for it where AbiWord was built). AbiWord's own toolbar
+  icons (columns, lists, tables, spacing, direction, headers and footers,
+  revisions, semantic items...) drawn in the RISC OS style
+  (`ICON_PACK=abiword`, `tools/riscosicons_apps.py`). Test
+  `abiword-fake`: every toolbar button's icon is a RISCOS theme one.
 - **AbiWord test2:** spell checking (British English); LANG en_GB with
   AbiWord's built-in English strings (a strings file needs iconv; with
   none of its strings the menus were empty, and the menu bar's build

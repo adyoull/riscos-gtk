@@ -320,6 +320,11 @@ if [ -f "$SRC/abiword-build.txt" ]; then
   ABT=$REPO_DIR/out/abiword-linuxarm
   rm -rf "$ABT"; mkdir -p "$ABT/out"
   cp -r "$HA"/. "$ABT/"; cp -rn "$SRC/abiword-app/share"/. "$ABT/share/"
+  python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$ABT/share/icons" > /dev/null
+  IPF=$(mktemp -d)
+  unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf' -d "$IPF"
+  python3 -B "$REPO_DIR/tools/mkriscosicons.py" --pack abiword "$IPF" "$ABT/share/icons/RISCOS" > /dev/null
+  rm -rf "$IPF"
   $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS -DABI_RISCOS_TEST $AB_CFLAGS \
     -c "$REPO_DIR/apps/abiword/riscos-abiword.cpp" -o "$ABT/riscos-abiword.o"
   $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS $AB_CFLAGS \
