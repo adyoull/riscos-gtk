@@ -173,6 +173,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -o "$REPO_DIR/out/riscosfonts-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+# GTK's font dialogue's preview, and drawing outside the paint cycle
+# (gdk_cairo_create, as AbiWord's previews do)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/fontchooser-fake.c" \
+  -o "$REPO_DIR/out/fontchooser-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 FCT=$REPO_DIR/out/fontconfig-linuxarm
 rm -rf "$FCT"; mkdir -p "$FCT/mono"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSerif.ttf' 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf' -d "$FCT/sys"
@@ -378,6 +385,9 @@ done
 RFT=$REPO_DIR/out/riscosfonts-linuxarm
 rm -rf "$RFT"; mkdir -p "$RFT"
 run riscosfonts-fake "$HA" "$RFT"
+FCH=$REPO_DIR/out/fontchooser-linuxarm
+rm -rf "$FCH"; mkdir -p "$FCH"
+run fontchooser-fake "$HA" "$FCH" "$FCT/sys/DejaVuSerif.ttf"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"

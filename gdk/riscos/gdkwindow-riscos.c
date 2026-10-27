@@ -147,6 +147,50 @@ update_dirty_windows_and_sync (void)
     gdk_display_flush (GDK_DISPLAY (display));
 }
 
+/* riscos-gtk: gdk_cairo_create outside the paint cycle (patched in
+   gdk/gdkwindow.c): what the window covers is marked as changed, and
+   copied and plotted once the caller has drawn (a high-priority idle).
+   AbiWord draws its dialogue boxes' previews this way. */
+static guint outside_paint_id = 0;
+
+static gboolean
+outside_paint_idle (gpointer data)
+{
+  outside_paint_id = 0;
+  update_dirty_windows_and_sync ();
+  return FALSE;
+}
+
+void
+_gdk_riscos_window_drawn_outside_paint (GdkWindow *window)
+{
+  GdkWindow *top = window->impl_window;
+  GdkWindowImplRiscos *impl;
+  cairo_region_t *area;
+
+  if (top == NULL || !GDK_IS_WINDOW_IMPL_RISCOS (top->impl) || GDK_WINDOW_DESTROYED (window) ||
+      window->clip_region == NULL)
+    return;
+  impl = GDK_WINDOW_IMPL_RISCOS (top->impl);
+  area = cairo_region_copy (window->clip_region);
+  cairo_region_translate (area, window->abs_x, window->abs_y);
+  if (!impl->dirty)
+    impl->damage = area;
+  else if (impl->damage)
+    {
+      cairo_region_union (impl->damage, area);
+      cairo_region_destroy (area);
+    }
+  else
+    cairo_region_destroy (area);         /* already the whole window */
+  impl->dirty = TRUE;
+  if (outside_paint_id == 0)
+    {
+      outside_paint_id = gdk_threads_add_idle_full (G_PRIORITY_HIGH_IDLE, outside_paint_idle, NULL, NULL);
+      g_source_set_name_by_id (outside_paint_id, "[gtk+] riscos outside paint");
+    }
+}
+
 static guint flush_id = 0;
 
 static gboolean

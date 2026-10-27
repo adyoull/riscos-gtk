@@ -917,7 +917,34 @@ diff -ruN a/gdk/gdkwindow.c b/gdk/gdkwindow.c
  
    if (window->current_paint.use_gl)
      {
-@@ -7442,8 +7457,11 @@
+@@ -3626,6 +3641,10 @@
+  * Deprecated: 3.22: Use gdk_window_begin_draw_frame() and
+  *   gdk_drawing_context_get_cairo_context() instead
+  **/
++#ifdef GDK_WINDOWING_RISCOS
++void _gdk_riscos_window_drawn_outside_paint (GdkWindow *window);
++#endif
++
+ cairo_t *
+ gdk_cairo_create (GdkWindow *window)
+ {
+@@ -3639,6 +3658,15 @@
+ 
+   cr = cairo_create (surface);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: drawing outside the paint cycle (AbiWord's previews draw
++     on their widgets' windows when a setting changes) goes into the
++     window's backing surface; tell the backend which part, so it reaches
++     the screen (gdk/riscos/gdkwindow-riscos.c) */
++  if (window->impl_window->current_paint.region == NULL)
++    _gdk_riscos_window_drawn_outside_paint (window);
++#endif
++
+   region = gdk_window_get_current_paint_region (window);
+   gdk_cairo_region (cr, region);
+   cairo_region_destroy (region);
+@@ -7442,8 +7470,11 @@
  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
    if (composited && (!gdk_display_supports_composite (display) || !impl_class->set_composited))
      {

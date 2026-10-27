@@ -1,5 +1,17 @@
 # Changelog
 
+## Since 3.24.41-riscos1.0-rc12
+- **Drawing outside GTK's paint cycle reaches the screen.** A program
+  drawing on a window when it likes (gdk_cairo_create outside a draw
+  handler, as AbiWord's dialogue boxes draw their previews when a
+  setting changes) drew into the window's copy, but nothing was copied to
+  the screen until something else repainted that part: AbiWord's Format >
+  Font preview didn't change when another font was chosen. GDK now marks
+  what such a window covers as changed and copies and plots it once the
+  program has drawn. Every program. Test `fontchooser-fake` (GTK's own
+  font dialogue's preview too).
+- **AbiWord test6** with that fix.
+
 ## 3.24.41-riscos1.0-rc12 (2026-10-27)
 - **Every program rebuilt** with the font, menu and icon changes below:
   L3afpad 0.8.18.1.11-riscos31, ClawsMail 4.4.0-riscos21, Geany
