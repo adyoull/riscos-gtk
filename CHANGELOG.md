@@ -22,6 +22,22 @@
   no dlopen). Dictionaries in `<Choices$Write>.GTK.Dictionaries` serve
   every program; personal word lists in `<Choices$Write>.GTK.Enchant`;
   programs carry the British English dictionary (LibreOffice's, LGPL).
+- **The desktop's own fonts in every GTK program.** Homerton, Trinity,
+  Corpus, and any outline font in `!Fonts` (Sassoon, NewHall, Selwyn...)
+  are in every font list and drawn as the desktop draws them. GDK lists
+  the Font Manager's fonts, paints each character's outline into a
+  buffer (Font_SwitchOutputToBuffer: Draw paths, no hints) and writes an
+  OpenType (CFF) file per face (`gdk/riscos/gdkriscosfonts.c`,
+  `gdkriscosotf.c`), kept in `<Choices$Write>.GTK.FontCache` and made
+  again only when a font's files change; fontconfig adds them as
+  application fonts. Contours are turned for the nonzero fill rule;
+  Bold/Oblique/Italic/Light... become weights and slants, so bold and
+  italic pick the right face. Fonts without outlines and WIMPSymbol are
+  left out. Without FontConfig's fonts, Serif is now Trinity and
+  Monospace Corpus. The Log says how many faces there are and how many
+  were made (about a second for the 22 faces of a standard machine).
+  `*Set RISCOS_GTK_RISCOS_FONTS 0` turns it off. No kerning yet. Test
+  `riscosfonts-fake` (a stand-in Font Manager).
 - **GTK's stock ids work as icon names.** Older programs ask the icon
   theme for "gtk-new", "gtk-bold"... (AbiWord's whole standard toolbar
   does); no theme has those names, so the buttons had no pictures. The

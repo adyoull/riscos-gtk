@@ -44,6 +44,13 @@
  *   fontconfig's 10-scale-bitmap-fonts.conf scales to the text's size;
  *   when the set-up's config files don't include it, its rules are added
  *   too, or an emoji is drawn ten times the size of the text around it.
+ * - The desktop's own fonts (the Font Manager's: Homerton, Trinity,
+ *   Corpus, and any in !Fonts) are added as OpenType copies made on this
+ *   machine (gdkriscosfonts.c), so they're in every font list and drawn
+ *   as the desktop draws them; Trinity, Homerton and Corpus then match
+ *   by name before their document_rules fallbacks, and they end the
+ *   generic families' fallbacks: without FontConfig's fonts, Serif is
+ *   Trinity and Monospace Corpus (Sans stays the program's DejaVu Sans).
  * - The Log gets one line saying what fontconfig has: the set-up, how
  *   many fonts and families (some named), the font folders, and what
  *   Sans, Serif and Monospace become.
@@ -58,6 +65,7 @@
 #include "config.h"
 
 #include "gdkprivate-riscos.h"
+#include "gdkriscosfonts.h"
 
 #include <glib.h>
 #include <fontconfig/fontconfig.h>
@@ -214,13 +222,13 @@ static const char generic_rules[] =
   "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>sans-serif</string></edit></match>\n"
   " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>sans-serif</string></test>"
   "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Sans</string>"
-  "<string>Liberation Sans</string><string>FreeSans</string></edit></match>\n"
+  "<string>Liberation Sans</string><string>FreeSans</string><string>Homerton</string></edit></match>\n"
   " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>serif</string></test>"
   "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Serif</string>"
-  "<string>Liberation Serif</string><string>FreeSerif</string></edit></match>\n"
+  "<string>Liberation Serif</string><string>FreeSerif</string><string>Trinity</string></edit></match>\n"
   " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>monospace</string></test>"
   "<edit name=\"family\" mode=\"append\" binding=\"weak\"><string>DejaVu Sans Mono</string>"
-  "<string>Liberation Mono</string><string>FreeMono</string></edit></match>\n"
+  "<string>Liberation Mono</string><string>FreeMono</string><string>Corpus</string></edit></match>\n"
   " <match target=\"pattern\"><test qual=\"any\" name=\"family\"><string>emoji</string></test>"
   "<edit name=\"family\" mode=\"append\" binding=\"strong\"><string>Noto Color Emoji</string>"
   "<string>Apple Color Emoji</string><string>Twitter Color Emoji</string><string>Twemoji</string>"
@@ -268,7 +276,7 @@ has_config_file (FcConfig *config, const char *leaf_part)
 
 /* one Log line: what fontconfig has */
 static void
-log_fonts (FcConfig *config, const char *setup, gboolean scaling_added)
+log_fonts (FcConfig *config, const char *setup, gboolean scaling_added, int n_riscos)
 {
   FcPattern *pat = FcPatternCreate ();
   FcObjectSet *os = FcObjectSetBuild (FC_FAMILY, NULL);
@@ -323,9 +331,9 @@ log_fonts (FcConfig *config, const char *setup, gboolean scaling_added)
   serif = match_family (config, "Serif");
   mono = match_family (config, "Monospace");
   emoji = match_family (config, "emoji");
-  g_printerr ("riscos-gtk: fonts: %s: %d fonts (%d the program's own) in %u families (%s); "
+  g_printerr ("riscos-gtk: fonts: %s: %d fonts (%d the program's own, %d the desktop's) in %u families (%s); "
               "folders %s; %d config files (%s); Sans is %s, Serif %s, Monospace %s, emoji %s%s%s\n",
-              setup, n_fonts, app ? app->nfont : 0, g_hash_table_size (seen), names->str,
+              setup, n_fonts, (app ? app->nfont : 0) - n_riscos, n_riscos, g_hash_table_size (seen), names->str,
               dirs->len ? dirs->str : "(none)", n_conf, confs->str, sans, serif, mono, emoji,
               scaling_added ? "; bitmap fonts scaled by riscos-gtk's rules" : "",
               /* no emoji font: say where colour emoji come from */
@@ -355,6 +363,8 @@ _gdk_riscos_fontconfig_init (void)
   char *setup = NULL;
   FcConfig *config = NULL;
   gboolean scaling_added = FALSE;
+  GString *riscos_fonts;
+  int n_riscos;
 
   /* another program's settings mustn't redirect ours */
   g_unsetenv ("FONTCONFIG_SYSROOT");
@@ -412,8 +422,13 @@ _gdk_riscos_fontconfig_init (void)
       !FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) bitmap_scaling_rules, FcFalse))
     g_printerr ("riscos-gtk: fonts: the bitmap scaling rules didn't load\n");
   add_own_fonts (config, own_fonts);
+  /* the desktop's own fonts (Homerton, Trinity, Corpus, !Fonts) */
+  riscos_fonts = g_string_new (NULL);
+  n_riscos = _gdk_riscos_fonts_add (config, riscos_fonts);
   FcConfigSetCurrent (config);
-  log_fonts (config, setup, scaling_added);
+  g_printerr ("riscos-gtk: fonts: %s\n", riscos_fonts->str);
+  g_string_free (riscos_fonts, TRUE);
+  log_fonts (config, setup, scaling_added, n_riscos);
   FcConfigDestroy (config);          /* FcConfigSetCurrent holds it */
 
 out:

@@ -687,3 +687,38 @@ that SDL2, freeglut and the games already use.
   notes said the heap was in a dynamic area; corrected.
 - **Spawned TaskWindows** get 16 MB (`RISCOS_GTK_TASK_WIMPSLOT`): memory
   while the command runs, not address space.
+
+## The desktop's fonts as OpenType copies (2026-10-27)
+- **Why:** GTK draws text with pango, cairo and FreeType, through
+  fontconfig. They can't read RISC OS outline fonts, so programs saw
+  only DejaVu Sans and UnixFC's TrueType fonts. Documents using
+  Homerton, Trinity or Corpus fell back to other faces.
+- **What:** GDK asks the Font Manager for each font's characters
+  (Font_EnumerateCharacters in UTF-8) and their outlines. Each character
+  is painted with the output switched to a buffer (Font_SwitchOutputToBuffer,
+  no hints), which gives Draw paths. They become an OpenType file with
+  CFF outlines: Draw's curves are cubic, as CFF's are, so nothing is
+  approximated. One file per face goes in
+  `<Choices$Write>.GTK.FontCache`, keyed by the font's files. fontconfig
+  adds the files as application fonts. Code: `gdk/riscos/gdkriscosfonts.c`
+  (the Font Manager side) and `gdkriscosotf.c` (the writer, no library).
+- **Fill rule:** RISC OS fonts are filled even-odd and may draw a hole
+  the same way round as its outline. Each contour is turned by how many
+  of the glyph's other contours surround it, for CFF's nonzero rule.
+- **Why not a FreeType driver or a pango backend:** either would mean
+  patching FreeType, cairo or pango and keeping that up. A file per face
+  needs none of that. Every fontconfig program on the machine could use
+  the same files (only GTK programs make them).
+- **Why not convert the Outlines files directly:** their format (and its
+  composite and scaffold data) would have to be reimplemented. The Font
+  Manager already gives finished outlines for every font it can draw,
+  including fonts made by transforming another (the Oblique faces).
+- **Licence:** the copies are made on the user's machine, for that
+  machine, from fonts it already has. They're never packaged or
+  distributed.
+- **Left for later:** kerning (Font_ReadFontMetrics' kern pairs into a
+  `kern` or GPOS table).
+- **Tested on RISC OS on Linux** (testbed 0.10, with the owner's
+  permission for this work): the ROM fonts and HardDisc4's `!Fonts`. That
+  was 22 faces made in 1.2 s, then 0.1 s from the cache, and AbiWord drew
+  them.

@@ -10,6 +10,8 @@ gdk_riscos_sources = files(
   'gdkeventsource.c',
   'gdkfiles-riscos.c',
   'gdkfontconfig-riscos.c',
+  'gdkriscosfonts.c',
+  'gdkriscosotf.c',
   'gdkglcontext-riscos.c',
   'gdkglobals-riscos.c',
   'gdkiconbar-riscos.c',

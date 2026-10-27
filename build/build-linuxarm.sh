@@ -166,6 +166,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -o "$REPO_DIR/out/fontconfig-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+# The desktop's own fonts (gdkriscosfonts.c, gdkriscosotf.c) with a
+# stand-in Font Manager
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/riscosfonts-fake.c" \
+  -o "$REPO_DIR/out/riscosfonts-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 FCT=$REPO_DIR/out/fontconfig-linuxarm
 rm -rf "$FCT"; mkdir -p "$FCT/mono"
 unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSerif.ttf' 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansMono.ttf' -d "$FCT/sys"
@@ -368,6 +375,9 @@ for m in unixfc own forced bare; do
   EMO="$DL/NotoColorEmoji-2.051.ttf $SRC/fontconfig-2.14.1/conf.d/10-scale-bitmap-fonts.conf"
   run fontconfig-fake "$HA" "$FCT/$m" $m "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf" $EMO
 done
+RFT=$REPO_DIR/out/riscosfonts-linuxarm
+rm -rf "$RFT"; mkdir -p "$RFT"
+run riscosfonts-fake "$HA" "$RFT"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
