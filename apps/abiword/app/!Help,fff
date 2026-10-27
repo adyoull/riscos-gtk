@@ -40,10 +40,13 @@ Needs
 RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
 Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
 (PackMan). PThreadTicker is included.
-Fonts: AbiWord carries DejaVu Sans. For other fonts (Serif, Monospace and
-your own), install FontConfig and fonts from PackMan: AbiWord then uses
-the system's fonts, as other FontConfig programs do. The Log's "fonts:"
-line says which fonts it found.
+Fonts: AbiWord uses the desktop's own fonts (Homerton, Trinity, Corpus,
+and any in !Fonts), as the desktop draws them. The first time it starts
+it makes copies they can be used from, in <Choices$Write>.GTK.FontCache
+(about a second; again only when a font changes). It also carries DejaVu
+Sans, and with FontConfig and fonts from PackMan installed it uses those
+too, as other FontConfig programs do. The Log's "fonts:" lines say which
+fonts it found.
 
 Licences
 AbiWord and wv: GPL version 2 or later (Licence). enchant: LGPL 2.1 or
