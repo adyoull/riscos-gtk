@@ -20,6 +20,7 @@ need 'command -v gperf' gperf
 need 'command -v curl' curl
 need 'command -v unzip' unzip
 need 'command -v xz' xz-utils
+need 'command -v zstd' zstd
 need 'command -v glib-compile-schemas' libglib2.0-bin
 need 'command -v glib-compile-resources' libglib2.0-dev-bin
 need 'command -v update-mime-database' shared-mime-info

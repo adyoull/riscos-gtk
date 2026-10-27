@@ -11,11 +11,13 @@ This was built on Ubuntu 24.04, x86-64.
 
 ```sh
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
-    autoconf-archive gperf cmake curl unzip xz-utils python3-packaging python3-pil \
+    autoconf-archive zstd gperf cmake curl unzip xz-utils python3-packaging python3-pil \
     libglib2.0-dev-bin shared-mime-info libgdk-pixbuf2.0-bin \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
 
+- `zstd`: the British English dictionary comes in Ubuntu's .deb, whose
+  data is zstd-compressed (build/build-spell.sh).
 - `autoconf-archive`: AbiWord's configure is made again (autoreconf) after
   its patches, and uses its macros.
 - `libglib2.0-dev-bin` provides glib-compile-resources and

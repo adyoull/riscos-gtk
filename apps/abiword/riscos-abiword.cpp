@@ -9,6 +9,9 @@
  *   - settings (AbiWord's profile) in <Choices$Write>.AbiWord
  *     (XDG_CONFIG_HOME);
  *   - messages to <Wimp$ScrapDir>.AbiWord.Log;
+ *   - spelling: British English (LANG en_GB), with the program's en_GB
+ *     dictionary; more in <Choices$Write>.GTK.Dictionaries (enchant's
+ *     riscos-gtk patch);
  *   - files given by !Run (RISC OS names) become UnixLib names;
  *   - the icon bar: Select shows AbiWord's window; Menu gives Info,
  *     Choices... (AbiWord's Preferences) and Quit; Word files double-
@@ -174,6 +177,13 @@ RISCOS_MAIN (int argc, char **argv)
   int fd, i;
 
   (void) abi_get_resource ();
+  /* British English unless said otherwise: the documents' language,
+     and so the spelling dictionary (en_GB, carried in share/hunspell) */
+  g_setenv ("LANG", "en_GB", FALSE);
+  /* and the menus and dialogue boxes in AbiWord's built-in English
+     strings (LC_MESSAGES chooses them; a strings file needs iconv, and
+     with none of its strings the menus were empty) */
+  g_setenv ("LC_MESSAGES", "en_US", FALSE);
   g_setenv ("ABIWORD_DATADIR", "/<AbiWord$Dir>/share/abiword-3.0", FALSE);
   g_setenv ("FONTCONFIG_FILE", "/<AbiWord$Dir>/fonts/fonts.conf", FALSE);
   g_setenv ("XDG_DATA_DIRS", "/<AbiWord$Dir>/share", FALSE);

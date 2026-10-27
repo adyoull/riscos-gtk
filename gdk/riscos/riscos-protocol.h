@@ -97,6 +97,8 @@ typedef struct {
   guint32 window_id;
   guint32 state;
   gint32 key;
+  gint32 typed;     /* riscos-gtk: Left Alt + a letter: the character the
+                       keyboard made (key is the letter); else key */
 } RiscosInputKeyMsg;
 
 typedef struct {

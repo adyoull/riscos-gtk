@@ -4,6 +4,9 @@ riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
 - xap_UnixFrameImpl.cpp: a window's zoom updater (an idle) is removed
   when the window goes, whatever m_bDoZoomUpdate says (it crashed on a
   window closed just after a resize).
+- ev_UnixMenu.cpp: a submenu whose label is missing gets an unseen menu
+  for its items, so its end doesn't pop its parent (crashed building the
+  menu bar); the Log names the menu.
 --- a/configure.ac	2026-10-23 17:40:25.387242545 +0100
 +++ b/configure.ac	2026-10-23 17:40:25.393131005 +0100
 @@ -738,7 +738,7 @@
@@ -65,3 +68,18 @@ riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
  		g_source_remove(m_iZoomUpdateID);
  	}
  
+--- a/src/af/ev/gtk/ev_UnixMenu.cpp
++++ b/src/af/ev/gtk/ev_UnixMenu.cpp
+@@ -619,6 +619,12 @@
+ 			GtkWidget * w = gtk_menu_item_new();
+ 			UT_ASSERT(w);
+ 			m_vecMenuWidgets.addItem(g_object_ref_sink(w));
++			// riscos-gtk: and a menu for its items, unseen, so that its
++			// EV_MLF_EndSubMenu pops that, not its parent (with no label -
++			// a string the language's strings file couldn't give - the
++			// next separator or item found the stack empty and crashed)
++			g_warning ("AbiWord: menu %d has no label; its items are left out", (int) id);
++			stack.push(GTK_WIDGET(g_object_ref_sink(gtk_menu_new())));
+ 			break;
+ 		}
+ 		case EV_MLF_EndSubMenu:

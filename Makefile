@@ -59,6 +59,9 @@ mtpaint: deps
 gnumeric: deps
 	build/build-gnumeric.sh
 
+spell: deps
+	build/build-spell.sh
+
 abiword: deps
 	build/build-abiword.sh
 
@@ -79,4 +82,4 @@ sdk: deps
 clean:
 	rm -rf src sysroot out src-linuxarm sysroot-linuxarm
 
-.PHONY: all deps tests hello l3afpad themetest claws gltest geany mtpaint gnumeric abiword emoji check release sdk clean
+.PHONY: all deps tests hello l3afpad themetest claws gltest geany mtpaint gnumeric spell abiword emoji check release sdk clean

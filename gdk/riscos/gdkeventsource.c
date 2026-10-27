@@ -336,7 +336,11 @@ _gdk_riscos_events_got_input (RiscosInputMsg *message)
 	event->key.keyval = message->key.key;
 	event->key.state = message->key.state;
 	event->key.hardware_keycode = message->key.key;
-        gdk_event_set_scancode (event, message->key.key);
+        /* riscos-gtk: the scancode carries the character typed, where
+           Left Alt + a letter made the keyval the letter
+           (gtk/riscos/gtkmenu-riscos.c gives it back if no menu is
+           Alt+that letter) */
+        gdk_event_set_scancode (event, message->key.typed ? message->key.typed : message->key.key);
 	event->key.length = 0;
 	gdk_event_set_device (event, device_manager->core_keyboard);
 	gdk_event_set_seat (event, gdk_device_get_seat (device_manager->core_keyboard));

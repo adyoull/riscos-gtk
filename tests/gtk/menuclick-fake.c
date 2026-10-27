@@ -18,6 +18,9 @@
  * A window the program moves to the top of the screen (gtk_window_move
  * (w, 0, 0), as mtPaint's main window), or maximises, keeps its title bar
  * on the screen.
+ * Left Alt + a letter (GDK gives the key, not the character the keyboard
+ * made): the menu bar title with that mnemonic opens its menu; a letter
+ * no title has types the character.
  *   menuclick-fake APPDIR
  * Prints TAP; exit status = failures. MIT licence.
  */
@@ -32,7 +35,7 @@
 static int n_tests, n_failed, stage, area_presses[4], area_releases[4], list_presses;
 static GtkWidget *mainw, *toolw, *dialog, *area, *button, *list, *popup, *plain;
 static int popup_deleted, popup_escapes;
-static GtkWidget *topw;
+static GtkWidget *topw, *entry;
 static int h_main, h_tool, h_dialog, h_popup, h_plain;
 
 static void
@@ -292,6 +295,32 @@ hook (int reason)
         check (t <= 2048 && w == 1280 && h == 1024 - 20,
                "maximised: the whole screen below its title bar");
       }
+      /* Left Alt + E, which this keyboard makes an e-acute of: the key
+         is E, so the Edit menu (mnemonic _Edit) opens */
+      fake_target_window = h_main;
+      gtk_widget_grab_focus (entry);
+      fake_keys_down[2] = fake_keys_down[5] = 1;      /* Alt, Left Alt */
+      fake_keys_down[34] = 1;                         /* E */
+      add (8, 0xE9, 0, 0);
+      nulls (4);
+      stage = 12;
+      return;
+    case 12:
+      check (fake_menu && menu_has ("Undo") && !menu_has ("Quit"),
+             "Left Alt + E: the Edit menu (its mnemonic), whatever character the keyboard made");
+      fake_keys_down[34] = 0;
+      add (17, 0x400C9, 0, 0);                        /* Message_MenusDeleted */
+      /* Left Alt + Z, no menu has Z: the character the keyboard made (ae) is typed */
+      fake_keys_down[97] = 1;                         /* Z */
+      add (8, 0xE6, 0, 0);
+      nulls (4);
+      stage = 13;
+      return;
+    case 13:
+      fake_keys_down[97] = fake_keys_down[2] = fake_keys_down[5] = 0;
+      check (strcmp (gtk_entry_get_text (GTK_ENTRY (entry)), "\xc3\xa6") == 0,
+             "Left Alt + a letter no menu has: the character the keyboard made is typed");
+      printf ("# entry \"%s\"\n", gtk_entry_get_text (GTK_ENTRY (entry)));
       printf ("1..%d\n", n_tests);
       fflush (stdout);
       _exit (n_failed);
@@ -320,16 +349,24 @@ main (int argc, char **argv)
   vb = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (mainw), vb);
   bar = gtk_menu_bar_new ();
-  file = gtk_menu_item_new_with_label ("File");
+  file = gtk_menu_item_new_with_mnemonic ("_File");
   fmenu = gtk_menu_new ();
   gtk_menu_shell_append (GTK_MENU_SHELL (fmenu), gtk_menu_item_new_with_label ("Quit"));
   gtk_menu_item_set_submenu (GTK_MENU_ITEM (file), fmenu);
   gtk_menu_shell_append (GTK_MENU_SHELL (bar), file);
+  {
+    GtkWidget *edit = gtk_menu_item_new_with_mnemonic ("_Edit"), *emenu = gtk_menu_new ();
+    gtk_menu_shell_append (GTK_MENU_SHELL (emenu), gtk_menu_item_new_with_label ("Undo"));
+    gtk_menu_item_set_submenu (GTK_MENU_ITEM (edit), emenu);
+    gtk_menu_shell_append (GTK_MENU_SHELL (bar), edit);
+  }
   gtk_box_pack_start (GTK_BOX (vb), bar, FALSE, FALSE, 0);
   tb = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   button = gtk_button_new_with_label ("Brush");
   gtk_box_pack_start (GTK_BOX (tb), button, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (vb), tb, FALSE, FALSE, 0);
+  entry = gtk_entry_new ();
+  gtk_box_pack_start (GTK_BOX (vb), entry, FALSE, FALSE, 0);
   hb = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vb), hb, TRUE, TRUE, 0);
   area = gtk_drawing_area_new ();

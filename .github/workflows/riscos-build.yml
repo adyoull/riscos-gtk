@@ -23,7 +23,7 @@ env:
     out/sdk/*.tar.gz
   # the icon drawing (Pillow), the MIME database (update-mime-database),
   # GTK's resources (gdk-pixbuf-pixdata)
-  PACKAGES: "python3-pil shared-mime-info libgdk-pixbuf2.0-bin autoconf-archive"
+  PACKAGES: "python3-pil shared-mime-info libgdk-pixbuf2.0-bin autoconf-archive zstd"
 
 jobs:
   pin:

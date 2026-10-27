@@ -638,20 +638,54 @@ keyval_for (int code, guint32 *state)
   return 0;
 }
 
+/* The letter or digit key held down with Left Alt, as GTK's mnemonics
+   (Alt+F for a File menu) and Alt accelerators want it: the keyboard may
+   have made another character of it (an accented one), or none GTK knows.
+   Keyboard scan codes (PRMs, "Keyboard Scan Codes"); 0 if none is down. */
+static guint
+alt_letter (void)
+{
+  static const unsigned char letters[26] = {
+    65, 100, 82, 50, 34, 67, 83, 84, 37, 69, 70, 86, 101,     /* A..M */
+    85, 54, 55, 16, 51, 81, 35, 53, 99, 33, 66, 68, 97        /* N..Z */
+  };
+  static const unsigned char digits[10] = { 39, 48, 49, 17, 18, 19, 52, 36, 21, 38 };
+  int i;
+
+  for (i = 0; i < 26; i++)
+    if (key_down (letters[i]))
+      return GDK_KEY_a + i;
+  for (i = 0; i < 10; i++)
+    if (key_down (digits[i]))
+      return GDK_KEY_0 + i;
+  return 0;
+}
+
 static void
 handle_key (GdkRiscosServer *server, int *block)
 {
   RiscosWindow *w = window_by_handle (server, block[0]);
   RiscosInputMsg msg;
   guint32 state;
-  guint keyval;
+  guint keyval, typed;
   _kernel_swi_regs r;
 
   state = modifier_state (server) & ~(GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK);
   keyval = keyval_for (block[6], &state);
+  typed = keyval;
+  /* Left Alt (Right Alt is AltGr for typing): the key, not the character */
+  if (key_down (5) && !(state & GDK_CONTROL_MASK))
+    {
+      guint letter = alt_letter ();
+      if (letter)
+        {
+          keyval = letter;
+          state |= GDK_MOD1_MASK;
+        }
+    }
   if (g_getenv ("RISCOS_GTK_KEY_DEBUG"))  /* the Log, for key problems */
-    g_printerr ("riscos-gtk: key &%X in window &%X -> keyval %x state %x%s\n", block[6], block[0],
-                keyval, state, w ? "" : " (not ours)");
+    g_printerr ("riscos-gtk: key &%X in window &%X -> keyval %x (typed %x) state %x%s\n", block[6], block[0],
+                keyval, typed, state, w ? "" : " (not ours)");
   if (w == NULL || keyval == 0)
     {
       /* Not ours (F12, hot keys...): give it back to the Wimp. */
@@ -663,12 +697,14 @@ handle_key (GdkRiscosServer *server, int *block)
   msg.key.window_id = w->id;
   msg.key.state = state;
   msg.key.key = keyval;
+  msg.key.typed = typed;
   send (server, &msg, RISCOS_EVENT_KEY_PRESS);
   /* The Wimp has no key-release events. */
   memset (&msg, 0, sizeof msg);
   msg.key.window_id = w->id;
   msg.key.state = state;
   msg.key.key = keyval;
+  msg.key.typed = typed;
   send (server, &msg, RISCOS_EVENT_KEY_RELEASE);
 }
 

@@ -35,6 +35,8 @@
 #include "ie_imp.h"
 #include "ut_string_class.h"
 #include "ev_EditMethod.h"
+#include "gr_CairoGraphics.h"
+#include "spell_manager.h"
 #include "xap_EncodingManager.h"
 #include <iconv.h>
 
@@ -162,6 +164,78 @@ shot (const char *path)
   fclose (f);
 }
 
+/* fonts: AbiWord's font list, and what pango gives AbiWord for a family */
+static int fontlist_ok, serif_ok, mono_ok, fonts_tested;
+static char *
+face_for (GR_Graphics *g, const char *family)
+{
+  GR_Font *f = g->findFont (family, "normal", "", "normal", "", "12pt", NULL);
+  GR_PangoFont *pf = dynamic_cast<GR_PangoFont *> (f);
+  PangoFontDescription *d;
+  char *r;
+
+  if (!pf || !pf->getPangoFont ())
+    return g_strdup ("(none)");
+  d = pango_font_describe (pf->getPangoFont ());
+  r = g_strdup (pango_font_description_get_family (d));
+  pango_font_description_free (d);
+  return r;
+}
+
+static void
+check_fonts (FV_View *view)
+{
+  GR_CairoGraphics *g = dynamic_cast<GR_CairoGraphics *> (view->getGraphics ());
+  char *serif, *mono, *sans;
+  size_t i;
+  bool has_serif = false, has_mono = false;
+
+  if (!g)
+    return;
+  fonts_tested = 1;
+  const std::vector<std::string> &names = GR_CairoGraphics::getAllFontNames ();
+  for (i = 0; i < names.size (); i++)
+    {
+      has_serif = has_serif || names[i] == "DejaVu Serif";
+      has_mono = has_mono || names[i] == "DejaVu Sans Mono";
+    }
+  printf ("# font list: %d families:", (int) names.size ());
+  for (i = 0; i < names.size () && i < 12; i++)
+    printf (" %s;", names[i].c_str ());
+  printf ("\n");
+  fontlist_ok = has_serif && has_mono;
+  sans = face_for (g, "DejaVu Sans");
+  serif = face_for (g, "DejaVu Serif");
+  mono = face_for (g, "DejaVu Sans Mono");
+  printf ("# faces: DejaVu Sans -> %s, DejaVu Serif -> %s, DejaVu Sans Mono -> %s\n", sans, serif, mono);
+  serif_ok = strcmp (serif, "DejaVu Serif") == 0;
+  mono_ok = strcmp (mono, "DejaVu Sans Mono") == 0;
+  g_free (sans); g_free (serif); g_free (mono);
+}
+
+/* spelling: AbiWord's checker (enchant, hunspell built in) with the
+   program's en_GB dictionary, and one added in <Choices$Write>.GTK.
+   Dictionaries (here en_ZZ, a copy of en_GB) */
+static int spell_gb_ok, spell_bad_ok, spell_choices_ok;
+static int
+spelt_ok (SpellChecker *c, const char *word)
+{
+  UT_UCS4String w (word);
+  return c && c->checkWord (w.ucs4_str (), w.size ()) == SpellChecker::LOOKUP_SUCCEEDED;
+}
+
+static void
+check_spelling (void)
+{
+  SpellChecker *gb = SpellManager::instance ().requestDictionary ("en-GB");
+  SpellChecker *zz = SpellManager::instance ().requestDictionary ("en-ZZ");
+
+  spell_gb_ok = spelt_ok (gb, "colour") && spelt_ok (gb, "organise");
+  spell_bad_ok = gb && !spelt_ok (gb, "colur");
+  spell_choices_ok = spelt_ok (zz, "colour");
+  printf ("# spelling: en-GB %s, en-ZZ (Choices) %s\n", gb ? "loaded" : "missing", zz ? "loaded" : "missing");
+}
+
 static gboolean
 do_files (gpointer)
 {
@@ -183,6 +257,9 @@ do_files (gpointer)
   printf ("# after typing: %s\n", typed_ok ? "Risc found" : "no Risc");
   g_free (t);
   view->cmdCharInsert (std::string (" Hello from AbiWord on RISC OS."));
+  if (getenv ("UnixFC$Dir"))
+    check_fonts (view);
+  check_spelling ();
   check_txt (doc);
   for (i = 0; i < N_FORMATS; i++)
     {
@@ -328,11 +405,67 @@ main (int argc, char **argv)
   if (argc < 3)
     return 2;
   outdir = argv[2];
+  /* the system's fonts through a stand-in UnixFC (as gnumeric-fake) */
+  if (argc > 3)
+    {
+      char *fc = g_build_filename (outdir, "UnixFC", NULL);
+      char *fcfonts = g_build_filename (fc, "fonts", NULL);
+      char *sys = g_build_filename (outdir, "UnixFont", NULL);
+      char *cache = g_build_filename (outdir, "UnixFC-cache", NULL);
+      char *text, *sysconf;
+      int k;
+
+      g_mkdir_with_parents (fcfonts, 0755);
+      g_mkdir_with_parents (sys, 0755);
+      g_mkdir_with_parents (cache, 0755);
+      for (k = 3; k < argc; k++)
+        {
+          char *data, *base = g_path_get_basename (argv[k]);
+          char *dst = g_build_filename (sys, base, NULL);
+          gsize len;
+          if (g_file_get_contents (argv[k], &data, &len, NULL))
+            {
+              g_file_set_contents (dst, data, len, NULL);
+              g_free (data);
+            }
+          g_free (dst);
+          g_free (base);
+        }
+      text = g_strdup_printf ("<?xml version=\"1.0\"?>\n<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+                              "<fontconfig>\n  <dir>%s</dir>\n  <cachedir>%s</cachedir>\n</fontconfig>\n", sys, cache);
+      sysconf = g_build_filename (fcfonts, "fonts.conf", NULL);
+      g_file_set_contents (sysconf, text, -1, NULL);
+      g_setenv ("UnixFC$Dir", fc, TRUE);
+      g_free (text); g_free (sysconf); g_free (fc); g_free (fcfonts); g_free (sys); g_free (cache);
+    }
   g_setenv ("ABIWORD_DATADIR", g_build_filename (argv[1], "share", "abiword-3.0", NULL), TRUE);
   g_setenv ("FONTCONFIG_FILE", g_build_filename (argv[1], "fonts", "fonts.conf", NULL), TRUE);
   g_setenv ("XDG_DATA_DIRS", g_build_filename (argv[1], "share", NULL), TRUE);
   g_setenv ("XDG_CONFIG_HOME", outdir, TRUE);
   g_setenv ("ABIWORD_NO_LOG", "1", TRUE);
+  /* a dictionary the user added to <Choices$Write>.GTK.Dictionaries */
+  {
+    char *choices = g_build_filename (outdir, "Choices", NULL);
+    char *dd = g_build_filename (choices, "GTK", "Dictionaries", NULL);
+    const char *ext[] = { "dic", "aff" };
+    int k;
+    g_mkdir_with_parents (dd, 0755);
+    for (k = 0; k < 2; k++)
+      {
+        char *name = g_strdup_printf ("en_GB.%s", ext[k]), *zz = g_strdup_printf ("en_ZZ.%s", ext[k]);
+        char *src = g_build_filename (argv[1], "share", "hunspell", name, NULL);
+        char *dst = g_build_filename (dd, zz, NULL), *data;
+        gsize len;
+        if (g_file_get_contents (src, &data, &len, NULL))
+          {
+            g_file_set_contents (dst, data, len, NULL);
+            g_free (data);
+          }
+        g_free (name); g_free (zz); g_free (src); g_free (dst);
+      }
+    g_setenv ("Choices$Write", choices, TRUE);
+    g_free (choices); g_free (dd);
+  }
   fake_set_screen (1280, 1024, 0, 5);
   fake_wimp_nulls = 40;
   fake_wimp_hook = hook;
@@ -350,6 +483,15 @@ main (int argc, char **argv)
         check (saved[i] && reopened[i], what);
     }
   check_iconv (txt_ok, "saved as plain text (.txt)");
+  if (fonts_tested)
+    {
+      check (fontlist_ok, "with UnixFC, AbiWord's font list has the system's fonts (DejaVu Serif, Sans Mono)");
+      check (serif_ok, "and DejaVu Serif is drawn in DejaVu Serif");
+      check (mono_ok, "and DejaVu Sans Mono in DejaVu Sans Mono");
+    }
+  check (spell_gb_ok, "spelling: British English words pass (the program's en_GB dictionary)");
+  check (spell_bad_ok, "and a misspelt word is caught");
+  check (spell_choices_ok, "a dictionary added to <Choices$Write>.GTK.Dictionaries is found");
   check (iconbar_ok && frames_after == frames_before + 1,
          "a file dropped on the icon bar icon opens in a window of its own");
   check (stage == 3, "File > Quit with the documents saved quits AbiWord");

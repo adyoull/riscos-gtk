@@ -247,6 +247,20 @@ main (int argc, char **argv)
                strcmp (mode, "bare") == 0
                ? "its config has no serif or monospace rules: riscos-gtk's fallbacks give DejaVu Serif and Sans Mono"
                : "a font chooser's Serif and Monospace are the system's DejaVu Serif and Sans Mono");
+        {
+          /* documents' fonts (Word's, RISC OS's) the machine doesn't have:
+             the same kind of font, not all DejaVu Sans */
+          char *tnr = matched_family ("Times New Roman"), *arial = matched_family ("Arial");
+          char *cn = matched_family ("Courier New"), *trin = matched_family ("Trinity");
+          char *corp = matched_family ("Corpus"), *calibri = matched_family ("Calibri");
+          printf ("# Times New Roman %s, Arial %s, Courier New %s, Calibri %s, Trinity %s, Corpus %s\n",
+                  tnr, arial, cn, calibri, trin, corp);
+          check (g_strcmp0 (tnr, "DejaVu Serif") == 0 && g_strcmp0 (trin, "DejaVu Serif") == 0 &&
+                 g_strcmp0 (arial, "DejaVu Sans") == 0 && g_strcmp0 (calibri, "DejaVu Sans") == 0 &&
+                 g_strcmp0 (cn, "DejaVu Sans Mono") == 0 && g_strcmp0 (corp, "DejaVu Sans Mono") == 0,
+                 "documents' fonts (Times New Roman, Arial, Courier New, Calibri, Trinity, Corpus) get a serif, sans or monospaced font as they should");
+          g_free (tnr); g_free (arial); g_free (cn); g_free (trin); g_free (corp); g_free (calibri);
+        }
         check (app && app->nfont == own_files && own_files > 0,
                "every font file in the program's fonts folder is added as its own");
         if (has_family ("Noto Color Emoji"))

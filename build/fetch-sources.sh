@@ -72,6 +72,11 @@ get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/unive
 get abiword_3.0.8+ds.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/a/abiword/abiword_3.0.8+ds.orig.tar.xz
 get wv_1.2.9.orig.tar.gz            https://archive.ubuntu.com/ubuntu/pool/universe/w/wv/wv_1.2.9.orig.tar.gz
 get boost1.83_1.83.0.orig.tar.xz    $U/b/boost1.83/boost1.83_1.83.0.orig.tar.xz
+# spell checking (build/build-spell.sh): enchant 2 and hunspell, and
+# LibreOffice's British English dictionary as Ubuntu packages it
+get enchant-2_2.3.3.orig.tar.gz     $U/e/enchant-2/enchant-2_2.3.3.orig.tar.gz
+get hunspell_1.7.2+really1.7.2.orig.tar.gz $U/h/hunspell/hunspell_1.7.2+really1.7.2.orig.tar.gz
+get hunspell-en-gb_24.2.1-1_all.deb $U/libr/libreoffice-dictionaries/hunspell-en-gb_24.2.1-1_all.deb
 # the MIME database every application carries (build/mkmime.sh)
 get shared-mime-info_2.4.orig.tar.bz2 $U/s/shared-mime-info/shared-mime-info_2.4.orig.tar.bz2
 get dejavu-fonts-ttf-2.37.zip       https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip

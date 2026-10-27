@@ -11,8 +11,8 @@
 #     shared_ptr; nothing compiled) in $SRC/boost-1.83, not the devkit,
 # then AbiWord: Debian's patches (patches/abiword-3.0.8-debian) and
 # patches/abiword-3.0.8-riscos.diff, autoreconf (needs autoconf-archive),
-# its file format plugins linked in (--enable-builtin-plugins), no spell
-# checking yet. The program's main() is apps/abiword/riscos-abiword.cpp.
+# its file format plugins linked in (--enable-builtin-plugins), spell
+# checking through enchant/hunspell (build-spell.sh). The program's main() is apps/abiword/riscos-abiword.cpp.
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 JOBS=${JOBS:-$(nproc)}
@@ -21,6 +21,9 @@ fail() { grep -E 'error|Error' "$1" | head -20; echo "build-abiword.sh: failed, 
 for f in libxml2.a libxslt.a libgsf-1.a libgoffice-0.10.a librsvg-2.a; do
   [ -f "$STAGE/lib/$f" ] || { echo "build-abiword.sh: no $f: run build-gnumeric.sh first" >&2; exit 1; }
 done
+# spell checking: enchant and hunspell (build-spell.sh, shared with other
+# programs), with the en_GB dictionary
+"$HERE/build-spell.sh"
 command -v autoreconf > /dev/null && [ -f /usr/share/aclocal/ax_check_compile_flag.m4 ] ||
   { echo "build-abiword.sh: needs autoconf and autoconf-archive (build/check-host.sh)" >&2; exit 1; }
 
@@ -97,7 +100,7 @@ if [ -z "${ABIWORD_RELINK:-}" ]; then
      ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --libdir=$PREFIX/lib \
      --disable-shared --enable-static --disable-default-plugins \
      --enable-plugins="$PLUGINS" --enable-builtin-plugins="$PLUGINS" \
-     --disable-spell --with-goffice --with-boost="$BOOST" --without-redland \
+     --enable-spell --with-goffice --with-boost="$BOOST" --without-redland \
      --without-evolution-data-server --without-libical --without-champlain \
      --disable-introspection --disable-maintainer-mode ac_cv_path_LIBGCRYPT_CONFIG=no \
      >> ../abiword.log 2>&1) || fail "$SRC/abiword.log"
@@ -117,26 +120,29 @@ LIBABI=$AB/src/.libs/libabiword-3.0.a
 # (relative to src: made absolute)
 AB_CFLAGS="-DHAVE_CONFIG_H -I$AB -I$AB/src $(make -s -C "$AB/src" -f Makefile -f <(printf 'print-cppflags:\n\t@echo $(libabiword_3.0_la_CPPFLAGS)\n') print-cppflags |
   sed -e "s| -I\.\./| -I$AB/|g" -e "s| -I\./| -I$AB/src/|g")"
-AB_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0) -ljpeg -lstdc++ -lm"
+AB_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2) -ljpeg -lstdc++ -lm"
 
 # ---- !AbiWord ----
 VERSION=${VERSION:-3.0.8-riscos1}
 APP=$SRC/abiword-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/abiword/app" "$APP"
 # AbiWord's data: dialogue .ui files, templates, the XSLT for MathML and
-# Word's equations, the system profile; strings in English only (the
-# other languages' files are 9 MB, and riscos-gtk is in English)
+# Word's equations, the system profile; no strings files (AbiWord's
+# built-in English strings are used: riscos-abiword.cpp)
 I=$SRC/abiword-inst; rm -rf "$I"
 make -C "$AB" install-data DESTDIR="$I" > /dev/null 2>&1 || make -C "$AB" install DESTDIR="$I" > /dev/null
 D=$APP/share/abiword-3.0
 mkdir -p "$D"
 (cd "$I$PREFIX/share/abiword-3.0" && cp -r ui templates xsltml omml_xslt mime-info system.profile readme.abw "$D/")
-mkdir -p "$D/strings"
-cp "$I$PREFIX/share/abiword-3.0/strings"/en*.strings "$D/strings/" 2>/dev/null || true
 mkdir -p "$APP/share/icons"
 (cd "$I$PREFIX/share/icons" && find hicolor -name '*.png' | while read -r f; do
   mkdir -p "$APP/share/icons/$(dirname "$f")"; cp "$f" "$APP/share/icons/$f"; done)
 cp "$AB/COPYING" "$APP/Licence,fff"   # GPL 2
+# the British English dictionary (hunspell finds it through XDG_DATA_DIRS:
+# /<AbiWord$Dir>/share); others go in <Choices$Write>.GTK.Dictionaries
+mkdir -p "$APP/share/hunspell"
+cp "$SRC/dictionaries/en_GB.dic" "$SRC/dictionaries/en_GB.aff" "$APP/share/hunspell/"
+cp "$SRC/dictionaries/README_en_GB.txt" "$APP/share/hunspell/LicenceDictionary,fff"
 if [ "$TARGET" != riscos ]; then
   # the tests link these themselves (tests/gtk/abiword-fake.cpp)
   { printf 'AB_CFLAGS=%q\n' "$AB_CFLAGS"; printf 'AB_LIBS=%q\n' "$LIBABI"; } > "$SRC/abiword-build.txt"

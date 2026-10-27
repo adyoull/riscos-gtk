@@ -21,8 +21,15 @@ Using it
 - File > Save As: a RISC OS Save box (the format is chosen from the name,
   e.g. .odt, .docx, .rtf, .abw); File > Open: an Open box.
 - AbiWord's settings are kept in <Choices$Write>.AbiWord.
+- Left Alt and a menu's underlined letter opens that menu (Alt+F: File),
+  at the window's top left; F10 opens the whole menu there.
+- Spelling: British English, with the dictionary AbiWord carries. For
+  other languages, put hunspell dictionaries (e.g. de_DE/dic and
+  de_DE/aff, from LibreOffice's or your Linux distribution's) in
+  <Choices$Write>.GTK.Dictionaries: every GTK program that checks
+  spelling uses them. Words you add are kept in <Choices$Write>.GTK.Enchant.
 
-Not in this build: spelling and grammar checking, the thesaurus,
+Not in this build: grammar checking, the thesaurus,
 collaboration, equations (MathML), WordPerfect and Works files, PDF
 import, SVG pictures, help.
 
@@ -39,7 +46,9 @@ the system's fonts, as other FontConfig programs do. The Log's "fonts:"
 line says which fonts it found.
 
 Licences
-AbiWord and wv: GPL version 2 or later (Licence). GTK, GLib and the
+AbiWord and wv: GPL version 2 or later (Licence). enchant: LGPL 2.1 or
+later; hunspell: LGPL/MPL/GPL; the British English dictionary: LGPL
+(share.hunspell.LicenceDictionary). GTK, GLib and the
 other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
 libxslt: MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
 Source.

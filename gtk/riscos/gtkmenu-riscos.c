@@ -805,6 +805,86 @@ _gtk_menu_riscos_hide_menubar (void)
   return hide;
 }
 
+/* A Wimp menu of shell (the window's menu bar, or one of its menus),
+   titled title (UTF-8), its top left at x, y (GDK root) */
+static gboolean
+open_shell_menu (GtkMenuShell *shell, const char *title, int x, int y)
+{
+  GdkDisplay *display = gtk_widget_get_display (GTK_WIDGET (shell));
+  MenuState *st;
+
+  if (!GDK_IS_RISCOS_DISPLAY (display))
+    return FALSE;
+  if (current)
+    {
+      MenuState *old = current;
+      current = NULL;
+      gdk_riscos_display_close_menu (display);
+      if (!old->handling)
+        state_free (old);
+    }
+  st = g_new0 (MenuState, 1);
+  st->menu = g_object_ref (shell);
+  st->menus = g_ptr_array_new ();
+  st->mem = g_ptr_array_new_with_free_func (g_free);
+  if (build (st, shell, title) < 0)
+    {
+      state_free (st);
+      return FALSE;
+    }
+  current = st;
+  menus_opened++;
+  trace ("menu from the keyboard", st);
+  gdk_riscos_display_open_menu (display, ((WimpMenu *) g_ptr_array_index (st->menus, 0))->block,
+                                x, y, menu_event, st);
+  return TRUE;
+}
+
+/* Left Alt + a letter (GDK gives the letter, gdkriscos-server.c): the
+   menu of the window's menu bar title with that mnemonic (Alt+F: File),
+   as GTK's menu bar does; it opens at the window's top left, where the
+   menu bar would be. F10, GTK's key for the menu bar: the whole window
+   menu there. TRUE if a menu opened. */
+static gboolean
+key_menu (GtkWidget *top, GtkMenuShell *bar, GdkEventKey *event)
+{
+  GdkWindow *gw = gtk_widget_get_window (top);
+  int ox = 0, oy = 0;
+  GList *kids, *l;
+  gboolean done = FALSE;
+  guint want = gdk_keyval_to_lower (event->keyval);
+
+  if (gw)
+    gdk_window_get_origin (gw, &ox, &oy);
+  if (event->keyval == GDK_KEY_F10 && !(event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SHIFT_MASK)))
+    {
+      const char *title = g_get_application_name ();
+      return open_shell_menu (bar, title ? title : g_get_prgname (), ox, oy);
+    }
+  if (!(event->state & GDK_MOD1_MASK) || (event->state & GDK_CONTROL_MASK))
+    return FALSE;
+  kids = gtk_container_get_children (GTK_CONTAINER (bar));
+  for (l = kids; l && !done; l = l->next)
+    {
+      GtkWidget *item = l->data, *label, *sub;
+      if (!GTK_IS_MENU_ITEM (item) || !gtk_widget_get_visible (item) || !gtk_widget_is_sensitive (item))
+        continue;
+      label = find_label (item);
+      sub = gtk_menu_item_get_submenu (GTK_MENU_ITEM (item));
+      if (label && sub && GTK_IS_MENU_SHELL (sub) &&
+          gdk_keyval_to_lower (gtk_label_get_mnemonic_keyval (GTK_LABEL (label))) == want)
+        {
+          gchar *t = item_text (item);
+          /* programs that fill a menu when it's shown (recent files) */
+          g_signal_emit_by_name (item, "activate");
+          done = open_shell_menu (GTK_MENU_SHELL (sub), t, ox, oy);
+          g_free (t);
+        }
+    }
+  g_list_free (kids);
+  return done;
+}
+
 static gboolean
 open_window_menu (GtkMenuShell *bar, GdkEventButton *event)
 {
@@ -908,6 +988,30 @@ event_handler (GdkEvent *event, gpointer data)
   GtkWidget *w = NULL, *top = NULL, *bar = NULL;
   guint before;
 
+  if (event->type == GDK_KEY_PRESS && event->any.window)
+    {
+      guint16 typed = gdk_event_get_scancode (event);
+      gdk_window_get_user_data (event->any.window, (gpointer *) &w);
+      top = w && GTK_IS_WIDGET (w) ? gtk_widget_get_toplevel (w) : NULL;
+      bar = top && GTK_IS_WINDOW (top) ? window_menu_for (top) : NULL;
+      if (bar && gtk_widget_get_visible (bar) && gtk_widget_is_sensitive (bar) &&
+          key_menu (top, GTK_MENU_SHELL (bar), &event->key))
+        return;
+      /* Left Alt + a letter no menu has: the window's own Alt shortcuts
+         (mnemonics in dialogue boxes, accelerators) take it as Alt+letter;
+         if none does, the character the keyboard made of it is typed */
+      if ((event->key.state & GDK_MOD1_MASK) && typed && typed != event->key.keyval &&
+          top && GTK_IS_WINDOW (top))
+        {
+          if (gtk_window_activate_key (GTK_WINDOW (top), &event->key))
+            return;
+          event->key.keyval = typed;
+          event->key.hardware_keycode = typed;
+          event->key.state &= ~GDK_MOD1_MASK;
+        }
+      gtk_main_do_event (event);
+      return;
+    }
   if (!event->any.window || event->button.button != 3 ||
       (event->type != GDK_BUTTON_PRESS && event->type != GDK_2BUTTON_PRESS &&
        event->type != GDK_3BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE))
@@ -955,19 +1059,28 @@ event_handler (GdkEvent *event, gpointer data)
     g_object_unref (bar);
 }
 
+/* GTK's events come here first (gtk_init, by way of
+   _gtk_riscos_theme_init): Menu clicks, and keys typed with Left Alt
+   even in programs without a menu bar */
 void
-_gtk_menu_riscos_menubar_attach (GtkWidget *bar, GtkWidget *toplevel)
+_gtk_menu_riscos_init (void)
 {
   static gboolean handler_set;
 
-  if (!_gtk_menu_riscos_hide_menubar () || !GTK_IS_WINDOW (toplevel) ||
-      !GDK_IS_RISCOS_DISPLAY (gtk_widget_get_display (toplevel)))
-    return;
   if (!handler_set)
     {
       handler_set = TRUE;
       gdk_event_handler_set (event_handler, NULL, NULL);
     }
+}
+
+void
+_gtk_menu_riscos_menubar_attach (GtkWidget *bar, GtkWidget *toplevel)
+{
+  if (!_gtk_menu_riscos_hide_menubar () || !GTK_IS_WINDOW (toplevel) ||
+      !GDK_IS_RISCOS_DISPLAY (gtk_widget_get_display (toplevel)))
+    return;
+  _gtk_menu_riscos_init ();
   /* the window's first menu bar is its menu */
   if (g_object_get_data (G_OBJECT (toplevel), "riscos-gtk-window-menu") == NULL)
     {

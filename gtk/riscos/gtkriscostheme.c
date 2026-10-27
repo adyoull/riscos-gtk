@@ -36,6 +36,7 @@
 
 #include "gtkriscostheme.h"
 #include "gtkiconbar-riscos.h"
+#include "gtkmenu-riscos.h"
 #include "gtkcssprovider.h"
 #include "gtkstylecontext.h"
 #include "gtkstyleprovider.h"
@@ -912,6 +913,7 @@ _gtk_riscos_theme_init (GdkDisplay *display)
   if (done || display == NULL || !GDK_IS_RISCOS_DISPLAY (display))
     return;
   done = TRUE;
+  _gtk_menu_riscos_init ();   /* Menu clicks and Left Alt keys (gtkmenu-riscos.c) */
   grip_init ();
   _gtk_riscos_iconbar_init (display);
   if (env && strcmp (env, "0") == 0)

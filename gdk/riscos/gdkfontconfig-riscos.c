@@ -30,6 +30,11 @@
  *   they're installed, even if the system's conf.d (fontconfig's
  *   60-latin.conf) didn't load or lacks them. The system's own
  *   preferences (which come first) still win.
+ * - Families documents name that the machine is unlikely to have (Times
+ *   New Roman, Arial, Courier New, Calibri; RISC OS's Trinity, Homerton,
+ *   Corpus): their metric-compatible stand-ins (Liberation, Carlito,
+ *   Caladea) if installed, else the generic family, so a document's
+ *   fonts aren't all drawn alike (document_rules).
  * - Emoji: pango asks for the family "emoji"; the fallbacks append the
  *   colour emoji fonts (Noto Color Emoji...) and Symbola to it. Programs
  *   don't carry an emoji font: riscos-gtk's optional PackMan package
@@ -142,6 +147,57 @@ match_family (FcConfig *config, const char *name)
   FcPatternDestroy (pat);
   return family ? family : g_strdup ("(none)");
 }
+
+/* Families documents name (Word's, the Mac's, RISC OS's own) that the
+   machine is unlikely to have: their metric-compatible stand-ins
+   (Liberation, Carlito, Caladea) when installed, else the generic family
+   they belong to, so Times New Roman looks like a serif font and Courier
+   New like a monospaced one, not all like DejaVu Sans (as fontconfig's
+   30-metric-aliases and 45-latin, which a set-up may not have). Loaded
+   before generic_rules, whose serif/sans-serif/monospace rules follow. */
+static const char document_rules[] =
+  "<?xml version=\"1.0\"?>\n"
+  "<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+  "<fontconfig>\n"
+  " <alias binding=\"same\"><family>Times New Roman</family><accept><family>Liberation Serif</family></accept><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Times</family><accept><family>Liberation Serif</family></accept><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Cambria</family><accept><family>Caladea</family></accept><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Georgia</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Garamond</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Book Antiqua</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Palatino Linotype</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Palatino</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Century Schoolbook</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Bookman Old Style</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Constantia</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>New York</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Trinity</family><default><family>serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Arial</family><accept><family>Liberation Sans</family></accept><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Helvetica</family><accept><family>Liberation Sans</family></accept><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Arial Narrow</family><accept><family>Liberation Sans Narrow</family></accept><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Calibri</family><accept><family>Carlito</family></accept><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Verdana</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Tahoma</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Segoe UI</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Trebuchet MS</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Lucida Sans</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Lucida Grande</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Gill Sans</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Century Gothic</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Candara</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Corbel</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Franklin Gothic</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Helvetica Neue</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Geneva</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Homerton</family><default><family>sans-serif</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Courier New</family><accept><family>Liberation Mono</family></accept><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Courier</family><accept><family>Liberation Mono</family></accept><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Consolas</family><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Lucida Console</family><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Monaco</family><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Andale Mono</family><default><family>monospace</family></default></alias>\n"
+  " <alias binding=\"same\"><family>Corpus</family><default><family>monospace</family></default></alias>\n"
+  "</fontconfig>\n";
 
 /* the generic families' fallbacks, appended after the set-up's rules;
    "append" puts them right after the generic name, ahead of any
@@ -348,6 +404,8 @@ _gdk_riscos_fontconfig_init (void)
       goto out;
     }
   scaling_added = !has_config_file (config, "scale-bitmap-fonts");
+  if (!FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) document_rules, FcFalse))
+    g_printerr ("riscos-gtk: fonts: the document families' rules didn't load\n");
   if (!FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) generic_rules, FcFalse))
     g_printerr ("riscos-gtk: fonts: the generic families' fallback rules didn't load\n");
   if (scaling_added &&

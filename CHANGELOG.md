@@ -1,6 +1,33 @@
 # Changelog
 
 ## Since 3.24.41-riscos1.0-rc11
+- **Fonts documents name are drawn in the right kind of font.** A
+  document's Times New Roman, Arial, Courier New, Calibri, Georgia,
+  Verdana... (and RISC OS's Trinity, Homerton, Corpus) became DejaVu Sans
+  when the machine didn't have them, so a document's fonts all looked
+  the same. GDK now adds aliases (as fontconfig's 30-metric-aliases and
+  45-latin): metric-compatible stand-ins (Liberation, Carlito, Caladea)
+  when installed, else serif, sans-serif or monospace. Test
+  `fontconfig-fake`.
+- **Left Alt + a letter opens that menu**, as Alt+F opens File in GTK's
+  menu bar elsewhere: the window's menu bar title with that underlined
+  letter gives its Wimp menu at the window's top left; F10 gives the
+  whole menu there. GDK takes the key itself (OS_Byte 121 keyboard scan
+  codes), not the character the keyboard made of it; a letter no title
+  has still types that character. Right Alt (AltGr) types as before.
+  Every program. Test `menuclick-fake`.
+- **Spell checking for GTK programs:** enchant 2.3.3 and hunspell 1.7.2
+  in the library stack (`build/build-spell.sh`,
+  `patches/enchant-2.3.3-riscos.diff`: the hunspell provider linked in,
+  no dlopen). Dictionaries in `<Choices$Write>.GTK.Dictionaries` serve
+  every program; personal word lists in `<Choices$Write>.GTK.Enchant`;
+  programs carry the British English dictionary (LibreOffice's, LGPL).
+- **AbiWord test2:** spell checking (British English); LANG en_GB with
+  AbiWord's built-in English strings (a strings file needs iconv; with
+  none of its strings the menus were empty, and the menu bar's build
+  crashed: now each submenu without a label gets an unseen menu, and the
+  Log names it). Test `abiword-fake`: fonts with UnixFC, spelling, a
+  dictionary added to Choices.
 - **AbiWord 3.0.8, a first test build** (`make abiword`,
   `build/build-abiword.sh`; not in a release yet): the word processor,
   with its file format plugins linked in (OpenDocument, Word .docx and
