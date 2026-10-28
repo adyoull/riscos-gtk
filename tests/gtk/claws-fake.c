@@ -58,7 +58,8 @@ static char html_header_text[512];
 static int theme_chosen = -1, theme_icons = -1, defaults_marker = -1, promote_html = -1;
 static const char *outdir;
 static char home[600];
-static int stage, polls, password_answers, send_pressed, compose_seen;
+static int stage, polls, password_answers, send_pressed, compose_seen, spell_seen = -1;
+int fake_claws_spell (void);
 static int inbox_files, smtp_files, main_window_seen;
 static char inbox_text[4096], smtp_text[4096], server_log[8192];
 
@@ -660,6 +661,10 @@ finish (void)
          "the server's name is given to AcornSSL (SNI, and its certificate check)");
   check (compose_seen && send_pressed, "the compose window opens (--compose); Send is pressed");
   check (emoji_menu == 1, "the compose window's Message menu has Insert emoji...");
+  printf ("# spelling: %d\n", spell_seen);
+  check (spell_seen >= 0 && (spell_seen & 1), "spelling is on, with the British English dictionary (Choices' default)");
+  check (spell_seen >= 0 && (spell_seen & 2), "enchant finds the application's en_GB dictionary: colour is right, speling isn't");
+  check (spell_seen >= 0 && (spell_seen & 4), "the compose window checks its spelling as it's typed");
   check (emoji_chooser == 1, "Insert emoji... opens GTK's emoji chooser on the field being typed in");
   check (emoji_drawn == 1, "the chooser is laid out (bigger than 200x200) and shown, not left 1x1");
   check (emoji_inserted == 1, "an emoji picked in the chooser is typed into that field");
@@ -1041,6 +1046,8 @@ hook (int reason)
         {
           GtkWidget *send = find_button (w, "Send");
           compose_seen = 1;
+          if (spell_seen < 0)
+            spell_seen = fake_claws_spell ();
           if (emoji_step == 0)
             {
               /* Message > Insert emoji...: the chooser on the focused field */

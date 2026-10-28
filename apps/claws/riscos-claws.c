@@ -560,6 +560,22 @@ riscos_claws_open_uri (const gchar *uri)
       compose_new (NULL, uri, NULL);
       return 0;
     }
+  if (g_ascii_strncasecmp (uri, "file:", 5) == 0)
+    {
+      /* the manual (share/doc/manual), a file: the Filer opens it with
+         what the desktop has for its type (a browser, for HTML); the
+         Filer can't go to an anchor, so it's left off */
+      char *file = g_strndup (uri, strcspn (uri, "#"));
+      GError *error = NULL;
+      gboolean ok = gdk_riscos_show_uri (file, &error);
+      if (!ok)
+        {
+          gdk_riscos_report_error (error ? error->message : file);
+          g_clear_error (&error);
+        }
+      g_free (file);
+      return ok ? 0 : -1;
+    }
   if (pending_uri)
     {
       /* a browser is being started: this link goes when it's running */

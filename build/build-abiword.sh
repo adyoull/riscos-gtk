@@ -4,7 +4,7 @@
 #   RCD_DIR=... SRC=... SYSROOT=... build/build-abiword.sh
 #   TARGET=linuxarm ...: the same build for the tests (stops after make)
 # Builds what AbiWord needs into $STAGE if it isn't there:
-#   libxml2, libxslt, libgsf, GOffice and librsvg's stand-in (as for
+#   libxml2, libxslt, libgsf, GOffice and librsvg (as for
 #     Gnumeric: build-gnumeric.sh makes them; run it first),
 #   wv 1.2.9 (Word 97-2003 files),
 #   Boost 1.83's headers (AbiWord uses boost::function, bind and
@@ -26,15 +26,6 @@ done
 "$HERE/build-spell.sh"
 command -v autoreconf > /dev/null && [ -f /usr/share/aclocal/ax_check_compile_flag.m4 ] ||
   { echo "build-abiword.sh: needs autoconf and autoconf-archive (build/check-host.sh)" >&2; exit 1; }
-
-# ---- librsvg's stand-in: AbiWord also uses rsvg_handle_new/write/close ----
-if ! $HOST-nm "$STAGE/lib/librsvg-2.a" 2>/dev/null | grep -q ' T rsvg_handle_new$'; then
-  log "librsvg stand-in"
-  R=$REPO_DIR/riscos/rsvg-stub
-  cp "$R"/librsvg/*.h "$STAGE/include/librsvg-2.0/librsvg/"
-  $CC $RO_CFLAGS -I"$R" $(pkg-config --cflags gdk-pixbuf-2.0 cairo) -c "$R/rsvg-stub.c" -o "$SRC/rsvg-stub.o"
-  rm -f "$STAGE/lib/librsvg-2.a"; $AR rcs "$STAGE/lib/librsvg-2.a" "$SRC/rsvg-stub.o"
-fi
 
 # ---- wv (Word 97-2003) ----
 if [ ! -f "$STAGE/lib/libwv.a" ]; then
@@ -85,7 +76,7 @@ fi
 # ---- AbiWord ----
 V=3.0.8
 AB=$SRC/AbiWord-release-$V
-PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout"
+PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout goffice"
 RISCOS_FLAGS="-DABI_RISCOS"
 if [ -z "${ABIWORD_RELINK:-}" ]; then
   log AbiWord
@@ -116,11 +107,35 @@ if [ -z "${ABIWORD_RELINK:-}" ]; then
 fi
 LIBABI=$AB/src/.libs/libabiword-3.0.a
 [ -f "$LIBABI" ] || { echo "build-abiword.sh: no $LIBABI" >&2; exit 1; }
+# GOffice's own plugins (the chart types, trend lines...) for the goffice
+# plugin's charts, linked in and registered with GLib's static module
+# registry (tools/mkstaticmodules.py, as for Gnumeric, whose build
+# compiled them)
+GO=$SRC/goffice-0.10.57
+module_file() {  # PLUGIN.XML: its loader's module_file
+  grep -o 'value="[^"]*" name="module_file"\|name="module_file" value="[^"]*"' "$1" |
+    sed -E 's/.*value="([^"]*)".*/\1/' | head -1
+}
+GOMODS=()
+for x in "$GO"/plugins/*/plugin.xml; do
+  d=$(dirname "$x"); n=$(basename "$d"); mf=$(module_file "$x")
+  [ "$n" != lasem ] || continue
+  [ -n "$mf" ] && ls "$d"/*.o > /dev/null 2>&1 || continue
+  GOMODS+=("$n/$mf=$(ls "$d"/*.o | tr '\n' ,)")
+done
+[ ${#GOMODS[@]} -gt 5 ] || { echo "build-abiword.sh: GOffice's plugins aren't built (build-gnumeric.sh)" >&2; exit 1; }
+ST=$SRC/abiword-static
+rm -rf "$ST"
+python3 "$REPO_DIR/tools/mkstaticmodules.py" --nm $HOST-nm --objcopy $HOST-objcopy --ar $AR \
+  --out "$ST" "${GOMODS[@]}" > "$ST.archives" || { echo "build-abiword.sh: GOffice's plugins" >&2; exit 1; }
+$CC $RO_CFLAGS $(pkg-config --cflags gmodule-2.0) -c "$ST/staticmodules.c" -o "$ST/staticmodules.o"
+LIBABI="$LIBABI $ST/staticmodules.o $(cat "$ST.archives" | tr '\n' ' ')"
+log "${#GOMODS[@]} GOffice plugins built in"
 # the include flags AbiWord's own sources are compiled with
 # (relative to src: made absolute)
 AB_CFLAGS="-DHAVE_CONFIG_H -I$AB -I$AB/src $(make -s -C "$AB/src" -f Makefile -f <(printf 'print-cppflags:\n\t@echo $(libabiword_3.0_la_CPPFLAGS)\n') print-cppflags |
   sed -e "s| -I\.\./| -I$AB/|g" -e "s| -I\./| -I$AB/src/|g")"
-AB_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2) -ljpeg -lstdc++ -lm"
+AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2) -ljpeg -lstdc++ -lm"
 
 # ---- !AbiWord ----
 VERSION=${VERSION:-3.0.8-riscos1}
@@ -137,6 +152,16 @@ mkdir -p "$D"
 # (no hicolor icons: the application icon, "abiword", is drawn in the
 # RISC OS style with the toolbar's: ICON_PACK=abiword, below)
 cp "$AB/COPYING" "$APP/Licence,fff"   # GPL 2
+# GOffice's plugins' descriptions and the files they read (the chart
+# types: plot-types.xml...), where GOffice looks (GOFFICE_DIR:
+# riscos-abiword.cpp)
+for spec in "${GOMODS[@]}"; do
+  n=${spec%%/*}; P=$GO/plugins/$n; D=$APP/goffice/lib/plugins/$n
+  mkdir -p "$D"; cp "$P/plugin.xml" "$D/"
+  for f in $(sed -n 's|.*<file>\([^<]*\)</file>.*|\1|p' "$P/plugin.xml"); do
+    cp "$P/$f" "$D/"
+  done
+done
 # the British English dictionary (hunspell finds it through XDG_DATA_DIRS:
 # /<AbiWord$Dir>/share); others go in <Choices$Write>.GTK.Dictionaries
 mkdir -p "$APP/share/hunspell"
@@ -150,7 +175,7 @@ fi
 
 $CXX -std=c++11 $RO_CFLAGS -Wall -Wno-deprecated-declarations $RISCOS_FLAGS $AB_CFLAGS \
   -DRISCOS_PORT_VERSION=\"$VERSION\" -c "$REPO_DIR/apps/abiword/riscos-abiword.cpp" -o "$SRC/riscos-abiword.o"
-$CXX -std=c++11 $RO_CFLAGS "$SRC/riscos-abiword.o" "$LIBABI" -o "$SRC/abiword-prog" -static $AB_LDLIBS
+$CXX -std=c++11 $RO_CFLAGS "$SRC/riscos-abiword.o" $LIBABI -o "$SRC/abiword-prog" -static $AB_LDLIBS
 export PREBUILT=$SRC/abiword-prog
 # the toolbar's own icons and the application icon in the RISC OS style
 # (tools/riscosicons_apps.py)

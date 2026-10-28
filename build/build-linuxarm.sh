@@ -12,6 +12,7 @@
 export TARGET=linuxarm
 HERE=$(cd "$(dirname "$0")" && pwd)
 [ "${1:-}" = tests ] || "$HERE/build-deps.sh"
+[ "${1:-}" = tests ] || "$HERE/build-svg.sh"
 . "$HERE/env.sh"
 mkdir -p "$REPO_DIR/out"
 FONTS=$REPO_DIR/out/fonts-linuxarm
@@ -34,6 +35,12 @@ build() {  # NAME SOURCE PKGS...
 
 build glibtest "$REPO_DIR/tests/glib/glibtest.c" gio-2.0
 build rendertest "$REPO_DIR/tests/render/rendertest.c" pangocairo gdk-pixbuf-2.0
+# SVG (build-svg.sh): with librsvg's loader built in, and without it
+build svgtest "$REPO_DIR/tests/render/svgtest.c" riscos-gtk-svg librsvg-2.0 gdk-pixbuf-2.0
+$CC $RO_CFLAGS -no-pie -Wall -DNO_SVG $(pkg-config --cflags gdk-pixbuf-2.0 cairo) "$REPO_DIR/tests/render/svgtest.c" \
+  -o "$REPO_DIR/out/svgtest-nosvg-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gdk-pixbuf-2.0 cairo | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
 # DejaVu Sans and a fonts.conf for the render test (as on RISC OS, where
 # the app ships the same font).
@@ -248,11 +255,11 @@ rm -f "$CS/main.o"
 make -s -C "$CS" main.o CPPFLAGS="-D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$CS/common/gnutls-acornssl -Dmain=claws_main" > /dev/null
 mv "$CS/main.o" "$CO/main.o"
 (cd "$CO" && $CC $RO_CFLAGS -c -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -D__riscos=1 \
-  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/apps/claws/riscos-claws.c" \
+  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0 enchant-2) "$REPO_DIR/apps/claws/riscos-claws.c" \
   "$REPO_DIR/tests/gtk/claws-fake-claws.c")
 $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/claws-fake.c" \
   "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/etpan/.libs/libclawsetpan.a" "$CS/gtk/.libs/libclawsgtk.a" "$CS/plugins/litehtml_viewer/liblhviewer.a" \
-  -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle -lgumbo $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle -lgumbo $(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 CT=$REPO_DIR/out/claws-linuxarm
 rm -rf "$CT"; mkdir -p "$CT"
@@ -261,6 +268,8 @@ CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2)); CP4=$((CP1 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
 run rendertest "$scratch" "$FONTS/fonts.conf"
+run svgtest "$scratch" "$FONTS/fonts.conf"
+run svgtest-nosvg "$scratch"
 run hellotest "$HA" "$REPO_DIR/out/hellotest.ppm"
 run themetest-fake "$HA" "$TT"
 # again in an EX0 EY0 (180 dpi) mode: GDK scale 2 (FAKE_EIG=0 doubles the
@@ -320,7 +329,7 @@ if [ -f "$SRC/gnumeric-libs.txt" ]; then
   $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $GNC "$REPO_DIR/tests/gtk/gnumeric-fake.c" \
     "$GNT/riscos-gnumeric.o" "$SRC/gnumeric-static/staticmodules.c" "$SRC/gnumeric-main.o" $(cat "$SRC/gnumeric-libs.txt") \
     -o "$REPO_DIR/out/gnumeric-fake-linuxarm" \
-    -Wl,-Bstatic $(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+    -Wl,-Bstatic $(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
     -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
   run gnumeric-fake "$GNT" "$GNT/out" "$FCT/sys/DejaVuSerif.ttf" "$FCT/sys/DejaVuSansMono.ttf"
 else
@@ -334,6 +343,7 @@ if [ -f "$SRC/abiword-build.txt" ]; then
   ABT=$REPO_DIR/out/abiword-linuxarm
   rm -rf "$ABT"; mkdir -p "$ABT/out"
   cp -r "$HA"/. "$ABT/"; cp -rn "$SRC/abiword-app/share"/. "$ABT/share/"
+  cp -r "$SRC/abiword-app/goffice" "$ABT/"
   python3 "$REPO_DIR/build/mkicons.py" "$ADW/Adwaita" "$REPO_DIR/theme/icons-list.txt" "$ABT/share/icons" > /dev/null
   IPF=$(mktemp -d)
   unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf' -d "$IPF"
@@ -344,7 +354,7 @@ if [ -f "$SRC/abiword-build.txt" ]; then
   $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS $AB_CFLAGS \
     -c "$REPO_DIR/tests/gtk/abiword-fake.cpp" -o "$ABT/abiword-fake.o"
   $CXX -no-pie "$ABT/abiword-fake.o" "$ABT/riscos-abiword.o" $AB_LIBS -o "$REPO_DIR/out/abiword-fake-linuxarm" \
-    -Wl,-Bstatic $(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') -ljpeg \
+    -Wl,-Bstatic $(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') -ljpeg \
     -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
   run abiword-fake "$ABT" "$ABT/out"
 else
@@ -393,7 +403,11 @@ run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
 python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 & mailserver=$!
 for i in $(seq 50); do [ -f "$CT/server.ready" ] && break; sleep 0.1; done
-CLAWS_RISCOS_THEME="$REPO_DIR/apps/claws/app/share/claws-mail/themes/RISCOS" run claws-fake "$HA" "$CT" $CP1 $CP2 $CP3 $CP4
+# the application's files as !ClawsMail has them: the dictionary
+CLA=$REPO_DIR/out/claws-linuxarm-app
+rm -rf "$CLA"; cp -r "$HA" "$CLA"; mkdir -p "$CLA/share/hunspell"
+cp "$SRC/dictionaries/en_GB.dic" "$SRC/dictionaries/en_GB.aff" "$CLA/share/hunspell/"
+CLAWS_RISCOS_THEME="$REPO_DIR/apps/claws/app/share/claws-mail/themes/RISCOS" run claws-fake "$CLA" "$CT" $CP1 $CP2 $CP3 $CP4
 kill $mailserver 2>/dev/null || true
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"

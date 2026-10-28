@@ -184,6 +184,7 @@ provider offers them.
 | 12.2 | The next start, and a second program: "0 made now" | RISC OS on Linux | |
 | 12.3 | L3afpad's Choices > Font, Gnumeric's Format > Cells > Font: Homerton, Trinity, Corpus and the fonts in !Fonts are listed; chosen, they look as the desktop draws them; Bold, Italic and Bold Italic choose the right faces | RISC OS on Linux (AbiWord) | |
 | 12.4 | Add a font to !Fonts (or change one), start a program: it's made and listed; a font that has no outlines is left out and the Log says so | new | |
+| 12.5 | With a font manager that adds its folders to Font$Path (Fontastic, say), its fonts are listed too; take one off Font$Path and start the program again: it's no longer listed | new | |
 | 12.5 | Without FontConfig booted: Gnumeric's Serif is Trinity and Monospace is Corpus; with FontConfig booted, its own Serif and Monospace fonts come first, as before | new | |
 | 12.6 | A Gnumeric sheet saved by Excel or LibreOffice using Times New Roman, Arial and Courier New: serif, sans and monospaced faces, not all DejaVu Sans | new | |
 | 12.7 | Left Alt+F, Alt+E... in Gnumeric, Geany, ClawsMail and mtPaint: that menu opens at the window's top left; F10 opens the whole menu; Alt and a letter in a text field of L3afpad still types its character; Right Alt (AltGr) types as before | new | |

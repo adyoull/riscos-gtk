@@ -20,6 +20,11 @@
  *     RAMTransmit) or DataSaveAck (OS_File 10, DataLoad).
  *   - A drag from a GTK widget dropped on another task's window (or the
  *     icon bar, or a Filer window) saves the text there the same way,
+ *     or, if the widget offers a file (text/uri-list with a file:// URI:
+ *     an attachment, a file list's row), that file: its leaf name and
+ *     file type in the DataSave (the type from the file, or from its
+ *     extension through MimeMap if it has none), its contents by RAM
+ *     transfer or saved to the name in the DataSaveAck,
  *     with Message_DataSave to the window under the pointer
  *     (gdkdnd-riscos.c). The Wimp draws a dashed box while dragging
  *     (Wimp_DragBox type 5).
@@ -109,8 +114,10 @@ static struct
   int dest, icon;             /* Wimp_SendMessage R2, R3 */
   int fields[4];              /* +20..+32: window, icon, x, y */
   int your_ref;
-  char *data;                 /* Latin-1 */
+  char *data;                 /* Latin-1 text, or a file's contents */
   int len, sent;
+  int filetype;               /* FILETYPE_TEXT, or the file's */
+  char *leaf;                 /* the DataSave's name: "TextFile", or the file's */
   int datasave_ref, transmit_ref, dataload_ref;
   gboolean scrap;             /* saved to a temporary file */
 } out;
@@ -260,13 +267,13 @@ set_targets (GdkWindow *requestor, GdkAtom property)
 /* ---- files (OS_File, RISC OS names) -------------------------------------- */
 
 static gboolean
-save_file (const char *name, const char *data, int len)
+save_file (const char *name, const char *data, int len, int filetype)
 {
   _kernel_swi_regs r;
 
   r.r[0] = 10;                     /* save, with a file type */
   r.r[1] = (int) name;
-  r.r[2] = FILETYPE_TEXT;
+  r.r[2] = filetype;
   r.r[4] = (int) data;
   r.r[5] = (int) data + len;
   return _kernel_swi (OS_File, &r, &r) == NULL;
@@ -314,6 +321,7 @@ out_reset (void)
 {
   g_clear_object (&out.owner);
   g_free (out.data);
+  g_free (out.leaf);
   memset (&out, 0, sizeof out);
 }
 
@@ -323,13 +331,15 @@ static gboolean
 out_start (GdkWindow *owner, GdkAtom selection, GList *targets,
            int dest, int icon, const int fields[4], int your_ref)
 {
-  static const char *prefer[] = { "UTF8_STRING", "text/plain;charset=utf-8", "STRING", "text/plain" };
+  /* a file first (a widget that offers one means it), then text */
+  static const char *prefer[] = { "text/uri-list", "UTF8_STRING", "text/plain;charset=utf-8", "STRING", "text/plain" };
   GdkAtom target = GDK_NONE;
   guint i;
 
   if (owner == NULL)
     return FALSE;
-  for (i = 0; i < G_N_ELEMENTS (prefer) && target == GDK_NONE; i++)
+  /* (the clipboard, targets unknown: text) */
+  for (i = targets == NULL ? 1 : 0; i < G_N_ELEMENTS (prefer) && target == GDK_NONE; i++)
     {
       GdkAtom a = gdk_atom_intern_static_string (prefer[i]);
       if (targets == NULL || g_list_find (targets, a))
@@ -357,13 +367,89 @@ out_send_datasave (void)
 {
   int block[64];
 
-  header (block, MESSAGE_DATASAVE, out.your_ref, 44 + 9);
+  const char *leaf = out.leaf ? out.leaf : "TextFile";
+
+  header (block, MESSAGE_DATASAVE, out.your_ref, 44 + (int) strlen (leaf) + 1);
   memcpy (&block[5], out.fields, sizeof out.fields);
   block[9] = out.len;
-  block[10] = FILETYPE_TEXT;
-  strcpy ((char *) &block[11], "TextFile");
+  block[10] = out.filetype ? out.filetype : FILETYPE_TEXT;
+  g_strlcpy ((char *) &block[11], leaf, 256 - 44);
   out.datasave_ref = send_message (USER_MESSAGE, block, out.dest, out.icon);
   TRACE ("DataSave %d bytes to %d (ref %d)\n", out.len, out.dest, out.datasave_ref);
+}
+
+/* A file's type from its extension, through MimeMap (MimeMap_Translate
+   &50B00: R0 = 3 from an extension, R1 -> it, R2 = 0 to a file type,
+   returned in R3); &FFD (data) without MimeMap or a match */
+static int
+filetype_from_extension (const char *leaf)
+{
+  const char *dot = strrchr (leaf, '/');      /* RISC OS: "Report/pdf" */
+  _kernel_swi_regs r;
+
+  if (dot == NULL || dot[1] == '\0')
+    return 0xFFD;
+  memset (&r, 0, sizeof r);
+  r.r[0] = 3;
+  r.r[1] = (int) (long) (dot + 1);
+  r.r[2] = 0;
+  if (_kernel_swi (0x50B00, &r, &r) != NULL || r.r[3] < 0 || r.r[3] > 0xFFF)
+    return 0xFFD;
+  return r.r[3];
+}
+
+/* The drag's file (the first file:// URI of a text/uri-list): its
+   contents, leaf name and file type for the DataSave */
+static gboolean
+out_take_file (const char *uris, int len)
+{
+  char *list = g_strndup (uris, len), **v = g_uri_list_extract_uris (list);
+  char *unix_path = NULL, *ro, *contents = NULL;
+  const char *leaf;
+  gsize size = 0;
+  _kernel_swi_regs r;
+  int i;
+
+  for (i = 0; v[i] && unix_path == NULL; i++)
+    unix_path = g_filename_from_uri (v[i], NULL, NULL);
+  if (v[0] && v[1])
+    TRACE ("%d files dragged: the first is saved\n", (int) g_strv_length (v));
+  g_strfreev (v);
+  g_free (list);
+  if (unix_path == NULL || g_file_test (unix_path, G_FILE_TEST_IS_DIR) ||
+      !g_file_get_contents (unix_path, &contents, &size, NULL))
+    {
+      TRACE ("no file to save from the drag (%s)\n", unix_path ? unix_path : "no file:// URI");
+      g_free (unix_path);
+      return FALSE;
+    }
+  ro = gdk_riscos_path_from_unix (unix_path);
+  leaf = strrchr (ro, '.');
+  leaf = leaf ? leaf + 1 : ro;
+  out.data = contents;
+  out.len = (int) size;
+  out.leaf = g_strdup (leaf);
+  /* OS_File 5: a typed file's load address is &FFFtttxx */
+  memset (&r, 0, sizeof r);
+  r.r[0] = 5;
+  r.r[1] = (int) (long) ro;
+  if (_kernel_swi (OS_File, &r, &r) == NULL && r.r[0] == 1 &&
+      ((unsigned) r.r[2] >> 20) == 0xFFF && (((unsigned) r.r[2] >> 8) & 0xFFF) != 0xFFD)
+    out.filetype = ((unsigned) r.r[2] >> 8) & 0xFFF;
+  else
+    out.filetype = filetype_from_extension (out.leaf);
+  /* UnixLib leaves the files programs write as text (&FFF): the
+     extension says more, if MimeMap knows it */
+  if (out.filetype == FILETYPE_TEXT && strchr (out.leaf, '/'))
+    {
+      int t = filetype_from_extension (out.leaf);
+      if (t != 0xFFD)
+        out.filetype = t;
+    }
+  TRACE ("the drag's file: %s (%s, &%03X, %d bytes)\n", unix_path, out.leaf, out.filetype, out.len);
+  g_free (ro);
+  g_free (unix_path);
+  return TRUE;
 }
 
 gboolean
@@ -384,7 +470,17 @@ _gdk_riscos_transfer_notify (GdkWindow *requestor, GdkAtom selection, GdkAtom ta
       out_reset ();
       return TRUE;
     }
-  if (type == gdk_atom_intern_static_string ("STRING"))
+  if (target == gdk_atom_intern_static_string ("text/uri-list"))
+    {
+      gboolean ok = out_take_file ((const char *) data, len);
+      g_free (data);
+      if (!ok)
+        {
+          out_reset ();
+          return TRUE;
+        }
+    }
+  else if (type == gdk_atom_intern_static_string ("STRING"))
     {
       out.data = (char *) data;     /* Latin-1 already */
       out.len = len;
@@ -394,6 +490,8 @@ _gdk_riscos_transfer_notify (GdkWindow *requestor, GdkAtom selection, GdkAtom ta
       out.data = utf8_to_latin1 ((char *) data, len, &out.len);
       g_free (data);
     }
+  if (out.filetype == 0)
+    out.filetype = FILETYPE_TEXT;
   out_send_datasave ();
   return TRUE;
 }
@@ -440,7 +538,7 @@ out_datasaveack (int *block)
   const char *path = (const char *) &block[11];
   int peer = block[1];
 
-  if (!save_file (path, out.data, out.len))
+  if (!save_file (path, out.data, out.len, out.filetype))
     {
       out_reset ();
       return;
@@ -449,7 +547,7 @@ out_datasaveack (int *block)
   block[3] = block[2];
   block[4] = MESSAGE_DATALOAD;
   block[9] = out.len;
-  block[10] = FILETYPE_TEXT;
+  block[10] = out.filetype;
   block[0] = (44 + strlen (path) + 1 + 3) & ~3;
   out.datasave_ref = 0;
   out.dataload_ref = send_message (USER_MESSAGE_RECORDED, block, peer, 0);

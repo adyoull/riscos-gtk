@@ -1,6 +1,6 @@
 diff -ruN a/src/gutils.c b/src/gutils.c
 --- a/src/gutils.c	2024-01-19 21:48:19.000000000 +0000
-+++ b/src/gutils.c	2026-10-17 16:36:22.222870553 +0100
++++ b/src/gutils.c	2026-10-28 15:33:16.446346488 +0000
 @@ -119,11 +119,28 @@
  		g_free (top_builddir);
  	}
@@ -34,8 +34,8 @@ diff -ruN a/src/gutils.c b/src/gutils.c
  	home_dir = g_get_home_dir ();
  	gnumeric_usr_dir_unversioned = home_dir
 diff -ruN a/src/sheet-control-gui.c b/src/sheet-control-gui.c
---- a/src/sheet-control-gui.c
-+++ b/src/sheet-control-gui.c
+--- a/src/sheet-control-gui.c	2023-02-03 02:18:11.000000000 +0000
++++ b/src/sheet-control-gui.c	2026-10-28 15:33:16.446781811 +0000
 @@ -4185,7 +4185,18 @@
  			 !strcmp (mime, "text/tab-separated-values") ||
  			 !strcmp (mime, "text/x-comma-separated-values") ||
@@ -56,3 +56,31 @@ diff -ruN a/src/sheet-control-gui.c b/src/sheet-control-gui.c
  			scg_drag_receive_spreadsheet (scg, uri_str);
  		} else {
  			g_printerr ("Received URI %s with mime type %s.\n", uri_str, mime);
+diff -ruN a/src/wbc-gtk-actions.c b/src/wbc-gtk-actions.c
+--- a/src/wbc-gtk-actions.c	2024-01-19 21:46:01.000000000 +0000
++++ b/src/wbc-gtk-actions.c	2026-10-28 15:35:21.771504798 +0000
+@@ -1064,6 +1064,24 @@
+ 	char   *argv[] = { NULL, NULL, NULL };
+ 	GError *err = NULL;
+ 
++#if defined __riscos__ || defined GNM_RISCOS_UI
++	/* riscos-gtk: the manual is HTML in the application (share/doc/C,
++	 * tools/mkgnumerichelp.py), opened as the Filer would (a browser) */
++	{
++		char *path = g_build_filename (gnm_sys_data_dir (), "doc", "C", "index.html", NULL);
++		char *uri = g_filename_to_uri (path, NULL, NULL);
++		GdkScreen *screen = gtk_window_get_screen (wbcg_toplevel (wbcg));
++
++		err = uri ? go_gtk_url_show (uri, screen) : NULL;
++		if (err != NULL) {
++			go_cmd_context_error (GO_CMD_CONTEXT (wbcg), err);
++			g_error_free (err);
++		}
++		g_free (uri);
++		g_free (path);
++		return;
++	}
++#endif
+ #ifndef G_OS_WIN32
+ 	argv[0] = (char *)"yelp";
+ 	argv[1] = (char *)"help:gnumeric";

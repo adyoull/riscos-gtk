@@ -22,7 +22,7 @@
 
 GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_context_area, *tt_apply;
 GtkWidget *tt_entry, *tt_entry_empty;
-GtkWidget *tt_save_button, *tt_open_button, *tt_drop_area;
+GtkWidget *tt_save_button, *tt_open_button, *tt_drop_area, *tt_file_drag;
 GtkWidget *tt_save_dialog_button, *tt_open_dialog_button;
 char tt_last_file[256];             /* the last file chosen or dropped */
 int tt_events;
@@ -244,6 +244,24 @@ on_chooser_dialog (GtkButton *b, gpointer data)
   else
     say ("%s dialogue cancelled (%d)", save ? "Save" : "Open", r);
   gtk_widget_destroy (d);
+}
+
+/* A file to drag out to a Filer window (or another program): a small
+   CSV made in the temporary directory as the drag asks for it */
+static void
+on_file_drag_get (GtkWidget *w, GdkDragContext *ctx, GtkSelectionData *sd,
+                  guint info, guint time, gpointer data)
+{
+  char *path = g_build_filename (g_get_tmp_dir (), "Prices.csv", NULL);
+  char *uris[2] = { NULL, NULL };
+
+  if (g_file_set_contents (path, TT_DRAG_FILE_TEXT, -1, NULL))
+    {
+      uris[0] = g_filename_to_uri (path, NULL, NULL);
+      gtk_selection_data_set_uris (sd, uris);
+      g_free (uris[0]);
+    }
+  g_free (path);
 }
 
 /* A file dropped from the Filer arrives as a file:// URI */
@@ -686,6 +704,16 @@ page_popups (void)
   gtk_drag_dest_add_uri_targets (tt_drop_area);
   g_signal_connect (tt_drop_area, "drag-data-received", G_CALLBACK (on_drop_received), NULL);
   gtk_box_pack_start (GTK_BOX (row1), tt_drop_area, TRUE, TRUE, 0);
+  /* a file to drag out */
+  tt_file_drag = gtk_event_box_new ();
+  l = gtk_label_new ("Drag Prices/csv to a Filer window");
+  gtk_widget_set_size_request (l, 240, 30);
+  gtk_container_add (GTK_CONTAINER (tt_file_drag), l);
+  gtk_drag_source_set (tt_file_drag, GDK_BUTTON1_MASK, NULL, 0, GDK_ACTION_COPY);
+  gtk_drag_source_add_uri_targets (tt_file_drag);
+  g_signal_connect (tt_file_drag, "drag-data-get", G_CALLBACK (on_file_drag_get), NULL);
+  gtk_widget_set_tooltip_text (tt_file_drag, "A file the program has: drag it to a Filer window to save a copy");
+  gtk_box_pack_start (GTK_BOX (row), tt_file_drag, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (page), frame ("Files", files_rows), FALSE, FALSE, 0);
 
   /* context menu on Menu click */

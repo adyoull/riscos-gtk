@@ -97,6 +97,15 @@ char      *gdk_riscos_canonicalise (const char *name);
  * trailing spaces removed */
 GDK_AVAILABLE_IN_ALL
 char      *gdk_riscos_filetype_name (int filetype);
+/* Open a file as a double-click in the Filer would (Filer_Run), first
+ * typing an untyped (&FFF / &FFD) file from mime_type (nullable) or its
+ * extension through MimeMap. */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_open_file (const char *path, const char *mime_type, GError **error);
+/* gtk_show_uri_on_window() on RISC OS: a file:// URI by
+ * gdk_riscos_open_file, anything else by URI_Dispatch */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_show_uri (const char *uri, GError **error);
 
 /* Called once the receiver of a save drag has replied (DataSaveAck): path
  * is where to save, in RISC OS form; safe is FALSE for <Wimp$Scrap> (on

@@ -1,6 +1,6 @@
 diff -ruN a/goffice/goffice.c b/goffice/goffice.c
 --- a/goffice/goffice.c	2024-01-19 20:43:15.000000000 +0000
-+++ b/goffice/goffice.c	2026-10-17 16:36:22.222638691 +0100
++++ b/goffice/goffice.c	2026-10-28 15:33:14.721374322 +0000
 @@ -194,6 +194,20 @@
      }
  #endif /* GTKOSXAPPLICATION */
@@ -22,9 +22,45 @@ diff -ruN a/goffice/goffice.c b/goffice/goffice.c
  
  	bindtextdomain (GETTEXT_PACKAGE, libgoffice_locale_dir);
  	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
+diff -ruN a/goffice/gtk/goffice-gtk.c b/goffice/gtk/goffice-gtk.c
+--- a/goffice/gtk/goffice-gtk.c	2022-04-16 15:57:59.000000000 +0100
++++ b/goffice/gtk/goffice-gtk.c	2026-10-28 15:35:21.770654448 +0000
+@@ -1222,6 +1222,32 @@
+ static void
+ go_help_display (CBHelpPaths const *paths, GdkScreen *screen)
+ {
++#if defined __riscos__ || defined GO_RISCOS_UI
++	/* riscos-gtk: the manual is HTML in the application, a file for each
++	 * section named by its id (data_dir/doc/C/ID.html, tools/
++	 * mkgnumerichelp.py), opened as the Filer would (a browser) */
++	{
++		char *leaf = g_strconcat (paths->link && *paths->link ? paths->link : "index", ".html", NULL);
++		char *path = g_build_filename (paths->data_dir, "doc", "C", leaf, NULL);
++		char *uri;
++		GError *err;
++
++		if (!g_file_test (path, G_FILE_TEST_EXISTS)) {
++			g_free (path);
++			path = g_build_filename (paths->data_dir, "doc", "C", "index.html", NULL);
++		}
++		uri = g_filename_to_uri (path, NULL, NULL);
++		err = uri ? go_gtk_url_show (uri, screen) : NULL;
++		if (err) {
++			go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR, "%s", err->message);
++			g_error_free (err);
++		}
++		g_free (uri);
++		g_free (path);
++		g_free (leaf);
++		return;
++	}
++#endif
+ #if defined(G_OS_WIN32)
+ 	static GHashTable* context_help_map = NULL;
+ 	guint id;
 diff -ruN a/goffice/utils/go-file.c b/goffice/utils/go-file.c
---- a/goffice/utils/go-file.c
-+++ b/goffice/utils/go-file.c
+--- a/goffice/utils/go-file.c	2024-01-19 03:08:35.000000000 +0000
++++ b/goffice/utils/go-file.c	2026-10-28 15:33:14.721593674 +0000
 @@ -502,6 +502,15 @@
  	GFile *file = g_file_new_for_uri (uri);
  	char *res = g_file_get_basename (file);

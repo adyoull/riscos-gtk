@@ -19,9 +19,12 @@ Using it
 - File > Save As: a RISC OS Save box (the format is chosen from the name,
   e.g. .xlsx, .ods, .csv, .gnumeric); File > Open: an Open box.
 - Gnumeric's settings are kept in <Choices$Write>.Gnumeric.
+- Help > Contents, and the Help button in Gnumeric's dialogue boxes,
+  open its manual (in the application) in your browser.
+- SVG pictures can be inserted (Insert > Image) and are shown.
 
 Not in this build: Python and Perl functions and plugins, databases
-(GDA), the external linear solvers (glpk, lp_solve), SVG pictures, help.
+(GDA), the external linear solvers (glpk, lp_solve).
 
 Messages
 Gnumeric's messages go to <Wimp$ScrapDir>.Gnumeric.Log.
@@ -31,15 +34,17 @@ RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
 Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
 (PackMan). PThreadTicker is included.
 Fonts: Gnumeric uses the desktop's own fonts (Homerton, Trinity, Corpus,
-and any in !Fonts), as the desktop draws them. The first time it starts
-it makes copies they can be used from, in <Choices$Write>.GTK.FontCache
-(about a second; again only when a font changes). It also carries DejaVu
-Sans, and with FontConfig and fonts from PackMan installed it uses those
-too, as other FontConfig programs do. The Log's "fonts:" lines say which
-fonts it found.
+and every font on Font$Path: those in !Fonts, and those a font manager
+such as Fontastic adds), as the desktop draws them. The first time it
+starts it makes copies they can be used from, in
+<Choices$Write>.GTK.FontCache (about a second; again only when a font
+changes). It also carries DejaVu Sans, and with FontConfig and fonts
+from PackMan installed it uses those too, as other FontConfig programs
+do. The Log's "fonts:" lines say which fonts it found.
 
 Licences
 Gnumeric and GOffice: GPL version 2 or 3 (Licence). GTK, GLib and the
 other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
-libxslt: MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
+libxslt: MIT; librsvg and libcroco: LGPL version 2. The manual: GNU
+Free Documentation Licence (share.doc.C.LicenceGFDL). DejaVu fonts: their own licence (fonts.Licence). Source: see
 Source.

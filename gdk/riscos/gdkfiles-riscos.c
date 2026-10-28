@@ -10,6 +10,11 @@
  *   OS_FSControl 33  filing system number to name ("" if none)
  *   OS_FSControl 37  canonicalise a path
  *   OS_FSControl 18  file type to its name (8 characters, space padded)
+ *   OS_File 5 / 18   read a file's type (load address &FFFtttxx) / set it
+ *   Wimp_StartTask   "Filer_Run name": open a file as a double-click in
+ *                    the Filer does (gdk_riscos_open_file)
+ * and MimeMap's MimeMap_Translate (&50B00: R0 the input format, 2 a MIME
+ * type, 3 an extension; R1 -> it; R2 = 0 for a file type, returned in R3).
  *
  * The discs available (gdk_riscos_discs): the icon bar's device icons,
  * the ones the Filers (SDFS Filer, SCSIFiler, RAMFS Filer, LanMan98...)
@@ -41,6 +46,9 @@
 #define TaskManager_TaskNameFromHandle 0x42680
 #define TaskManager_EnumerateTasks     0x42681
 #define OS_Memory     0x68
+#define OS_File       0x08
+#define Wimp_StartTask     0x400DE
+#define MimeMap_Translate  0x50B00
 
 static void
 entry_free (gpointer p)
@@ -532,4 +540,121 @@ gdk_riscos_discs (void)
   g_string_free (log, TRUE);
   g_strfreev (fss);
   return list;
+}
+
+/* ---- opening a file with the program the desktop runs for it ---- */
+
+static int
+mimemap (int from, const char *what)
+{
+  _kernel_swi_regs r;
+
+  memset (&r, 0, sizeof r);
+  r.r[0] = from;
+  r.r[1] = (int) (long) what;
+  r.r[2] = 0;
+  if (what == NULL || *what == '\0' || _kernel_swi (MimeMap_Translate, &r, &r) != NULL ||
+      r.r[3] < 0 || r.r[3] > 0xFFF)
+    return -1;
+  return r.r[3];
+}
+
+/**
+ * gdk_riscos_open_file:
+ * @path: the file, as the program names it (UnixLib, or RISC OS form)
+ * @mime_type: (nullable): what it is, if known (an attachment's
+ *   Content-Type, say)
+ * @error: return location for an error
+ *
+ * Opens the file as a double-click in a Filer window would (Filer_Run),
+ * so the program the desktop has for its type loads it. A file without a
+ * type of its own (UnixLib writes text, &FFF, or data, &FFD) is first
+ * given the type MimeMap has for @mime_type, or else for its extension.
+ *
+ * Returns: %TRUE if Filer_Run was started
+ */
+gboolean
+gdk_riscos_open_file (const char *path, const char *mime_type, GError **error)
+{
+  char *ro, *cmd;
+  const char *leaf, *ext;
+  _kernel_swi_regs r;
+  _kernel_oserror *e;
+  int type = -1, now = -1;
+
+  g_return_val_if_fail (path != NULL, FALSE);
+  ro = path[0] == '/' ? gdk_riscos_path_from_unix (path) : g_strdup (path);
+  memset (&r, 0, sizeof r);
+  r.r[0] = 5;
+  r.r[1] = (int) (long) ro;
+  if ((e = _kernel_swi (OS_File, &r, &r)) != NULL || r.r[0] != 1)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND, "%s: %s", ro,
+                   e ? e->errmess : "not a file");
+      g_free (ro);
+      return FALSE;
+    }
+  if (((unsigned) r.r[2] >> 20) == 0xFFF)
+    now = ((unsigned) r.r[2] >> 8) & 0xFFF;
+  if (now < 0 || now == 0xFFF || now == 0xFFD)
+    {
+      if (mime_type && g_ascii_strcasecmp (mime_type, "application/octet-stream") != 0)
+        type = mimemap (2, mime_type);
+      leaf = strrchr (ro, '.');
+      leaf = leaf ? leaf + 1 : ro;
+      ext = strrchr (leaf, '/');
+      if (type < 0 && ext)
+        type = mimemap (3, ext + 1);
+      if (type >= 0 && type != now)
+        {
+          memset (&r, 0, sizeof r);
+          r.r[0] = 18;
+          r.r[1] = (int) (long) ro;
+          r.r[2] = type;
+          _kernel_swi (OS_File, &r, &r);
+        }
+    }
+  cmd = g_strdup_printf ("Filer_Run %s", ro);
+  memset (&r, 0, sizeof r);
+  r.r[0] = (int) (long) cmd;
+  e = _kernel_swi (Wimp_StartTask, &r, &r);
+  if (e)
+    g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "%s", e->errmess);
+  g_free (cmd);
+  g_free (ro);
+  return e == NULL;
+}
+
+/**
+ * gdk_riscos_show_uri:
+ * @uri: a file:// URI, or a web (or other) address
+ * @error: return location for an error
+ *
+ * What gtk_show_uri_on_window() does on RISC OS: a file is opened as the
+ * Filer would (gdk_riscos_open_file), anything else goes to RISC OS's URI
+ * handler (URI_Dispatch &4E381: R0 = 0 to dispatch now, R1 -> the URI;
+ * R0 bit 0 set on return if nothing took it).
+ */
+gboolean
+gdk_riscos_show_uri (const char *uri, GError **error)
+{
+  _kernel_swi_regs r;
+  _kernel_oserror *e;
+
+  g_return_val_if_fail (uri != NULL, FALSE);
+  if (g_ascii_strncasecmp (uri, "file:", 5) == 0)
+    {
+      char *path = g_filename_from_uri (uri, NULL, error);
+      gboolean ok = path && gdk_riscos_open_file (path, NULL, error);
+      g_free (path);
+      return ok;
+    }
+  memset (&r, 0, sizeof r);
+  r.r[1] = (int) (long) uri;
+  e = _kernel_swi (0x4E381, &r, &r);
+  if (e == NULL && !(r.r[0] & 1))
+    return TRUE;
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Nothing took the address %s%s%s",
+               uri, e ? ": " : " (start a web browser, then try again)", e ? e->errmess : "");
+  return FALSE;
 }

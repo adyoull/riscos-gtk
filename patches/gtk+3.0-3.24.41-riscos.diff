@@ -1092,3 +1092,38 @@ diff -ruN a/gtk/gtkicontheme.c b/gtk/gtkicontheme.c
    if (flags & GTK_ICON_LOOKUP_GENERIC_FALLBACK)
      {
        gchar **names, **nonsymbolic_names;
+diff -ruN a/gtk/gtkshow.c b/gtk/gtkshow.c
+--- a/gtk/gtkshow.c	2026-10-28 15:28:13.355460460 +0000
++++ b/gtk/gtkshow.c	2026-10-28 15:28:30.428823818 +0000
+@@ -24,6 +24,11 @@
+ 
+ #include "gtkshow.h"
+ #include "gtkwindowprivate.h"
++#ifdef GDK_WINDOWING_RISCOS
++/* riscos-gtk: there is no desktop launcher for GIO; files go to the Filer
++   (Filer_Run), addresses to URI_Dispatch */
++#include "riscos/gdkriscos.h"
++#endif
+ 
+ /**
+  * gtk_show_uri:
+@@ -58,6 +63,9 @@
+   GdkDisplay *display;
+ 
+   g_return_val_if_fail (uri != NULL, FALSE);
++#ifdef GDK_WINDOWING_RISCOS
++  return gdk_riscos_show_uri (uri, error);
++#endif
+ 
+   if (screen != NULL)
+     display = gdk_screen_get_display (screen);
+@@ -142,6 +150,9 @@
+   GdkDisplay *display;
+ 
+   g_return_val_if_fail (uri != NULL, FALSE);
++#ifdef GDK_WINDOWING_RISCOS
++  return gdk_riscos_show_uri (uri, error);
++#endif
+ 
+   if (parent)
+     display = gtk_widget_get_display (GTK_WIDGET (parent));

@@ -45,7 +45,7 @@
  *   when the set-up's config files don't include it, its rules are added
  *   too, or an emoji is drawn ten times the size of the text around it.
  * - The desktop's own fonts (the Font Manager's: Homerton, Trinity,
- *   Corpus, and any in !Fonts) are added as OpenType copies made on this
+ *   Corpus, and every font on Font$Path) are added as OpenType copies made on this
  *   machine (gdkriscosfonts.c), so they're in every font list and drawn
  *   as the desktop draws them; Trinity, Homerton and Corpus then match
  *   by name before their document_rules fallbacks, and they end the
@@ -422,7 +422,7 @@ _gdk_riscos_fontconfig_init (void)
       !FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) bitmap_scaling_rules, FcFalse))
     g_printerr ("riscos-gtk: fonts: the bitmap scaling rules didn't load\n");
   add_own_fonts (config, own_fonts);
-  /* the desktop's own fonts (Homerton, Trinity, Corpus, !Fonts) */
+  /* the desktop's own fonts (Homerton, Trinity, Corpus, Font$Path's) */
   riscos_fonts = g_string_new (NULL);
   n_riscos = _gdk_riscos_fonts_add (config, riscos_fonts);
   FcConfigSetCurrent (config);

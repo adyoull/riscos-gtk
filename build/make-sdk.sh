@@ -54,15 +54,14 @@ rm -rf "$P"/lib/libetpan.* "$P"/lib/libnettle.* "$P"/lib/libhogweed.* "$P"/lib/l
        "$P"/lib/pkgconfig/libetpan.pc "$P"/lib/pkgconfig/nettle.pc "$P"/lib/pkgconfig/hogweed.pc \
        "$P"/lib/pkgconfig/gumbo.pc "$P"/include/libetpan "$P"/include/libetpan.h \
        "$P"/include/nettle "$P"/include/gumbo.h "$P"/include/tag_enum.h
-# nor Gnumeric's (GOffice is GPL; librsvg is riscos-gtk's stand-in)
-rm -rf "$P"/lib/libgoffice-0.10.* "$P"/lib/libgsf-1.* "$P"/lib/libxml2.* "$P"/lib/libxslt.* \
-       "$P"/lib/libexslt.* "$P"/lib/librsvg-2.* "$P"/lib/cmake/libxml2 "$P"/lib/xml2Conf.sh \
-       "$P"/lib/xsltConf.sh "$P"/share/aclocal/libxml.m4 \
+# nor Gnumeric's (GOffice is GPL). libxml2, libcroco and librsvg stay:
+# SVG for any program (pkg-config --static riscos-gtk-svg, build-svg.sh)
+rm -rf "$P"/lib/libgoffice-0.10.* "$P"/lib/libgsf-1.* "$P"/lib/libxslt.* \
+       "$P"/lib/libexslt.* "$P"/lib/xsltConf.sh \
        "$P"/lib/pkgconfig/libgoffice-0.10.pc "$P"/lib/pkgconfig/libgsf-1.pc \
-       "$P"/lib/pkgconfig/libxml-2.0.pc "$P"/lib/pkgconfig/libxslt.pc \
-       "$P"/lib/pkgconfig/libexslt.pc "$P"/lib/pkgconfig/librsvg-2.0.pc \
-       "$P"/include/libgoffice-0.10 "$P"/include/libgsf-1 "$P"/include/libxml2 \
-       "$P"/include/libxslt "$P"/include/libexslt "$P"/include/librsvg-2.0
+       "$P"/lib/pkgconfig/libxslt.pc "$P"/lib/pkgconfig/libexslt.pc \
+       "$P"/include/libgoffice-0.10 "$P"/include/libgsf-1 \
+       "$P"/include/libxslt "$P"/include/libexslt
 find "$P" -name '*.la' -delete
 # without debug information: a quarter of the size (the programs are
 # stripped when packaged anyway)

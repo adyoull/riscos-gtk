@@ -27,6 +27,8 @@ need 'command -v update-mime-database' shared-mime-info
 need 'command -v gdk-pixbuf-pixdata' libgdk-pixbuf2.0-bin
 need 'python3 -c "import packaging"' python3-packaging
 need 'python3 -c "import PIL"' python3-pil
+need 'command -v xsltproc' xsltproc
+need 'test -f /usr/share/xml/docbook/stylesheet/docbook-xsl/html/chunk.xsl' docbook-xsl
 if [ "${1:-}" = check ]; then
   need 'command -v arm-linux-gnueabihf-gcc' gcc-arm-linux-gnueabihf
   need 'command -v arm-linux-gnueabihf-g++' g++-arm-linux-gnueabihf

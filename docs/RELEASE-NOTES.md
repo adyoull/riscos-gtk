@@ -5,7 +5,7 @@ adds AbiWord, the word processor, whose test builds have run on the Pi,
 and fixes drawing that a program does outside GTK's own redraws
 (AbiWord's dialogue boxes' previews didn't change). Every program is
 rebuilt. RC12 gave every GTK program the desktop's own fonts: Homerton, Trinity, Corpus
-and any outline font in !Fonts are in its font lists and drawn as the
+and every outline font on Font$Path are in its font lists and drawn as the
 desktop draws them; a document's Times New Roman, Arial or Courier New
 gets the same kind of font, not DejaVu Sans; Left Alt and a letter
 opens that menu (Alt+F for File); and older programs' stock toolbar
@@ -209,7 +209,8 @@ release.
   icons. GNOME's Adwaita
   icons remain for the few names not drawn (emoji pictures). *[Pi]*
 - **The desktop's own fonts:** Homerton, Trinity, Corpus and every
-  outline font in !Fonts (Sassoon, NewHall, Selwyn...) are in every
+  outline font on Font$Path (Sassoon, NewHall, Selwyn... in !Fonts, and
+  the folders a font manager such as Fontastic adds) are in every
   program's font lists and drawn as the desktop draws them, bold and
   italic choosing the right faces. The first start makes copies of them
   for fontconfig in `<Choices$Write>.GTK.FontCache` (about a second;

@@ -20,12 +20,14 @@ so shared libraries aren't possible today.
 | Claws Mail only: its litehtml viewer plug-in, with litehtml | Plug-in GPL 3 or later; litehtml BSD-style | litehtml's notice: `LicenceLiteHTML` in the package |
 | Claws Mail only: gumbo 0.12.0 | Apache License 2.0 | Its licence: `LicenceGumbo` in the package |
 | Gnumeric only: libgsf 1.14.51 | LGPL 2.1 | As the other LGPL libraries, below |
-| Gnumeric only: libxml2 2.9.14, libxslt 1.1.39 | MIT | The notices (LICENCES.md) |
+| Gnumeric only: libxslt 1.1.39 | MIT | The notices (LICENCES.md) |
+| Gnumeric, AbiWord and ClawsMail: libxml2 2.9.14 | MIT | The notices (LICENCES.md) |
+| Gnumeric, AbiWord and ClawsMail: librsvg 2.40.20 (with its GdkPixbuf loader) and libcroco 0.6.13 | LGPL 2 or later (librsvg); LGPL 2 (libcroco) | As the other LGPL libraries, below |
 | AbiWord only: wv 1.2.9 | GPL 2 or later | Covered by the GPL program's source |
-| AbiWord only: enchant 2.3.3 | LGPL 2.1 or later | As the other LGPL libraries, below |
-| AbiWord only: hunspell 1.7.2 | MPL 1.1, GPL 2 or LGPL 2.1 | Taken as LGPL 2.1 |
+| AbiWord and ClawsMail: enchant 2.3.3 | LGPL 2.1 or later | As the other LGPL libraries, below |
+| AbiWord and ClawsMail: hunspell 1.7.2 | MPL 1.1, GPL 2 or LGPL 2.1 | Taken as LGPL 2.1 |
 | AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
-| AbiWord only: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
+| AbiWord and ClawsMail: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
 | GTKGLTest only: riscos-mesa (Mesa 20.3.5) | MIT | The notice; source: riscos-mesa's release |
 | UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release, which the source archive and each package's `Source` point to |
 
@@ -39,6 +41,8 @@ The package also carries some data and modules:
 | The RISCOS theme | MIT |
 | ClawsMail's RISC OS icons (`share/claws-mail/themes/RISCOS`, `!Sprites`), drawn by `tools/mkclawsicons.py` | MIT |
 | The RISC OS-style icons (`share/icons/RISCOS`), drawn by `tools/mkriscosicons.py` and `tools/riscosicons_apps.py` | MIT |
+| Gnumeric's manual (`share/doc/C`, its DocBook made into HTML by `tools/mkgnumerichelp.py`) | GNU FDL 1.1 or later | The licence, `share.doc.C.LicenceGFDL` (GFDL 1.3) |
+| ClawsMail's manual (`share/doc/manual`, the HTML in its source) | GPL 3 or later, as Claws Mail | Covered by the program's source |
 | PThreadTicker module | Its own `PThreadTicker-Licence` |
 
 ## The LGPL and static linking

@@ -1,7 +1,30 @@
 diff -ruN a/gdk-pixbuf/gdk-pixbuf-io.c b/gdk-pixbuf/gdk-pixbuf-io.c
 --- a/gdk-pixbuf/gdk-pixbuf-io.c	2022-10-25 17:53:28.000000000 +0100
-+++ b/gdk-pixbuf/gdk-pixbuf-io.c	2026-10-03 22:53:20.207555702 +0100
-@@ -666,15 +666,22 @@
++++ b/gdk-pixbuf/gdk-pixbuf-io.c	2026-10-28 15:08:07.041392785 +0000
+@@ -593,6 +593,12 @@
+ 	return ret;
+ }
+ 
++/* riscos-gtk: librsvg's io-svg.c, compiled with these names
++ * (build/build-svg.sh). Weak: only programs linked with
++ * riscos-gtk-svg.pc have it, the others get NULL here. */
++extern void _gdk_pixbuf__svg_fill_info (GdkPixbufFormat *info) __attribute__((weak));
++extern void _gdk_pixbuf__svg_fill_vtable (GdkPixbufModule *module) __attribute__((weak));
++
+ static void
+ gdk_pixbuf_io_init_builtin (void)
+ {
+@@ -660,21 +666,32 @@
+         load_one_builtin_module (png);
+ #endif
+ 
++        /* riscos-gtk: librsvg's loader, when the program is linked with
++         * it (riscos-gtk-svg.pc) */
++        if (_gdk_pixbuf__svg_fill_info != NULL)
++                load_one_builtin_module (svg);
+ #undef load_one_builtin_module
+ }
+ 
  static gboolean
  gdk_pixbuf_io_init (void)
  {
@@ -27,9 +50,21 @@ diff -ruN a/gdk-pixbuf/gdk-pixbuf-io.c b/gdk-pixbuf/gdk-pixbuf-io.c
  	return ret;
  }
  
+@@ -778,6 +795,11 @@
+         try_module (qtif,qtif);
+ #endif
+ 
++        if (fill_info == NULL && _gdk_pixbuf__svg_fill_info != NULL &&
++            strcmp (image_module->module_name, "svg") == 0) {
++                fill_info = _gdk_pixbuf__svg_fill_info;
++                fill_vtable = _gdk_pixbuf__svg_fill_vtable;
++        }
+ #undef try_module
+         
+         if (fill_vtable) {
 diff -ruN a/gdk-pixbuf/meson.build b/gdk-pixbuf/meson.build
 --- a/gdk-pixbuf/meson.build	2022-10-25 17:53:28.000000000 +0100
-+++ b/gdk-pixbuf/meson.build	2026-10-03 22:53:20.191221162 +0100
++++ b/gdk-pixbuf/meson.build	2026-10-28 15:07:50.445726652 +0000
 @@ -214,6 +214,10 @@
                      dependencies: [
                        gdk_pixbuf_deps,

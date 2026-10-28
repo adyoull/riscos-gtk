@@ -170,6 +170,8 @@ is_riscos_name (const char *name)
 #define RISCOS_MAIN main
 #endif
 
+extern "C" void riscos_register_static_modules (void);
+
 int
 RISCOS_MAIN (int argc, char **argv)
 {
@@ -185,6 +187,10 @@ RISCOS_MAIN (int argc, char **argv)
      with none of its strings the menus were empty) */
   g_setenv ("LC_MESSAGES", "en_US", FALSE);
   g_setenv ("ABIWORD_DATADIR", "/<AbiWord$Dir>/share/abiword-3.0", FALSE);
+  /* GOffice (the goffice plugin's charts): its plugins' descriptions in
+     the application, its plugins linked in (build-abiword.sh) */
+  g_setenv ("GOFFICE_DIR", "/<AbiWord$Dir>/goffice", FALSE);
+  riscos_register_static_modules ();
   g_setenv ("FONTCONFIG_FILE", "/<AbiWord$Dir>/fonts/fonts.conf", FALSE);
   g_setenv ("XDG_DATA_DIRS", "/<AbiWord$Dir>/share", FALSE);
   if (!g_getenv ("XDG_CONFIG_HOME") && g_getenv ("Choices$Write"))

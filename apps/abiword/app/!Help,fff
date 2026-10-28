@@ -29,9 +29,11 @@ Using it
   <Choices$Write>.GTK.Dictionaries: every GTK program that checks
   spelling uses them. Words you add are kept in <Choices$Write>.GTK.Enchant.
 
+SVG pictures can be inserted and are shown.
+
 Not in this build: grammar checking, the thesaurus,
 collaboration, equations (MathML), WordPerfect and Works files, PDF
-import, SVG pictures, help.
+import, help.
 
 Messages
 AbiWord's messages go to <Wimp$ScrapDir>.AbiWord.Log.
@@ -41,12 +43,13 @@ RISC OS 5 on an ARMv7 or later machine (Raspberry Pi 2 or later, ARMX6,
 Titanium...), SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv
 (PackMan). PThreadTicker is included.
 Fonts: AbiWord uses the desktop's own fonts (Homerton, Trinity, Corpus,
-and any in !Fonts), as the desktop draws them. The first time it starts
-it makes copies they can be used from, in <Choices$Write>.GTK.FontCache
-(about a second; again only when a font changes). It also carries DejaVu
-Sans, and with FontConfig and fonts from PackMan installed it uses those
-too, as other FontConfig programs do. The Log's "fonts:" lines say which
-fonts it found.
+and every font on Font$Path: those in !Fonts, and those a font manager
+such as Fontastic adds), as the desktop draws them. The first time it
+starts it makes copies they can be used from, in
+<Choices$Write>.GTK.FontCache (about a second; again only when a font
+changes). It also carries DejaVu Sans, and with FontConfig and fonts
+from PackMan installed it uses those too, as other FontConfig programs
+do. The Log's "fonts:" lines say which fonts it found.
 
 Licences
 AbiWord and wv: GPL version 2 or later (Licence). enchant: LGPL 2.1 or

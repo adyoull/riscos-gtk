@@ -104,3 +104,87 @@ riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
  	}
  
  	dlg = gtk_about_dialog_new();
+diff -ruN a/plugins/goffice/Makefile.am b/plugins/goffice/Makefile.am
+--- a/plugins/goffice/Makefile.am	2026-10-28 15:58:06.605824701 +0000
++++ b/plugins/goffice/Makefile.am	2026-10-28 15:58:06.627293525 +0000
+@@ -1,9 +1,16 @@
+ 
+ SUBDIRS = unix
+ 
++if GOFFICE_BUILTIN
++noinst_LTLIBRARIES = goffice.la
++
++else
++
+ plugindir = $(ABIWORD_PLUGINSDIR)
+ plugin_LTLIBRARIES = goffice.la
+ 
++endif
++
+ goffice_la_LIBADD = \
+ 	unix/libunix.la \
+ 	$(GOFFICE_LIBS)
+@@ -14,6 +21,7 @@
+ 	-no-undefined
+ 
+ goffice_la_SOURCES = 
++nodist_EXTRA_goffice_la_SOURCES = dummy.cpp
+ 
+ EXTRA_DIST = \
+ 	plugin.m4
+diff -ruN a/plugins/goffice/plugin.m4 b/plugins/goffice/plugin.m4
+--- a/plugins/goffice/plugin.m4	2026-10-28 15:58:06.605796266 +0000
++++ b/plugins/goffice/plugin.m4	2026-10-28 15:58:06.627152724 +0000
+@@ -39,9 +39,6 @@
+ if test "$enable_goffice" = "yes" || \
+    test "$goffice_deps" = "yes"; then
+ 
+-if test "$enable_goffice_builtin" = "yes"; then
+-AC_MSG_ERROR([goffice plugin: static linking not supported])
+-fi
+ 
+ PKG_CHECK_MODULES(GOFFICE,[ $goffice_pkgs ])
+ 
+@@ -50,6 +47,13 @@
+ GOFFICE_CFLAGS="$GOFFICE_CFLAGS "'${PLUGIN_CFLAGS}'
+ GOFFICE_LIBS="$GOFFICE_LIBS "'${PLUGIN_LIBS}'
+ 
++# riscos-gtk: built in (RISC OS has no dlopen); GOffice's own plugins are
++# linked into the program too, and registered with GLib's static module
++# registry (tools/mkstaticmodules.py)
++if test "$enable_goffice_builtin" = "yes"; then
++	GOFFICE_CFLAGS="$GOFFICE_CFLAGS -DABI_PLUGIN_BUILTIN"
++fi
++
+ fi
+ 
+ AC_SUBST([GOFFICE_CFLAGS])
+diff -ruN a/plugins/goffice/unix/AbiGOffice.cpp b/plugins/goffice/unix/AbiGOffice.cpp
+--- a/plugins/goffice/unix/AbiGOffice.cpp	2026-10-28 15:58:06.607964899 +0000
++++ b/plugins/goffice/unix/AbiGOffice.cpp	2026-10-28 15:58:06.627440679 +0000
+@@ -20,9 +20,9 @@
+  */
+ 
+ #ifdef ABI_PLUGIN_BUILTIN
+-#define abi_plugin_register abipgn_abigochart_register
+-#define abi_plugin_unregister abipgn_abigochart_unregister
+-#define abi_plugin_supports_version abipgn_abigochart_supports_version
++#define abi_plugin_register abipgn_goffice_register
++#define abi_plugin_unregister abipgn_goffice_unregister
++#define abi_plugin_supports_version abipgn_goffice_supports_version
+ #endif
+ 
+ #include "xap_Module.h"
+diff -ruN a/plugins/goffice/unix/AbiGOComponent.cpp b/plugins/goffice/unix/AbiGOComponent.cpp
+--- a/plugins/goffice/unix/AbiGOComponent.cpp	2026-10-28 16:33:07.618855362 +0000
++++ b/plugins/goffice/unix/AbiGOComponent.cpp	2026-10-28 16:33:08.123385153 +0000
+@@ -48,7 +48,8 @@
+ 
+ static void changed_cb (GOComponent*, gpointer);
+ 
+-XAP_Dialog_MessageBox::tAnswer s_CouldNotLoadFileMessage(XAP_Frame * pFrame, const char * pNewFile, UT_Error errorCode)
++/* riscos-gtk: static, as AbiWord's own (ap_EditMethods.cpp) clashes when built in */
++static XAP_Dialog_MessageBox::tAnswer s_CouldNotLoadFileMessage(XAP_Frame * pFrame, const char * pNewFile, UT_Error errorCode)
+ {
+ 	XAP_String_Id String_id;
+ 

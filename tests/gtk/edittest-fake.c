@@ -52,7 +52,7 @@ static char text_after_paste[128], empty_after_drag[128], writable_after_drag[12
 static char text_after_dragout[128];
 
 /* M4: Save box, Open box, files dropped */
-#define LAST_STEP 36
+#define LAST_STEP 37
 static char save_target[512], save_target_ro[512];    /* outdir/Accounts.csv, both forms */
 static char picture_ro[512], picture_unix[512];
 static int save_box_handle, save_box_ox, save_box_oy;
@@ -71,6 +71,10 @@ static int cancel_box_handle, cancel_box_closed;
 static int dlg_save_box, dlg_save_handle, dlg_saved, dlg_open_box, dlg_cancel_handle, dlg_cancel_closed;
 static int ds_first, dl_first, oa_first;
 static char dlg_saved_file[256], dlg_opened_file[256];
+/* a file dragged out (themetest's Prices.csv) and saved where the
+   receiver says (outdir/Prices.csv) */
+static char fd_target[512], fd_target_ro[512], fd_leaf[64], fd_dl_path[512];
+static int fd_ds, fd_ds_type, fd_ds_size, fd_dl, fd_dl_type, fd_saved_type = -1, mimemap_asked;
 
 static void
 check (int ok, const char *name)
@@ -309,7 +313,21 @@ message_hook (int reason, int *b, int dest, int icon)
         }
       break;
     case 1:                           /* DataSave from the program */
-      if (request_ref && b[3] == request_ref && dest == OTHER_TASK)
+      if (step >= 37 && dest == FOREIGN && b[3] == 0)
+        {
+          /* the dragged file: answered as a Filer window would, with
+             where to save it */
+          fd_ds++;
+          fd_ds_type = b[10];
+          fd_ds_size = b[9];
+          g_strlcpy (fd_leaf, (const char *) &b[11], sizeof fd_leaf);
+          memcpy (&q[5], &b[5], 16);
+          q[9] = 100;
+          q[10] = b[10];
+          g_strlcpy ((char *) &q[11], fd_target_ro, 200);
+          queue (17, q, 2, b[2], 44 + (int) strlen (fd_target_ro) + 1);
+        }
+      else if (request_ref && b[3] == request_ref && dest == OTHER_TASK)
         {
           export_datasave = b[10] == 0xFFF && b[9] == 16 && strcmp ((char *) &b[11], "TextFile") == 0;
           export_dest = dest;
@@ -344,7 +362,15 @@ message_hook (int reason, int *b, int dest, int icon)
         }
       break;
     case 3:                           /* DataLoad: the Save box's file is saved */
-      if (reason == 18 && dest == OTHER_TASK && b[3] != 0)
+      if (step >= 37 && reason == 18 && b[3] != 0)
+        {
+          fd_dl++;
+          fd_dl_type = b[10];
+          g_strlcpy (fd_dl_path, (const char *) &b[11], sizeof fd_dl_path);
+          memcpy (q, b, b[0]);
+          queue (17, q, 4, b[2], b[0]);
+        }
+      else if (reason == 18 && dest == OTHER_TASK && b[3] != 0)
         {
           save_dl_seen++;
           save_dl_type = b[10];
@@ -490,8 +516,38 @@ swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
           filetype_set = r->r[2];
           return 1;
         }
+      if (r->r[0] == 10)              /* save a block of memory, typed */
+        {
+          char unix_path[600], *d = unix_path;
+          const char *p = (const char *) (long) r->r[1];
+          FILE *f;
+          *d++ = '/';
+          for (; *p && d < unix_path + sizeof unix_path - 1; p++)
+            *d++ = *p == '.' ? '/' : *p == '/' ? '.' : *p;
+          *d = 0;
+          if (!(f = fopen (unix_path, "wb")))
+            {
+              *e = &notfound;
+              return 1;
+            }
+          fwrite ((const void *) (long) r->r[4], 1, r->r[5] - r->r[4], f);
+          fclose (f);
+          if (strcmp (unix_path, fd_target) == 0)
+            fd_saved_type = r->r[2];
+          return 1;
+        }
       *e = &notfound;
       return 1;
+    case 0x50B00:                      /* MimeMap_Translate: extension to file type */
+      if (r->r[0] == 3 && r->r[2] == 0)
+        {
+          const char *ext = (const char *) (long) r->r[1];
+          mimemap_asked++;
+          r->r[3] = g_ascii_strcasecmp (ext, "csv") == 0 ? 0xDFE :
+                    g_ascii_strcasecmp (ext, "txt") == 0 ? 0xFFF : 0xFFD;
+          return 1;
+        }
+      return 0;
     case 0x42400:                      /* DragASprite_Start */
       dragasprite_starts++;
       g_strlcpy (dragasprite, (const char *) (long) r->r[2], sizeof dragasprite);
@@ -811,6 +867,8 @@ step_ready (void)
       return open_ack >= 2 && box_window ("Open File") == NULL && tt_last_file[0];
     case 35:
       return box_window ("Save File") == NULL;
+    case 37:
+      return fd_dl > 0;
     default:
       return waits > 10;
     }
@@ -1121,6 +1179,17 @@ next_step (void)
       dlg_cancel_closed = box_window ("Save File") == NULL && tt_last_file[0] == 0;
       nulls (6);
       break;
+    case 37:     /* a file the program has (text/uri-list), dragged onto FOREIGN */
+      {
+        int x, y, wd, ht;
+        fake_target_window = main_handle;
+        rect (tt_file_drag, &x, &y, &wd, &ht);
+        drag (tt_file_drag, -60, 320);
+        for (x = 0; x < 6; x++)
+          add (FAKE_SLEEP, 100, 0, 0);
+        nulls (6);
+      }
+      break;
     default:
       return;  /* the script ends: the window closes */
     }
@@ -1278,6 +1347,11 @@ main (int argc, char **argv)
     g_strlcpy (picture_ro, ro, sizeof picture_ro);
     g_free (ro);
     unlink (save_target);
+    g_snprintf (fd_target, sizeof fd_target, "%s/Prices.csv", outdir);
+    ro = gdk_riscos_path_from_unix (fd_target);
+    g_strlcpy (fd_target_ro, ro, sizeof fd_target_ro);
+    g_free (ro);
+    unlink (fd_target);
   }
   g_snprintf (logpath, sizeof logpath, "%s/GTKEditTest.Log", outdir);
   targv[0] = argv[0]; targv[1] = argv[1]; targv[2] = logpath; targv[3] = NULL;
@@ -1401,6 +1475,19 @@ main (int argc, char **argv)
     check (drop_ack == 1 && strcmp (dropped_file, picture_unix) == 0,
            "a file dropped from the Filer on a widget arrives as a file URI (text/uri-list)");
     printf ("# dropped \"%s\"\n", dropped_file);
+    printf ("# file drag: DataSave \"%s\" &%03X %d bytes; saved type %d; DataLoad &%03X \"%s\"\n",
+            fd_leaf, fd_ds_type, fd_ds_size, fd_saved_type, fd_dl_type, fd_dl_path);
+    check (fd_ds == 1 && strcmp (fd_leaf, "Prices/csv") == 0 && fd_ds_type == 0xDFE &&
+           fd_ds_size == (int) strlen (TT_DRAG_FILE_TEXT) && mimemap_asked,
+           "a file dragged out of a widget (text/uri-list): Message_DataSave with its leaf name, size and type (CSV, from MimeMap)");
+    {
+      char *got = NULL;
+      gsize n = 0;
+      check (g_file_get_contents (fd_target, &got, &n, NULL) && strcmp (got, TT_DRAG_FILE_TEXT) == 0 &&
+             fd_saved_type == 0xDFE && fd_dl == 1 && fd_dl_type == 0xDFE && strcmp (fd_dl_path, fd_target_ro) == 0,
+             "it's saved to the name in the DataSaveAck, typed CSV, then DataLoad");
+      g_free (got);
+    }
   }
   check (strstr (logbuf, "window closed") != NULL, "the window closes");
   {

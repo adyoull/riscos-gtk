@@ -4,11 +4,11 @@
 #   RCD_DIR=... SRC=... SYSROOT=... build/build-gnumeric.sh
 #   TARGET=linuxarm ...: the same build for the tests (stops after make)
 # Builds what Gnumeric needs into $STAGE if it isn't there:
-#   libxml2 2.9.14 (no Python, FTP, lzma; HTTP for libgsf's gsf-input-http),
+#   libxml2 2.9.14 and librsvg 2.40.20 (build-svg.sh: SVG pictures),
 #   libxslt 1.1.39 (GOffice's MathML),
 #   libgsf 1.14.51 (structured files: OLE2, ZIP; no bz2, no introspection),
 #   GOffice 0.10.57 (charts, number formats; patches/goffice-0.10.57-riscos.diff:
-#     librsvg optional, as it is Rust now; its settings in a key file),
+#     its settings in a key file),
 # then Gnumeric (patches/gnumeric-1.12.57-riscos.diff).
 # Gnumeric's and GOffice's plugins (functions, file formats, chart types)
 # are linked in: see build/mkstaticmodules.sh and GLib's static module
@@ -35,19 +35,8 @@ ar_objects() {  # DIR LIB.a [MIN]: DIR's *.o (all compiled) into $STAGE/lib/LIB.
   rm -f "$STAGE/lib/$2"; $AR rcs "$STAGE/lib/$2" "$1"/*.o
 }
 
-# ---- libxml2 ----
-if [ ! -f "$STAGE/lib/libxml2.a" ]; then
-  log libxml2
-  X=$SRC/libxml2-2.9.14
-  rm -rf "$X"; tar -xf "$DL/libxml2_2.9.14+dfsg.orig.tar.xz" -C "$SRC"
-  (cd "$X" && CFLAGS="$RO_CFLAGS" ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX \
-     --libdir=$PREFIX/lib --disable-shared --enable-static --without-python --without-lzma \
-     --without-ftp --without-debug --without-modules --with-zlib \
-     > ../libxml2.log 2>&1 &&
-   make -j$JOBS libxml2.la >> ../libxml2.log 2>&1 &&
-   make install-libLTLIBRARIES install-data-am install-pkgconfigDATA -C . DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1 &&
-   make -C include install DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1) || fail "$SRC/libxml2.log"
-fi
+# ---- libxml2 and librsvg (build-svg.sh, shared with other programs) ----
+"$HERE/build-svg.sh"
 
 # ---- libxslt (GOffice's MathML to LaTeX) ----
 if [ ! -f "$STAGE/lib/libxslt.a" ]; then
@@ -81,17 +70,6 @@ if [ ! -f "$STAGE/lib/libgsf-1.a" ]; then
    make -C gsf install-libgsf_1_includeHEADERS DESTDIR="$SYSROOT" >> ../libgsf.log 2>&1 &&
    make install-pkgconfigDATA DESTDIR="$SYSROOT" >> ../libgsf.log 2>&1) || fail "$SRC/libgsf.log"
 fi
-# ---- librsvg's stand-in (riscos/rsvg-stub: loads no SVG) ----
-if [ ! -f "$STAGE/lib/librsvg-2.a" ]; then
-  log "librsvg stand-in"
-  R=$REPO_DIR/riscos/rsvg-stub
-  mkdir -p "$STAGE/include/librsvg-2.0/librsvg" "$STAGE/lib/pkgconfig"
-  cp "$R"/librsvg/*.h "$STAGE/include/librsvg-2.0/librsvg/"
-  $CC $RO_CFLAGS -I"$R" $(pkg-config --cflags gdk-pixbuf-2.0 cairo) -c "$R/rsvg-stub.c" -o "$SRC/rsvg-stub.o"
-  rm -f "$STAGE/lib/librsvg-2.a"; $AR rcs "$STAGE/lib/librsvg-2.a" "$SRC/rsvg-stub.o"
-  sed "s|@PREFIX@|$PREFIX|" "$R/librsvg-2.0.pc.in" > "$STAGE/lib/pkgconfig/librsvg-2.0.pc"
-fi
-
 # ---- GOffice ----
 GO=$SRC/goffice-0.10.57
 if [ ! -f "$STAGE/lib/libgoffice-0.10.a" ]; then
@@ -160,7 +138,7 @@ $AR rcs "$SRC/libspreadsheet.a" $(find "$GN/src" -name "*.lo" | sort | sed 's/\.
 $HOST-objcopy --redefine-sym main=gnumeric_main "$GN/src/main-application.o" "$SRC/gnumeric-main.o"
 GN_LIBS="$GN/src/io-context-gtk.o $(cat "$ST.archives") $SRC/libspreadsheet.a"
 GN_CFLAGS="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
-GN_LDLIBS="$(pkg-config --libs --static libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0) -lm"
+GN_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0) -lm"
 # ---- !Gnumeric ----
 VERSION=${VERSION:-1.12.57-riscos16}
 APP=$SRC/gnumeric-app
@@ -192,6 +170,10 @@ cp -r "$I$PREFIX/share/gnumeric/$V"/* "$APP/share/"
 (cd "$I$PREFIX/share/icons" && find hicolor -name '*.png' | while read -r f; do
   mkdir -p "$APP/share/icons/$(dirname "$f")"; cp "$f" "$APP/share/icons/$f"; done)
 cat "$GN/COPYING" "$GN/COPYING-gpl2" "$GN/COPYING-gpl3" > "$APP/Licence,fff"   # GPL 2 or 3
+# the manual (its DocBook as HTML, GFDL): Help > Contents and the
+# dialogues' Help buttons (tools/mkgnumerichelp.py)
+python3 -B "$REPO_DIR/tools/mkgnumerichelp.py" "$GN" "$APP/share/doc/C"
+cp "$REPO_DIR/riscos/licences/GFDL-1.3.txt" "$APP/share/doc/C/LicenceGFDL,fff"
 if [ "$TARGET" != riscos ]; then
   # the tests link GN_LIBS themselves (tests/gtk/gnumeric-fake.c), with
   # $SRC/gnumeric-app's plugin descriptions and data

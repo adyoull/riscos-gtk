@@ -722,3 +722,36 @@ that SDL2, freeglut and the games already use.
   permission for this work): the ROM fonts and HardDisc4's `!Fonts`. That
   was 22 faces made in 1.2 s, then 0.1 s from the cache, and AbiWord drew
   them.
+
+## SVG: librsvg 2.40, the last C version (2026-10-28)
+- The stand-in (2026-10-17) is replaced by librsvg 2.40.20, the last
+  version written in C, with libcroco 0.6.13 (its CSS parser) and
+  libxml2: `build/build-svg.sh`. 2.40 is old (2017) but its API is the
+  one GOffice and AbiWord call, and it draws through cairo and pango,
+  which riscos-gtk already has.
+- Its GdkPixbuf loader (`io-svg.c`) is compiled with the names
+  gdk-pixbuf's built-in loaders have. gdk-pixbuf refers to them weakly,
+  so the loader is in a program only when it asks for it
+  (`pkg-config --static riscos-gtk-svg` adds `-u` for them): the small
+  programs (L3afpad, mtPaint, Geany) don't carry librsvg and libxml2, and
+  behave as before (`svgtest-nosvg`).
+- Gnumeric, AbiWord and ClawsMail link it. The devkit keeps the
+  libraries, so other ports can.
+
+## Opening files: Filer_Run, typed first (2026-10-28)
+- `gtk_show_uri_on_window()` goes through GIO's desktop launchers, which
+  RISC OS hasn't got. On RISC OS it now calls `gdk_riscos_show_uri()`:
+  a file is opened as a double-click in the Filer would (Wimp_StartTask
+  "Filer_Run"), anything else goes to URI_Dispatch. A file without a
+  RISC OS type (UnixLib writes text, &FFF, or data, &FFD) is first given
+  the type MimeMap has for its MIME type, if the caller knows it
+  (`gdk_riscos_open_file`: an attachment's Content-Type), or for its
+  extension. Without that a downloaded PDF would open in a text editor.
+
+## Dragging files out (2026-10-28)
+- GTK programs offer files to drag as text/uri-list. A drop on another
+  task's window used to take only text. GDK now prefers a file URI when
+  the drag offers one: the DataSave names the file's leaf and type, and
+  the file's contents go by RAM transfer or are saved where the
+  DataSaveAck says, as RISC OS programs do. One file a drag: the Wimp's
+  protocol has no lists.

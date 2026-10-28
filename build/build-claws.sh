@@ -12,7 +12,8 @@
 # Builds nettle into $STAGE if it isn't there (Claws Mail's DES, for its
 # own stored-password encryption), unpacks Claws Mail into $SRC, applies
 # patches/claws-mail-*-riscos.diff, builds libetpan 1.9.4 into $STAGE if it
-# isn't there (IMAP), configures (no plugins; POP3, IMAP, SMTP; all TLS
+# isn't there (IMAP), configures (no plugins but LiteHTML; spelling;
+# SVG; POP3, IMAP, SMTP; all TLS
 # through src/common/ssl_acornssl.c, compiled against the patch's
 # gnutls-acornssl headers, which libetpan is built against too) and makes it.
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -20,6 +21,11 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 V=4.4.0
 C=$SRC/claws-mail-$V
 JOBS=${JOBS:-$(nproc)}
+# spell checking (build-spell.sh: enchant, hunspell, the en_GB
+# dictionary) and SVG pictures (build-svg.sh: librsvg), shared with the
+# other programs
+"$HERE/build-spell.sh"
+"$HERE/build-svg.sh"
 
 if [ ! -f "$STAGE/lib/libnettle.a" ]; then
   N=$SRC/nettle-3.10.2
@@ -81,12 +87,12 @@ DISABLE_PLUGINS=$(./configure --help | grep -oE -- '--disable-[a-z_]+-plugin' | 
 [ "$TARGET" = riscos ] && export ac_cv_func_fgets_unlocked=no
 CFLAGS="$RO_CFLAGS -Wno-deprecated-declarations" \
 CPPFLAGS="-D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$C/src/common/gnutls-acornssl" \
-LIBS="$(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g')" \
+LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0 | sed 's/-pthread//g')" \
 ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --disable-shared --enable-static \
   --disable-nls --disable-manual --disable-libsm --disable-ipv6 --disable-gnutls --disable-oauth2 \
-  --disable-enchant --disable-compface --disable-pthread --disable-startup-notification \
+  --disable-compface --disable-pthread --disable-startup-notification \
   --disable-dbus --disable-ldap --disable-jpilot --disable-networkmanager \
-  --disable-valgrind --disable-svg --disable-tests --with-password-encryption=old \
+  --disable-valgrind --disable-tests --with-password-encryption=old \
   $DISABLE_PLUGINS > ../claws-configure.log 2>&1 || { tail -20 ../claws-configure.log; exit 1; }
 M="-f Makefile -f $REPO_DIR/apps/claws/objects.mk"
 { make -j$JOBS -C src/common && make -j$JOBS -C src/gtk && make -j$JOBS -C src/etpan && make -C src $M claws-built &&
@@ -99,7 +105,7 @@ M="-f Makefile -f $REPO_DIR/apps/claws/objects.mk"
 L=$C/src/plugins/litehtml_viewer
 cp "$REPO_DIR/apps/claws/litehtml/http.h" "$REPO_DIR/apps/claws/litehtml/http.cpp" "$L/"
 LHF="-DHAVE_CONFIG_H -D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$C/src/common/gnutls-acornssl
-  -I$C -I$C/src -I$C/src/common -I$C/src/gtk -I$L -I$L/litehtml $(pkg-config --cflags gtk+-3.0 gumbo)"
+  -I$C -I$C/src -I$C/src/common -I$C/src/gtk -I$L -I$L/litehtml $(pkg-config --cflags gtk+-3.0 gumbo enchant-2)"
 rm -rf "$L/obj"; mkdir -p "$L/obj"
 (cd "$L/obj" &&
  for f in ../litehtml/*.cpp; do echo "$f"; done | xargs -P$JOBS -I{} $CXX $RO_CFLAGS -std=c++11 -w -I$L -I$L/litehtml $(pkg-config --cflags gumbo) -c {} &&
@@ -120,14 +126,25 @@ echo "build-claws.sh: built Claws Mail's objects in $C/src ($TARGET)"
 # stops on them): the ones checked by hand are in unaligned-safe.txt
 "$RCD_DIR/checks/check-unaligned.sh" -s "$REPO_DIR/apps/claws/unaligned-safe.txt" \
   -DHAVE_CONFIG_H -D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I"$C/src/common/gnutls-acornssl" \
-  -I"$C" -I"$C/src" -I"$C/src/common" -I"$C/src/gtk" $(pkg-config --cflags gtk+-3.0) \
+  -I"$C" -I"$C/src" -I"$C/src/common" -I"$C/src/gtk" $(pkg-config --cflags gtk+-3.0 enchant-2 librsvg-2.0) \
   $(ls "$C"/src/*.c "$C"/src/common/*.c "$C"/src/gtk/*.c | grep -v ssl_acornssl)
 
 # !ClawsMail: Claws Mail's objects (main.o included) and its libclawsgtk,
-# with riscos-claws.c
+# with riscos-claws.c; the British English dictionary in share/hunspell
+# (hunspell finds it through XDG_DATA_DIRS: /<ClawsMail$Dir>/share)
 VERSION=${VERSION:-4.4.0-riscos22}
+APP=$SRC/claws-app
+rm -rf "$APP"; cp -r "$REPO_DIR/apps/claws/app" "$APP"
+mkdir -p "$APP/share/hunspell"
+cp "$SRC/dictionaries/en_GB.dic" "$SRC/dictionaries/en_GB.aff" "$APP/share/hunspell/"
+cp "$SRC/dictionaries/README_en_GB.txt" "$APP/share/hunspell/LicenceDictionary,fff"
+# the manual (Claws Mail's own HTML, from its source): Help > Manual
+mkdir -p "$APP/share/doc/manual/en"
+cp "$C/manual/en/claws-mail-manual.html" "$APP/share/doc/manual/en/"
+export EXTRA_LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2)"
+export EXTRA_CFLAGS="$(pkg-config --cflags enchant-2)"
 OBJS=$(ls "$C"/src/*.o)
-exec "$HERE/build-app.sh" ClawsMail claws-mail "$VERSION" "$REPO_DIR/apps/claws/app" \
+exec "$HERE/build-app.sh" ClawsMail claws-mail "$VERSION" "$APP" \
   -DHAVE_CONFIG_H -DRISCOS_PORT_VERSION=\"$VERSION\" -I"$C" -I"$C/src" -I"$C/src/common" -I"$C/src/gtk" \
   "$REPO_DIR/apps/claws/riscos-claws.c" $OBJS "$C/src/etpan/.libs/libclawsetpan.a" "$C/src/gtk/.libs/libclawsgtk.a" \
   "$L/liblhviewer.a" -letpan -lnettle -lgumbo -lstdc++

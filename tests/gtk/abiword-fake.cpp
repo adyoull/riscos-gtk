@@ -42,6 +42,9 @@
 #include "gr_CairoGraphics.h"
 #include "spell_manager.h"
 #include "xap_EncodingManager.h"
+#include "gr_CairoImage.h"
+#include "ut_bytebuf.h"
+#include <goffice/goffice.h>
 #include <iconv.h>
 
 extern int riscos_abiword_main (int argc, char **argv);
@@ -221,6 +224,34 @@ check_fonts (FV_View *view)
    program's en_GB dictionary, and one added in <Choices$Write>.GTK.
    Dictionaries (here en_ZZ, a copy of en_GB) */
 static int spell_gb_ok, spell_bad_ok, spell_choices_ok;
+/* SVG pictures (librsvg) and charts (the goffice plugin, GOffice's chart
+   types built in) */
+static int svg_ok = -1, svg_bad_ok = -1, go_plugins = -1, go_barcol = -1;
+
+static void
+check_svg_and_charts (void)
+{
+  static const char svg[] =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"50\">"
+    "<rect width=\"100\" height=\"50\" fill=\"#0a0\"/></svg>";
+  UT_ByteBuf bb, bad;
+  GR_RSVGVectorImage img ("svgtest"), img2 ("bad");
+  GSList *l, *active;
+
+  bb.append ((const UT_Byte *) svg, sizeof svg - 1);
+  svg_ok = img.convertFromBuffer (&bb, "image/svg+xml", -1, -1) &&
+           img.getDisplayWidth () == 100 && img.getDisplayHeight () == 50;
+  bad.append ((const UT_Byte *) "<svg", 4);
+  svg_bad_ok = !img2.convertFromBuffer (&bad, "image/svg+xml", -1, -1);
+  active = go_plugins_get_active_plugins ();
+  go_plugins = g_slist_length (active);
+  go_barcol = 0;
+  for (l = active; l; l = l->next)
+    if (g_strcmp0 ((const char *) l->data, "GOffice_plot_barcol") == 0)
+      go_barcol = 1;
+  g_slist_free (active);
+  printf ("# SVG %d; GOffice: %d active plugins, bar/column %d\n", svg_ok, go_plugins, go_barcol);
+}
 static int
 spelt_ok (SpellChecker *c, const char *word)
 {
@@ -317,6 +348,7 @@ do_files (gpointer)
   if (getenv ("UnixFC$Dir"))
     check_fonts (view);
   check_spelling ();
+  check_svg_and_charts ();
   check_icons (f);
   check_txt (doc);
   for (i = 0; i < N_FORMATS; i++)
@@ -497,6 +529,7 @@ main (int argc, char **argv)
       g_free (text); g_free (sysconf); g_free (fc); g_free (fcfonts); g_free (sys); g_free (cache);
     }
   g_setenv ("ABIWORD_DATADIR", g_build_filename (argv[1], "share", "abiword-3.0", NULL), TRUE);
+  g_setenv ("GOFFICE_DIR", g_build_filename (argv[1], "goffice", NULL), TRUE);
   g_setenv ("FONTCONFIG_FILE", g_build_filename (argv[1], "fonts", "fonts.conf", NULL), TRUE);
   g_setenv ("XDG_DATA_DIRS", g_build_filename (argv[1], "share", NULL), TRUE);
   g_setenv ("XDG_CONFIG_HOME", outdir, TRUE);
@@ -550,6 +583,10 @@ main (int argc, char **argv)
   check (spell_gb_ok, "spelling: British English words pass (the program's en_GB dictionary)");
   check (spell_bad_ok, "and a misspelt word is caught");
   check (spell_choices_ok, "a dictionary added to <Choices$Write>.GTK.Dictionaries is found");
+  check (svg_ok == 1, "an SVG picture loads (librsvg), at its own size");
+  check (svg_bad_ok == 1, "a broken SVG is refused, not a crash");
+  check (go_plugins > 5 && go_barcol == 1,
+         "charts: the goffice plugin starts GOffice, with its chart types built in (bar/column...)");
   check (stock_ok, "GTK's stock ids as icon names (gtk-new...) are the RISCOS theme's icons");
   check (own_ok, "AbiWord's own toolbar icons (tb_*) are drawn in the RISC OS style");
   check (app_icon_ok, "and its application icon (\"abiword\", the windows' and About box's)");

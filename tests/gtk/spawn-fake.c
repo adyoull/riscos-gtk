@@ -17,7 +17,11 @@
  *   - throwback (the DDE's tools with -throwback): registered with
  *     DDEUtils while the TaskWindow runs; its errors become compiler
  *     lines with Unix names (c.hello is hello.c) in the output; a recorded
- *     message is acknowledged.
+ *     message is acknowledged;
+ *   - opening files (gdk_riscos_open_file, gtk_show_uri_on_window):
+ *     Filer_Run, an untyped file typed first from its MIME type or its
+ *     extension (MimeMap), a typed one left alone; web addresses to
+ *     URI_Dispatch.
  *   spawn-fake APPDIR
  * Prints TAP; exit status = failures. MIT licence.
  */
@@ -37,6 +41,13 @@ static GString *got;
 static gboolean got_eof, watched;
 static int got_status, morite_to, tb_registered, tb_unregistered, tb_acked;
 static GPid pid;
+/* the files gdk_riscos_open_file is given: RISC OS name, type (-1: none) */
+static const struct { const char *ro; int type; } files[] = {
+  { "home.me.att.Report/pdf", 0xFFD }, { "home.me.att.Pic/spr", 0xFF9 },
+  { "home.me.att.Notes/csv", 0xFFF }, { "home.me.att.Plain", 0xFFF },
+};
+static int settype = -1, settype_calls, mimemap_calls;
+static char settype_name[256], dispatched[256];
 
 static void
 check (int ok, const char *name)
@@ -175,6 +186,44 @@ swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
     {
     case 0x42585: if (r->r[0] == 0x4A00) tb_registered++; return 1;    /* DDEUtils_ThrowbackRegister */
     case 0x42586: if (r->r[0] == 0x4A00) tb_unregistered++; return 1;  /* _UnRegister */
+    case 0x08:                                                          /* OS_File */
+      if (r->r[0] == 5)
+        {
+          const char *name = (const char *) (long) r->r[1];
+          guint i;
+          r->r[0] = 0;
+          for (i = 0; i < G_N_ELEMENTS (files); i++)
+            if (strcmp (name, files[i].ro) == 0)
+              {
+                r->r[0] = 1;
+                r->r[2] = (int) (0xFFF00000u | ((unsigned) files[i].type << 8));
+                r->r[4] = 100;
+              }
+          return 1;
+        }
+      if (r->r[0] == 18)
+        {
+          settype = r->r[2];
+          settype_calls++;
+          g_strlcpy (settype_name, (const char *) (long) r->r[1], sizeof settype_name);
+          return 1;
+        }
+      return 0;
+    case 0x50B00:                                                       /* MimeMap_Translate */
+      {
+        const char *in = (const char *) (long) r->r[1];
+        mimemap_calls++;
+        if (r->r[2] != 0)
+          return 0;
+        r->r[3] = (r->r[0] == 2 && strcmp (in, "application/pdf") == 0) ? 0xADF :
+                  (r->r[0] == 3 && g_ascii_strcasecmp (in, "pdf") == 0) ? 0xADF :
+                  (r->r[0] == 3 && g_ascii_strcasecmp (in, "csv") == 0) ? 0xDFE : -1;
+        return 1;
+      }
+    case 0x4E381:                                                       /* URI_Dispatch */
+      g_strlcpy (dispatched, (const char *) (long) r->r[1], sizeof dispatched);
+      r->r[0] = strncmp (dispatched, "https:", 6) == 0 ? 0 : 1;          /* only https is taken */
+      return 1;
     }
   return 0;
 }
@@ -336,6 +385,40 @@ step (gpointer d)
              "throwback errors become compiler lines (c.hello as hello.c)");
       check (tb_acked == 1, "a recorded throwback message is acknowledged");
       check (tb_unregistered == 1, "unregistered when the TaskWindow ends");
+      {
+        GError *err = NULL;
+        gboolean ok;
+
+        settype = -1;
+        ok = gdk_riscos_open_file ("/home/me/att/Report.pdf", "application/pdf", &err);
+        check (ok && settype == 0xADF && g_str_equal (settype_name, "home.me.att.Report/pdf") &&
+               g_str_equal (last_cmd, "Filer_Run home.me.att.Report/pdf"),
+               "gdk_riscos_open_file: an untyped (&FFD) attachment is typed from its MIME type (PDF), then Filer_Run");
+        settype = -1;
+        settype_calls = 0;
+        ok = gdk_riscos_open_file ("/home/me/att/Pic.spr", "application/octet-stream", NULL);
+        check (ok && settype_calls == 0 && g_str_equal (last_cmd, "Filer_Run home.me.att.Pic/spr"),
+               "a file with a type of its own (Sprite) keeps it");
+        ok = gdk_riscos_open_file ("/home/me/att/Notes.csv", NULL, NULL);
+        check (ok && settype == 0xDFE, "no MIME type: the type from its extension (CSV, &FFF before)");
+        settype_calls = 0;
+        ok = gdk_riscos_open_file ("/home/me/att/Plain", "text/x-unknown", NULL);
+        check (ok && settype_calls == 0 && g_str_equal (last_cmd, "Filer_Run home.me.att.Plain"),
+               "nothing MimeMap knows: left as text, still opened");
+        ok = gdk_riscos_open_file ("/home/me/att/Gone.txt", NULL, &err);
+        check (!ok && err != NULL, "a file that isn't there: FALSE and an error");
+        g_clear_error (&err);
+        ok = gtk_show_uri_on_window (NULL, "file:///home/me/att/Report.pdf", GDK_CURRENT_TIME, &err);
+        check (ok && g_str_equal (last_cmd, "Filer_Run home.me.att.Report/pdf"),
+               "gtk_show_uri_on_window with a file:// URI: the Filer opens it");
+        g_clear_error (&err);
+        ok = gtk_show_uri_on_window (NULL, "https://www.riscosopen.org/", GDK_CURRENT_TIME, &err);
+        check (ok && g_str_equal (dispatched, "https://www.riscosopen.org/"),
+               "gtk_show_uri_on_window with a web address: URI_Dispatch");
+        ok = gtk_show_uri_on_window (NULL, "gopher://example/", GDK_CURRENT_TIME, &err);
+        check (!ok && err != NULL, "an address nothing takes: FALSE and an error, not a hang");
+        g_clear_error (&err);
+      }
       printf ("1..%d\n", n_tests);
       fflush (stdout);
       _exit (n_failed);

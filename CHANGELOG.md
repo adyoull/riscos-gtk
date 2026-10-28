@@ -1,5 +1,48 @@
 # Changelog
 
+## Unreleased
+- **SVG pictures in every GTK program that wants them.** librsvg 2.40.20
+  (the last version written in C) with libcroco and libxml2 replaces the
+  stand-in that loaded nothing (`build/build-svg.sh`). Its GdkPixbuf
+  loader is built in: gdk-pixbuf refers to it weakly
+  (`patches/gdk-pixbuf-2.42.10-riscos.diff`), so a program linked with
+  `pkg-config --static riscos-gtk-svg` opens SVG files through
+  gdk_pixbuf_new_from_file, GtkImage and icon themes, and programs
+  without it are unchanged. Gnumeric (pictures and charts' images),
+  AbiWord (pictures) and ClawsMail (SVG attachments and HTML mail's
+  pictures) use it. Tests `svgtest` and `svgtest-nosvg`.
+- **Files dragged out of a program.** A widget that offers a file
+  (text/uri-list with a file:// URI: ClawsMail's attachments, a file
+  list) dropped on a Filer window or another program saves that file
+  there, with its own leaf name and file type (from the file, or from its
+  extension through MimeMap). Before, only text could be dragged out.
+  GTKThemeTest's Dialogues page has a file to drag. Test `edittest-fake`.
+- **Opening files and addresses.** `gtk_show_uri_on_window()` and
+  `gtk_show_uri()` work on RISC OS: a file:// URI is opened as a
+  double-click in the Filer would (Filer_Run), an untyped file first
+  given its type from MimeMap; anything else goes to URI_Dispatch. New
+  `gdk_riscos_open_file()` (a file, with its MIME type if known) and
+  `gdk_riscos_show_uri()`. Gnumeric's Help > web links, and anything else
+  that uses GTK's call, now work. Test `spawn-fake`.
+- **ClawsMail:** spell checking (enchant and hunspell, as AbiWord; the
+  British English dictionary in the application, others in
+  `<Choices$Write>.GTK.Dictionaries`); attachments open in the program
+  the desktop has for them (typed from their MIME type) and can be
+  dragged to a Filer window; Help > Manual opens the manual, in the
+  application; SVG attachments are shown. Test `claws-fake`.
+- **Gnumeric:** Help > Contents and the dialogues' Help buttons open its
+  manual (its DocBook as HTML, in the application:
+  `tools/mkgnumerichelp.py`). Needs xsltproc and docbook-xsl on the build
+  machine (`build/check-host.sh`).
+- **AbiWord:** charts (the goffice plugin, built in with GOffice's chart
+  types: bar and column, pie, XY, radar, surface, distributions, trend
+  lines), as Gnumeric has them; SVG pictures. Test `abiword-fake`.
+- **The devkit** keeps libxml2, libcroco and librsvg, so any program
+  ported with it can show SVG (`pkg-config --static riscos-gtk-svg`).
+- **The desktop's fonts come from Font$Path**, as before; the
+  documents said "!Fonts". Fonts a font manager (Fontastic, say) adds
+  are found too.
+
 ## 3.24.41-riscos1.0-rc13 (2026-10-28)
 - **AbiWord joins the release:** AbiWord 3.0.8-riscos1, the word
   processor, after its test builds ran on the Pi.

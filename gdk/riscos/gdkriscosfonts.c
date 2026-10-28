@@ -1,12 +1,14 @@
 /*
  * gdkriscosfonts.c - riscos-gtk: the desktop's own fonts for every GTK
  * program. The RISC OS Font Manager's outline fonts (Homerton, Trinity,
- * Corpus, and any in !Fonts) become OpenType files fontconfig, FreeType
+ * Corpus, and every outline font on Font$Path) become OpenType files fontconfig, FreeType
  * and pango use like any other font: the same outlines the Font Manager
  * draws, made on this machine for its own use.
  *
- * - The fonts: Font_ListFonts. WIMPSymbol (the Wimp's own symbols) is
- *   left out.
+ * - The fonts: Font_ListFonts, which searches every folder on Font$Path
+ *   (!Fonts, and the folders font managers such as Fontastic add), and
+ *   Font_ReadFontPrefix for the folder each font is in. Nothing here
+ *   assumes !Fonts. WIMPSymbol (the Wimp's own symbols) is left out.
  * - Each face's characters: Font_EnumerateCharacters on the font in the
  *   UTF-8 encoding ("\F<name>\EUTF8"); characters the encoding maps to the
  *   same glyph share one.
