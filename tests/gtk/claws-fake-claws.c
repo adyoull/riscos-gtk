@@ -19,6 +19,7 @@
 #include "compose.h"
 #include "manual.h"
 #include "plugin.h"
+#include "folderview.h"
 #include <enchant.h>
 
 int fake_claws_show_message (const char *folder, int num);
@@ -32,6 +33,7 @@ int fake_claws_spell (void);
 int fake_claws_manual (void);
 int fake_claws_plugins (void);
 GtkWidget *fake_claws_main_window (void);
+int fake_claws_show_folder (const char *klass, const char *name, int msgnum);
 int fake_claws_subscribe (const char *klass, const char *uri);
 int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 
@@ -225,4 +227,25 @@ fake_claws_main_window (void)
 {
   MainWindow *mw = mainwindow_get_mainwindow ();
   return mw ? mw->window : NULL;
+}
+
+/* the main window shown on the folder item called name (in the folder of
+   class klass), its message msgnum selected (0: none), for a screenshot */
+int
+fake_claws_show_folder (const char *klass, const char *name, int msgnum)
+{
+  MainWindow *mw = mainwindow_get_mainwindow ();
+  Folder *f = folder_of_class (klass);
+  gpointer d[2] = { (gpointer) name, NULL };
+
+  if (!mw || !f || !f->node)
+    return 0;
+  g_node_traverse (f->node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, find_named, d);
+  if (!d[1])
+    return 0;
+  main_window_popup (mw);
+  folderview_select (mw->folderview, d[1]);
+  if (msgnum)
+    summary_select_by_msgnum (mw->summaryview, msgnum, TRUE);
+  return 1;
 }

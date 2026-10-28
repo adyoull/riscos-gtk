@@ -1,8 +1,9 @@
 # Changelog
 
 ## Unreleased
-- **Versions:** AbiWord 3.0.8-riscos2, Gnumeric 1.12.57-riscos17,
-  ClawsMail 4.4.0-riscos23 (test builds `-test1`). The other programs get
+- **Versions:** AbiWord 3.0.8-riscos3, Gnumeric 1.12.57-riscos17,
+  ClawsMail 4.4.0-riscos24 (test builds `-test1`; riscos2 and riscos23
+  were this round's first test builds). The other programs get
   the GTK changes at their next rebuild.
 - **SVG pictures in every GTK program that wants them.** librsvg 2.40.20
   (the last version written in C) with libcroco and libxml2 replaces the
@@ -33,6 +34,26 @@
   the desktop has for them (typed from their MIME type) and can be
   dragged to a Filer window; Help > Manual opens the manual, in the
   application; SVG attachments are shown. Test `claws-fake`.
+- **ClawsMail's RSS, Sieve and vCalendar plug-ins.** Linked into the
+  program as GLib static modules and loaded through Claws Mail's own
+  plug-in code, so Configuration > Plugins lists them and can unload
+  them (they are loaded once at the first start, then as that list
+  says). RSS feeds are folders of messages; Tools > Manage Sieve Filters
+  edits the filters on a ManageSieve server (STARTTLS through AcornSSL);
+  vCalendar reads meeting invitations in mail, keeps a calendar (day,
+  week and month views) and subscribes to webcal calendars. Their
+  libcurl is a subset written for the port (`apps/claws/curl`) on a
+  shared HTTP and HTTPS client (`apps/claws/net/riscos-http.c`: sockets,
+  AcornSSL, redirects, Basic authentication, PUT), which HTML mail's
+  pictures now use too. libical 3.0.17 for vCalendar, with its own time
+  zones in the application. Test `claws-fake` (a feed, a webcal
+  calendar, the libcurl subset and a ManageSieve server).
+- **AbiWord: equations.** The mathview plugin, built in, with GtkMathView
+  0.8.0 (its core and libxml2 front end): Insert > Equation from LaTeX
+  (itex2MML) or from a MathML file; equations in .abw and OpenDocument
+  files are shown, drawn with TeX's Computer Modern fonts (BaKoMa's
+  TrueType ones, in the application). Test
+  `abiword-fake`.
 - **Gnumeric:** Help > Contents and the dialogues' Help buttons open its
   manual (its DocBook as HTML, in the application:
   `tools/mkgnumerichelp.py`). Needs xsltproc and docbook-xsl on the build

@@ -80,6 +80,9 @@ get libwps_0.4.14.orig.tar.xz      $U/libw/libwps/libwps_0.4.14.orig.tar.xz
 get libical3_3.0.17.orig.tar.xz    $U/libi/libical3/libical3_3.0.17.orig.tar.xz
 get gtkmathview_0.8.0.orig.tar.gz  $U/g/gtkmathview/gtkmathview_0.8.0.orig.tar.gz
 get gtkmathview_0.8.0-14.debian.tar.xz $U/g/gtkmathview/gtkmathview_0.8.0-14.debian.tar.xz
+# TeX's Computer Modern fonts (BaKoMa's TrueType ones, LyX's package), for
+# AbiWord's equations
+get "fonts-lyx_2.4.0~RC3-1build4_all.deb" "https://archive.ubuntu.com/ubuntu/pool/universe/l/lyx/fonts-lyx_2.4.0~RC3-1build4_all.deb"
 # SVG (build/build-svg.sh): librsvg 2.40, the last written in C, and libcroco
 get librsvg_2.40.20.orig.tar.xz     $U/libr/librsvg/librsvg_2.40.20.orig.tar.xz
 get libcroco_0.6.13.orig.tar.xz     $U/libc/libcroco/libcroco_0.6.13.orig.tar.xz

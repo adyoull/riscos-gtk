@@ -353,9 +353,9 @@ if [ -f "$SRC/abiword-build.txt" ]; then
   $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS -DABI_RISCOS_TEST $AB_CFLAGS \
     -c "$REPO_DIR/apps/abiword/riscos-abiword.cpp" -o "$ABT/riscos-abiword.o"
   $CXX -std=c++11 $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations -Wno-overloaded-virtual -DABI_RISCOS $AB_CFLAGS $(pkg-config --cflags aiksaurus-1.0) \
-    -c "$REPO_DIR/tests/gtk/abiword-fake.cpp" -o "$ABT/abiword-fake.o"
+    -I"$SRC/AbiWord-release-3.0.8/plugins/mathview/xp" -c "$REPO_DIR/tests/gtk/abiword-fake.cpp" -o "$ABT/abiword-fake.o"
   $CXX -no-pie "$ABT/abiword-fake.o" "$ABT/riscos-abiword.o" $AB_LIBS -o "$REPO_DIR/out/abiword-fake-linuxarm" \
-    -Wl,-Bstatic $(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') -ljpeg \
+    -Wl,-Bstatic $(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0 mathview-frontend-libxml2 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') -ljpeg \
     -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
   run abiword-fake "$ABT" "$ABT/out"
 else

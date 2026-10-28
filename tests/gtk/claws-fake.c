@@ -63,6 +63,7 @@ static int stage, polls, password_answers, send_pressed, compose_seen, spell_see
 int fake_claws_spell (void);
 int fake_claws_plugins (void);
 GtkWidget *fake_claws_main_window (void);
+int fake_claws_show_folder (const char *klass, const char *name, int msgnum);
 int fake_claws_subscribe (const char *klass, const char *uri);
 int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 static int inbox_files, smtp_files, main_window_seen;
@@ -878,7 +879,7 @@ finish (void)
           menu_title[0], menu_first[0], menu_sub_first[0], menu_sub_items[0], menu_second[0],
           menu_title[1], menu_first[1], menu_sub_first[1], menu_sub_items[1], menu_second[1],
           menu_title[2], menu_first[2], menu_second[2]);
-  if (closed_window && GTK_IS_WINDOW (closed_window))
+  if (close_hides < 0 && closed_window && GTK_IS_WINDOW (closed_window))
     close_hides = !gtk_widget_get_visible (closed_window);
   check (theme_chosen == 1 && defaults_marker == 1,
          "the RISC OS icons are chosen at the first start (RISCOSDefaults written)");
@@ -1440,13 +1441,37 @@ hook (int reason)
       if (imap_done)
         {
           dump_shot ("imap");
+          /* (the main window is shown again below, for the plug-ins) */
+          if (closed_window && GTK_IS_WINDOW (closed_window))
+            close_hides = !gtk_widget_get_visible (closed_window);
           g_idle_add (plugins_go, NULL);
           stage = 30;
         }
       break;
-    case 30:    /* the plug-ins: then Tools > Manage Sieve Filters... */
-      if (plugins_done)
+    case 30:    /* the plug-ins: the feed and the calendar shown (for
+                   screenshots), then Tools > Manage Sieve Filters... */
+      /* steps every 400 looks: the feed's folder, its second item, a
+         screenshot; the calendar's folder, a screenshot */
+      if (plugins_done >= 1 && ++sieve_polls > 400)
         {
+          sieve_polls = 0;
+          plugins_done++;
+        }
+      if (sieve_polls)
+        break;
+      if (plugins_done == 2)
+        fake_claws_show_folder ("rssyl", "RISC OS test feed", 0);
+      else if (plugins_done == 3)
+        fake_claws_show_folder ("rssyl", "RISC OS test feed", 2);
+      else if (plugins_done == 4)
+        {
+          dump_shot ("rss");
+          fake_claws_show_folder ("vCalendar", "RISC OS test calendar", 0);
+        }
+      else if (plugins_done == 5)
+        {
+          dump_shot ("calendar");
+          sieve_polls = 0;
           GtkWidget *mw = fake_claws_main_window ();
           GtkWidget *item = mw ? find_menu_item (mw, "Manage Sieve Filters...") : NULL;
           sieve_menu = item != NULL;
@@ -1521,13 +1546,27 @@ main (int argc, char **argv)
     "<item><title>Second item from the feed</title><link>http://localhost/2</link><guid>riscos-feed-2</guid>"
     "<pubDate>Wed, 07 Oct 2026 10:00:00 +0000</pubDate><description>The second item.</description></item>\n"
     "</channel></rss>\n");
-  write_file (pop, "cal.ics",
-    "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//riscos-gtk//test//EN\r\nX-WR-CALNAME:RISC OS test calendar\r\n"
-    "BEGIN:VEVENT\r\nUID:riscos-ev-1@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
-    "DTSTART:20261110T100000Z\r\nDTEND:20261110T110000Z\r\nSUMMARY:RISC OS user group meeting\r\nEND:VEVENT\r\n"
-    "BEGIN:VEVENT\r\nUID:riscos-ev-2@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
-    "DTSTART:20261112T140000Z\r\nDTEND:20261112T150000Z\r\nSUMMARY:Show stand set-up\r\nEND:VEVENT\r\n"
-    "END:VCALENDAR\r\n");
+  {
+    /* two events this week (tomorrow and the day after), so the week view
+       shows them */
+    GDateTime *now = g_date_time_new_now_utc ();
+    GDateTime *d1 = g_date_time_add_days (now, 1), *d2 = g_date_time_add_days (now, 2);
+    char *t1 = g_date_time_format (d1, "%Y%m%d"), *t2 = g_date_time_format (d2, "%Y%m%d");
+    char *ics = g_strdup_printf (
+      "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//riscos-gtk//test//EN\r\nX-WR-CALNAME:RISC OS test calendar\r\n"
+      "BEGIN:VEVENT\r\nUID:riscos-ev-1@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
+      "DTSTART:%sT100000Z\r\nDTEND:%sT113000Z\r\nSUMMARY:RISC OS user group meeting\r\nEND:VEVENT\r\n"
+      "BEGIN:VEVENT\r\nUID:riscos-ev-2@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
+      "DTSTART:%sT130000Z\r\nDTEND:%sT150000Z\r\nSUMMARY:Show stand set-up\r\nEND:VEVENT\r\n"
+      "END:VCALENDAR\r\n", t1, t1, t2, t2);
+    write_file (pop, "cal.ics", ics);
+    g_free (ics);
+    g_free (t1);
+    g_free (t2);
+    g_date_time_unref (d1);
+    g_date_time_unref (d2);
+    g_date_time_unref (now);
+  }
   g_snprintf (pop, sizeof pop, "%s/imap", outdir);
   g_mkdir_with_parents (pop, 0755);
   write_file (pop, "1", "From: Carol <carol@example.com>\r\nTo: imap@example.com\r\n"

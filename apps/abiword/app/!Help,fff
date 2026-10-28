@@ -36,8 +36,13 @@ Microsoft Works (.wps) files open; OpenOffice 1 (.sxw) and Hancom (.hwp)
 files too. View > Presentation shows a document a page at a time.
 Tools > Dictionary, Google and Wikipedia look a word up in your browser.
 
-Not in this build: grammar checking, collaboration, equations (MathML),
-saving WordPerfect files, PDF import, help.
+Equations: Insert > Equation > From LaTeX (type, say,
+x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}) or From File (a MathML
+file) puts an equation in the text, drawn by GtkMathView.
+Documents with equations (.abw, OpenDocument) show them.
+
+Not in this build: grammar checking, collaboration, saving WordPerfect
+files, PDF import, help.
 
 Messages
 AbiWord's messages go to <Wimp$ScrapDir>.AbiWord.Log.

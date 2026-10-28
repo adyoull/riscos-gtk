@@ -19,6 +19,8 @@ so shared libraries aren't possible today.
 | Claws Mail only: libetpan 1.9.4 | BSD-style | Its notice: `LicenceEtPan` in the package |
 | Claws Mail only: its litehtml viewer plug-in, with litehtml | Plug-in GPL 3 or later; litehtml BSD-style | litehtml's notice: `LicenceLiteHTML` in the package |
 | Claws Mail only: gumbo 0.12.0 | Apache License 2.0 | Its licence: `LicenceGumbo` in the package |
+| Claws Mail only: its RSS, ManageSieve and vCalendar plug-ins, and the port's libcurl subset and HTTP client (`apps/claws/curl`, `apps/claws/net`) | GPL 3 or later | Covered by the GPL program's source |
+| Claws Mail only: libical 3.0.17 (vCalendar), with its time zones in `share/zoneinfo` | MPL 2.0 or LGPL 2.1 | Taken as LGPL 2.1, as the other LGPL libraries |
 | Gnumeric only: libgsf 1.14.51 | LGPL 2.1 | As the other LGPL libraries, below |
 | Gnumeric only: libxslt 1.1.39 | MIT | The notices (LICENCES.md) |
 | Gnumeric, AbiWord and ClawsMail: libxml2 2.9.14 | MIT | The notices (LICENCES.md) |
@@ -28,6 +30,8 @@ so shared libraries aren't possible today.
 | AbiWord and ClawsMail: hunspell 1.7.2 | MPL 1.1, GPL 2 or LGPL 2.1 | Taken as LGPL 2.1 |
 | AbiWord only: Aiksaurus 1.2.1 (the thesaurus, with its word lists in `share/aiksaurus`) | GPL 2 or later | Covered by the GPL program's source |
 | AbiWord only: librevenge 0.0.5, libwpd 0.10.3, libwps 0.4.14 (WordPerfect and Works files) | MPL 2.0 or LGPL 2.1 or later | Taken as LGPL 2.1, as the other LGPL libraries |
+| AbiWord only: GtkMathView 0.8.0 (equations: its core and libxml2 front end) | LGPL 3 or later | As the other LGPL libraries, below |
+| AbiWord only: TeX's Computer Modern fonts cmr10, cmmi10, cmsy10, cmex10 (BaKoMa's TrueType versions, from LyX's fonts-lyx package; `fonts` in the package) | The BaKoMa Fonts Licence (free to copy and distribute with its notice) | Its notice: `fonts.LicenceBaKoMa` in the package |
 | AbiWord only: GOffice 0.10.57 and its chart plugins (charts) | GPL 2 or 3 | Covered by the GPL program's source |
 | AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
 | AbiWord and ClawsMail: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |

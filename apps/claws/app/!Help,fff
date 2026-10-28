@@ -8,8 +8,9 @@ POP3 and IMAP to fetch mail, SMTP to send it; mail kept in local (MH)
 folders or on the IMAP server. HTML mail is shown laid out, with its
 pictures (Claws Mail's LiteHTML viewer, built in). Spelling is checked
 as you type (British English; more dictionaries in
-<Choices$Write>.GTK.Dictionaries, as for every GTK program). Other
-plug-ins are not included yet.
+<Choices$Write>.GTK.Dictionaries, as for every GTK program). RSS feeds,
+Sieve filters on your mail server, and a calendar (vCalendar) are
+plug-ins, built in: see below.
 
 Attachments
 - Double-click an attachment (or choose Open) to open it in the program
@@ -126,3 +127,26 @@ libxml2 MIT; the RISC OS icons are riscos-gtk's own (MIT); other icons
 from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0); DejaVu fonts (free
 licence, in fonts); PThreadTicker (its Licence).
 Source says where the complete source is.
+
+Plug-ins: RSS, Sieve, calendar
+- They are built into the program and loaded the first time Claws Mail
+  starts. Configuration > Plugins lists them; Unload one you don't want
+  (it stays unloaded), or Load... it again from the plugins folder.
+  Their settings are in Choices... > Plugins.
+- RSS (RSSyl): Menu on "My Feeds" in the folder list > Subscribe to
+  feed..., and give the feed's address (http or https). Each feed is a
+  folder; its items arrive as messages, and are fetched again on Get
+  Mail or Menu > Refresh feed. Feeds are fetched one at a time: the
+  desktop waits while one comes in.
+- Sieve (ManageSieve): filters kept on your mail server, which sort or
+  answer your mail there. Set it up for an account in Configuration >
+  Edit accounts > the account > Plugins > Sieve (server, STARTTLS, log
+  in), then Tools > Manage Sieve Filters... lists, edits and switches
+  them on.
+- Calendar (vCalendar): the "vCalendar" folder holds your meetings, in
+  day, week and month views. A mail with a meeting invitation shows it,
+  with Accept, Tentatively accept and Decline. Message > Create meeting
+  from message, and Menu on vCalendar > New meeting... make one. Menu on
+  vCalendar > Subscribe to Webcal... adds a published calendar
+  (webcal:// or https://), fetched again on Get Mail. Time zones come
+  from the application (share.zoneinfo).

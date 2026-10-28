@@ -13,6 +13,10 @@
  *   - its toolbar's icons and its application icon are the RISC OS style
  *     ones (the RISCOS theme and ICON_PACK=abiword), the standard buttons
  *     (GTK stock ids used as icon names) included;
+ *   - equations (the mathview plugin, GtkMathView): LaTeX made into
+ *     MathML (itex2MML), the "mathml" embed manager registered, an
+ *     equation inserted from LaTeX and the document saved as .abw with it
+ *     (AB_MATHSHOT=FILE.ppm: a picture of the window);
  *   - closing the windows quits.
  *   abiword-fake APPDIR OUTDIR
  * APPDIR is the packaged !AbiWord's folders (share, fonts) for the
@@ -34,6 +38,10 @@
 #include "xap_Frame.h"
 #include "xap_UnixFrameImpl.h"
 #include "fv_View.h"
+#include "fl_DocLayout.h"
+#include "ut_mbtowc.h"
+#include "ie_imp_MathML.h"
+#include <string>
 #include "pd_Document.h"
 #include "ie_exp.h"
 #include "ie_imp.h"
@@ -46,6 +54,9 @@
 #include "ut_bytebuf.h"
 #include <goffice/goffice.h>
 #include <Aiksaurus.h>
+#include "gr_EmbedManager.h"
+extern "C" char *itex2MML_parse (const char *buffer, unsigned long length);
+extern "C" void itex2MML_free_string (char *str);
 #include <iconv.h>
 
 extern int riscos_abiword_main (int argc, char **argv);
@@ -228,6 +239,8 @@ static int spell_gb_ok, spell_bad_ok, spell_choices_ok;
 /* SVG pictures (librsvg) and charts (the goffice plugin, GOffice's chart
    types built in) */
 static int svg_ok = -1, svg_bad_ok = -1, go_plugins = -1, go_barcol = -1, thesaurus_ok = -1, wpd_ok = -1;
+static int math_waits;
+static int math_itex = -1, math_manager = -1, math_inserted = -1, math_saved = -1;
 
 static void
 check_svg_and_charts (void)
@@ -269,6 +282,20 @@ check_svg_and_charts (void)
   /* the WordPerfect and Works readers (while AbiWord runs: its plugins
      are unregistered when it quits) */
   wpd_ok = IE_Imp::fileTypeForSuffix (".wpd") != IEFT_Unknown && IE_Imp::fileTypeForSuffix (".wps") != IEFT_Unknown;
+  /* equations: LaTeX to MathML, the MathML importer, the embed manager
+     that draws them (GtkMathView) */
+  {
+    char *mml = itex2MML_parse ("$x^2+\\frac{1}{2}$", 17);
+    XAP_Frame *f = frame0 ();
+    GR_EmbedManager *m = f && f->getCurrentView ()
+      ? XAP_App::getApp ()->getEmbeddableManager (f->getCurrentView ()->getGraphics (), "mathml") : NULL;
+    math_itex = mml && strstr (mml, "<msup>") && strstr (mml, "<mfrac>");
+    printf ("# itex2MML: %s\n", mml ? mml : "(nothing)");
+    math_manager = m && strcmp (m->getObjectType (), "mathml") == 0;
+    printf ("# equations: embed manager %s\n", m ? m->getObjectType () : "(none)");
+    if (m)
+      delete m;
+  }
   printf ("# SVG %d; GOffice: %d active plugins, bar/column %d\n", svg_ok, go_plugins, go_barcol);
 }
 static int
@@ -408,6 +435,60 @@ do_files (gpointer)
       g_free (path);
     }
   frames_after = XAP_App::getApp ()->getFrameCount ();
+  /* an equation, as Insert > Equation > From LaTeX makes one
+     (AP_Dialog_Latex): the layout's "mathml" manager converts the LaTeX
+     (itex2MML, then MathML's named characters), then the view's
+     cmdInsertLatexMath, in the newest window; saved as .abw */
+  {
+    XAP_App *app = XAP_App::getApp ();
+    XAP_Frame *f = app->getFrame (app->getFrameCount () - 1);
+    FV_View *v = f ? static_cast<FV_View *> (f->getCurrentView ()) : NULL;
+    GR_EmbedManager *m = v ? v->getLayout ()->getEmbedManager ("mathml") : NULL;
+    UT_UTF8String latex ("x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}"), math;
+    UT_ByteBuf from, to;
+
+    from.ins (0, reinterpret_cast<const UT_Byte *> (latex.utf8_str ()), latex.size ());
+    /* (the dialogue's conversion goes through iconv, which the tests'
+       qemu hasn't got: then itex2MML and the plugin's entity table, as
+       that conversion does, directly) */
+    bool converted = false;
+    if (iconv_ok && m && !m->isDefault ())
+      converted = m->convert (0, from, to);
+    else if (m && !m->isDefault ())
+      {
+        UT_UTF8String br ("\\[");
+        br += latex;
+        br += "\\]";
+        char *mml = itex2MML_parse (br.utf8_str (), br.size ());
+        IE_Imp_MathML_EntityTable entities;
+        converted = mml && *mml && entities.convert (mml, strlen (mml), to);
+        if (mml)
+          itex2MML_free_string (mml);
+      }
+    if (converted)
+      {
+        std::string mathml (reinterpret_cast<const char *> (to.getPointer (0)), to.getLength ());
+        math = mathml.c_str ();
+        printf ("# equation: MathML %d bytes; inserting\n", (int) math.size ());
+        char *path = g_build_filename (outdir, "equation.abw", NULL);
+        char *uri = g_filename_to_uri (path, NULL, NULL);
+        char *text = NULL;
+        v->moveInsPtTo (FV_DOCPOS_EOD);
+        math_inserted = v->cmdInsertLatexMath (latex, math);
+        if (math_inserted &&
+            static_cast<AD_Document *> (f->getCurrentDoc ())->saveAs (uri, IE_Exp::fileTypeForSuffix (".abw"), true) == UT_OK &&
+            g_file_get_contents (path, &text, NULL, NULL))
+          /* the equation, its MathML and LaTeX (base64 data items), and
+             the picture of it AbiWord drew (GtkMathView) */
+          math_saved = strstr (text, "<math dataid=\"MathLatex") != NULL &&
+                       strstr (text, "<d name=\"LatexMath") != NULL &&
+                       strstr (text, "<d name=\"snapshot-png-MathLatex") != NULL;
+        g_free (text);
+        g_free (uri);
+        g_free (path);
+      }
+    printf ("# equation: inserted %d, saved with its MathML %d\n", math_inserted, math_saved);
+  }
   files_done = 1;
   return G_SOURCE_REMOVE;
 }
@@ -481,11 +562,13 @@ hook (int reason)
       nulls (10);
       break;
     case 2:
-      if (!files_done)
+      if (!files_done || ++math_waits < 200)
         {
           nulls (5);
           break;
         }
+      if (getenv ("AB_MATHSHOT"))
+        shot (getenv ("AB_MATHSHOT"));
       /* no "save changes?" when the windows close */
       app = XAP_App::getApp ();
       for (i = 0; app && i < app->getFrameCount (); i++)
@@ -606,6 +689,10 @@ main (int argc, char **argv)
   check (svg_ok == 1, "an SVG picture loads (librsvg), at its own size");
   check (svg_bad_ok == 1, "a broken SVG is refused, not a crash");
   check (thesaurus_ok == 1, "the thesaurus (Aiksaurus) knows happy: glad");
+  check (math_itex == 1, "equations: LaTeX becomes MathML (itex2MML)");
+  check (math_manager == 1, "equations: the mathview plugin's manager draws them (GtkMathView)");
+  check (math_inserted == 1, "an equation from LaTeX goes into the document (as Insert > Equation > From LaTeX)");
+  check (math_saved == 1, "and the document saves as .abw with the equation (its MathML, LaTeX and picture)");
   check (wpd_ok == 1,
          "WordPerfect (.wpd) and Microsoft Works (.wps) files can be opened (the wordperfect plugin, libwpd and libwps)");
   check (go_plugins > 5 && go_barcol == 1,

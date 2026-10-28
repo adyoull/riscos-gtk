@@ -145,10 +145,50 @@ if [ "$TARGET" = riscos ]; then
   done
 fi
 
+# ---- GtkMathView 0.8.0 (equations: the mathview plugin) ----
+# Its core and libxml2 front end only (no GTK 2 widget, SVG, PostScript,
+# t1lib or popt), with Debian's patches (but the man page's and ppc64el's)
+if [ ! -f "$STAGE/lib/libmathview_frontend_libxml2.a" ]; then
+  log GtkMathView
+  M=$SRC/gtkmathview-0.8.0
+  rm -rf "$M" "$SRC/gtkmathview-debian"; tar -xzf "$DL/gtkmathview_0.8.0.orig.tar.gz" -C "$SRC"
+  mkdir -p "$SRC/gtkmathview-debian"; tar -xJf "$DL/gtkmathview_0.8.0-14.debian.tar.xz" -C "$SRC/gtkmathview-debian"
+  for p in $(grep -v -e '^#' -e ppc64el -e 0002 "$SRC/gtkmathview-debian/debian/patches/series"); do
+    patch -d "$M" -p1 -s < "$SRC/gtkmathview-debian/debian/patches/$p"
+  done
+  fresh_config_sub "$M"
+  (cd "$M" && CFLAGS="$RO_CFLAGS" CXXFLAGS="$RO_CFLAGS -std=gnu++98 -Wno-deprecated-declarations" \
+     PKG_CONFIG="pkg-config --static" ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --libdir=$PREFIX/lib \
+     --disable-shared --enable-static --disable-gtk --disable-svg --disable-ps --disable-gmetadom \
+     --enable-libxml2 --disable-libxml2-reader --disable-custom-reader --without-t1lib --without-popt \
+     --disable-gcc-pch > ../gtkmathview.log 2>&1 &&
+   # (static libraries: no C++ run-time libraries for libtool to read the
+   # toolchain's .la files for)
+   sed -i 's/^postdeps=.*/postdeps=""/' libtool &&
+   sed -i 's/^  -lstdc++ \\$/  \\/' src/Makefile src/view/Makefile &&
+   { make -j$JOBS -k >> ../gtkmathview.log 2>&1 || true; }) &&
+  # the front end's library: its libtool link reads libxml2.la, which
+  # names the toolchain's machine; made from its objects instead
+  (cd "$M" && [ -f src/.libs/libmathview.a ] && [ -f src/frontend/libxml2/.libs/libfrontend_libxml2.a ] &&
+   ! grep -q " error: " ../gtkmathview.log &&
+   { make -k install DESTDIR="$SYSROOT" >> ../gtkmathview.log 2>&1 || true; }) &&
+  (cd "$M" && O=$SRC/gtkmathview-fe && rm -rf "$O" && mkdir "$O" && cd "$O" &&
+   $AR x "$M/src/frontend/libxml2/.libs/libfrontend_libxml2.a" &&
+   rm -f "$STAGE/lib/libmathview_frontend_libxml2.a" &&
+   $AR rcs "$STAGE/lib/libmathview_frontend_libxml2.a" *.o "$M"/src/view/libmathview_frontend_libxml2_la-*.o &&
+   cp "$M/src/.libs/libmathview.a" "$STAGE/lib/" && rm -rf "$O" "$STAGE"/lib/libmathview*.la) ||
+    fail "$SRC/gtkmathview.log"
+  grep -q " error: " "$SRC/gtkmathview.log" && fail "$SRC/gtkmathview.log"
+  # its .pc files without the build machine's paths
+  sed -i -e 's|^Libs:.*|Libs: -L${libdir} -lmathview_frontend_libxml2|' \
+         -e 's|^Cflags: .*-I${includedir}/gtkmathview|Cflags: -I${includedir}/gtkmathview|' \
+         "$STAGE/lib/pkgconfig/mathview-frontend-libxml2.pc"
+fi
+
 # ---- AbiWord ----
 V=3.0.8
 AB=$SRC/AbiWord-release-$V
-PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout goffice hancom openwriter presentation urldict google wikipedia aiksaurus wordperfect"
+PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout goffice hancom openwriter presentation urldict google wikipedia aiksaurus wordperfect mathview"
 RISCOS_FLAGS="-DABI_RISCOS"
 if [ -z "${ABIWORD_RELINK:-}" ]; then
   log AbiWord
@@ -207,10 +247,10 @@ log "${#GOMODS[@]} GOffice plugins built in"
 # (relative to src: made absolute)
 AB_CFLAGS="-DHAVE_CONFIG_H -I$AB -I$AB/src $(make -s -C "$AB/src" -f Makefile -f <(printf 'print-cppflags:\n\t@echo $(libabiword_3.0_la_CPPFLAGS)\n') print-cppflags |
   sed -e "s| -I\.\./| -I$AB/|g" -e "s| -I\./| -I$AB/src/|g")"
-AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0) -ljpeg -lstdc++ -lm"
+AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0 mathview-frontend-libxml2) -ljpeg -lstdc++ -lm"
 
 # ---- !AbiWord ----
-VERSION=${VERSION:-3.0.8-riscos2}
+VERSION=${VERSION:-3.0.8-riscos3}
 APP=$SRC/abiword-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/abiword/app" "$APP"
 # AbiWord's data: dialogue .ui files, templates, the XSLT for MathML and
@@ -224,9 +264,29 @@ mkdir -p "$D"
 # (no hicolor icons: the application icon, "abiword", is drawn in the
 # RISC OS style with the toolbar's: ICON_PACK=abiword, below)
 cp "$AB/COPYING" "$APP/Licence,fff"   # GPL 2
+# GtkMathView's licence (LGPL 3, which is the GPL 3 with its additions:
+# both texts)
+cp "$REPO_DIR/riscos/licences/LGPL-3.0.txt" "$APP/LicenceLGPL3,fff"
+cp "$REPO_DIR/riscos/licences/GPL-3.0.txt" "$APP/LicenceGPL3,fff"
 # the thesaurus's data (Aiksaurus, GPL 2 or later)
 mkdir -p "$APP/share/aiksaurus"
+# (its source tree may have been cleared since the library was built)
+[ -f "$SRC/aiksaurus-1.2.1+dev-0.12/data/words.dat" ] ||
+  tar -xzf "$DL/aiksaurus_1.2.1+dev-0.12.orig.tar.gz" -C "$SRC" aiksaurus-1.2.1+dev-0.12/data
 cp "$SRC/aiksaurus-1.2.1+dev-0.12/data/words.dat" "$SRC/aiksaurus-1.2.1+dev-0.12/data/meanings.dat" "$APP/share/aiksaurus/"
+# TeX's Computer Modern fonts (BaKoMa's TrueType ones, from LyX's
+# package), which the equations' TeX shaper draws with, in the
+# application's fonts (its fonts.conf reads the whole folder)
+mkdir -p "$APP/fonts"
+LX=$(mktemp -d)
+(cd "$LX" && ar x "$DL/fonts-lyx_2.4.0~RC3-1build4_all.deb" && tar -xf data.tar.* ./usr/share/fonts/truetype/lyx ./usr/share/doc/fonts-lyx/copyright)
+for f in cmr10 cmmi10 cmsy10 cmex10; do cp "$LX/usr/share/fonts/truetype/lyx/$f.ttf" "$APP/fonts/"; done
+sed -n '/^License: BaKoMa/,/malyshev@mail.ihep.ru/p' "$LX/usr/share/doc/fonts-lyx/copyright" | sed 's/^ \.$//; s/^ //' > "$APP/fonts/LicenceBaKoMa,fff"
+rm -rf "$LX"
+# the equations' (GtkMathView's) settings and operator dictionaries,
+# where the mathview plugin looks (ABIWORD_DATADIR/math)
+mkdir -p "$APP/share/abiword-3.0/math"
+cp "$AB"/plugins/mathview/data/*.xml "$AB"/plugins/mathview/data/*.dtd "$APP/share/abiword-3.0/math/"
 # GOffice's plugins' descriptions and the files they read (the chart
 # types: plot-types.xml...), where GOffice looks (GOFFICE_DIR:
 # riscos-abiword.cpp)

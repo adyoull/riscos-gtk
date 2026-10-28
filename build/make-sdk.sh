@@ -53,7 +53,10 @@ cp -r "$STAGE/share/glib-2.0/schemas" "$P/share/glib-2.0/"
 rm -rf "$P"/lib/libetpan.* "$P"/lib/libnettle.* "$P"/lib/libhogweed.* "$P"/lib/libgumbo.* \
        "$P"/lib/pkgconfig/libetpan.pc "$P"/lib/pkgconfig/nettle.pc "$P"/lib/pkgconfig/hogweed.pc \
        "$P"/lib/pkgconfig/gumbo.pc "$P"/include/libetpan "$P"/include/libetpan.h \
-       "$P"/include/nettle "$P"/include/gumbo.h "$P"/include/tag_enum.h
+       "$P"/include/nettle "$P"/include/gumbo.h "$P"/include/tag_enum.h \
+       "$P"/lib/libical*.a "$P"/lib/pkgconfig/libical.pc "$P"/lib/cmake/LibIcal "$P"/include/libical
+# nor AbiWord's equations (GtkMathView)
+rm -rf "$P"/lib/libmathview*.a "$P"/lib/pkgconfig/mathview-*.pc "$P"/include/gtkmathview
 # nor Gnumeric's (GOffice is GPL). libxml2, libcroco and librsvg stay:
 # SVG for any program (pkg-config --static riscos-gtk-svg, build-svg.sh)
 rm -rf "$P"/lib/libgoffice-0.10.* "$P"/lib/libgsf-1.* "$P"/lib/libxslt.* \

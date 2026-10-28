@@ -755,3 +755,44 @@ that SDL2, freeglut and the games already use.
   the file's contents go by RAM transfer or are saved where the
   DataSaveAck says, as RISC OS programs do. One file a drag: the Wimp's
   protocol has no lists.
+
+## ClawsMail's plug-ins: static modules, through Claws Mail's loader (2026-10-28)
+- The litehtml viewer is started directly (its `plugin_init` renamed),
+  so it can't be unloaded and isn't in Configuration > Plugins. RSS,
+  Sieve and vCalendar are linked in as GLib static modules instead
+  (`tools/mkstaticmodules.py`, as Gnumeric's plugins): Claws Mail's own
+  `plugin_load()` opens `/<ClawsMail$Dir>/plugins/rssyl.so` (a stand-in
+  file) and GLib gives it the linked-in module. The Plugins window then
+  lists, unloads and loads them, and clawsrc remembers the choice.
+  They're loaded once, at the first start (the RISCOSPlugins marker).
+
+## A libcurl subset, not libcurl (2026-10-28)
+- RSS and vCalendar call libcurl. libcurl's own TLS would be OpenSSL or
+  another library, a second TLS stack beside AcornSSL with its own
+  certificates; it also wants threads or signals for its timeouts. The
+  plug-ins use a small part of it (an easy handle, GET and PUT, headers,
+  redirects, Basic authentication, a timeout, a reply header), so
+  `apps/claws/curl` implements that part on `apps/claws/net/riscos-http.c`,
+  the HTTP client the litehtml viewer already had for pictures (sockets,
+  and Claws Mail's AcornSSL code for https). Options it accepts but
+  doesn't act on: compression (none is asked for), cookies, netrc, and
+  the certificate options (AcornSSL checks certificates itself).
+
+## libical's own time zones (2026-10-28)
+- libical reads the system's zoneinfo, which RISC OS hasn't got, unless
+  it is built with its own (`USE_BUILTIN_TZDATA`): a folder of .ics
+  files, copied into !ClawsMail (`share.zoneinfo`, about 2 MB) and set
+  with `set_zone_directory()` at start.
+
+## GtkMathView without its widget (2026-10-28)
+- AbiWord's equations plugin draws through its own GtkMathView back end
+  (AbiWord's graphics), so only GtkMathView's core and libxml2 front end
+  are built: no GTK 2 widget, SVG, PostScript or t1lib. Its libtool
+  can't link the C++ libraries against the toolchain's .la files, so the
+  front end's library is made from its objects.
+- AbiWord draws equations with TeX's Computer Modern fonts (its TeX
+  shaper) and Adobe Symbol. RISC OS has neither, and without the TeX
+  ones the shaper's characters fell back to the default font at their
+  TeX positions (a minus came out as an inverted !). !AbiWord carries
+  BaKoMa's TrueType cmr10, cmmi10, cmsy10 and cmex10 (about 110 KB)
+  rather than dropping the shaper: equations then look as in TeX.

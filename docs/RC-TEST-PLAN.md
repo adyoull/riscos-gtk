@@ -202,7 +202,7 @@ provider offers them.
 | 13.7 | The Log (`<Wimp$ScrapDir>.AbiWord.Log`) has the fonts lines and no errors | test builds | |
 | 13.8 | Every program: a dialogue box's preview or picture that the program draws itself (AbiWord's above) changes straight away | new | |
 
-## 15. New after RC13: SVG, files, spelling in ClawsMail, manuals, AbiWord plugins
+## 15. New after RC13: SVG, files, spelling in ClawsMail, manuals, AbiWord plugins, ClawsMail plugins, equations
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -218,6 +218,11 @@ provider offers them.
 | 15.10 | AbiWord: open WordPerfect (.wpd) and Microsoft Works (.wps) files; save and open OpenOffice 1 (.sxw) files; View > Presentation; Tools > Google, Wikipedia and Dictionary open the browser | the fake desktop (.sxw saved and opened; .wpd and .wps readers there) | |
 | 15.11 | GTKThemeTest, Dialogues page: drag "Prices/csv" to a Filer window: a CSV file with three lines | the fake desktop | |
 | 15.12 | With a font manager adding a folder to Font$Path (Fontastic, say): its fonts are listed in GTK programs | new | |
+| 15.13 | ClawsMail: Configuration > Plugins lists RSSyl, ManageSieve and vCalendar as loaded; unload one, quit and start again: it stays unloaded; Load... in the plugins folder loads it again | the fake desktop (loaded and listed) | |
+| 15.14 | ClawsMail: Menu on My Feeds > Subscribe to feed... with a real feed (http and https): its items arrive as messages; Refresh feed later fetches new ones | the fake desktop (http, through a redirect) | |
+| 15.15 | ClawsMail: Tools > Manage Sieve Filters... for an account on a server with ManageSieve (Dovecot, Fastmail...): the filters are listed; New, Edit (save), Activate | the fake desktop (STARTTLS, listing) | |
+| 15.16 | ClawsMail: menu on vCalendar > Subscribe to Webcal... with a public calendar (webcal:// or https://): its events in the week and month views; a mail with a meeting invitation (text/calendar) shows Accept/Decline; Tools > Create meeting from message | the fake desktop (webcal over http, the week view) | |
+| 15.17 | AbiWord: Insert > Equation > From LaTeX (`x^2 + \frac{1}{2}`): the equation is drawn and printed; Insert > Equation > From File with a MathML file; save as .abw and .odt and open again | the fake desktop (itex2MML, an equation inserted and saved as .abw); RISC OS on Linux (an .abw with an equation shown) | |
 
 ## 14. Packaging and licences
 

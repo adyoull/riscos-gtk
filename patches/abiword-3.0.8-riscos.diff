@@ -9,6 +9,8 @@ riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
   menu bar); the Log names the menu.
 - xap_UnixDlg_About.cpp: the About box's logo is the icon theme's
   "abiword", as the windows' icon (ICONDIR is where AbiWord was built).
+- plugins/mathview (equations): built in, as the other plugins here (plugin.m4,
+  Makefile.am), registered as abipgn_mathview_register (the folder's name).
 --- a/configure.ac	2026-10-23 17:40:25.387242545 +0100
 +++ b/configure.ac	2026-10-23 17:40:25.393131005 +0100
 @@ -738,7 +738,7 @@
@@ -297,3 +299,75 @@ diff -ruN a/plugins/wordperfect/plugin.m4 b/plugins/wordperfect/plugin.m4
  fi
  
  AC_SUBST([WORDPERFECT_CFLAGS])
+diff -ruN a/plugins/mathview/Makefile.am b/plugins/mathview/Makefile.am
+--- a/plugins/mathview/Makefile.am	2026-02-18 03:16:18.000000000 +0000
++++ b/plugins/mathview/Makefile.am	2026-10-28 20:16:08.532387537 +0000
+@@ -1,9 +1,16 @@
+ 
+ SUBDIRS = data itex2mml xp
+ 
++if MATHVIEW_BUILTIN
++noinst_LTLIBRARIES = mathview.la
++
++else
++
+ plugindir = $(ABIWORD_PLUGINSDIR)
+ plugin_LTLIBRARIES = mathview.la
+ 
++endif
++
+ mathview_la_LIBADD = \
+ 	itex2mml/libitex2mml.la \
+ 	xp/libxp.la \
+diff -ruN a/plugins/mathview/plugin.m4 b/plugins/mathview/plugin.m4
+--- a/plugins/mathview/plugin.m4	2026-02-18 03:16:18.000000000 +0000
++++ b/plugins/mathview/plugin.m4	2026-10-28 20:16:08.532235928 +0000
+@@ -34,9 +34,6 @@
+ if test "$enable_mathview" = "yes" || \
+    test "$mathview_deps" = "yes"; then
+ 
+-if test "$enable_mathview_builtin" = "yes"; then
+-AC_MSG_ERROR([mathview plugin: static linking not supported])
+-fi
+ 
+ PKG_CHECK_MODULES(MATHVIEW,[ $mathview_pkgs ])
+ 
+@@ -45,6 +42,11 @@
+ MATHVIEW_CFLAGS="$MATHVIEW_CFLAGS $HASHMAP_CFLAGS "'${PLUGIN_CFLAGS}'
+ MATHVIEW_LIBS="$MATHVIEW_LIBS "'${PLUGIN_LIBS}'
+ 
++# riscos-gtk: built in (RISC OS has no dlopen)
++if test "$enable_mathview_builtin" = "yes"; then
++	MATHVIEW_CFLAGS="$MATHVIEW_CFLAGS -DABI_PLUGIN_BUILTIN"
++fi
++
+ fi
+ 
+ fi
+diff -ruN a/plugins/mathview/xp/AbiMathView.cpp b/plugins/mathview/xp/AbiMathView.cpp
+--- a/plugins/mathview/xp/AbiMathView.cpp	2026-02-18 03:16:18.000000000 +0000
++++ b/plugins/mathview/xp/AbiMathView.cpp	2026-10-28 20:38:24.408329814 +0000
+@@ -19,9 +19,10 @@
+  */
+ 
+ #ifdef ABI_PLUGIN_BUILTIN
+-#define abi_plugin_register abipgn_abimathview_register
+-#define abi_plugin_unregister abipgn_abimathview_unregister
+-#define abi_plugin_supports_version abipgn_abimathview_supports_version
++/* (riscos-gtk: the name src/plugins/Makefile.am calls, from the folder) */
++#define abi_plugin_register abipgn_mathview_register
++#define abi_plugin_unregister abipgn_mathview_unregister
++#define abi_plugin_supports_version abipgn_mathview_supports_version
+ #endif
+ 
+ #ifdef HAVE_CONFIG_H
+@@ -289,7 +290,8 @@
+ }
+  
+ 
+-XAP_Dialog_MessageBox::tAnswer s_CouldNotLoadFileMessage(XAP_Frame * pFrame, const char * pNewFile, UT_Error errorCode)
++/* riscos-gtk: static, as AbiWord's own (ap_EditMethods.cpp) clashes when built in */
++static XAP_Dialog_MessageBox::tAnswer s_CouldNotLoadFileMessage(XAP_Frame * pFrame, const char * pNewFile, UT_Error errorCode)
+ {
+ 	XAP_String_Id String_id;
+ 
