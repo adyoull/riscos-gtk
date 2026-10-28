@@ -255,15 +255,16 @@ rm -f "$CS/main.o"
 make -s -C "$CS" main.o CPPFLAGS="-D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$CS/common/gnutls-acornssl -Dmain=claws_main" > /dev/null
 mv "$CS/main.o" "$CO/main.o"
 (cd "$CO" && $CC $RO_CFLAGS -c -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -D__riscos=1 \
-  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0 enchant-2) "$REPO_DIR/apps/claws/riscos-claws.c" \
+  -I"$CS/.." -I"$CS" -I"$CS/common" -I"$CS/gtk" $(pkg-config --cflags gtk+-3.0 enchant-2 libical) "$REPO_DIR/apps/claws/riscos-claws.c" \
   "$REPO_DIR/tests/gtk/claws-fake-claws.c")
-$CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/claws-fake.c" \
+$CC $RO_CFLAGS -no-pie -Wall -I"$REPO_DIR/apps/claws/curl" $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/claws-fake.c" \
   "$CO"/*.o $(ls "$CS"/*.o | grep -v '/main\.o$') "$CS/etpan/.libs/libclawsetpan.a" "$CS/gtk/.libs/libclawsgtk.a" "$CS/plugins/litehtml_viewer/liblhviewer.a" \
+  $(cat "$CS/plugin-libs.txt") \
   -o "$REPO_DIR/out/claws-fake-linuxarm" -Wl,-Bstatic -letpan -lnettle -lgumbo $(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 CT=$REPO_DIR/out/claws-linuxarm
 rm -rf "$CT"; mkdir -p "$CT"
-CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2)); CP4=$((CP1 + 3))
+CP1=$((20000 + RANDOM % 20000)); CP2=$((CP1 + 1)); CP3=$((CP1 + 2)); CP4=$((CP1 + 3)); CP5=$((CP1 + 4))
 
 scratch=$(mktemp -d)
 GLIBTEST_SKIP_ICONV=1 run glibtest "$scratch"
@@ -401,13 +402,14 @@ run fontchooser-fake "$HA" "$FCH" "$FCT/sys/DejaVuSerif.ttf"
 run toolsprites-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
-python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 & mailserver=$!
+python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 $CP5 & mailserver=$!
 for i in $(seq 50); do [ -f "$CT/server.ready" ] && break; sleep 0.1; done
 # the application's files as !ClawsMail has them: the dictionary
 CLA=$REPO_DIR/out/claws-linuxarm-app
 rm -rf "$CLA"; cp -r "$HA" "$CLA"; mkdir -p "$CLA/share/hunspell"
 cp "$SRC/dictionaries/en_GB.dic" "$SRC/dictionaries/en_GB.aff" "$CLA/share/hunspell/"
-CLAWS_RISCOS_THEME="$REPO_DIR/apps/claws/app/share/claws-mail/themes/RISCOS" run claws-fake "$CLA" "$CT" $CP1 $CP2 $CP3 $CP4
+CLAWS_RISCOS_THEME="$REPO_DIR/apps/claws/app/share/claws-mail/themes/RISCOS" CLAWS_RISCOS_ZONEINFO="$STAGE/share/libical/zoneinfo" \
+  run claws-fake "$CLA" "$CT" $CP1 $CP2 $CP3 $CP4 $CP5
 kill $mailserver 2>/dev/null || true
 rm -rf "$scratch"
 echo; [ $failed = 0 ] && echo "linux-arm: all tests passed" || echo "linux-arm: $failed test(s) FAILED"

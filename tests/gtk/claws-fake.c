@@ -19,6 +19,7 @@
  * Prints TAP; exit status = failures. MIT licence.
  */
 #include <gtk/gtk.h>
+#include <curl/curl.h>
 #include <gdk/gdkriscos.h>
 #include <kernel.h>
 #include "fake_riscos.h"
@@ -60,6 +61,10 @@ static const char *outdir;
 static char home[600];
 static int stage, polls, password_answers, send_pressed, compose_seen, spell_seen = -1;
 int fake_claws_spell (void);
+int fake_claws_plugins (void);
+GtkWidget *fake_claws_main_window (void);
+int fake_claws_subscribe (const char *klass, const char *uri);
+int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 static int inbox_files, smtp_files, main_window_seen;
 static char inbox_text[4096], smtp_text[4096], server_log[8192];
 
@@ -636,6 +641,186 @@ drop_names_ok (void)
   return ok;
 }
 
+/* The plug-ins linked in as GLib static modules (RSS, Sieve, vCalendar):
+   loaded at the first start and listed in clawsrc; an RSS feed and a
+   webcal calendar subscribed, from mailserver.py over http (the feed
+   through a redirect); the libcurl subset's PUT with Basic
+   authentication and a reply header; Tools > Manage Sieve Filters...
+   lists the server's scripts (ManageSieve, STARTTLS through AcornSSL) */
+static int plugins_loaded = -1, plugins_listed = -1, plugins_marker = -1, plugins_done;
+static int rss_subscribed = -1, rss_msgs = -1, rss_item = -1;
+static int cal_subscribed = -1, cal_msgs = -1, cal_event = -1;
+static int curl_put = -1, curl_noauth = -1, curl_etag = -1, curl_file = -1;
+static int sieve_menu = -1, sieve_window = -1, sieve_listed = -1, sieve_polls;
+static long curl_code[3];
+static char curl_etag_value[64];
+
+static size_t
+curl_sink (char *buf, size_t size, size_t n, void *data)
+{
+  g_string_append_len (data, buf, size * n);
+  return size * n;
+}
+
+static int
+dir_has (const char *dir, const char *text)
+{
+  GDir *d = g_dir_open (dir, 0, NULL);
+  const char *n;
+  int found = 0;
+
+  while (d && !found && (n = g_dir_read_name (d)))
+    {
+      char *p = g_build_filename (dir, n, NULL), *t = NULL;
+      if (g_file_get_contents (p, &t, NULL, NULL) && strstr (t, text))
+        found = 1;
+      g_free (t);
+      g_free (p);
+    }
+  if (d)
+    g_dir_close (d);
+  return found;
+}
+
+static gboolean
+plugins_go (gpointer data)
+{
+  char url[256], path[700], *t = NULL;
+
+  plugins_loaded = fake_claws_plugins ();
+  g_snprintf (path, sizeof path, "%s/.claws-mail/RISCOSPlugins", home);
+  plugins_marker = g_file_test (path, G_FILE_TEST_EXISTS);
+  g_snprintf (path, sizeof path, "%s/.claws-mail/clawsrc", home);
+  if (g_file_get_contents (path, &t, NULL, NULL))
+    {
+      char *b = strstr (t, "[Plugins_GTK3]");
+      plugins_listed = b && strstr (b, "rssyl.so") && strstr (b, "managesieve.so") && strstr (b, "vcalendar.so");
+    }
+  g_free (t);
+
+  /* RSS: subscribed as the folder menu's Subscribe does (the fetch isn't
+     threaded: it's done when this returns) */
+  g_snprintf (url, sizeof url, "http://localhost:%s/moved/feed.rss", http_port);
+  rss_subscribed = fake_claws_subscribe ("rssyl", url);
+  rss_msgs = fake_claws_folder_msgs ("rssyl", "RISC OS test feed", path, sizeof path);
+  rss_item = path[0] && dir_has (path, "Second item from the feed");
+  printf ("# RSS: subscribed %d, %d items in %s\n", rss_subscribed, rss_msgs, path);
+
+  /* vCalendar: a webcal subscription */
+  g_snprintf (url, sizeof url, "webcal://localhost:%s/cal.ics", http_port);
+  cal_subscribed = fake_claws_subscribe ("vCalendar", url);
+  cal_msgs = fake_claws_folder_msgs ("vCalendar", "RISC OS test calendar", path, sizeof path);
+  printf ("# vCalendar: subscribed %d, %d events in %s\n", cal_subscribed, cal_msgs, path);
+  cal_event = cal_msgs >= 2;
+
+  /* the libcurl subset itself: PUT with Basic authentication (as
+     vCalendar's export), without it (401), a GET's ETag, a file:// URL */
+  {
+    static const char ics[] = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+    CURL *c = curl_easy_init ();
+    struct curl_slist *h = curl_slist_append (NULL, "Content-Type: text/calendar; charset=\"utf-8\"");
+    struct curl_header *hd;
+    GString *got = g_string_new (NULL);
+    FILE *f;
+    char *put = g_build_filename (outdir, "export.ics", NULL);
+
+    g_file_set_contents (put, ics, -1, NULL);
+    f = fopen (put, "rb");
+    g_snprintf (url, sizeof url, "http://localhost:%s/auth/cal.ics", http_port);
+    curl_easy_setopt (c, CURLOPT_URL, url);
+    curl_easy_setopt (c, CURLOPT_USERPWD, "test:secret");
+    curl_easy_setopt (c, CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt (c, CURLOPT_READFUNCTION, NULL);
+    curl_easy_setopt (c, CURLOPT_READDATA, f);
+    curl_easy_setopt (c, CURLOPT_INFILESIZE, (long) strlen (ics));
+    curl_easy_setopt (c, CURLOPT_HTTPHEADER, h);
+    curl_put = curl_easy_perform (c) == CURLE_OK;
+    curl_easy_getinfo (c, CURLINFO_RESPONSE_CODE, &curl_code[0]);
+    fclose (f);
+    g_free (put);
+    put = g_build_filename (outdir, "http", "put-cal.ics", NULL);
+    t = NULL;
+    curl_put = curl_put && curl_code[0] == 201 && g_file_get_contents (put, &t, NULL, NULL) && strcmp (t, ics) == 0;
+    g_free (t);
+    g_free (put);
+    curl_easy_cleanup (c);
+    curl_slist_free_all (h);
+
+    c = curl_easy_init ();
+    curl_easy_setopt (c, CURLOPT_URL, url);
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, curl_sink);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, got);
+    curl_noauth = curl_easy_perform (c) == CURLE_OK;
+    curl_easy_getinfo (c, CURLINFO_RESPONSE_CODE, &curl_code[1]);
+    curl_noauth = curl_noauth && curl_code[1] == 401;
+    curl_easy_cleanup (c);
+
+    c = curl_easy_init ();
+    g_snprintf (url, sizeof url, "http://localhost:%s/feed.rss", http_port);
+    curl_easy_setopt (c, CURLOPT_URL, url);
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, curl_sink);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, got);
+    curl_etag = curl_easy_perform (c) == CURLE_OK;
+    curl_easy_getinfo (c, CURLINFO_RESPONSE_CODE, &curl_code[2]);
+    if (curl_easy_header (c, "ETag", 0, CURLH_HEADER, -1, &hd) == CURLHE_OK)
+      g_strlcpy (curl_etag_value, hd->value, sizeof curl_etag_value);
+    curl_etag = curl_etag && curl_code[2] == 200 && strstr (got->str, "RISC OS test feed") &&
+                g_str_has_prefix (curl_etag_value, "\"riscos-");
+    curl_easy_cleanup (c);
+
+    g_string_truncate (got, 0);
+    c = curl_easy_init ();
+    put = g_build_filename (outdir, "http", "cal.ics", NULL);
+    t = g_filename_to_uri (put, NULL, NULL);
+    curl_easy_setopt (c, CURLOPT_URL, t);
+    curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, curl_sink);
+    curl_easy_setopt (c, CURLOPT_WRITEDATA, got);
+    curl_file = curl_easy_perform (c) == CURLE_OK && strstr (got->str, "BEGIN:VCALENDAR") != NULL;
+    curl_easy_cleanup (c);
+    g_free (t);
+    g_free (put);
+    g_string_free (got, TRUE);
+    printf ("# libcurl subset: PUT %ld, without authentication %ld, GET %ld (ETag %s)\n",
+            curl_code[0], curl_code[1], curl_code[2], curl_etag_value);
+  }
+  plugins_done = 1;
+  return G_SOURCE_REMOVE;
+}
+
+/* a row of a tree view in w with text in one of its string columns */
+static int
+tree_has_text (GtkWidget *w, const char *text)
+{
+  int found = 0;
+
+  if (GTK_IS_TREE_VIEW (w))
+    {
+      GtkTreeModel *m = gtk_tree_view_get_model (GTK_TREE_VIEW (w));
+      GtkTreeIter it;
+      int c, n = m ? gtk_tree_model_get_n_columns (m) : 0;
+      if (m && gtk_tree_model_get_iter_first (m, &it))
+        do
+          for (c = 0; c < n && !found; c++)
+            if (gtk_tree_model_get_column_type (m, c) == G_TYPE_STRING)
+              {
+                char *v = NULL;
+                gtk_tree_model_get (m, &it, c, &v, -1);
+                found = v && strcmp (v, text) == 0;
+                g_free (v);
+              }
+        while (!found && gtk_tree_model_iter_next (m, &it));
+      return found;
+    }
+  if (GTK_IS_CONTAINER (w))
+    {
+      GList *l, *kids = gtk_container_get_children (GTK_CONTAINER (w));
+      for (l = kids; l && !found; l = l->next)
+        found = tree_has_text (l->data, text);
+      g_list_free (kids);
+    }
+  return found;
+}
+
 static void
 finish (void)
 {
@@ -733,6 +918,25 @@ finish (void)
          "IMAP: the message is fetched whole and cached");
   check (fake_acornssl_sessions >= 3 && fake_acornssl_closed_open == fake_acornssl_closes,
          "IMAP has its own AcornSSL session; sessions are closed before their sockets");
+  printf ("# plug-ins loaded: %d\n", plugins_loaded);
+  check (plugins_loaded == 7, "the RSS, Sieve and vCalendar plug-ins (linked in) are loaded at the first start");
+  check (plugins_marker == 1 && plugins_listed == 1,
+         "and kept in clawsrc's plug-in list (RISCOSPlugins written), so the Plugins window decides from then on");
+  check (rss_subscribed == 1 && strstr (server_log, "HTTP GET /moved/feed.rss") && strstr (server_log, "HTTP GET /feed.rss"),
+         "RSS: a feed is subscribed over http, through a redirect");
+  check (rss_msgs == 2 && rss_item == 1, "RSS: the feed's two items are in its folder");
+  check (cal_subscribed == 1 && strstr (server_log, "HTTP GET /cal.ics"),
+         "vCalendar: a webcal:// calendar is subscribed (fetched over http)");
+  check (cal_event == 1, "vCalendar: its events are in the calendar's folder");
+  check (curl_put == 1 && strstr (server_log, "HTTP auth ok") && strstr (server_log, "text/calendar"),
+         "libcurl subset: PUT with Basic authentication and a header (vCalendar's export)");
+  check (curl_noauth == 1, "libcurl subset: without the password, the server's 401");
+  check (curl_etag == 1, "libcurl subset: a GET's body and its ETag header (curl_easy_header, for RSS)");
+  check (curl_file == 1, "libcurl subset: a file:// address");
+  check (sieve_menu == 1, "Tools has Manage Sieve Filters...");
+  check (sieve_window == 1 && sieve_listed == 1 && strstr (server_log, "SIEVE STARTTLS") &&
+         strstr (server_log, "SIEVE LISTSCRIPTS"),
+         "Manage Sieve Filters lists the server's scripts (ManageSieve, STARTTLS through AcornSSL)");
   printf ("# AcornSSL: %d sessions, %d handshake steps, %d closes (%d with the socket open), host \"%s\"\n",
           fake_acornssl_sessions, fake_acornssl_handshake_steps, fake_acornssl_closes,
           fake_acornssl_closed_open, fake_acornssl_host);
@@ -935,6 +1139,7 @@ html_look (GtkWidget *vw)
     html_link_x = gx / n, html_link_y = gy / n;
   html_blank_x = w - 40;
   html_blank_y = 12;
+  printf ("# HTML area %dx%d at %d,%d\n", w, gtk_widget_get_allocated_height (html_area), ox, oy);
   if (ox + html_blank_x < 1280 && oy + html_blank_y < 1024)
     html_white = (fake_screen_pixel (ox + html_blank_x, oy + html_blank_y) & 0xFFFFFF) == 0xFFFFFF;
 }
@@ -1235,8 +1440,35 @@ hook (int reason)
       if (imap_done)
         {
           dump_shot ("imap");
-          finish ();
+          g_idle_add (plugins_go, NULL);
+          stage = 30;
         }
+      break;
+    case 30:    /* the plug-ins: then Tools > Manage Sieve Filters... */
+      if (plugins_done)
+        {
+          GtkWidget *mw = fake_claws_main_window ();
+          GtkWidget *item = mw ? find_menu_item (mw, "Manage Sieve Filters...") : NULL;
+          sieve_menu = item != NULL;
+          if (item)
+            gtk_menu_item_activate (GTK_MENU_ITEM (item));
+          stage = 31;
+        }
+      break;
+    case 31:    /* the Sieve manager lists the server's scripts */
+      {
+        GtkWidget *sw = window_titled ("Sieve");
+        sieve_window = sw != NULL;
+        if (sw && tree_has_text (sw, "riscos-test") && tree_has_text (sw, "holiday"))
+          sieve_listed = 1;
+        if (sieve_listed == 1 || ++sieve_polls > 6000)
+          {
+            dump_shot ("sieve");
+            if (sieve_listed != 1)
+              dump_windows ();
+            finish ();
+          }
+      }
       break;
     }
   if (polls > 150000)
@@ -1256,7 +1488,7 @@ main (int argc, char **argv)
   static const char *boxes[] = { "inbox", "sent", "queue", "trash", "draft" };
   int i;
 
-  if (argc < 7)
+  if (argc < 8)
     return 2;
   g_strlcpy (http_port, argv[6], sizeof http_port);
   outdir = argv[2];
@@ -1281,6 +1513,21 @@ main (int argc, char **argv)
   g_mkdir_with_parents (pop, 0755);
   write_png (pop, "green.png", 0x00C800);
   write_png (pop, "yellow.png", 0xE6E600);
+  write_file (pop, "feed.rss",
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel>\n"
+    "<title>RISC OS test feed</title><link>http://localhost/</link><description>The test's feed</description>\n"
+    "<item><title>First item from the feed</title><link>http://localhost/1</link><guid>riscos-feed-1</guid>"
+    "<pubDate>Wed, 07 Oct 2026 09:00:00 +0000</pubDate><description>The first item.</description></item>\n"
+    "<item><title>Second item from the feed</title><link>http://localhost/2</link><guid>riscos-feed-2</guid>"
+    "<pubDate>Wed, 07 Oct 2026 10:00:00 +0000</pubDate><description>The second item.</description></item>\n"
+    "</channel></rss>\n");
+  write_file (pop, "cal.ics",
+    "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//riscos-gtk//test//EN\r\nX-WR-CALNAME:RISC OS test calendar\r\n"
+    "BEGIN:VEVENT\r\nUID:riscos-ev-1@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
+    "DTSTART:20261110T100000Z\r\nDTEND:20261110T110000Z\r\nSUMMARY:RISC OS user group meeting\r\nEND:VEVENT\r\n"
+    "BEGIN:VEVENT\r\nUID:riscos-ev-2@example.com\r\nDTSTAMP:20261001T090000Z\r\n"
+    "DTSTART:20261112T140000Z\r\nDTEND:20261112T150000Z\r\nSUMMARY:Show stand set-up\r\nEND:VEVENT\r\n"
+    "END:VCALENDAR\r\n");
   g_snprintf (pop, sizeof pop, "%s/imap", outdir);
   g_mkdir_with_parents (pop, 0755);
   write_file (pop, "1", "From: Carol <carol@example.com>\r\nTo: imap@example.com\r\n"
@@ -1293,18 +1540,24 @@ main (int argc, char **argv)
               "Message-ID: <test1@example.com>\r\n\r\nA message for Claws Mail on RISC OS.\r\n");
   if (!getenv ("CLAWS_FAKE_WIZARD"))
   {
+    /* ManageSieve on localhost:argv[7], STARTTLS (SIEVE_TLS_YES), no
+       authentication (sieve_prefs.c's format, base64 in privacy_prefs) */
+    char *sc = g_strdup_printf ("yy localhost y%s 2 0 0 ", argv[7]);
+    char *sieve = g_base64_encode ((const guchar *) sc, strlen (sc));
     char *acc = g_strdup_printf (
       "[Account: 1]\naccount_name=Test\nis_default=1\nname=Test User\naddress=test@example.com\n"
       "protocol=0\nreceive_server=localhost\nsmtp_server=localhost\nuser_id=test\n"
       "set_popport=1\npop_port=%s\nset_smtpport=1\nsmtp_port=%s\nssl_pop=1\nssl_smtp=2\n"
       "use_tls_sni=1\nuse_smtp_auth=0\nremove_mail=1\ninbox=#mh/Mailbox/inbox\n"
-      "receive_at_get_all=1\nconfig_version=4\n"
+      "receive_at_get_all=1\nconfig_version=4\nprivacy_prefs=sieve=%s\n"
       "[Account: 2]\naccount_name=IMAPTest\nis_default=0\nname=Test User\naddress=imap@example.com\n"
       "protocol=1\nreceive_server=localhost\nsmtp_server=localhost\nuser_id=test\n"
       "set_imapport=1\nimap_port=%s\nssl_imap=1\nimap_auth_method=1\nuse_tls_sni=1\n"
-      "receive_at_get_all=0\nconfig_version=4\n", argv[3], argv[4], argv[5]);
+      "receive_at_get_all=0\nconfig_version=4\n", argv[3], argv[4], sieve, argv[5]);
     write_file (cfg, "accountrc", acc);
     g_free (acc);
+    g_free (sieve);
+    g_free (sc);
   }
   if (!getenv ("CLAWS_FAKE_WIZARD"))
   write_file (cfg, "folderlist.xml",

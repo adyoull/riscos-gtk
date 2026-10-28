@@ -77,6 +77,9 @@ get aiksaurus_1.2.1+dev-0.12.orig.tar.gz $U/a/aiksaurus/aiksaurus_1.2.1+dev-0.12
 get librevenge_0.0.5.orig.tar.bz2  $U/libr/librevenge/librevenge_0.0.5.orig.tar.bz2
 get libwpd_0.10.3.orig.tar.xz      $U/libw/libwpd/libwpd_0.10.3.orig.tar.xz
 get libwps_0.4.14.orig.tar.xz      $U/libw/libwps/libwps_0.4.14.orig.tar.xz
+get libical3_3.0.17.orig.tar.xz    $U/libi/libical3/libical3_3.0.17.orig.tar.xz
+get gtkmathview_0.8.0.orig.tar.gz  $U/g/gtkmathview/gtkmathview_0.8.0.orig.tar.gz
+get gtkmathview_0.8.0-14.debian.tar.xz $U/g/gtkmathview/gtkmathview_0.8.0-14.debian.tar.xz
 # SVG (build/build-svg.sh): librsvg 2.40, the last written in C, and libcroco
 get librsvg_2.40.20.orig.tar.xz     $U/libr/librsvg/librsvg_2.40.20.orig.tar.xz
 get libcroco_0.6.13.orig.tar.xz     $U/libc/libcroco/libcroco_0.6.13.orig.tar.xz

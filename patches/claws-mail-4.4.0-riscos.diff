@@ -1,18 +1,18 @@
 diff -ruN a/src/common/gnutls-acornssl/gnutls/abstract.h b/src/common/gnutls-acornssl/gnutls/abstract.h
 --- a/src/common/gnutls-acornssl/gnutls/abstract.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/abstract.h	2026-10-28 15:19:28.152316103 +0000
++++ b/src/common/gnutls-acornssl/gnutls/abstract.h	2026-10-28 19:42:32.990193468 +0000
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/crypto.h b/src/common/gnutls-acornssl/gnutls/crypto.h
 --- a/src/common/gnutls-acornssl/gnutls/crypto.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/crypto.h	2026-10-28 15:19:28.152363442 +0000
++++ b/src/common/gnutls-acornssl/gnutls/crypto.h	2026-10-28 19:42:32.990234874 +0000
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acornssl/gnutls/gnutls.h
 --- a/src/common/gnutls-acornssl/gnutls/gnutls.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-28 15:19:28.152398662 +0000
++++ b/src/common/gnutls-acornssl/gnutls/gnutls.h	2026-10-28 19:42:32.990268779 +0000
 @@ -0,0 +1,225 @@
 +/*
 + * gnutls.h - riscos-gtk: the part of GnuTLS's API Claws Mail uses, for
@@ -241,19 +241,19 @@ diff -ruN a/src/common/gnutls-acornssl/gnutls/gnutls.h b/src/common/gnutls-acorn
 +#endif
 diff -ruN a/src/common/gnutls-acornssl/gnutls/pkcs12.h b/src/common/gnutls-acornssl/gnutls/pkcs12.h
 --- a/src/common/gnutls-acornssl/gnutls/pkcs12.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/pkcs12.h	2026-10-28 15:19:28.152510470 +0000
++++ b/src/common/gnutls-acornssl/gnutls/pkcs12.h	2026-10-28 19:42:32.990365931 +0000
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/gnutls-acornssl/gnutls/x509.h b/src/common/gnutls-acornssl/gnutls/x509.h
 --- a/src/common/gnutls-acornssl/gnutls/x509.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/gnutls-acornssl/gnutls/x509.h	2026-10-28 15:19:28.152543998 +0000
++++ b/src/common/gnutls-acornssl/gnutls/x509.h	2026-10-28 19:42:32.990395806 +0000
 @@ -0,0 +1,2 @@
 +/* riscos-gtk: everything is in gnutls.h (Claws Mail on RISC OS, AcornSSL) */
 +#include <gnutls/gnutls.h>
 diff -ruN a/src/common/proxy.c b/src/common/proxy.c
 --- a/src/common/proxy.c	2022-05-06 11:11:03.000000000 +0100
-+++ b/src/common/proxy.c	2026-10-28 15:19:28.152609475 +0000
++++ b/src/common/proxy.c	2026-10-28 19:42:32.990447913 +0000
 @@ -239,7 +239,10 @@
  	socks_req[3] = 3;
  	socks_req[4] = (guchar)len;
@@ -268,7 +268,7 @@ diff -ruN a/src/common/proxy.c b/src/common/proxy.c
  		g_warning("socks5_connect: SOCKS5 connect request write failed");
 diff -ruN a/src/common/socket.c b/src/common/socket.c
 --- a/src/common/socket.c	2026-02-16 10:02:04.000000000 +0000
-+++ b/src/common/socket.c	2026-10-28 15:19:28.152896453 +0000
++++ b/src/common/socket.c	2026-10-28 19:42:32.990641854 +0000
 @@ -61,6 +61,11 @@
  #include "socket.h"
  #include "utils.h"
@@ -399,7 +399,7 @@ diff -ruN a/src/common/socket.c b/src/common/socket.c
  	g_free(lookup_data);
 diff -ruN a/src/common/ssl.c b/src/common/ssl.c
 --- a/src/common/ssl.c	2026-02-16 11:12:40.000000000 +0000
-+++ b/src/common/ssl.c	2026-10-28 15:19:28.153084766 +0000
++++ b/src/common/ssl.c	2026-10-28 19:42:32.990843067 +0000
 @@ -22,7 +22,10 @@
  #include "claws-features.h"
  #endif
@@ -414,7 +414,7 @@ diff -ruN a/src/common/ssl.c b/src/common/ssl.c
  #include <stdlib.h>
 diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 --- a/src/common/ssl_acornssl.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/common/ssl_acornssl.c	2026-10-28 15:19:28.153236003 +0000
++++ b/src/common/ssl_acornssl.c	2026-10-28 19:42:32.990935803 +0000
 @@ -0,0 +1,498 @@
 +/*
 + * ssl_acornssl.c - riscos-gtk: Claws Mail's TLS through RISC OS's AcornSSL
@@ -916,7 +916,7 @@ diff -ruN a/src/common/ssl_acornssl.c b/src/common/ssl_acornssl.c
 +#endif /* USE_GNUTLS */
 diff -ruN a/src/common/utils.c b/src/common/utils.c
 --- a/src/common/utils.c	2025-07-15 11:55:19.000000000 +0100
-+++ b/src/common/utils.c	2026-10-28 15:19:28.153621561 +0000
++++ b/src/common/utils.c	2026-10-28 19:42:46.448660245 +0000
 @@ -1275,14 +1275,27 @@
  		     * string which come from Nautilus.
  		     */
@@ -948,7 +948,21 @@ diff -ruN a/src/common/utils.c b/src/common/utils.c
  #else
  					locale_file = g_filename_from_uri(escaped_utf8uri, NULL, NULL);
  #endif
-@@ -2719,8 +2732,16 @@
+@@ -1871,6 +1884,13 @@
+ 					 NULL);
+ 	return plugin_dir;
+ #else
++#ifdef __riscos
++	/* in the application (riscos-gtk): the plug-ins are linked into the
++	   program, and plugins holds a stand-in file for each, which the
++	   Plugins window lists and loads (riscos-claws.c registers them) */
++#undef PLUGINDIR
++#define PLUGINDIR "/<ClawsMail$Dir>/plugins/"
++#endif
+ 	if (is_dir_exist(PLUGINDIR))
+ 		return PLUGINDIR;
+ 	else {
+@@ -2719,8 +2739,16 @@
  }
  #endif
  
@@ -967,7 +981,7 @@ diff -ruN a/src/common/utils.c b/src/common/utils.c
  	gchar buf[BUFFSIZE];
 diff -ruN a/src/compose.c b/src/compose.c
 --- a/src/compose.c	2025-10-08 06:28:32.000000000 +0100
-+++ b/src/compose.c	2026-10-28 15:19:28.154659290 +0000
++++ b/src/compose.c	2026-10-28 19:42:32.992174188 +0000
 @@ -430,6 +430,10 @@
  					 gpointer	 data);
  static void compose_replace_sig_cb	(GtkAction	*action,
@@ -1053,7 +1067,7 @@ diff -ruN a/src/compose.c b/src/compose.c
  {
 diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
 --- a/src/etpan/etpan-ssl.c	2025-09-29 06:32:17.000000000 +0100
-+++ b/src/etpan/etpan-ssl.c	2026-10-28 15:19:28.155383707 +0000
++++ b/src/etpan/etpan-ssl.c	2026-10-28 19:42:32.992946438 +0000
 @@ -43,6 +43,11 @@
  gboolean etpan_certificate_check(mailstream *stream, const char *host, gint port,
  				 gboolean accept_if_valid)
@@ -1068,7 +1082,7 @@ diff -ruN a/src/etpan/etpan-ssl.c b/src/etpan/etpan-ssl.c
  	int len;
 diff -ruN a/src/gtk/about.c b/src/gtk/about.c
 --- a/src/gtk/about.c	2026-03-08 13:43:46.000000000 +0000
-+++ b/src/gtk/about.c	2026-10-28 15:19:28.155559688 +0000
++++ b/src/gtk/about.c	2026-10-28 19:42:32.993053018 +0000
 @@ -447,10 +447,18 @@
  #else
  	gtk_text_buffer_insert_pixbuf(buffer, &iter, inactive_pixbuf);
@@ -1090,7 +1104,7 @@ diff -ruN a/src/gtk/about.c b/src/gtk/about.c
  	gtk_text_buffer_insert_pixbuf(buffer, &iter, active_pixbuf);
 diff -ruN a/src/gtk/gtkcmclist.c b/src/gtk/gtkcmclist.c
 --- a/src/gtk/gtkcmclist.c	2026-01-14 12:21:46.000000000 +0000
-+++ b/src/gtk/gtkcmclist.c	2026-10-28 15:19:28.155989827 +0000
++++ b/src/gtk/gtkcmclist.c	2026-10-28 19:42:32.993410152 +0000
 @@ -36,6 +36,9 @@
  #include <gdk/gdkkeysyms.h>
  #include "utils.h"
@@ -1103,7 +1117,7 @@ diff -ruN a/src/gtk/gtkcmclist.c b/src/gtk/gtkcmclist.c
  #define MAX_BUTTON 5
 diff -ruN a/src/gtk/gtkcmctree.c b/src/gtk/gtkcmctree.c
 --- a/src/gtk/gtkcmctree.c	2022-05-06 11:11:04.000000000 +0100
-+++ b/src/gtk/gtkcmctree.c	2026-10-28 15:19:28.156581175 +0000
++++ b/src/gtk/gtkcmctree.c	2026-10-28 19:42:32.993984540 +0000
 @@ -37,6 +37,9 @@
  #include "claws-marshal.h"
  #include "utils.h"
@@ -1116,7 +1130,7 @@ diff -ruN a/src/gtk/gtkcmctree.c b/src/gtk/gtkcmctree.c
  #define TAB_SIZE                   (PM_SIZE + 6)
 diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
 --- a/src/gtk/gtkunit.h	2018-09-10 14:00:33.000000000 +0100
-+++ b/src/gtk/gtkunit.h	2026-10-28 15:19:28.156873783 +0000
++++ b/src/gtk/gtkunit.h	2026-10-28 19:42:32.994325269 +0000
 @@ -87,6 +87,10 @@
   * #GTK_TYPE_UNIT is a #GType derived from #G_TYPE_INT.
   **/
@@ -1130,7 +1144,7 @@ diff -ruN a/src/gtk/gtkunit.h b/src/gtk/gtkunit.h
  
 diff -ruN a/src/gtk/riscos-pixbuf-scale.h b/src/gtk/riscos-pixbuf-scale.h
 --- a/src/gtk/riscos-pixbuf-scale.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/gtk/riscos-pixbuf-scale.h	2026-10-28 15:19:28.157014525 +0000
++++ b/src/gtk/riscos-pixbuf-scale.h	2026-10-28 19:42:32.994381279 +0000
 @@ -0,0 +1,57 @@
 +/*
 + * riscos-pixbuf-scale.h - riscos-gtk: Claws Mail's own icon drawing for a
@@ -1191,7 +1205,7 @@ diff -ruN a/src/gtk/riscos-pixbuf-scale.h b/src/gtk/riscos-pixbuf-scale.h
 +#endif
 diff -ruN a/src/main.c b/src/main.c
 --- a/src/main.c	2026-03-08 13:45:13.000000000 +0000
-+++ b/src/main.c	2026-10-28 18:23:04.110344600 +0000
++++ b/src/main.c	2026-10-28 19:42:32.994528332 +0000
 @@ -173,6 +173,12 @@
  static SnDisplay *sn_display = NULL;
  #endif
@@ -1282,7 +1296,7 @@ diff -ruN a/src/main.c b/src/main.c
  					lock_socket_input_cb,
 diff -ruN a/src/mainwindow.c b/src/mainwindow.c
 --- a/src/mainwindow.c	2026-03-08 14:11:00.000000000 +0000
-+++ b/src/mainwindow.c	2026-10-28 15:19:28.157634929 +0000
++++ b/src/mainwindow.c	2026-10-28 19:42:32.994985440 +0000
 @@ -3886,7 +3886,14 @@
  	hooks_invoke(MAIN_WINDOW_CLOSE, &close_allowed);
  
@@ -1300,7 +1314,7 @@ diff -ruN a/src/mainwindow.c b/src/mainwindow.c
  }
 diff -ruN a/src/manual.c b/src/manual.c
 --- a/src/manual.c	2022-05-06 11:11:04.000000000 +0100
-+++ b/src/manual.c	2026-10-28 15:30:42.799985495 +0000
++++ b/src/manual.c	2026-10-28 19:42:32.995342913 +0000
 @@ -40,6 +40,12 @@
  #include "manual.h"
  #include "utils.h"
@@ -1316,7 +1330,7 @@ diff -ruN a/src/manual.c b/src/manual.c
  {
 diff -ruN a/src/mimeview.c b/src/mimeview.c
 --- a/src/mimeview.c	2026-03-08 14:11:24.000000000 +0000
-+++ b/src/mimeview.c	2026-10-28 15:28:56.550121178 +0000
++++ b/src/mimeview.c	2026-10-28 19:42:32.995496548 +0000
 @@ -61,6 +61,10 @@
  #include "manage_window.h"
  #include "privacy.h"
@@ -1353,7 +1367,7 @@ diff -ruN a/src/mimeview.c b/src/mimeview.c
  	else {
 diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.c b/src/plugins/litehtml_viewer/lh_viewer.c
 --- a/src/plugins/litehtml_viewer/lh_viewer.c	2024-06-09 11:08:34.000000000 +0100
-+++ b/src/plugins/litehtml_viewer/lh_viewer.c	2026-10-28 15:19:28.158000711 +0000
++++ b/src/plugins/litehtml_viewer/lh_viewer.c	2026-10-28 19:42:32.995759034 +0000
 @@ -25,6 +25,12 @@
  #include "mainwindow.h"
  #include "statusbar.h"
@@ -1412,7 +1426,7 @@ diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.c b/src/plugins/litehtml_viewe
  }
 diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.h b/src/plugins/litehtml_viewer/lh_viewer.h
 --- a/src/plugins/litehtml_viewer/lh_viewer.h	2022-05-06 11:11:04.000000000 +0100
-+++ b/src/plugins/litehtml_viewer/lh_viewer.h	2026-10-28 15:19:28.158198299 +0000
++++ b/src/plugins/litehtml_viewer/lh_viewer.h	2026-10-28 19:42:32.995855300 +0000
 @@ -26,4 +26,7 @@
  	MimeViewer mimeviewer;
  	lh_widget_wrapped *widget;
@@ -1423,7 +1437,7 @@ diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.h b/src/plugins/litehtml_viewe
  };
 diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_viewer/lh_widget.cpp
 --- a/src/plugins/litehtml_viewer/lh_widget.cpp	2023-10-22 16:03:41.000000000 +0100
-+++ b/src/plugins/litehtml_viewer/lh_widget.cpp	2026-10-28 15:19:28.158471019 +0000
++++ b/src/plugins/litehtml_viewer/lh_widget.cpp	2026-10-28 19:42:32.995962371 +0000
 @@ -26,7 +26,9 @@
  #include <fcntl.h>
  #include <sys/types.h>
@@ -1487,9 +1501,32 @@ diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_vie
  			w->m_clicked_url.c_str(), -1);
  	gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
  			w->m_clicked_url.c_str(), -1);
+diff -ruN a/src/plugins/vcalendar/vcalendar.c b/src/plugins/vcalendar/vcalendar.c
+--- a/src/plugins/vcalendar/vcalendar.c	2026-02-16 09:55:07.000000000 +0000
++++ b/src/plugins/vcalendar/vcalendar.c	2026-10-28 20:09:13.293102429 +0000
+@@ -1261,9 +1261,19 @@
+ 	gtk_widget_set_name(GTK_WIDGET(vcalviewer->scrolledwin), "vcalendar_viewer");
+ 	gtk_container_add(GTK_CONTAINER(vcalviewer->scrolledwin),
+ 			vcalviewer->table);
++#ifdef __riscos
++	/* a scroll bar across too (riscos-gtk): with none, the invitation's
++	   table sets the width of the message view's notebook, whichever
++	   page shows, and other viewers (HTML mail) were laid out wider than
++	   the window */
++	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(vcalviewer->scrolledwin),
++				       GTK_POLICY_AUTOMATIC,
++				       GTK_POLICY_AUTOMATIC);
++#else
+ 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(vcalviewer->scrolledwin),
+ 				       GTK_POLICY_NEVER,
+ 				       GTK_POLICY_AUTOMATIC);
++#endif
+ 	
+ 	gtk_widget_show_all(vcalviewer->scrolledwin);
+ 	return (MimeViewer *) vcalviewer;
 diff -ruN a/src/prefs_common.c b/src/prefs_common.c
 --- a/src/prefs_common.c	2026-03-06 10:37:09.000000000 +0000
-+++ b/src/prefs_common.c	2026-10-28 15:19:28.179315047 +0000
++++ b/src/prefs_common.c	2026-10-28 19:42:32.996136870 +0000
 @@ -122,7 +122,13 @@
  	 &prefs_common.mime_open_cmd,     P_STRING, NULL, NULL, NULL},
  
@@ -1520,7 +1557,7 @@ diff -ruN a/src/prefs_common.c b/src/prefs_common.c
  	 NULL, NULL, NULL},
 diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
 --- a/src/stock_pixmap.c	2024-02-19 06:56:35.000000000 +0000
-+++ b/src/stock_pixmap.c	2026-10-28 15:19:28.158905864 +0000
++++ b/src/stock_pixmap.c	2026-10-28 19:42:32.996343569 +0000
 @@ -31,6 +31,11 @@
  
  #include "defs.h"
@@ -1607,7 +1644,7 @@ diff -ruN a/src/stock_pixmap.c b/src/stock_pixmap.c
  	if (theme && *theme) {
 diff -ruN a/src/textview.c b/src/textview.c
 --- a/src/textview.c	2026-03-06 10:37:09.000000000 +0000
-+++ b/src/textview.c	2026-10-28 15:19:28.159182580 +0000
++++ b/src/textview.c	2026-10-28 19:42:32.996599616 +0000
 @@ -2366,6 +2366,22 @@
  		textview_show_contact_pic(textview);
  }
@@ -1633,7 +1670,7 @@ diff -ruN a/src/textview.c b/src/textview.c
  {
 diff -ruN a/src/textview.h b/src/textview.h
 --- a/src/textview.h	2026-02-16 09:48:39.000000000 +0000
-+++ b/src/textview.h	2026-10-28 15:19:28.159497361 +0000
++++ b/src/textview.h	2026-10-28 19:42:32.996916640 +0000
 @@ -98,6 +98,10 @@
  				 const gchar	*info_str);
  void textview_show_mime_part	(TextView	*textview,

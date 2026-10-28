@@ -18,6 +18,7 @@
 #include "about.h"
 #include "compose.h"
 #include "manual.h"
+#include "plugin.h"
 #include <enchant.h>
 
 int fake_claws_show_message (const char *folder, int num);
@@ -29,6 +30,10 @@ GdkPixbuf *fake_claws_stock (int which);
 void fake_claws_about (void);
 int fake_claws_spell (void);
 int fake_claws_manual (void);
+int fake_claws_plugins (void);
+GtkWidget *fake_claws_main_window (void);
+int fake_claws_subscribe (const char *klass, const char *uri);
+int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 
 /* scan folder (an identifier, "#mh/Mailbox/inbox") and show message num in
    the main window */
@@ -126,4 +131,98 @@ int
 fake_claws_manual (void)
 {
   return manual_available (MANUAL_MANUAL_CLAWS);
+}
+
+/* the plug-ins loaded: 1 RSSyl, 2 ManageSieve, 4 vCalendar */
+int
+fake_claws_plugins (void)
+{
+  GSList *l;
+  int r = 0;
+
+  for (l = plugin_get_list (); l; l = l->next)
+    {
+      const char *n = plugin_get_name (l->data);
+      if (g_strcmp0 (n, "RSSyl") == 0)
+        r |= 1;
+      else if (g_strcmp0 (n, "ManageSieve") == 0)
+        r |= 2;
+      else if (g_strcmp0 (n, "vCalendar") == 0)
+        r |= 4;
+    }
+  return r;
+}
+
+static Folder *
+folder_of_class (const char *klass)
+{
+  GList *l;
+
+  for (l = folder_get_list (); l; l = l->next)
+    {
+      Folder *f = l->data;
+      if (f->klass && g_strcmp0 (f->klass->idstr, klass) == 0)
+        return f;
+    }
+  return NULL;
+}
+
+/* subscribe the folder of class klass ("rssyl", "vCalendar") to uri, as
+   its folder menu's Subscribe does: -1 no such folder */
+int
+fake_claws_subscribe (const char *klass, const char *uri)
+{
+  Folder *f = folder_of_class (klass);
+
+  if (!f || !f->klass->subscribe)
+    return -1;
+  return f->klass->subscribe (f, uri) ? 1 : 0;
+}
+
+static gboolean
+find_named (GNode *node, gpointer data)
+{
+  gpointer *d = data;
+  FolderItem *item = node->data;
+
+  if (item && item->name && g_strcmp0 (item->name, d[0]) == 0)
+    {
+      d[1] = item;
+      return TRUE;
+    }
+  return FALSE;
+}
+
+/* the messages in the folder item called name in the folder of class
+   klass, once scanned (-1: no such item); its folder on disc into path */
+int
+fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len)
+{
+  Folder *f = folder_of_class (klass);
+  gpointer d[2] = { (gpointer) name, NULL };
+  FolderItem *item;
+  char *p;
+
+  if (path && len)
+    path[0] = 0;
+  if (!f || !f->node)
+    return -1;
+  g_node_traverse (f->node, G_PRE_ORDER, G_TRAVERSE_ALL, -1, find_named, d);
+  item = d[1];
+  if (!item)
+    return -1;
+  folder_item_scan (item);
+  p = folder_item_get_path (item);
+  if (p && path)
+    g_strlcpy (path, p, len);
+  g_free (p);
+  return item->total_msgs;
+}
+
+/* the main window (shown or not) */
+GtkWidget *
+fake_claws_main_window (void)
+{
+  MainWindow *mw = mainwindow_get_mainwindow ();
+  return mw ? mw->window : NULL;
 }

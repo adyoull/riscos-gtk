@@ -17,6 +17,9 @@
  *     a second copy hands its file to the first.
  *   - HTML mail: Claws Mail's litehtml viewer plug-in, linked in and
  *     started here (riscos_claws_plugins);
+ *   - the RSS (rssyl), Sieve (managesieve) and vCalendar plug-ins, linked
+ *     in as GLib static modules (build-claws.sh), loaded the first time
+ *     and then as the Plugins window leaves them;
  *   - the RISC OS icons (share/claws-mail/themes/RISCOS, drawn by
  *     tools/mkclawsicons.py), chosen once (riscos_claws_prefs_read); the
  *     folder list's icons from the desktop's own sprites
@@ -47,6 +50,8 @@
 #include "stock_pixmap.h"
 #include "utils.h"
 #include "defs.h"
+#include "plugin.h"
+#include <libical/icaltimezone.h>
 #include "alertpanel.h"
 
 #ifndef RISCOS_PORT_VERSION
@@ -64,6 +69,14 @@ GdkPixbuf *riscos_claws_stock_hires (const char *name, const char *theme);
 /* the litehtml viewer plug-in, linked in (build-claws.sh renames its
    plugin_init) */
 gint lh_plugin_init (gchar **error);
+
+/* the plug-ins linked in as GLib static modules (staticmodules.c, made by
+   tools/mkstaticmodules.py in build-claws.sh) */
+void riscos_register_static_modules (void);
+static const char *const static_plugins[] = { "rssyl", "managesieve", "vcalendar" };
+
+/* libical's time zones, in the application */
+#define ZONEINFO_DIR "/<ClawsMail$Dir>/share/zoneinfo"
 
 /* the RISC OS icons, in the application */
 #define RISCOS_THEME "/<ClawsMail$Dir>/share/claws-mail/themes/RISCOS"
@@ -274,16 +287,50 @@ riscos_claws_prefs_read (void)
 
 /* The plug-ins linked into the program: the litehtml viewer shows HTML
    mail (text/html parts). */
+static gboolean
+save_plugin_list (gpointer data)
+{
+  plugin_save_list ();
+  return G_SOURCE_REMOVE;
+}
+
 void
 riscos_claws_plugins (void)
 {
-  gchar *error = NULL;
+  gchar *error = NULL, *marker;
 
   if (lh_plugin_init (&error) < 0)
     {
       g_warning ("litehtml viewer: %s", error ? error : "failed");
       g_free (error);
     }
+
+  /* RSS, Sieve and vCalendar: g_module_open of plugins/rssyl.so (and so
+     on) gives the linked-in module; Claws Mail loads them by the list in
+     clawsrc ([Plugins_GTK3]), which the Plugins window keeps. The first
+     time, they are all loaded, and the list is saved once main.c has read
+     it (plugin_load_all, called after this). */
+  set_zone_directory (g_getenv ("CLAWS_RISCOS_ZONEINFO") ? g_getenv ("CLAWS_RISCOS_ZONEINFO") : ZONEINFO_DIR);
+  riscos_register_static_modules ();
+  marker = g_build_filename (get_rc_dir (), "RISCOSPlugins", NULL);
+  if (!g_file_test (marker, G_FILE_TEST_EXISTS))
+    {
+      gsize i;
+
+      for (i = 0; i < G_N_ELEMENTS (static_plugins); i++)
+        {
+          gchar *path = g_strconcat (get_plugin_dir (), static_plugins[i], ".so", NULL);
+
+          error = NULL;
+          if (plugin_load (path, &error) == NULL)
+            g_warning ("plug-in %s: %s", static_plugins[i], error ? error : "failed");
+          g_free (error);
+          g_free (path);
+        }
+      g_idle_add (save_plugin_list, NULL);
+      g_file_set_contents (marker, "ClawsMail 4.4.0-riscos24: the RSS, Sieve and vCalendar plug-ins loaded once\n", -1, NULL);
+    }
+  g_free (marker);
 }
 
 /* An icon drawn from the desktop's own sprites, for Claws Mail's

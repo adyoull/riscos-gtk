@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A small POP3 and SMTP server for the Claws Mail test (tests/gtk/claws-fake.c).
 
-  mailserver.py DIR POP3PORT SMTPPORT [IMAPPORT [HTTPPORT]]
+  mailserver.py DIR POP3PORT SMTPPORT [IMAPPORT [HTTPPORT [SIEVEPORT]]]
 
 Plain text: the fake AcornSSL in the test's fake RISC OS passes bytes
 through unencrypted, so "TLS" (pop3s, SMTP STARTTLS) arrives here as plain
@@ -15,10 +15,16 @@ LOGIN, LIST/LSUB, SELECT/EXAMINE, STATUS, (UID) SEARCH, (UID) FETCH of
 UID, FLAGS, RFC822.SIZE, INTERNALDATE, BODY[...] / BODY.PEEK[...] (whole,
 HEADER, TEXT, HEADER.FIELDS) and RFC822*, (UID) STORE, NOOP, IDLE.
 HTTP (if HTTPPORT is given; https arrives as plain text too): GET of
-DIR/http/NAME, sent chunked; /moved/NAME answers 302 with a relative
-Location (/NAME); logged as "HTTP GET <path>".
+DIR/http/NAME, sent chunked, with an ETag; /moved/NAME answers 302 with a
+relative Location (/NAME); /auth/NAME wants Basic authentication as
+test:secret (401 without); PUT /auth/NAME writes DIR/http/put-NAME.
+Logged as "HTTP GET <path>" (and "HTTP PUT <path>", "HTTP auth ok").
+ManageSieve (if SIEVEPORT is given): capabilities, STARTTLS (then the
+capabilities again), LISTSCRIPTS (riscos-test, active, and holiday),
+GETSCRIPT, NOOP, LOGOUT; logged as "SIEVE <cmd>".
 MIT licence.
 """
+import base64
 import os
 import socketserver
 import sys
@@ -27,6 +33,7 @@ import threading
 DIR, POP3PORT, SMTPPORT = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 IMAPPORT = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 HTTPPORT = int(sys.argv[5]) if len(sys.argv) > 5 else 0
+SIEVEPORT = int(sys.argv[6]) if len(sys.argv) > 6 else 0
 lock = threading.Lock()
 
 
@@ -339,27 +346,96 @@ class IMAP(socketserver.StreamRequestHandler):
                 self.send(tag + " BAD unknown")
 
 
+TYPES = {".png": "image/png", ".rss": "application/rss+xml", ".xml": "application/rss+xml",
+         ".ics": "text/calendar"}
+
+
 class HTTP(socketserver.StreamRequestHandler):
+    def reply(self, head, body=b""):
+        self.wfile.write(head.encode("latin-1") + b"Connection: close\r\n\r\n" + body)
+
     def handle(self):
         req = self.rfile.readline().decode("latin-1").split()
-        while self.rfile.readline().strip():
-            pass
+        headers = {}
+        while True:
+            line = self.rfile.readline().decode("latin-1").strip()
+            if not line:
+                break
+            k, _, v = line.partition(":")
+            headers[k.strip().lower()] = v.strip()
+        method = req[0] if req else "GET"
         path = req[1] if len(req) > 1 else "/"
-        log("HTTP GET " + path)
+        log("HTTP %s %s" % (method, path))
         if path.startswith("/moved/"):
-            self.wfile.write(("HTTP/1.1 302 Found\r\nLocation: /%s\r\nContent-Length: 0\r\n"
-                              "Connection: close\r\n\r\n" % path[7:]).encode("latin-1"))
+            self.reply("HTTP/1.1 302 Found\r\nLocation: /%s\r\nContent-Length: 0\r\n" % path[7:])
             return
-        f = os.path.join(DIR, "http", os.path.basename(path))
+        if path.startswith("/auth/"):
+            if headers.get("authorization") != "Basic " + base64.b64encode(b"test:secret").decode():
+                self.reply("HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"test\"\r\n"
+                           "Content-Length: 0\r\n")
+                return
+            log("HTTP auth ok")
+        name = os.path.basename(path.split("?")[0])
+        if method == "PUT":
+            data = self.rfile.read(int(headers.get("content-length", "0")))
+            with open(os.path.join(DIR, "http", "put-" + name), "wb") as f:
+                f.write(data)
+            log("HTTP PUT %d bytes, %s" % (len(data), headers.get("content-type", "")))
+            self.reply("HTTP/1.1 201 Created\r\nContent-Length: 0\r\n")
+            return
+        f = os.path.join(DIR, "http", name)
         if not os.path.isfile(f):
-            self.wfile.write(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            self.reply("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n")
             return
         data = open(f, "rb").read()
-        out = b"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+        out = b""
         for i in range(0, len(data), 100):
             c = data[i:i + 100]
             out += b"%x\r\n" % len(c) + c + b"\r\n"
-        self.wfile.write(out + b"0\r\n\r\n")
+        self.reply("HTTP/1.1 200 OK\r\nContent-Type: %s\r\nETag: \"riscos-%d\"\r\n"
+                   "Transfer-Encoding: chunked\r\n" % (TYPES.get(os.path.splitext(name)[1], "application/octet-stream"),
+                                                       len(data)), out + b"0\r\n\r\n")
+
+
+class Sieve(socketserver.StreamRequestHandler):
+    SCRIPT = b'require "fileinto";\r\nif header :contains "subject" "RISC OS" { fileinto "riscos"; }\r\n'
+
+    def send(self, s):
+        self.wfile.write(s.encode("latin-1") + b"\r\n")
+
+    def caps(self):
+        self.send('"IMPLEMENTATION" "riscos-gtk test"')
+        self.send('"SASL" "PLAIN"')
+        self.send('"SIEVE" "fileinto"')
+        self.send('"STARTTLS"')
+        self.send('"VERSION" "1.0"')
+        self.send('OK "ready"')
+
+    def handle(self):
+        self.caps()
+        while True:
+            line = self.rfile.readline().decode("latin-1").strip()
+            if not line:
+                return
+            cmd = line.split()[0].upper()
+            log("SIEVE " + cmd)
+            if cmd == "STARTTLS":
+                self.send('OK "Begin TLS negotiation now"')
+                self.caps()
+            elif cmd == "LISTSCRIPTS":
+                self.send('"riscos-test" ACTIVE')
+                self.send('"holiday"')
+                self.send('OK "Listscripts completed"')
+            elif cmd == "GETSCRIPT":
+                self.wfile.write(b"{%d}\r\n" % len(self.SCRIPT) + self.SCRIPT + b"\r\n")
+                self.send('OK "Getscript completed"')
+            elif cmd == "NOOP":
+                self.send('OK "NOOP completed"')
+            elif cmd == "LOGOUT":
+                self.send('OK "Logout completed"')
+                return
+            else:
+                self.send('NO "not in this test"')
 
 
 class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -377,6 +453,9 @@ if __name__ == "__main__":
     if HTTPPORT:
         http = Server(("127.0.0.1", HTTPPORT), HTTP)
         threading.Thread(target=http.serve_forever, daemon=True).start()
+    if SIEVEPORT:
+        sieve = Server(("127.0.0.1", SIEVEPORT), Sieve)
+        threading.Thread(target=sieve.serve_forever, daemon=True).start()
     with open(os.path.join(DIR, "server.ready"), "w") as f:
         f.write("ok\n")
     smtp.serve_forever()
