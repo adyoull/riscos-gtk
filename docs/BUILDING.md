@@ -105,7 +105,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.41-riscos1.0-rc12    # out/release/3.24.41-riscos1.0-rc12/
+make release RELEASE=3.24.41-riscos1.0-rc13    # out/release/3.24.41-riscos1.0-rc13/
 ```
 
 `make emoji` makes `out/TTF-Noto-Color-Emoji-<version>.zip`, the optional
@@ -122,12 +122,17 @@ linked in. It needs riscos-mesa's devkit (20.3.5-15 or later) in
 
 `make release` runs `build/make-release.sh`:
 - **It refuses a tree with uncommitted changes.**
-- **It builds the three programs.** Their versions are set in
-  `build/build-l3afpad.sh`, `build-themetest.sh` and `build-claws.sh`.
+- **It builds every program:** L3afpad, GTKThemeTest, ClawsMail,
+  GTKGLTest, Geany, mtPaint, Gnumeric and AbiWord, and the emoji
+  package. Their versions are set in each `build/build-<program>.sh`.
+  AbiWord (`make abiword`, `build/build-abiword.sh`) also builds wv,
+  hunspell and enchant, and needs autoconf-archive and zstd on the build
+  machine.
 - **It runs riscos-crossdev's checks on each program:** that it is
   static, has stack probes, uses only VFPv3, matches UnixLib, and has no
   unaligned casts in the source.
 - **It writes three more things:**
+  - `riscos-gtk-sdk-<release>.tar.gz`: the devkit;
   - `riscos-gtk-<release>-src.tar`: the repository at the commit, plus
     every upstream tarball;
   - `MANIFEST.txt`: the files' SHA-256, the commit, the toolchain and the

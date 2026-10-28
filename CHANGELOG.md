@@ -1,6 +1,13 @@
 # Changelog
 
-## Since 3.24.41-riscos1.0-rc12
+## 3.24.41-riscos1.0-rc13 (2026-10-28)
+- **AbiWord joins the release:** AbiWord 3.0.8-riscos1, the word
+  processor, after its test builds ran on the Pi.
+- **Every program rebuilt** with the drawing fix below: L3afpad
+  0.8.18.1.11-riscos32, ClawsMail 4.4.0-riscos22, Geany 2.1-riscos11,
+  mtPaint 3.50.14-riscos11, Gnumeric 1.12.57-riscos16, and the test
+  programs 3.24.41-riscos1.0-rc13. TTF-Noto-Color-Emoji-2.051.0.1-1 is
+  unchanged.
 - **Drawing outside GTK's paint cycle reaches the screen.** A program
   drawing on a window when it likes (gdk_cairo_create outside a draw
   handler, as AbiWord's dialogue boxes draw their previews when a
@@ -10,7 +17,6 @@
   what such a window covers as changed and copies and plots it once the
   program has drawn. Every program. Test `fontchooser-fake` (GTK's own
   font dialogue's preview too).
-- **AbiWord test6** with that fix.
 
 ## 3.24.41-riscos1.0-rc12 (2026-10-27)
 - **Every program rebuilt** with the font, menu and icon changes below:

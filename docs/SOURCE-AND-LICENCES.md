@@ -10,7 +10,7 @@ so shared libraries aren't possible today.
 
 | In the program | Licence | Obligation |
 |---|---|---|
-| The program itself | L3afpad: GPL v2 or later. Claws Mail: GPL v3 or later. Geany: GPL v2 or later. mtPaint: GPL v3 or later. Gnumeric (with GOffice): GPL v2 or v3. GTKThemeTest, GTKGLTest: MIT | GPL: the complete corresponding source, under the GPL |
+| The program itself | L3afpad: GPL v2 or later. Claws Mail: GPL v3 or later. Geany: GPL v2 or later. mtPaint: GPL v3 or later. Gnumeric (with GOffice): GPL v2 or v3. AbiWord: GPL v2 or later. GTKThemeTest, GTKGLTest: MIT | GPL: the complete corresponding source, under the GPL |
 | riscos-gtk's own code: the GDK backend `gdk/riscos/`, `gtk/riscos/`, `cairo/`, the patches, `apps/*/riscos-*.c` | LGPL 2.1+ (backend code that becomes part of GTK); GPL as the program (`apps/`); MIT (the rest) | Source, as part of the library or program it belongs to |
 | GTK 3.24.41, GLib 2.80, pango, ATK, gdk-pixbuf, fribidi | LGPL 2.1 or later | See "the LGPL and static linking" below |
 | cairo 1.18 | LGPL 2.1 or MPL 1.1 | Taken as LGPL 2.1 |
@@ -21,6 +21,11 @@ so shared libraries aren't possible today.
 | Claws Mail only: gumbo 0.12.0 | Apache License 2.0 | Its licence: `LicenceGumbo` in the package |
 | Gnumeric only: libgsf 1.14.51 | LGPL 2.1 | As the other LGPL libraries, below |
 | Gnumeric only: libxml2 2.9.14, libxslt 1.1.39 | MIT | The notices (LICENCES.md) |
+| AbiWord only: wv 1.2.9 | GPL 2 or later | Covered by the GPL program's source |
+| AbiWord only: enchant 2.3.3 | LGPL 2.1 or later | As the other LGPL libraries, below |
+| AbiWord only: hunspell 1.7.2 | MPL 1.1, GPL 2 or LGPL 2.1 | Taken as LGPL 2.1 |
+| AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
+| AbiWord only: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
 | GTKGLTest only: riscos-mesa (Mesa 20.3.5) | MIT | The notice; source: riscos-mesa's release |
 | UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release, which the source archive and each package's `Source` point to |
 
@@ -54,7 +59,8 @@ release, `riscos-gtk-<release>-src.tar`, made by
   program's RISC OS code, the build scripts and these documents;
 - every upstream tarball named in `build/SHA256SUMS.txt`: the
   libraries, L3afpad, Claws Mail, Nettle, libetpan, gumbo, Geany,
-  mtPaint, Gnumeric, GOffice, libgsf, libxml2, libxslt and
+  mtPaint, Gnumeric, GOffice, libgsf, libxml2, libxslt, AbiWord, wv,
+  Boost, enchant, hunspell, the British English dictionary and
   shared-mime-info.
 
 With the riscos-crossdev toolchain, `docs/BUILDING.md` rebuilds every
@@ -72,7 +78,7 @@ The packaging script (`build/build-app.sh`) adds these to every package:
   copy for three years.
 - The program's own licence: `Licence`. L3afpad: GPL 2. Claws Mail: GPL
   3. Geany: GPL 2. mtPaint: GPL 3. Gnumeric: its COPYING with the GPL 2
-  and 3 texts. GTKThemeTest, GTKGLTest: MIT.
+  and 3 texts. AbiWord: GPL 2. GTKThemeTest, GTKGLTest: MIT.
 - For Claws Mail, `LicenceEtPan`, `LicenceLiteHTML` and `LicenceGumbo`.
 - `fonts/Licence`, `PThreadTicker-Licence`, `share/mime/Licence`.
 - `!Help`: lists the above.

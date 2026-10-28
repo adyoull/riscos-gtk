@@ -5,7 +5,7 @@
 # Needs the libraries already built (make deps) with the same toolchain.
 # Writes out/release/<RELEASE>/:
 #   L3afpad-<v>.zip, ClawsMail-<v>.zip, Geany-<v>.zip, mtPaint-<v>.zip,
-#   Gnumeric-<v>.zip, TTF-Noto-Color-Emoji-<v>.zip (the optional emoji
+#   Gnumeric-<v>.zip, AbiWord-<v>.zip, TTF-Noto-Color-Emoji-<v>.zip (the optional emoji
 #   font, a PackMan package: build-emoji.sh),
 #   GTKThemeTest-<v>.zip, GTKGLTest-<v>.zip (needs riscos-mesa's devkit:
 #   MESA_DEVKIT, default $RCD_DIR/devkit/env)
@@ -19,7 +19,7 @@
 # The programs' versions (the upstream version and -riscosN; the test
 # programs take the release's) are in build/build-<app>.sh (or L3AFPAD_VERSION,
 # CLAWS_VERSION, THEMETEST_VERSION, GLTEST_VERSION, GEANY_VERSION,
-# MTPAINT_VERSION, GNUMERIC_VERSION). MIT licence.
+# MTPAINT_VERSION, GNUMERIC_VERSION, ABIWORD_VERSION). MIT licence.
 HERE=$(cd "$(dirname "$0")" && pwd)
 RELEASE=${1:?usage: build/make-release.sh RELEASE (e.g. 3.24.41-riscos1.0-rc3)}
 export TARGET=riscos RELEASE
@@ -41,7 +41,8 @@ GLV=${GLTEST_VERSION:-$(sed -n 's/.*VERSION:-\([^}]*\)}.*/\1/p' build/build-glte
 GYV=${GEANY_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-geany.sh | head -1)}
 MPV=${MTPAINT_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-mtpaint.sh | head -1)}
 GNV=${GNUMERIC_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-gnumeric.sh | head -1)}
-[ -n "$L3V" ] && [ -n "$TTV" ] && [ -n "$CMV" ] && [ -n "$GLV" ] && [ -n "$GYV" ] && [ -n "$MPV" ] && [ -n "$GNV" ] \
+ABV=${ABIWORD_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build/build-abiword.sh | head -1)}
+[ -n "$L3V" ] && [ -n "$TTV" ] && [ -n "$CMV" ] && [ -n "$GLV" ] && [ -n "$GYV" ] && [ -n "$MPV" ] && [ -n "$GNV" ] && [ -n "$ABV" ] \
   || { echo "make-release.sh: can't read the programs' versions" >&2; exit 1; }
 
 VERSION=$L3V build/build-l3afpad.sh
@@ -51,6 +52,7 @@ VERSION=$GLV build/build-gltest.sh
 VERSION=$GYV build/build-geany.sh
 VERSION=$MPV build/build-mtpaint.sh
 VERSION=$GNV build/build-gnumeric.sh
+VERSION=$ABV build/build-abiword.sh
 build/build-emoji.sh
 EMV=$(sed -n 's/^VERSION=\${VERSION:-\$FONT_VERSION\(.*\)}$/\1/p' build/build-emoji.sh)
 EMV=$(sed -n 's/^FONT_VERSION=//p' build/build-emoji.sh)$EMV
@@ -59,7 +61,7 @@ R=$REPO_DIR/out/release/$RELEASE
 rm -rf "$R"; mkdir -p "$R"
 cp "out/L3afpad-$L3V.zip" "out/GTKThemeTest-$TTV.zip" "out/ClawsMail-$CMV.zip" \
    "out/GTKGLTest-$GLV.zip" "out/Geany-$GYV.zip" "out/mtPaint-$MPV.zip" \
-   "out/Gnumeric-$GNV.zip" "out/TTF-Noto-Color-Emoji-$EMV.zip" "$R/"
+   "out/Gnumeric-$GNV.zip" "out/AbiWord-$ABV.zip" "out/TTF-Noto-Color-Emoji-$EMV.zip" "$R/"
 # the devkit, for other developers' programs (build/make-sdk.sh)
 SOURCE_URL=$SOURCE_URL "$HERE/make-sdk.sh" "$RELEASE"
 cp "out/sdk/riscos-gtk-sdk-$RELEASE.tar.gz" "$R/"

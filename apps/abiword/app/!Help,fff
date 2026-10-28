@@ -6,8 +6,8 @@ footers, footnotes, lists, pictures and page layout, with OpenDocument
 (.odt), Word (.doc, .docx), RTF, HTML, plain text and AbiWord's own .abw
 files.
 
-This is a first test build: not everything has been tried on RISC OS yet,
-so please report what goes wrong (see riscos-gtk's release notes).
+Part of riscos-gtk's public beta: please report what goes wrong (see
+riscos-gtk's release notes).
 
 Using it
 - Run it: AbiWord opens a new document and puts its icon on the icon bar.
