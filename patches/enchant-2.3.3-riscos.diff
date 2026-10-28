@@ -1,10 +1,87 @@
-riscos-gtk's changes to enchant 2.3.3 (ENCHANT_RISCOS):
-- no dlopen: the hunspell provider is linked in (build/build-spell.sh
-  renames its init_enchant_provider); NULL module handled;
-- dictionaries for every GTK program in <Choices$Write>.GTK.Dictionaries
-  (first), personal word lists in <Choices$Write>.GTK.Enchant.
+diff -ruN a/providers/enchant_hunspell.cpp b/providers/enchant_hunspell.cpp
+--- a/providers/enchant_hunspell.cpp	2022-04-16 15:09:31.000000000 +0100
++++ b/providers/enchant_hunspell.cpp	2026-10-28 17:27:51.450114509 +0000
+@@ -54,7 +54,15 @@
+ 
+ static const char *empty_string = "";
+ 
++/* riscos-gtk: a dictionary in UTF-8 (LibreOffice's are) needs no
++   conversion, so iconv (RISC OS's Iconv module) isn't asked for one.
++   Without the module g_iconv_open failed, its (GIConv) -1 was taken as
++   valid, and every word was reported misspelt. */
++#define ICONV_SAME ((GIConv) 1)
++
+ static char *do_iconv(GIConv conv, const char *word) {
++	if (conv == ICONV_SAME)
++		return strdup(word);
+ 	// g_iconv() does not declare its 'in' parameter const, but iconv() does.
+ 	char *in = const_cast<char *>(word);
+ 	size_t len_in = strlen(in);
+@@ -93,7 +101,8 @@
+ static bool
+ g_iconv_is_valid(GIConv i)
+ {
+-	return (i != nullptr);
++	/* (g_iconv_open gives (GIConv) -1 when it fails) */
++	return (i != nullptr && i != (GIConv) -1);
+ }
+ 
+ HunspellChecker::HunspellChecker()
+@@ -104,9 +113,9 @@
+ HunspellChecker::~HunspellChecker()
+ {
+ 	delete hunspell;
+-	if (g_iconv_is_valid (m_translate_in))
++	if (g_iconv_is_valid (m_translate_in) && m_translate_in != ICONV_SAME)
+ 		g_iconv_close(m_translate_in);
+-	if (g_iconv_is_valid(m_translate_out))
++	if (g_iconv_is_valid(m_translate_out) && m_translate_out != ICONV_SAME)
+ 		g_iconv_close(m_translate_out);
+ 	free(wordchars);
+ }
+@@ -170,6 +179,23 @@
+ {
+ 	dirs.clear ();
+ 
++#ifdef ENCHANT_RISCOS
++	/* riscos-gtk: dictionaries for every GTK program, added by the user:
++	   <Choices$Write>.GTK.Dictionaries (en_GB.dic and en_GB.aff ...);
++	   then the program's own (share/hunspell in its folder, by way of
++	   XDG_DATA_DIRS) */
++	if (g_getenv ("Choices$Write"))
++		{
++#ifdef __riscos__
++			dirs.push_back ("/<Choices$Write>/GTK/Dictionaries");
++#else	/* (the tests, on Linux) */
++			gchar *c = g_build_filename (g_getenv ("Choices$Write"), "GTK", "Dictionaries", nullptr);
++			dirs.push_back (c);
++			g_free (c);
++#endif
++		}
++#endif
++
+ 	char * config_dir = enchant_get_user_config_dir ();
+ 	gchar * tmp = g_build_filename (config_dir, "hunspell", nullptr);
+ 	dirs.push_back (tmp);
+@@ -317,8 +343,13 @@
+ 	}
+ 	const char *enc = hunspell->get_dic_encoding();
+ 
+-	m_translate_in = g_iconv_open(enc, "UTF-8");
+-	m_translate_out = g_iconv_open("UTF-8", enc);
++	if (g_ascii_strcasecmp(enc, "UTF-8") == 0 || g_ascii_strcasecmp(enc, "UTF8") == 0) {
++		m_translate_in = ICONV_SAME;
++		m_translate_out = ICONV_SAME;
++	} else {
++		m_translate_in = g_iconv_open(enc, "UTF-8");
++		m_translate_out = g_iconv_open("UTF-8", enc);
++	}
+ 
+ 	wordchars = do_iconv(m_translate_out, hunspell->get_wordchars());
+ 	if (wordchars == NULL)
+diff -ruN a/src/lib.c b/src/lib.c
 --- a/src/lib.c	2022-04-16 15:09:31.000000000 +0100
-+++ b/src/lib.c	2026-10-27 13:47:36.995171429 +0000
++++ b/src/lib.c	2026-10-28 17:20:56.695576973 +0000
 @@ -118,6 +118,16 @@
  	const gchar * env = g_getenv("ENCHANT_CONFIG_DIR");
  	if (env)
@@ -99,29 +176,3 @@ riscos-gtk's changes to enchant 2.3.3 (ENCHANT_RISCOS):
  			(*fn) (tag, name, desc, file, user_data);
  		}
  
---- a/providers/enchant_hunspell.cpp	2022-04-16 15:09:31.000000000 +0100
-+++ b/providers/enchant_hunspell.cpp	2026-10-27 13:20:32.999135249 +0000
-@@ -170,6 +170,23 @@
- {
- 	dirs.clear ();
- 
-+#ifdef ENCHANT_RISCOS
-+	/* riscos-gtk: dictionaries for every GTK program, added by the user:
-+	   <Choices$Write>.GTK.Dictionaries (en_GB.dic and en_GB.aff ...);
-+	   then the program's own (share/hunspell in its folder, by way of
-+	   XDG_DATA_DIRS) */
-+	if (g_getenv ("Choices$Write"))
-+		{
-+#ifdef __riscos__
-+			dirs.push_back ("/<Choices$Write>/GTK/Dictionaries");
-+#else	/* (the tests, on Linux) */
-+			gchar *c = g_build_filename (g_getenv ("Choices$Write"), "GTK", "Dictionaries", nullptr);
-+			dirs.push_back (c);
-+			g_free (c);
-+#endif
-+		}
-+#endif
-+
- 	char * config_dir = enchant_get_user_config_dir ();
- 	gchar * tmp = g_build_filename (config_dir, "hunspell", nullptr);
- 	dirs.push_back (tmp);

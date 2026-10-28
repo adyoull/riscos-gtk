@@ -27,6 +27,67 @@ done
 command -v autoreconf > /dev/null && [ -f /usr/share/aclocal/ax_check_compile_flag.m4 ] ||
   { echo "build-abiword.sh: needs autoconf and autoconf-archive (build/check-host.sh)" >&2; exit 1; }
 
+# ---- Aiksaurus 1.2.1 (the thesaurus; GPL 2 or later): its library, with
+# its data (words.dat, meanings.dat) found through AIK_DATA_DIR
+# (riscos-abiword.cpp: share/aiksaurus in the application) ----
+if [ ! -f "$STAGE/lib/libAiksaurus.a" ]; then
+  log Aiksaurus
+  K=$SRC/aiksaurus-1.2.1+dev-0.12
+  rm -rf "$K"; tar -xzf "$DL/aiksaurus_1.2.1+dev-0.12.orig.tar.gz" -C "$SRC"
+  (cd "$K/base" &&
+   for f in Aiksaurus AiksaurusException AsciiCompare MeaningsFile WordsFile AiksaurusC; do
+     $CXX $RO_CFLAGS -std=gnu++98 -w -DHAVE_GETENV -DAIK_DATA_DIR=\"/riscos-gtk/share/aiksaurus/\" -I.. -c $f.cpp -o $f.o || exit 1
+   done &&
+   rm -f "$STAGE/lib/libAiksaurus.a" && $AR rcs "$STAGE/lib/libAiksaurus.a" Aiksaurus.o AiksaurusException.o \
+     AsciiCompare.o MeaningsFile.o WordsFile.o AiksaurusC.o &&
+   mkdir -p "$STAGE/include/Aiksaurus" && cp Aiksaurus.h AiksaurusC.h "$STAGE/include/Aiksaurus/" &&
+   printf 'prefix=%s\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: Aiksaurus\nDescription: English Thesaurus Library\nVersion: 1.2.1\nLibs: -L${libdir} -lAiksaurus\nCflags: -I${includedir}/Aiksaurus\n' \
+     "$PREFIX" > "$STAGE/lib/pkgconfig/aiksaurus-1.0.pc") > "$SRC/aiksaurus.log" 2>&1 || fail "$SRC/aiksaurus.log"
+fi
+
+# ---- WordPerfect and Microsoft Works files: librevenge 0.0.5, libwpd
+# 0.10.3 and libwps 0.4.14 (MPL 2.0 / LGPL 2.1+), C++, for AbiWord's
+# wordperfect plugin. Built after Boost (librevenge uses its headers);
+# libtool can't link C++ here, so each library's objects are archived ----
+wpdlib() {  # NAME TARBALL DIR CONFIGURE-ARGS...: configure, make src/lib, archive, install headers and .pc
+  local n=$1 tb=$2 d=$SRC/$3; shift 3
+  log "$n"
+  rm -rf "$d"; tar -xf "$DL/$tb" -C "$SRC"
+  (cd "$d" && CFLAGS="$RO_CFLAGS" CXXFLAGS="$RO_CFLAGS -std=gnu++11 -Wno-deprecated-declarations -include cstddef" \
+     CPPFLAGS="-I$BOOST/include" PKG_CONFIG="pkg-config --static" ./configure --host=$HOST --build=$BUILD \
+     --prefix=$PREFIX --libdir=$PREFIX/lib --disable-shared --enable-static --without-docs \
+     --disable-werror --disable-tests "$@" > "../$n.log" 2>&1 &&
+   { make -k -j$JOBS -C src/lib >> "../$n.log" 2>&1 || true; } &&
+   # (libtool's own link fails here, on the toolchain's .la files: any
+   # other error is a source that didn't compile)
+   { ! grep " error: " "../$n.log" | grep -v "is not a valid libtool archive" | grep -q . ||
+     { grep " error: " "../$n.log" | head -5; exit 1; }; } &&
+   # the libraries libtool would have made: objects named after each
+   # (NAME_la-x.o) when the folder makes more than one (librevenge), else
+   # all of them, for the first lib_LTLIBRARIES (libwpd, libwps)
+   if ls src/lib/*_la-*.o > /dev/null 2>&1; then
+     for pre in $(cd src/lib && ls *_la-*.o | sed 's/_la-.*//' | sort -u); do
+       lib=$(echo "$pre" | sed -e 's/_\([0-9]*\)_\([0-9]*\)$/-\1.\2/' -e 's/_/-/g')
+       [ "$(ls src/lib/${pre}_la-*.lo | wc -l)" = "$(ls src/lib/${pre}_la-*.o | wc -l)" ] ||
+         { echo "$n: $pre: not all compiled" >&2; exit 1; }
+       rm -f "$STAGE/lib/$lib.a"; $AR rcs "$STAGE/lib/$lib.a" src/lib/${pre}_la-*.o
+     done
+   else
+     lib=$(sed -n 's/^lib_LTLIBRARIES = \([^ ]*\)\.la.*/\1/p' src/lib/Makefile)
+     [ -n "$lib" ] && [ "$(ls src/lib/*.lo | wc -l)" = "$(ls src/lib/*.o | wc -l)" ] ||
+       { echo "$n: not all compiled" >&2; exit 1; }
+     rm -f "$STAGE/lib/$lib.a"; $AR rcs "$STAGE/lib/$lib.a" src/lib/*.o
+   fi &&
+   make -C inc install DESTDIR="$SYSROOT" >> "../$n.log" 2>&1 &&
+   for pc in *.pc; do case $pc in *-uninstalled.pc|*generators*) ;; *) cp "$pc" "$STAGE/lib/pkgconfig/" ;; esac; done &&
+   # (librevenge's headers aren't installed by make here: copied)
+   inc=$(sed -n 's|^Cflags: -I${includedir}/\([^ ]*\).*|\1|p' $(ls *.pc | grep -v uninstalled | head -1)) &&
+   for h in inc/*/; do
+     [ -d "$STAGE/include/$inc/$(basename "$h")" ] || { mkdir -p "$STAGE/include/$inc" && cp -r "$h" "$STAGE/include/$inc/"; }
+   done &&
+   find "$STAGE/include/$inc" -name 'Makefile*' -delete) ||
+     fail "$SRC/$n.log"
+}
 # ---- wv (Word 97-2003) ----
 if [ ! -f "$STAGE/lib/libwv.a" ]; then
   log wv
@@ -53,6 +114,17 @@ if [ ! -f "$BOOST/include/boost/version.hpp" ]; then
   rm -rf "$SRC/boost-x"
 fi
 
+# ---- WordPerfect and Works: the libraries (wpdlib, above) ----
+if [ ! -f "$STAGE/lib/librevenge-0.0.a" ]; then
+  wpdlib librevenge librevenge_0.0.5.orig.tar.bz2 librevenge-0.0.5 --disable-generators --disable-fuzzers
+fi
+if [ ! -f "$STAGE/lib/libwpd-0.10.a" ]; then
+  wpdlib libwpd libwpd_0.10.3.orig.tar.xz libwpd-0.10.3 --disable-fuzzers --disable-tools
+fi
+if [ ! -f "$STAGE/lib/libwps-0.4.a" ]; then
+  wpdlib libwps libwps_0.4.14.orig.tar.xz libwps-0.4.14 --disable-fuzzers --disable-tools
+fi
+
 # ---- libtool and the toolchain's .la files ----
 # crossdev's libstdc++.la, libm.la ... name the machine crossdev was built
 # on (/opt/b14), so libtool can't link C++ libraries. Copies that name
@@ -76,7 +148,7 @@ fi
 # ---- AbiWord ----
 V=3.0.8
 AB=$SRC/AbiWord-release-$V
-PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout goffice"
+PLUGINS="opendocument openxml docbook latex mswrite applix clarisworks t602 wml xslfo epub eml hrtext iscii kword mif opml pdb sdw s5 passepartout goffice hancom openwriter presentation urldict google wikipedia aiksaurus wordperfect"
 RISCOS_FLAGS="-DABI_RISCOS"
 if [ -z "${ABIWORD_RELINK:-}" ]; then
   log AbiWord
@@ -135,10 +207,10 @@ log "${#GOMODS[@]} GOffice plugins built in"
 # (relative to src: made absolute)
 AB_CFLAGS="-DHAVE_CONFIG_H -I$AB -I$AB/src $(make -s -C "$AB/src" -f Makefile -f <(printf 'print-cppflags:\n\t@echo $(libabiword_3.0_la_CPPFLAGS)\n') print-cppflags |
   sed -e "s| -I\.\./| -I$AB/|g" -e "s| -I\./| -I$AB/src/|g")"
-AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2) -ljpeg -lstdc++ -lm"
+AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0) -ljpeg -lstdc++ -lm"
 
 # ---- !AbiWord ----
-VERSION=${VERSION:-3.0.8-riscos1}
+VERSION=${VERSION:-3.0.8-riscos2}
 APP=$SRC/abiword-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/abiword/app" "$APP"
 # AbiWord's data: dialogue .ui files, templates, the XSLT for MathML and
@@ -152,6 +224,9 @@ mkdir -p "$D"
 # (no hicolor icons: the application icon, "abiword", is drawn in the
 # RISC OS style with the toolbar's: ICON_PACK=abiword, below)
 cp "$AB/COPYING" "$APP/Licence,fff"   # GPL 2
+# the thesaurus's data (Aiksaurus, GPL 2 or later)
+mkdir -p "$APP/share/aiksaurus"
+cp "$SRC/aiksaurus-1.2.1+dev-0.12/data/words.dat" "$SRC/aiksaurus-1.2.1+dev-0.12/data/meanings.dat" "$APP/share/aiksaurus/"
 # GOffice's plugins' descriptions and the files they read (the chart
 # types: plot-types.xml...), where GOffice looks (GOFFICE_DIR:
 # riscos-abiword.cpp)

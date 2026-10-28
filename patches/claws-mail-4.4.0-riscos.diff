@@ -1191,7 +1191,7 @@ diff -ruN a/src/gtk/riscos-pixbuf-scale.h b/src/gtk/riscos-pixbuf-scale.h
 +#endif
 diff -ruN a/src/main.c b/src/main.c
 --- a/src/main.c	2026-03-08 13:45:13.000000000 +0000
-+++ b/src/main.c	2026-10-28 15:19:28.157161843 +0000
++++ b/src/main.c	2026-10-28 18:23:04.110344600 +0000
 @@ -173,6 +173,12 @@
  static SnDisplay *sn_display = NULL;
  #endif
@@ -1256,22 +1256,23 @@ diff -ruN a/src/main.c b/src/main.c
  	plugin_load_all("GTK3");
  
  	if (g_list_length(folder_get_list()) != num_folder_class) {
-@@ -1477,7 +1503,14 @@
+@@ -1477,7 +1503,15 @@
  	/* if not crashed, show window now */
  	if (!mainwin_shown) {
  		/* apart if something told not to show */
 +#ifdef __riscos
 +		/* RISC OS: a program starts on the icon bar, and Select there
 +		   shows its window (riscos-claws.c). The very first time,
-+		   after the set-up wizard, the window is shown. */
-+		if (show_at_startup && never_ran)
++		   after the set-up wizard, the window is shown, and when a
++		   folder or message is asked for (--select). */
++		if (show_at_startup && (never_ran || cmd.target))
 +#else
  		if (show_at_startup)
 +#endif
  			main_window_popup(mainwin);
  	}
  
-@@ -1587,6 +1620,7 @@
+@@ -1587,6 +1621,7 @@
  	}
  
  	/* register the callback of unix domain socket input */

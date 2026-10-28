@@ -45,6 +45,7 @@
 #include "gr_CairoImage.h"
 #include "ut_bytebuf.h"
 #include <goffice/goffice.h>
+#include <Aiksaurus.h>
 #include <iconv.h>
 
 extern int riscos_abiword_main (int argc, char **argv);
@@ -53,8 +54,8 @@ static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, typed_ok, files_done, iconbar_ok, frames_before, frames_after;
 static int saved[8], reopened[8];
-static const char *const suffixes[] = { ".odt", ".docx", ".doc", ".rtf", ".html", ".abw" };
-#define N_FORMATS 6
+static const char *const suffixes[] = { ".odt", ".docx", ".doc", ".rtf", ".html", ".abw", ".sxw" };
+#define N_FORMATS 7
 
 /* RTF's reader and the text writer convert through iconv to the 8-bit
    character set (ISO-8859-1); the test machine's glibc may not have that
@@ -226,7 +227,7 @@ check_fonts (FV_View *view)
 static int spell_gb_ok, spell_bad_ok, spell_choices_ok;
 /* SVG pictures (librsvg) and charts (the goffice plugin, GOffice's chart
    types built in) */
-static int svg_ok = -1, svg_bad_ok = -1, go_plugins = -1, go_barcol = -1;
+static int svg_ok = -1, svg_bad_ok = -1, go_plugins = -1, go_barcol = -1, thesaurus_ok = -1, wpd_ok = -1;
 
 static void
 check_svg_and_charts (void)
@@ -250,6 +251,24 @@ check_svg_and_charts (void)
     if (g_strcmp0 ((const char *) l->data, "GOffice_plot_barcol") == 0)
       go_barcol = 1;
   g_slist_free (active);
+  /* the thesaurus (Aiksaurus, its data through AIK_DATA_DIR) */
+  {
+    AiksaurusImpl::Aiksaurus th;
+    int meanings = 0, has_glad = 0;
+    if (th.find ("happy"))
+      {
+        int m;
+        const char *r;
+        for (m = 0; (r = th.next (m)) && *r && meanings < 200; meanings++)
+          if (strcmp (r, "glad") == 0)
+            has_glad = 1;
+      }
+    thesaurus_ok = has_glad;
+    printf ("# thesaurus: happy: %d words%s %s\n", meanings, has_glad ? ", glad among them" : "", th.error ());
+  }
+  /* the WordPerfect and Works readers (while AbiWord runs: its plugins
+     are unregistered when it quits) */
+  wpd_ok = IE_Imp::fileTypeForSuffix (".wpd") != IEFT_Unknown && IE_Imp::fileTypeForSuffix (".wps") != IEFT_Unknown;
   printf ("# SVG %d; GOffice: %d active plugins, bar/column %d\n", svg_ok, go_plugins, go_barcol);
 }
 static int
@@ -530,6 +549,7 @@ main (int argc, char **argv)
     }
   g_setenv ("ABIWORD_DATADIR", g_build_filename (argv[1], "share", "abiword-3.0", NULL), TRUE);
   g_setenv ("GOFFICE_DIR", g_build_filename (argv[1], "goffice", NULL), TRUE);
+  g_setenv ("AIK_DATA_DIR", g_strconcat (argv[1], "/share/aiksaurus/", NULL), TRUE);
   g_setenv ("FONTCONFIG_FILE", g_build_filename (argv[1], "fonts", "fonts.conf", NULL), TRUE);
   g_setenv ("XDG_DATA_DIRS", g_build_filename (argv[1], "share", NULL), TRUE);
   g_setenv ("XDG_CONFIG_HOME", outdir, TRUE);
@@ -585,6 +605,9 @@ main (int argc, char **argv)
   check (spell_choices_ok, "a dictionary added to <Choices$Write>.GTK.Dictionaries is found");
   check (svg_ok == 1, "an SVG picture loads (librsvg), at its own size");
   check (svg_bad_ok == 1, "a broken SVG is refused, not a crash");
+  check (thesaurus_ok == 1, "the thesaurus (Aiksaurus) knows happy: glad");
+  check (wpd_ok == 1,
+         "WordPerfect (.wpd) and Microsoft Works (.wps) files can be opened (the wordperfect plugin, libwpd and libwps)");
   check (go_plugins > 5 && go_barcol == 1,
          "charts: the goffice plugin starts GOffice, with its chart types built in (bar/column...)");
   check (stock_ok, "GTK's stock ids as icon names (gtk-new...) are the RISCOS theme's icons");

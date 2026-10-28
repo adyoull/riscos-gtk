@@ -13,3 +13,8 @@ gtk_selection_data_get_data
 # SOCKS: socks_req (guchar[1024], word-aligned on ARM) + 2; an addrinfo's sockaddr (malloc'd)
 \(gushort \*\)\(socks_req \+ 2\)
 \(struct sockaddr_in \*\)ai->ai_addr
+# spelling: a GtkAspell (g_new0) through gpointer user data, and a
+# PrefsPage to the SpellingPage it is (g_new0)
+\(GtkAspell \*\) ?data
+\(GtkAspell \*\)gtkaspell->ctx\.data
+\(SpellingPage \*\) _page

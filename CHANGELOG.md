@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **Versions:** AbiWord 3.0.8-riscos2, Gnumeric 1.12.57-riscos17,
+  ClawsMail 4.4.0-riscos23 (test builds `-test1`). The other programs get
+  the GTK changes at their next rebuild.
 - **SVG pictures in every GTK program that wants them.** librsvg 2.40.20
   (the last version written in C) with libcroco and libxml2 replaces the
   stand-in that loaded nothing (`build/build-svg.sh`). Its GdkPixbuf
@@ -36,7 +39,13 @@
   machine (`build/check-host.sh`).
 - **AbiWord:** charts (the goffice plugin, built in with GOffice's chart
   types: bar and column, pie, XY, radar, surface, distributions, trend
-  lines), as Gnumeric has them; SVG pictures. Test `abiword-fake`.
+  lines), as Gnumeric has them; the thesaurus (Aiksaurus); WordPerfect
+  and Microsoft Works files opened (librevenge, libwpd, libwps);
+  OpenOffice 1 and Hancom files; View > Presentation; Tools > Dictionary,
+  Google and Wikipedia; SVG pictures. Test `abiword-fake`.
+- **enchant:** a UTF-8 dictionary isn't converted through iconv. When
+  g_iconv_open failed (no Iconv module) its (GIConv) -1 was taken as a
+  converter and every word was reported misspelt.
 - **The devkit** keeps libxml2, libcroco and librsvg, so any program
   ported with it can show SVG (`pkg-config --static riscos-gtk-svg`).
 - **The desktop's fonts come from Font$Path**, as before; the

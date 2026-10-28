@@ -71,6 +71,15 @@ get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/unive
 # out), newer than Ubuntu 24.04's 3.0.5
 get abiword_3.0.8+ds.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/a/abiword/abiword_3.0.8+ds.orig.tar.xz
 get wv_1.2.9.orig.tar.gz            https://archive.ubuntu.com/ubuntu/pool/universe/w/wv/wv_1.2.9.orig.tar.gz
+# AbiWord's thesaurus (Aiksaurus)
+get aiksaurus_1.2.1+dev-0.12.orig.tar.gz $U/a/aiksaurus/aiksaurus_1.2.1+dev-0.12.orig.tar.gz
+# AbiWord's WordPerfect and Works files
+get librevenge_0.0.5.orig.tar.bz2  $U/libr/librevenge/librevenge_0.0.5.orig.tar.bz2
+get libwpd_0.10.3.orig.tar.xz      $U/libw/libwpd/libwpd_0.10.3.orig.tar.xz
+get libwps_0.4.14.orig.tar.xz      $U/libw/libwps/libwps_0.4.14.orig.tar.xz
+# SVG (build/build-svg.sh): librsvg 2.40, the last written in C, and libcroco
+get librsvg_2.40.20.orig.tar.xz     $U/libr/librsvg/librsvg_2.40.20.orig.tar.xz
+get libcroco_0.6.13.orig.tar.xz     $U/libc/libcroco/libcroco_0.6.13.orig.tar.xz
 get boost1.83_1.83.0.orig.tar.xz    $U/b/boost1.83/boost1.83_1.83.0.orig.tar.xz
 # spell checking (build/build-spell.sh): enchant 2 and hunspell, and
 # LibreOffice's British English dictionary as Ubuntu packages it

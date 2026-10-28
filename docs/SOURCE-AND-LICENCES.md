@@ -26,6 +26,9 @@ so shared libraries aren't possible today.
 | AbiWord only: wv 1.2.9 | GPL 2 or later | Covered by the GPL program's source |
 | AbiWord and ClawsMail: enchant 2.3.3 | LGPL 2.1 or later | As the other LGPL libraries, below |
 | AbiWord and ClawsMail: hunspell 1.7.2 | MPL 1.1, GPL 2 or LGPL 2.1 | Taken as LGPL 2.1 |
+| AbiWord only: Aiksaurus 1.2.1 (the thesaurus, with its word lists in `share/aiksaurus`) | GPL 2 or later | Covered by the GPL program's source |
+| AbiWord only: librevenge 0.0.5, libwpd 0.10.3, libwps 0.4.14 (WordPerfect and Works files) | MPL 2.0 or LGPL 2.1 or later | Taken as LGPL 2.1, as the other LGPL libraries |
+| AbiWord only: GOffice 0.10.57 and its chart plugins (charts) | GPL 2 or 3 | Covered by the GPL program's source |
 | AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
 | AbiWord and ClawsMail: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
 | GTKGLTest only: riscos-mesa (Mesa 20.3.5) | MIT | The notice; source: riscos-mesa's release |

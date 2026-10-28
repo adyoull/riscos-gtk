@@ -4,9 +4,10 @@
  *     its size and pixels, saved as PNG (OUTDIR.svg/png) to look at;
  *   - spelling: enchant with the en_GB dictionary in APPDIR.share.hunspell;
  *   - MimeMap: the file types gdk_riscos_open_file would give;
- *   - opening a file: gdk_riscos_open_file on OUTDIR.Prices (a CSV, made
- *     untyped) with Filer_Run: the desktop's program for CSV (or text)
- *     opens it, which the screenshot shows;
+ *   - opening a file: gdk_riscos_open_file on OUTDIR.Page (HTML, made
+ *     untyped: data, &FFD, as an attachment saved by UnixLib can be) with
+ *     its MIME type: typed HTML, then Filer_Run: the browser opens it,
+ *     which the screenshot shows;
  *   - gtk_show_uri_on_window on a text file.
  * Writes its results to OUTDIR.results (text output isn't kept in the
  * test bed's desktop mode).
@@ -15,6 +16,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkriscos.h>
 #include <enchant.h>
+#include <hunspell.h>
 #include <kernel.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,6 +47,12 @@ mimemap (int from, const char *what)
   return r.r[3];
 }
 
+static void
+describe_cb (const char *lang, const char *name, const char *desc, const char *file, void *data)
+{
+  fprintf (out, "# enchant dict: %s %s (%s) %s\n", lang, name, desc, file);
+}
+
 static gboolean
 quit (gpointer d)
 {
@@ -68,6 +76,11 @@ main (int argc, char **argv)
 
   if (argc < 3)
     return 2;
+  /* the dictionary: set before GLib reads the data folders (it keeps
+     them), as the programs do */
+  dict = g_build_filename (argv[1], "share", NULL);
+  g_setenv ("XDG_DATA_DIRS", dict, TRUE);
+  g_free (dict);
   gtk_init (&argc, &argv);
   p = g_build_filename (argv[2], "results", NULL);
   out = fopen (p, "w");
@@ -97,13 +110,75 @@ main (int argc, char **argv)
     }
   g_free (p);
 
+  /* a gradient (the SVG beside the results: Picture.svg), as PNG */
+  {
+    char *gsvg = g_build_filename (argv[2], "..", "Picture.svg", NULL);
+    GdkPixbuf *g = gdk_pixbuf_new_from_file (gsvg, NULL);
+    if (g)
+      {
+        char *png = g_build_filename (argv[2], "gradient.png", NULL);
+        gdk_pixbuf_save (g, png, "png", NULL, NULL);
+        g_free (png);
+        g_object_unref (g);
+      }
+    g_free (gsvg);
+  }
   /* spelling */
-  dict = g_build_filename (argv[1], "share", NULL);
-  g_setenv ("XDG_DATA_DIRS", dict, TRUE);
-  g_free (dict);
+  {
+    /* UTF-8 to UTF-8 through iconv (enchant's hunspell provider did this
+       for UTF-8 dictionaries) */
+    GIConv cd = g_iconv_open ("UTF-8", "UTF-8");
+    char in[] = "colour", outb[32], *ip = in, *op = outb;
+    gsize il = 6, ol = sizeof outb;
+    gsize r = cd != (GIConv) -1 ? g_iconv (cd, &ip, &il, &op, &ol) : (gsize) -2;
+    fprintf (out, "# iconv UTF-8 to UTF-8: open %s, convert %d\n", cd != (GIConv) -1 ? "yes" : "no", (int) r);
+    if (cd != (GIConv) -1)
+      g_iconv_close (cd);
+  }
+  {
+    /* hunspell itself, on the same files */
+    char *aff = g_build_filename (argv[1], "share", "hunspell", "en_GB.aff", NULL);
+    char *dic = g_build_filename (argv[1], "share", "hunspell", "en_GB.dic", NULL);
+    FILE *f = fopen (dic, "r");
+    int lines = 0;
+    char buf[512];
+    Hunhandle *h;
+    if (f)
+      {
+        while (fgets (buf, sizeof buf, f))
+          lines++;
+        fclose (f);
+      }
+    h = Hunspell_create (aff, dic);
+    fprintf (out, "# hunspell: %s: %d lines; encoding %s; colour %d, speling %d\n", dic, lines,
+             h ? Hunspell_get_dic_encoding (h) : "-", h ? Hunspell_spell (h, "colour") : -1,
+             h ? Hunspell_spell (h, "speling") : -1);
+    if (h)
+      Hunspell_destroy (h);
+    g_free (aff);
+    g_free (dic);
+  }
   b = enchant_broker_init ();
   d = b ? enchant_broker_request_dict (b, "en_GB") : NULL;
   check (d != NULL, "spelling: enchant has the en_GB dictionary");
+  if (d)
+    {
+      size_t ns = 0;
+      char **sg = enchant_dict_suggest (d, "speling", -1, &ns);
+      enchant_dict_describe (d, describe_cb, NULL);
+      fprintf (out, "# enchant: %d suggestions for speling, first %s; word chars \"%s\"\n", (int) ns,
+               ns ? sg[0] : "-", enchant_dict_get_extra_word_characters (d));
+      if (sg)
+        enchant_dict_free_string_list (d, sg);
+    }
+  if (d)
+    fprintf (out, "# enchant: colour removed %d added %d; Choices$Write %s\n",
+             enchant_dict_is_removed (d, "colour", -1), enchant_dict_is_added (d, "colour", -1),
+             g_getenv ("Choices$Write") ? g_getenv ("Choices$Write") : "-");
+  if (d)
+    fprintf (out, "# enchant: colour %d, speling %d, organise %d (%s)\n",
+             enchant_dict_check (d, "colour", -1), enchant_dict_check (d, "speling", -1),
+             enchant_dict_check (d, "organise", -1), enchant_dict_get_error (d) ? enchant_dict_get_error (d) : "no error");
   check (d && enchant_dict_check (d, "colour", -1) == 0 && enchant_dict_check (d, "speling", -1) > 0,
          "spelling: colour is right, speling isn't");
   if (d)
@@ -119,8 +194,9 @@ main (int argc, char **argv)
   check (t == 0xDFE, "MimeMap: text/csv is CSV (&DFE)");
 
   /* opening a file (an attachment's: untyped, its MIME type known) */
-  p = g_build_filename (argv[2], "Prices", NULL);
-  g_file_set_contents (p, "Item,Price\nTea,1.20\nCake,2.50\n", -1, NULL);
+  p = g_build_filename (argv[2], "Page", NULL);
+  g_file_set_contents (p, "<html><body style=\"background:#ffd\"><h1>Opened by gdk_riscos_open_file</h1>"
+                       "<p>An untyped file, typed HTML from its MIME type, then Filer_Run.</p></body></html>\n", -1, NULL);
   {
     char *ro = gdk_riscos_path_from_unix (p);
     _kernel_swi_regs r;
@@ -129,7 +205,7 @@ main (int argc, char **argv)
     r.r[1] = (int) ro;
     r.r[2] = 0xFFD;                       /* data: as UnixLib might leave it */
     _kernel_swi (0x08, &r, &r);
-    check (gdk_riscos_open_file (p, "text/csv", &err), "gdk_riscos_open_file: Filer_Run started");
+    check (gdk_riscos_open_file (p, "text/html", &err), "gdk_riscos_open_file: Filer_Run started");
     if (err)
       fprintf (out, "# %s\n", err->message);
     g_clear_error (&err);
@@ -137,8 +213,8 @@ main (int argc, char **argv)
     r.r[0] = 5;
     r.r[1] = (int) ro;
     _kernel_swi (0x08, &r, &r);
-    fprintf (out, "# Prices is now &%03X\n", ((unsigned) r.r[2] >> 8) & 0xFFF);
-    check ((((unsigned) r.r[2] >> 8) & 0xFFF) == 0xDFE, "and the file was typed CSV first");
+    fprintf (out, "# Page is now &%03X\n", ((unsigned) r.r[2] >> 8) & 0xFFF);
+    check ((((unsigned) r.r[2] >> 8) & 0xFFF) == 0xFAF, "and the file was typed HTML first");
     g_free (ro);
   }
   g_free (p);

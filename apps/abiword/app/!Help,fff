@@ -29,11 +29,15 @@ Using it
   <Choices$Write>.GTK.Dictionaries: every GTK program that checks
   spelling uses them. Words you add are kept in <Choices$Write>.GTK.Enchant.
 
-SVG pictures can be inserted and are shown.
+SVG pictures can be inserted and are shown. Charts (Insert > Chart:
+bar, column, pie, XY, radar, surface...) work as in Gnumeric. Tools >
+Thesaurus looks up words (Aiksaurus, English). WordPerfect (.wpd) and
+Microsoft Works (.wps) files open; OpenOffice 1 (.sxw) and Hancom (.hwp)
+files too. View > Presentation shows a document a page at a time.
+Tools > Dictionary, Google and Wikipedia look a word up in your browser.
 
-Not in this build: grammar checking, the thesaurus,
-collaboration, equations (MathML), WordPerfect and Works files, PDF
-import, help.
+Not in this build: grammar checking, collaboration, equations (MathML),
+saving WordPerfect files, PDF import, help.
 
 Messages
 AbiWord's messages go to <Wimp$ScrapDir>.AbiWord.Log.
@@ -52,10 +56,12 @@ from PackMan installed it uses those too, as other FontConfig programs
 do. The Log's "fonts:" lines say which fonts it found.
 
 Licences
-AbiWord and wv: GPL version 2 or later (Licence). enchant: LGPL 2.1 or
-later; hunspell: LGPL/MPL/GPL; the British English dictionary: LGPL
-(share.hunspell.LicenceDictionary). GTK, GLib and the
-other libraries: LGPL version 2.1 or later (LicenceLGPL); libxml2,
-libxslt: MIT. The RISC OS style icons (the application's, the
-toolbars': riscos-gtk's own drawings): MIT. DejaVu fonts: their own licence (fonts.Licence). Source: see
-Source.
+AbiWord, wv and Aiksaurus: GPL version 2 or later (Licence). libwpd,
+libwps and librevenge: LGPL 2.1 or MPL 2.0. GOffice (charts): GPL
+version 2 or 3. enchant: LGPL 2.1 or later; hunspell: LGPL/MPL/GPL; the
+British English dictionary: LGPL (share.hunspell.LicenceDictionary).
+GTK, GLib and the other libraries: LGPL version 2.1 or later
+(LicenceLGPL); libxml2, libxslt: MIT; librsvg and libcroco: LGPL version
+2. The RISC OS style icons (the application's, the toolbars': riscos-
+gtk's own drawings): MIT. DejaVu fonts: their own licence
+(fonts.Licence). Source: see Source.

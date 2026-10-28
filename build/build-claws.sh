@@ -87,7 +87,10 @@ DISABLE_PLUGINS=$(./configure --help | grep -oE -- '--disable-[a-z_]+-plugin' | 
 [ "$TARGET" = riscos ] && export ac_cv_func_fgets_unlocked=no
 CFLAGS="$RO_CFLAGS -Wno-deprecated-declarations" \
 CPPFLAGS="-D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I$C/src/common/gnutls-acornssl" \
-LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0 | sed 's/-pthread//g')" \
+# (no -lstdc++ for configure: libtool would read the toolchain's
+# libstdc++.la, which names the machine crossdev was built on; the
+# program's link adds it)
+LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0 | sed 's/-pthread//g; s/-lstdc++//g')" \
 ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --disable-shared --enable-static \
   --disable-nls --disable-manual --disable-libsm --disable-ipv6 --disable-gnutls --disable-oauth2 \
   --disable-compface --disable-pthread --disable-startup-notification \
@@ -132,7 +135,7 @@ echo "build-claws.sh: built Claws Mail's objects in $C/src ($TARGET)"
 # !ClawsMail: Claws Mail's objects (main.o included) and its libclawsgtk,
 # with riscos-claws.c; the British English dictionary in share/hunspell
 # (hunspell finds it through XDG_DATA_DIRS: /<ClawsMail$Dir>/share)
-VERSION=${VERSION:-4.4.0-riscos22}
+VERSION=${VERSION:-4.4.0-riscos23}
 APP=$SRC/claws-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/claws/app" "$APP"
 mkdir -p "$APP/share/hunspell"

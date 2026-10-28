@@ -65,6 +65,8 @@ if ! $HOST-nm "$STAGE/lib/librsvg-2.a" 2>/dev/null | grep -q ' T _gdk_pixbuf__sv
      --disable-shared --enable-static --disable-pixbuf-loader --disable-tools \
      --disable-introspection --enable-vala=no --disable-gtk-doc --disable-installed-tests \
      > ../librsvg.log 2>&1 &&
+   # (its test mode's font is named by the source folder: not this machine's)
+   sed -i 's|-DSRCDIR=\\""${abs_top_srcdir}"\\"|-DSRCDIR=\\"/librsvg-2.40.20\\"|' Makefile &&
    { make -k -j$JOBS librsvg-2.la >> ../librsvg.log 2>&1 || true; } &&
    n_o=$(ls librsvg_2_la-*.o 2>/dev/null | wc -l) && [ "$n_o" -ge 25 ] &&
    $CC $RO_CFLAGS -I. -DGDK_PIXBUF_ENABLE_BACKEND $(pkg-config --static --cflags gdk-pixbuf-2.0 cairo pangocairo libxml-2.0 libcroco-0.6) \

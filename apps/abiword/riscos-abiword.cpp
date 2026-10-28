@@ -190,6 +190,8 @@ RISCOS_MAIN (int argc, char **argv)
   /* GOffice (the goffice plugin's charts): its plugins' descriptions in
      the application, its plugins linked in (build-abiword.sh) */
   g_setenv ("GOFFICE_DIR", "/<AbiWord$Dir>/goffice", FALSE);
+  /* the thesaurus's words (Aiksaurus adds the file names) */
+  g_setenv ("AIK_DATA_DIR", "/<AbiWord$Dir>/share/aiksaurus/", FALSE);
   riscos_register_static_modules ();
   g_setenv ("FONTCONFIG_FILE", "/<AbiWord$Dir>/fonts/fonts.conf", FALSE);
   g_setenv ("XDG_DATA_DIRS", "/<AbiWord$Dir>/share", FALSE);

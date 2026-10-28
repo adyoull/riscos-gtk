@@ -188,3 +188,112 @@ diff -ruN a/plugins/goffice/unix/AbiGOComponent.cpp b/plugins/goffice/unix/AbiGO
  {
  	XAP_String_Id String_id;
  
+diff -ruN a/plugins/aiksaurus/Makefile.am b/plugins/aiksaurus/Makefile.am
+--- a/plugins/aiksaurus/Makefile.am	2026-10-28 16:47:28.711401863 +0000
++++ b/plugins/aiksaurus/Makefile.am	2026-10-28 16:47:28.729656194 +0000
+@@ -17,9 +17,16 @@
+ platform_lib = win/libwin.la
+ endif
+ 
++if AIKSAURUS_BUILTIN
++noinst_LTLIBRARIES = aiksaurus.la
++
++else
++
+ plugindir = $(ABIWORD_PLUGINSDIR)
+ plugin_LTLIBRARIES = aiksaurus.la
+ 
++endif
++
+ aiksaurus_la_LIBADD = \
+ 	$(platform_lib) \
+ 	xp/libxp.la \
+@@ -31,4 +38,5 @@
+ 	-no-undefined
+ 
+ aiksaurus_la_SOURCES = 
++nodist_EXTRA_aiksaurus_la_SOURCES = dummy.cpp
+ 
+diff -ruN a/plugins/aiksaurus/aiksaurusgtk3/Makefile.am b/plugins/aiksaurus/aiksaurusgtk3/Makefile.am
+--- a/plugins/aiksaurus/aiksaurusgtk3/Makefile.am	2026-10-28 16:47:28.713482452 +0000
++++ b/plugins/aiksaurus/aiksaurusgtk3/Makefile.am	2026-10-28 16:47:28.729876477 +0000
+@@ -1,6 +1,7 @@
+ AM_CXXFLAGS = $(AIKSAURUS_CFLAGS) -Wall -I../.. -I$(top_srcdir)/base
+ 
+-lib_LTLIBRARIES = libAiksaurusGtk3.la
++# riscos-gtk: part of the plugin (built in), not installed
++noinst_LTLIBRARIES = libAiksaurusGtk3.la
+ 
+ libAiksaurusGtk3_la_LDFLAGS = -no-undefined -release $(LT_RELEASE) -export-dynamic
+ 
+diff -ruN a/plugins/aiksaurus/plugin.m4 b/plugins/aiksaurus/plugin.m4
+--- a/plugins/aiksaurus/plugin.m4	2026-10-28 16:47:28.711377118 +0000
++++ b/plugins/aiksaurus/plugin.m4	2026-10-28 16:47:28.729485187 +0000
+@@ -25,9 +25,6 @@
+ ], [use_builtin_aiksaurus_gtk="yes"])
+ fi
+ 
+-if test "$enable_aiksaurus_builtin" = "yes"; then
+-AC_MSG_ERROR([aiksaurus plugin: static linking not supported])
+-fi
+ 
+ PKG_CHECK_MODULES(AIKSAURUS,[ $aiksaurus_pkgs ])
+ 
+@@ -37,6 +34,12 @@
+ AIKSAURUS_CFLAGS="$AIKSAURUS_CFLAGS "'${PLUGIN_CFLAGS}'
+ AIKSAURUS_LIBS="$AIKSAURUS_LIBS "'${PLUGIN_LIBS}'
+ 
++# riscos-gtk: built in (RISC OS has no dlopen), with AbiWord's own copy
++# of the GTK 3 thesaurus window
++if test "$enable_aiksaurus_builtin" = "yes"; then
++	AIKSAURUS_CFLAGS="$AIKSAURUS_CFLAGS -DABI_PLUGIN_BUILTIN"
++fi
++
+ fi
+ 
+ AM_CONDITIONAL([WITH_BUILTIN_AIKSAURUS_GTK],[ test "x$use_builtin_aiksaurus_gtk" = "xyes" ])
+diff -ruN a/plugins/wordperfect/Makefile.am b/plugins/wordperfect/Makefile.am
+--- a/plugins/wordperfect/Makefile.am	2026-10-28 16:52:50.310782994 +0000
++++ b/plugins/wordperfect/Makefile.am	2026-10-28 16:52:50.339293058 +0000
+@@ -1,9 +1,16 @@
+ 
+ SUBDIRS = xp
+ 
++if WORDPERFECT_BUILTIN
++noinst_LTLIBRARIES = wordperfect.la
++
++else
++
+ plugindir = $(ABIWORD_PLUGINSDIR)
+ plugin_LTLIBRARIES = wordperfect.la
+ 
++endif
++
+ wordperfect_la_LIBADD = \
+ 	xp/libxp.la \
+ 	$(WORDPERFECT_LIBS)
+diff -ruN a/plugins/wordperfect/plugin.m4 b/plugins/wordperfect/plugin.m4
+--- a/plugins/wordperfect/plugin.m4	2026-10-28 16:52:50.310747569 +0000
++++ b/plugins/wordperfect/plugin.m4	2026-10-28 16:52:50.339156830 +0000
+@@ -21,9 +21,6 @@
+ if test "$enable_wordperfect" = "yes" || \
+    test "$wordperfect_deps" = "yes"; then
+ 
+-if test "$enable_wordperfect_builtin" = "yes"; then
+-AC_MSG_ERROR([wordperfect plugin: static linking not supported])
+-fi
+ 
+ wp_deps_pkgs="$wordperfect_pkgs"
+ 
+@@ -40,6 +37,11 @@
+ WORDPERFECT_CFLAGS="$WORDPERFECT_CFLAGS "'${PLUGIN_CFLAGS}'"$WPS_DEFINE"
+ WORDPERFECT_LIBS="$WORDPERFECT_LIBS "'${PLUGIN_LIBS}'
+ 
++# riscos-gtk: built in (RISC OS has no dlopen)
++if test "$enable_wordperfect_builtin" = "yes"; then
++	WORDPERFECT_CFLAGS="$WORDPERFECT_CFLAGS -DABI_PLUGIN_BUILTIN"
++fi
++
+ fi
+ 
+ AC_SUBST([WORDPERFECT_CFLAGS])

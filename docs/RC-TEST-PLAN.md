@@ -184,7 +184,6 @@ provider offers them.
 | 12.2 | The next start, and a second program: "0 made now" | RISC OS on Linux | |
 | 12.3 | L3afpad's Choices > Font, Gnumeric's Format > Cells > Font: Homerton, Trinity, Corpus and the fonts in !Fonts are listed; chosen, they look as the desktop draws them; Bold, Italic and Bold Italic choose the right faces | RISC OS on Linux (AbiWord) | |
 | 12.4 | Add a font to !Fonts (or change one), start a program: it's made and listed; a font that has no outlines is left out and the Log says so | new | |
-| 12.5 | With a font manager that adds its folders to Font$Path (Fontastic, say), its fonts are listed too; take one off Font$Path and start the program again: it's no longer listed | new | |
 | 12.5 | Without FontConfig booted: Gnumeric's Serif is Trinity and Monospace is Corpus; with FontConfig booted, its own Serif and Monospace fonts come first, as before | new | |
 | 12.6 | A Gnumeric sheet saved by Excel or LibreOffice using Times New Roman, Arial and Courier New: serif, sans and monospaced faces, not all DejaVu Sans | new | |
 | 12.7 | Left Alt+F, Alt+E... in Gnumeric, Geany, ClawsMail and mtPaint: that menu opens at the window's top left; F10 opens the whole menu; Alt and a letter in a text field of L3afpad still types its character; Right Alt (AltGr) types as before | new | |
@@ -202,6 +201,23 @@ provider offers them.
 | 13.6 | Left Alt+F, Alt+E... open AbiWord's menus; the toolbars have the RISC OS-style icons; the icon in the Filer, on the icon bar and in Help > About | test3-test6 | |
 | 13.7 | The Log (`<Wimp$ScrapDir>.AbiWord.Log`) has the fonts lines and no errors | test builds | |
 | 13.8 | Every program: a dialogue box's preview or picture that the program draws itself (AbiWord's above) changes straight away | new | |
+
+## 15. New after RC13: SVG, files, spelling in ClawsMail, manuals, AbiWord plugins
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 15.1 | Gnumeric: Insert > Image with an SVG file: the picture is drawn, and scales smoothly when resized; a sheet with an SVG picture saved and opened again keeps it | RISC OS on Linux (a sheet with one) | |
+| 15.2 | AbiWord: Insert > Picture with an SVG file; an HTML or .odt document with SVG pictures shows them | new | |
+| 15.3 | ClawsMail: a mail with an SVG picture attached shows it; double-click an attachment (a PDF, a CSV, a picture): the desktop's program for it opens it, typed first if it had no type | RISC OS on Linux (gdk_riscos_open_file) | |
+| 15.4 | ClawsMail: drag an attachment from the message to a Filer window: it is saved there with its name and type | the fake desktop (the Wimp messages) | |
+| 15.5 | ClawsMail: Write a message with a misspelt word: red underline, Menu offers suggestions; Choices > Compose > Spelling lists en_GB | RISC OS on Linux (enchant) | |
+| 15.6 | ClawsMail: Help > Manual opens the manual in the browser | new | |
+| 15.7 | Gnumeric: Help > Contents opens the manual in the browser; the Help button in Format > Cells (and other dialogue boxes) opens that part of it; Help > Gnumeric on the web and Report a problem open the browser | new | |
+| 15.8 | AbiWord: Insert > Chart (bar, pie, XY...): the chart is drawn and can be edited; documents with charts from Gnumeric or LibreOffice show them | the fake desktop | |
+| 15.9 | AbiWord: Tools > Thesaurus on a word lists synonyms; one chosen replaces it | the fake desktop (the library) | |
+| 15.10 | AbiWord: open WordPerfect (.wpd) and Microsoft Works (.wps) files; save and open OpenOffice 1 (.sxw) files; View > Presentation; Tools > Google, Wikipedia and Dictionary open the browser | the fake desktop (.sxw saved and opened; .wpd and .wps readers there) | |
+| 15.11 | GTKThemeTest, Dialogues page: drag "Prices/csv" to a Filer window: a CSV file with three lines | the fake desktop | |
+| 15.12 | With a font manager adding a folder to Font$Path (Fontastic, say): its fonts are listed in GTK programs | new | |
 
 ## 14. Packaging and licences
 
