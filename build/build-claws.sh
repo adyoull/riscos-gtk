@@ -106,9 +106,9 @@ printf 'Name: libcurl\nDescription: riscos-gtk libcurl subset (apps/claws/curl)\
 export PKG_CONFIG_PATH="$CU${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 NETINC="-I$REPO_DIR/apps/claws/curl -I$REPO_DIR/apps/claws/net"
 cd "$C"
-# every plug-in off but those built here (RSS, Sieve, vCalendar; the
-# litehtml viewer is built below)
-DISABLE_PLUGINS=$(./configure --help | grep -oE -- '--disable-[a-z_]+-plugin' | grep -vE 'rssyl|managesieve|vcalendar' | tr '\n' ' ')
+# every plug-in off but those built here (RSS, Sieve, vCalendar, the
+# attachment warner and address keeper; the litehtml viewer is built below)
+DISABLE_PLUGINS=$(./configure --help | grep -oE -- '--disable-[a-z_]+-plugin' | grep -vE 'rssyl|managesieve|vcalendar|attachwarner|address_keeper' | tr '\n' ' ')
 # UnixLib 5.0.3.3 has fgets_unlocked (what configure checks) but not
 # fputs_unlocked, which Claws Mail then uses too: the plain stdio calls
 [ "$TARGET" = riscos ] && export ac_cv_func_fgets_unlocked=no
@@ -124,6 +124,7 @@ LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2 gtk+-3.0
   --disable-dbus --disable-ldap --disable-jpilot --disable-networkmanager \
   --disable-valgrind --disable-tests --with-password-encryption=old \
   --enable-rssyl-plugin --enable-managesieve-plugin --enable-vcalendar-plugin \
+  --enable-attachwarner-plugin --enable-address_keeper-plugin \
   $DISABLE_PLUGINS > ../claws-configure.log 2>&1 || { tail -20 ../claws-configure.log; exit 1; }
 M="-f Makefile -f $REPO_DIR/apps/claws/objects.mk"
 { make -j$JOBS -C src/common && make -j$JOBS -C src/gtk && make -j$JOBS -C src/etpan && make -C src $M claws-built &&
@@ -150,14 +151,15 @@ rm -rf "$L/obj"; mkdir -p "$L/obj"
    -Dplugin_provides=lh_plugin_provides -c ../plugin.c &&
  rm -f ../liblhviewer.a && $AR rcs ../liblhviewer.a *.o) > "$SRC/lh-make.log" 2>&1 ||
   { grep -E 'error|Error' "$SRC/lh-make.log" | head -30; exit 1; }
-# The RSS (rssyl, with libfeed), Sieve and vCalendar plug-ins, linked in
+# The RSS (rssyl, with libfeed), Sieve, vCalendar, attachment warner and
+# address keeper plug-ins, linked in
 # as GLib static modules (tools/mkstaticmodules.py): plugin_load's
 # g_module_open of .../plugins/rssyl.so gives the module, its plugin_init
 # and the rest renamed so the three don't clash. riscos-claws.c calls
 # riscos_register_static_modules. Their libcurl is apps/claws/curl, its
 # requests apps/claws/net/riscos-http.c (the litehtml viewer's too).
 P=$C/src/plugins
-{ for d in rssyl/libfeed rssyl managesieve vcalendar; do
+{ for d in rssyl/libfeed rssyl managesieve vcalendar attachwarner address_keeper; do
     make -j$JOBS -C "$P/$d" -f Makefile -f "$REPO_DIR/apps/claws/objects.mk" plugin-objects || exit 1; done; } \
   > "$SRC/claws-plugins.log" 2>&1 || { grep -E 'error|Error' "$SRC/claws-plugins.log" | head -30; exit 1; }
 SM=$C/src/staticmodules
@@ -165,7 +167,9 @@ rm -rf "$SM"; mkdir -p "$SM"
 python3 "$REPO_DIR/tools/mkstaticmodules.py" --nm $HOST-nm --objcopy $HOST-objcopy --ar "$AR" --out "$SM" \
   rssyl=$(ls "$P"/rssyl/*.o "$P"/rssyl/libfeed/*.o | tr '\n' ',' | sed 's/,$//') \
   managesieve=$(ls "$P"/managesieve/*.o | tr '\n' ',' | sed 's/,$//') \
-  vcalendar=$(ls "$P"/vcalendar/*.o | tr '\n' ',' | sed 's/,$//') > "$SM/archives.txt"
+  vcalendar=$(ls "$P"/vcalendar/*.o | tr '\n' ',' | sed 's/,$//') \
+  attachwarner=$(ls "$P"/attachwarner/*.o | tr '\n' ',' | sed 's/,$//') \
+  address_keeper=$(ls "$P"/address_keeper/*.o | tr '\n' ',' | sed 's/,$//') > "$SM/archives.txt"
 (cd "$SM" && $CC $RO_CFLAGS $(pkg-config --cflags glib-2.0) -c staticmodules.c &&
  $CC $RO_CFLAGS -std=gnu99 -Wall -DHAVE_CONFIG_H -D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 \
    -I"$C/src/common/gnutls-acornssl" -I"$C" -I"$C/src" -I"$C/src/common" $NETINC $(pkg-config --cflags glib-2.0) \
@@ -184,7 +188,7 @@ echo "build-claws.sh: built Claws Mail's objects in $C/src ($TARGET)"
   -DHAVE_CONFIG_H -D__riscos=1 -DUSE_GNUTLS=1 -DCLAWS_ACORNSSL=1 -I"$C/src/common/gnutls-acornssl" \
   -I"$C" -I"$C/src" -I"$C/src/common" -I"$C/src/gtk" $NETINC $(pkg-config --cflags gtk+-3.0 enchant-2 librsvg-2.0 expat libical) \
   $(ls "$C"/src/*.c "$C"/src/common/*.c "$C"/src/gtk/*.c | grep -v ssl_acornssl) \
-  $(ls "$P"/rssyl/*.c "$P"/rssyl/libfeed/*.c "$P"/managesieve/*.c "$P"/vcalendar/*.c | grep -v vcal_dbus) \
+  $(ls "$P"/rssyl/*.c "$P"/rssyl/libfeed/*.c "$P"/managesieve/*.c "$P"/vcalendar/*.c "$P"/attachwarner/*.c "$P"/address_keeper/*.c | grep -v vcal_dbus) \
   "$REPO_DIR/apps/claws/net/riscos-http.c" "$REPO_DIR/apps/claws/curl/riscos-curl.c"
 
 # !ClawsMail: Claws Mail's objects (main.o included) and its libclawsgtk,
@@ -205,7 +209,7 @@ cp -r "$STAGE/share/libical/zoneinfo" "$APP/share/zoneinfo"
 # the plug-ins' stand-in files, which the Plugins window lists and loads
 # (the code is in the program)
 mkdir -p "$APP/plugins"
-for p in rssyl:RSS managesieve:Sieve vcalendar:vCalendar; do
+for p in rssyl:RSS managesieve:Sieve vcalendar:vCalendar attachwarner:AttachWarner address_keeper:"Address Keeper"; do
   printf 'ClawsMail: the %s plug-in. Its code is in the program; this file is what\nConfiguration > Plugins lists and loads.\n' "${p#*:}" > "$APP/plugins/${p%%:*}.so"
 done
 export EXTRA_LIBS="$(pkg-config --libs --static riscos-gtk-svg librsvg-2.0 enchant-2)"

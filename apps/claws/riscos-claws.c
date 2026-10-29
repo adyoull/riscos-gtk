@@ -17,9 +17,10 @@
  *     a second copy hands its file to the first.
  *   - HTML mail: Claws Mail's litehtml viewer plug-in, linked in and
  *     started here (riscos_claws_plugins);
- *   - the RSS (rssyl), Sieve (managesieve) and vCalendar plug-ins, linked
- *     in as GLib static modules (build-claws.sh), loaded the first time
- *     and then as the Plugins window leaves them;
+ *   - the RSS (rssyl), Sieve (managesieve), vCalendar, attachment warner
+ *     and address keeper plug-ins, linked in as GLib static modules
+ *     (build-claws.sh), each loaded the first time it's offered and then
+ *     as the Plugins window leaves them;
  *   - the RISC OS icons (share/claws-mail/themes/RISCOS, drawn by
  *     tools/mkclawsicons.py), chosen once (riscos_claws_prefs_read); the
  *     folder list's icons from the desktop's own sprites
@@ -73,7 +74,7 @@ gint lh_plugin_init (gchar **error);
 /* the plug-ins linked in as GLib static modules (staticmodules.c, made by
    tools/mkstaticmodules.py in build-claws.sh) */
 void riscos_register_static_modules (void);
-static const char *const static_plugins[] = { "rssyl", "managesieve", "vcalendar" };
+static const char *const static_plugins[] = { "rssyl", "managesieve", "vcalendar", "attachwarner", "address_keeper" };
 
 /* libical's time zones, in the application */
 #define ZONEINFO_DIR "/<ClawsMail$Dir>/share/zoneinfo"
@@ -305,31 +306,56 @@ riscos_claws_plugins (void)
       g_free (error);
     }
 
-  /* RSS, Sieve and vCalendar: g_module_open of plugins/rssyl.so (and so
-     on) gives the linked-in module; Claws Mail loads them by the list in
-     clawsrc ([Plugins_GTK3]), which the Plugins window keeps. The first
-     time, they are all loaded, and the list is saved once main.c has read
-     it (plugin_load_all, called after this). */
+  /* RSS, Sieve, vCalendar, the attachment warner and the address
+     keeper: g_module_open of plugins/rssyl.so (and so on) gives the
+     linked-in module; Claws Mail loads them by the list in clawsrc
+     ([Plugins_GTK3]), which the Plugins window keeps. Each is loaded the
+     first time this version offers it (RISCOSPlugins lists those offered
+     so far), and the list is saved once main.c has read it
+     (plugin_load_all, called after this). */
   set_zone_directory (g_getenv ("CLAWS_RISCOS_ZONEINFO") ? g_getenv ("CLAWS_RISCOS_ZONEINFO") : ZONEINFO_DIR);
   riscos_register_static_modules ();
   marker = g_build_filename (get_rc_dir (), "RISCOSPlugins", NULL);
-  if (!g_file_test (marker, G_FILE_TEST_EXISTS))
-    {
-      gsize i;
+  {
+    gchar *offered = NULL;
+    gchar **names;
+    GString *now = g_string_new ("ClawsMail: the built-in plug-ins loaded once each:\n");
+    gboolean loaded = FALSE;
+    gsize i;
 
-      for (i = 0; i < G_N_ELEMENTS (static_plugins); i++)
-        {
-          gchar *path = g_strconcat (get_plugin_dir (), static_plugins[i], ".so", NULL);
+    g_file_get_contents (marker, &offered, NULL, NULL);
+    /* riscos24's marker named none: it loaded the first three */
+    if (offered && !strstr (offered, "\nrssyl\n"))
+      {
+        gchar *t = g_strconcat (offered, "\nrssyl\nmanagesieve\nvcalendar\n", NULL);
+        g_free (offered);
+        offered = t;
+      }
+    names = g_strsplit (offered ? offered : "", "\n", -1);
+    for (i = 0; i < G_N_ELEMENTS (static_plugins); i++)
+      {
+        g_string_append_printf (now, "%s\n", static_plugins[i]);
+        if (!g_strv_contains ((const gchar *const *) names, static_plugins[i]))
+          {
+            gchar *path = g_strconcat (get_plugin_dir (), static_plugins[i], ".so", NULL);
 
-          error = NULL;
-          if (plugin_load (path, &error) == NULL)
-            g_warning ("plug-in %s: %s", static_plugins[i], error ? error : "failed");
-          g_free (error);
-          g_free (path);
-        }
-      g_idle_add (save_plugin_list, NULL);
-      g_file_set_contents (marker, "ClawsMail 4.4.0-riscos24: the RSS, Sieve and vCalendar plug-ins loaded once\n", -1, NULL);
-    }
+            error = NULL;
+            if (plugin_load (path, &error) == NULL)
+              g_warning ("plug-in %s: %s", static_plugins[i], error ? error : "failed");
+            g_free (error);
+            g_free (path);
+            loaded = TRUE;
+          }
+      }
+    if (loaded)
+      {
+        g_idle_add (save_plugin_list, NULL);
+        g_file_set_contents (marker, now->str, -1, NULL);
+      }
+    g_strfreev (names);
+    g_string_free (now, TRUE);
+    g_free (offered);
+  }
   g_free (marker);
 }
 

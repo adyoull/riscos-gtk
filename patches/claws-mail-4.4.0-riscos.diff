@@ -1,3 +1,19 @@
+diff -ruN a/src/alertpanel.c b/src/alertpanel.c
+--- a/src/alertpanel.c	2025-04-29 17:42:29.000000000 +0100
++++ b/src/alertpanel.c	2026-10-29 09:17:47.102713617 +0000
+@@ -354,6 +354,12 @@
+ 	gtk_widget_set_can_focus(label, FALSE);
+ 	gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+ 	gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
++#ifdef __riscos
++	/* (riscos-gtk: a long message is wrapped at 70 characters; a wrapping
++	   label's natural width is otherwise its whole text, and the box was
++	   as wide as the screen) */
++	gtk_label_set_max_width_chars(GTK_LABEL(label), 70);
++#endif
+ 	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
+ 	gtk_widget_show(label);
+ 		
 diff -ruN a/src/common/gnutls-acornssl/gnutls/abstract.h b/src/common/gnutls-acornssl/gnutls/abstract.h
 --- a/src/common/gnutls-acornssl/gnutls/abstract.h	1970-01-01 01:00:00.000000000 +0100
 +++ b/src/common/gnutls-acornssl/gnutls/abstract.h	2026-10-28 19:42:32.990193468 +0000
@@ -1365,6 +1381,24 @@ diff -ruN a/src/mimeview.c b/src/mimeview.c
  	if (cmd == NULL)
  		mimeview_open_part_with(mimeview, partinfo, TRUE);
  	else {
+diff -ruN a/src/plugins/address_keeper/address_keeper_prefs.c b/src/plugins/address_keeper/address_keeper_prefs.c
+--- a/src/plugins/address_keeper/address_keeper_prefs.c	2022-05-06 11:11:04.000000000 +0100
++++ b/src/plugins/address_keeper/address_keeper_prefs.c	2026-10-29 09:12:48.211680713 +0000
+@@ -51,7 +51,14 @@
+ struct AddressKeeperPrefsPage addkeeperprefs_page;
+ 
+ static PrefParam param[] = {
++#ifdef __riscos
++	/* (riscos-gtk: kept in "Personal addresses", the book Claws Mail makes
++	   at its first start (its file, as the folder chooser gives it), unless
++	   another is chosen, rather than nowhere) */
++	{"addressbook_folder", "addrbook-000002.xml", &addkeeperprefs.addressbook_folder,
++#else
+ 	{"addressbook_folder", "", &addkeeperprefs.addressbook_folder,
++#endif
+          P_STRING, NULL, NULL, NULL},
+ 	{"keep_to_addrs", "TRUE", &addkeeperprefs.keep_to_addrs,
+          P_BOOL, NULL, NULL, NULL},
 diff -ruN a/src/plugins/litehtml_viewer/lh_viewer.c b/src/plugins/litehtml_viewer/lh_viewer.c
 --- a/src/plugins/litehtml_viewer/lh_viewer.c	2024-06-09 11:08:34.000000000 +0100
 +++ b/src/plugins/litehtml_viewer/lh_viewer.c	2026-10-28 19:42:32.995759034 +0000

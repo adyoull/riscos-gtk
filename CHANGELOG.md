@@ -53,6 +53,15 @@
   (Manage Sieve Filters crashed); vCalendar's week view put events under
   the wrong days (its day columns were narrower than the day buttons).
   Both fixed in the Claws Mail patch.
+- **ClawsMail's attachment warner and address keeper**, built in as the
+  plug-ins above. The warner asks before sending a message that mentions
+  an attachment ("attach", or the words in its Choices) and has none; the
+  address keeper adds the addresses mailed to "Personal addresses" (on
+  RISC OS it starts with that book chosen, rather than none). Each
+  built-in plug-in is loaded once, the first time a version offers it, so
+  people who had riscos24's first test builds get these two as well.
+  Alert boxes wrap long messages at 70 characters (they were as wide as
+  the screen). Test `claws-fake`.
 - **AbiWord: equations.** The mathview plugin, built in, with GtkMathView
   0.8.0 (its core and libxml2 front end): Insert > Equation from LaTeX
   (itex2MML) or from a MathML file; equations in .abw and OpenDocument

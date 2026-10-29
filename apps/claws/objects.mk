@@ -8,4 +8,4 @@ claws-objects: $(claws_mail_OBJECTS)
 # a plug-in's objects without its libtool link (build-claws.sh links them
 # in as GLib static modules):
 #   make -C src/plugins/rssyl -f Makefile -f objects.mk plugin-objects
-plugin-objects: $(libfeed_la_OBJECTS) $(rssyl_la_OBJECTS) $(managesieve_la_OBJECTS) $(vcalendar_la_OBJECTS)
+plugin-objects: $(libfeed_la_OBJECTS) $(rssyl_la_OBJECTS) $(managesieve_la_OBJECTS) $(vcalendar_la_OBJECTS) $(attachwarner_la_OBJECTS) $(address_keeper_la_OBJECTS)

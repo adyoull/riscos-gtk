@@ -9,7 +9,8 @@ folders or on the IMAP server. HTML mail is shown laid out, with its
 pictures (Claws Mail's LiteHTML viewer, built in). Spelling is checked
 as you type (British English; more dictionaries in
 <Choices$Write>.GTK.Dictionaries, as for every GTK program). RSS feeds,
-Sieve filters on your mail server, and a calendar (vCalendar) are
+Sieve filters on your mail server, a calendar (vCalendar), a warning
+for a forgotten attachment, and keeping the addresses you mail are
 plug-ins, built in: see below.
 
 Attachments
@@ -128,7 +129,7 @@ from GNOME's Adwaita (LGPL v3 / CC-BY-SA 3.0); DejaVu fonts (free
 licence, in fonts); PThreadTicker (its Licence).
 Source says where the complete source is.
 
-Plug-ins: RSS, Sieve, calendar
+Plug-ins: RSS, Sieve, calendar, attachment warner, address keeper
 - They are built into the program and loaded the first time Claws Mail
   starts. Configuration > Plugins lists them; Unload one you don't want
   (it stays unloaded), or Load... it again from the plugins folder.
@@ -150,3 +151,10 @@ Plug-ins: RSS, Sieve, calendar
   vCalendar > Subscribe to Webcal... adds a published calendar
   (webcal:// or https://), fetched again on Get Mail. Time zones come
   from the application (share.zoneinfo).
+- Attachment warner: Send on a message that mentions an attachment
+  ("attach", or the words set in Choices... > Plugins > AttachWarner)
+  but has none asks whether to send it anyway.
+- Address keeper: the addresses you mail (To and Cc) are added to
+  "Personal addresses" in the address book, unless they are there
+  already. Choices... > Plugins > Address Keeper chooses another book or
+  folder, and addresses never to keep.

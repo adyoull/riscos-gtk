@@ -34,6 +34,7 @@ int fake_claws_manual (void);
 int fake_claws_plugins (void);
 GtkWidget *fake_claws_main_window (void);
 int fake_claws_show_folder (const char *klass, const char *name, int msgnum);
+void fake_claws_compose (const char *mailto);
 int fake_claws_subscribe (const char *klass, const char *uri);
 int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 
@@ -135,7 +136,8 @@ fake_claws_manual (void)
   return manual_available (MANUAL_MANUAL_CLAWS);
 }
 
-/* the plug-ins loaded: 1 RSSyl, 2 ManageSieve, 4 vCalendar */
+/* the plug-ins loaded: 1 RSSyl, 2 ManageSieve, 4 vCalendar, 8 AttachWarner,
+   16 Address Keeper */
 int
 fake_claws_plugins (void)
 {
@@ -151,6 +153,10 @@ fake_claws_plugins (void)
         r |= 2;
       else if (g_strcmp0 (n, "vCalendar") == 0)
         r |= 4;
+      else if (g_strcmp0 (n, "AttachWarner") == 0)
+        r |= 8;
+      else if (g_strcmp0 (n, "Address Keeper") == 0)
+        r |= 16;
     }
   return r;
 }
@@ -248,4 +254,11 @@ fake_claws_show_folder (const char *klass, const char *name, int msgnum)
   if (msgnum)
     summary_select_by_msgnum (mw->summaryview, msgnum, TRUE);
   return 1;
+}
+
+/* a compose window for a mailto: URL, as Write does */
+void
+fake_claws_compose (const char *mailto)
+{
+  compose_new (NULL, mailto, NULL);
 }

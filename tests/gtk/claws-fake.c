@@ -64,6 +64,7 @@ int fake_claws_spell (void);
 int fake_claws_plugins (void);
 GtkWidget *fake_claws_main_window (void);
 int fake_claws_show_folder (const char *klass, const char *name, int msgnum);
+void fake_claws_compose (const char *mailto);
 int fake_claws_subscribe (const char *klass, const char *uri);
 int fake_claws_folder_msgs (const char *klass, const char *name, char *path, int len);
 static int inbox_files, smtp_files, main_window_seen;
@@ -653,6 +654,7 @@ static int rss_subscribed = -1, rss_msgs = -1, rss_item = -1;
 static int cal_subscribed = -1, cal_msgs = -1, cal_event = -1;
 static int curl_put = -1, curl_noauth = -1, curl_etag = -1, curl_file = -1;
 static int sieve_menu = -1, sieve_window = -1, sieve_listed = -1, sieve_polls;
+static int warner_seen = -1, warner_polls, kept_address = -1;
 static long curl_code[3];
 static char curl_etag_value[64];
 
@@ -695,7 +697,8 @@ plugins_go (gpointer data)
   if (g_file_get_contents (path, &t, NULL, NULL))
     {
       char *b = strstr (t, "[Plugins_GTK3]");
-      plugins_listed = b && strstr (b, "rssyl.so") && strstr (b, "managesieve.so") && strstr (b, "vcalendar.so");
+      plugins_listed = b && strstr (b, "rssyl.so") && strstr (b, "managesieve.so") && strstr (b, "vcalendar.so") &&
+                       strstr (b, "attachwarner.so") && strstr (b, "address_keeper.so");
     }
   g_free (t);
 
@@ -920,7 +923,7 @@ finish (void)
   check (fake_acornssl_sessions >= 3 && fake_acornssl_closed_open == fake_acornssl_closes,
          "IMAP has its own AcornSSL session; sessions are closed before their sockets");
   printf ("# plug-ins loaded: %d\n", plugins_loaded);
-  check (plugins_loaded == 7, "the RSS, Sieve and vCalendar plug-ins (linked in) are loaded at the first start");
+  check (plugins_loaded == 31, "the RSS, Sieve, vCalendar, attachment warner and address keeper plug-ins (linked in) are loaded at the first start");
   check (plugins_marker == 1 && plugins_listed == 1,
          "and kept in clawsrc's plug-in list (RISCOSPlugins written), so the Plugins window decides from then on");
   check (rss_subscribed == 1 && strstr (server_log, "HTTP GET /moved/feed.rss") && strstr (server_log, "HTTP GET /feed.rss"),
@@ -934,6 +937,15 @@ finish (void)
   check (curl_noauth == 1, "libcurl subset: without the password, the server's 401");
   check (curl_etag == 1, "libcurl subset: a GET's body and its ETag header (curl_easy_header, for RSS)");
   check (curl_file == 1, "libcurl subset: a file:// address");
+  check (warner_seen == 1, "the attachment warner: Send on a message that mentions an attachment and has none asks first");
+  check (smtp_files == 1, "and Cancel there keeps the message from being sent");
+  {
+    char *p = g_strdup_printf ("%s/.claws-mail/addrbook/addrbook-000002.xml", home), *t = NULL;
+    kept_address = g_file_get_contents (p, &t, NULL, NULL) && strstr (t, "bob@example.com") != NULL;
+    g_free (t);
+    g_free (p);
+  }
+  check (kept_address == 1, "the address keeper: the address mailed is kept in Personal addresses");
   check (sieve_menu == 1, "Tools has Manage Sieve Filters...");
   check (sieve_window == 1 && sieve_listed == 1 && strstr (server_log, "SIEVE STARTTLS") &&
          strstr (server_log, "SIEVE LISTSCRIPTS"),
@@ -1480,6 +1492,47 @@ hook (int reason)
           stage = 31;
         }
       break;
+    case 32:    /* Send in the new compose window */
+      {
+        GtkWidget *w = window_titled ("Write message");
+        GtkWidget *send = w ? find_button (w, "Send") : NULL;
+        if (send && ++warner_polls > 50)
+          {
+            /* (sending runs the main loop inside "clicked": the warning
+               is answered below, from this hook) */
+            stage = 33;
+            warner_polls = 0;
+            if (GTK_IS_TOOL_BUTTON (send))
+              g_signal_emit_by_name (send, "clicked");
+            else
+              gtk_button_clicked (GTK_BUTTON (send));
+          }
+        else if (++warner_polls > 3000)
+          finish ();
+      }
+      break;
+    case 33:    /* the warning, answered Cancel */
+      {
+        GtkWidget *w = window_titled ("Attachment warning");
+        if (w)
+          {
+            GtkWidget *cancel = find_button (w, "Cancel");
+            warner_seen = 1;
+            dump_shot ("attachwarner");
+            if (cancel)
+              gtk_button_clicked (GTK_BUTTON (cancel));
+            stage = 34;
+          }
+        else if (++warner_polls > 3000)
+          {
+            warner_seen = 0;
+            stage = 34;
+          }
+      }
+      break;
+    case 34:    /* the message wasn't sent */
+      finish ();
+      break;
     case 31:    /* the Sieve manager lists the server's scripts */
       {
         GtkWidget *sw = window_titled ("Sieve");
@@ -1491,7 +1544,10 @@ hook (int reason)
             dump_shot ("sieve");
             if (sieve_listed != 1)
               dump_windows ();
-            finish ();
+            /* the attachment warner: a message that mentions an
+               attachment and has none */
+            fake_claws_compose ("mailto:carol@example.com?subject=The%20report&body=The%20report%20is%20attached.");
+            stage = 32;
           }
       }
       break;
