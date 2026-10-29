@@ -15,6 +15,6 @@ cp "$REPO_DIR/apps/l3afpad/config.h" "$L/src/"
 SOURCES=$(ls "$L"/src/*.c)
 # an editor wants a monospaced font (L3afpad's default is "Monospace 12")
 export EXTRA_FONTS="DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf"
-exec "$HERE/build-app.sh" L3afpad l3afpad "${VERSION:-0.8.18.1.11-riscos32}" "$REPO_DIR/apps/l3afpad/app" \
-  -DHAVE_CONFIG_H -DRISCOS_PORT_VERSION=\"${VERSION:-0.8.18.1.11-riscos32}\" -I"$L/src" -Wno-unused-variable -Wno-unused-but-set-variable \
+exec "$HERE/build-app.sh" L3afpad l3afpad "${VERSION:-0.8.18.1.11-riscos33}" "$REPO_DIR/apps/l3afpad/app" \
+  -DHAVE_CONFIG_H -DRISCOS_PORT_VERSION=\"${VERSION:-0.8.18.1.11-riscos33}\" -I"$L/src" -Wno-unused-variable -Wno-unused-but-set-variable \
   $SOURCES "$REPO_DIR/apps/l3afpad/riscos-l3afpad.c"

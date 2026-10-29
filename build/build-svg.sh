@@ -37,6 +37,8 @@ if [ ! -f "$STAGE/lib/libxml2.a" ]; then
    make install-libLTLIBRARIES install-data-am install-pkgconfigDATA -C . DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1 &&
    make -C include install DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1) || fail "$SRC/libxml2.log"
 fi
+# (no build-machine paths in its .pc: configure put zlib's -L in it)
+sed -i "s| -L$STAGE/lib||g" "$STAGE/lib/pkgconfig/libxml-2.0.pc"
 
 # ---- libcroco ----
 if [ ! -f "$STAGE/lib/libcroco-0.6.a" ]; then

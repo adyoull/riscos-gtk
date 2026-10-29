@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
-- **Versions:** AbiWord 3.0.8-riscos3, Gnumeric 1.12.57-riscos17,
-  ClawsMail 4.4.0-riscos24 (test builds `-test1`; riscos2 and riscos23
-  were this round's first test builds). The other programs get
-  the GTK changes at their next rebuild.
+## 3.24.41-riscos1.0-rc14 (2026-10-29)
+- **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos33, ClawsMail
+  4.4.0-riscos24, Geany 2.1-riscos12, mtPaint 3.50.14-riscos12, Gnumeric
+  1.12.57-riscos17, AbiWord 3.0.8-riscos3, GTKThemeTest and GTKGLTest
+  3.24.41-riscos1.0-rc14. The emoji package is unchanged. (AbiWord
+  riscos2 and ClawsMail riscos23 were test builds only.)
 - **SVG pictures in every GTK program that wants them.** librsvg 2.40.20
   (the last version written in C) with libcroco and libxml2 replaces the
   stand-in that loaded nothing (`build/build-svg.sh`). Its GdkPixbuf

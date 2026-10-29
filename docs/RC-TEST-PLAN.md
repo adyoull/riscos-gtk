@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc13 (public beta) — Pi sign-off
+# riscos-gtk 3.24.41-riscos1.0-rc14 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.41-riscos1.0-rc13 (the backend and theme)
+## 2. GTKThemeTest 3.24.41-riscos1.0-rc14 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -50,7 +50,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 2.12 | Toggle size: the window fills the screen and is laid out again | yes | |
 | 2.13 | Icon bar: Select shows the window; Menu > Info, Quit | yes | |
 
-## 3. L3afpad 0.8.18.1.11-riscos32
+## 3. L3afpad 0.8.18.1.11-riscos33
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 3.9 | Close windows with unsaved text: asks; the last window leaves L3afpad on the icon bar; Quit with unsaved text asks once | yes | |
 | 3.10 | Running !L3afpad again with a file: the running copy opens it | yes | |
 
-## 4. ClawsMail 4.4.0-riscos22
+## 4. ClawsMail 4.4.0-riscos24
 
 Use a real account. Ideally test one POP3 account and one IMAP account
 (Gmail, Fastmail, an ISP), with both SSL/TLS and STARTTLS where the
@@ -202,7 +202,7 @@ provider offers them.
 | 13.7 | The Log (`<Wimp$ScrapDir>.AbiWord.Log`) has the fonts lines and no errors | test builds | |
 | 13.8 | Every program: a dialogue box's preview or picture that the program draws itself (AbiWord's above) changes straight away | new | |
 
-## 15. New after RC13: SVG, files, spelling in ClawsMail, manuals, AbiWord plugins, ClawsMail plugins, equations
+## 15. New in RC14: SVG, files, spelling in ClawsMail, manuals, AbiWord plugins, ClawsMail plugins, equations
 
 | # | Test | Seen before | Result |
 |---|---|---|---|

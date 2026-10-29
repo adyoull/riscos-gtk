@@ -1,10 +1,14 @@
-# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 13)
+# riscos-gtk 3.24.41-riscos1.0 — public beta (release candidate 14)
 
-**Status: public beta.** RC13 is the eleventh public beta build. It
-adds AbiWord, the word processor, whose test builds have run on the Pi,
-and fixes drawing that a program does outside GTK's own redraws
-(AbiWord's dialogue boxes' previews didn't change). Every program is
-rebuilt. RC12 gave every GTK program the desktop's own fonts: Homerton, Trinity, Corpus
+**Status: public beta.** RC14 is the twelfth public beta build. It
+fills in features the programs had left out: SVG pictures in every GTK
+program that wants them; files dragged out of a program to the Filer;
+files and web addresses opened in the desktop's programs; in ClawsMail,
+spell checking, attachments opened and dragged out, its manual, and the
+RSS, Sieve, calendar, attachment warner and address keeper plug-ins; in
+Gnumeric, its manual; in AbiWord, charts, the thesaurus, equations,
+WordPerfect and Works files. Every program is rebuilt. RC13 added
+AbiWord and fixed drawing done outside GTK's own redraws. RC12 gave every GTK program the desktop's own fonts: Homerton, Trinity, Corpus
 and every outline font on Font$Path are in its font lists and drawn as the
 desktop draws them; a document's Times New Roman, Arial or Courier New
 gets the same kind of font, not DejaVu Sans; Left Alt and a letter
@@ -40,21 +44,21 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC13
+## What's in RC14
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos32.zip` | 0.8.18.1.11-riscos32 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos22.zip` | 4.4.0-riscos22 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos11.zip` | 2.1-riscos11 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos11.zip` | 3.50.14-riscos11 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.57-riscos16.zip` | 1.12.57-riscos16 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `AbiWord-3.0.8-riscos1.zip` | 3.0.8-riscos1 | **New:** the word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer |
-| `GTKThemeTest-3.24.41-riscos1.0-rc13.zip` | 3.24.41-riscos1.0-rc13 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.41-riscos1.0-rc13.zip` | 3.24.41-riscos1.0-rc13 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `L3afpad-0.8.18.1.11-riscos33.zip` | 0.8.18.1.11-riscos33 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos24.zip` | 4.4.0-riscos24 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons; spell checking; attachments opened and dragged to the Filer. **New:** RSS feeds, Sieve filters, a calendar, the attachment warner and the address keeper (built-in plug-ins). Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos12.zip` | 2.1-riscos12 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos12.zip` | 3.50.14-riscos12 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.57-riscos17.zip` | 1.12.57-riscos17 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. **New:** its manual (Help > Contents) and SVG pictures. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
+| `AbiWord-3.0.8-riscos3.zip` | 3.0.8-riscos3 | The word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer. **New:** charts, the thesaurus, equations, WordPerfect and Works files, SVG pictures |
+| `GTKThemeTest-3.24.41-riscos1.0-rc14.zip` | 3.24.41-riscos1.0-rc14 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.41-riscos1.0-rc14.zip` | 3.24.41-riscos1.0-rc14 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
 | `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **Optional** (unchanged since RC10): a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
-| `riscos-gtk-sdk-3.24.41-riscos1.0-rc13.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.41-riscos1.0-rc13-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-sdk-3.24.41-riscos1.0-rc14.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.41-riscos1.0-rc14-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -154,7 +158,14 @@ release.
   draggable file icon. *[Pi]*
 - **Drag and drop:** files dropped on windows and fields are loaded.
   Text dragged out of a field becomes a Text file, or goes to another
-  program by RAM transfer.
+  program by RAM transfer. A file a program offers (a mail's
+  attachment) can be dragged to a Filer window or another program, with
+  its name and file type. *[Pi]*
+- **Opening files and addresses:** `gtk_show_uri_on_window()` opens a file
+  as a double-click in the Filer would (an untyped one typed first from
+  MimeMap), and web addresses through the URI handler. *[Pi]*
+- **SVG pictures:** programs that link librsvg (Gnumeric, AbiWord,
+  ClawsMail) open SVG files and show SVG pictures. *[Pi]*
 - **Clipboard:** the global clipboard is shared with other programs, in
   Latin-1 or UTF-8.
 - **File types:** set from the name's extension; names without one are
@@ -268,6 +279,17 @@ release.
   the Filer's own directory icons from the desktop theme. Claws Mail's
   own icons can be chosen in Choices... > Display > Themes.
 - **The About box** names AcornSSL and shows the RISC OS port's logo.
+- **Spelling** as you type, as AbiWord: British English in the program,
+  more in `<Choices$Write>.GTK.Dictionaries`.
+- **Attachments** open in the desktop's program for them (typed from
+  their MIME type first), and can be dragged to a Filer window. SVG
+  pictures are shown.
+- **Help > Manual** opens Claws Mail's own manual, in the application.
+- **Plug-ins, built in:** RSS feeds (RSSyl), Sieve filters on the mail
+  server (ManageSieve), a calendar with meeting invitations and webcal
+  subscriptions (vCalendar), a warning for a mentioned but missing
+  attachment, and the address keeper (addresses mailed go to Personal
+  addresses). Configuration > Plugins can unload and load them.
 
 **Gnumeric**
 - **Files:** Excel (.xls, .xlsx), OpenDocument (.ods), Gnumeric's own,
@@ -281,6 +303,9 @@ release.
   the icon bar menu is Gnumeric's Preferences.
 - **File > Properties:** without POSIX owners on RISC OS, the owner and
   group show as numbers.
+- **Help > Contents** and the dialogue boxes' Help buttons open
+  Gnumeric's manual (in the application) in your browser. SVG pictures
+  are shown.
 
 **AbiWord**
 - **Files:** OpenDocument (.odt), Word (.docx, .doc), RTF, HTML, plain
@@ -294,9 +319,15 @@ release.
 - **Menus:** Menu over a window, or Left Alt and a menu's letter.
 - **Its settings** are kept in `<Choices$Write>.AbiWord`; Choices... on
   the icon bar menu is AbiWord's Preferences.
-- **Not in this build:** grammar checking, the thesaurus,
-  collaboration, equations (MathML), WordPerfect and Works files, PDF
-  import, SVG pictures and help.
+- **Charts** (Insert > Chart) as in Gnumeric; **the thesaurus** (Tools >
+  Thesaurus); **equations** (Insert > Equation, from LaTeX or a MathML
+  file, drawn with TeX's Computer Modern fonts, which come in the
+  package); WordPerfect and Microsoft Works files opened; OpenOffice 1
+  and Hancom files; View > Presentation; Tools > Dictionary, Google and
+  Wikipedia; SVG pictures.
+- **Not in this build:** grammar checking, collaboration, PDF import,
+  saving WordPerfect files and help (AbiWord's manual isn't in its
+  source).
 
 **OpenGL**
 - **GtkGLArea** draws with riscos-mesa: Mesa's software renderer, OpenGL
@@ -315,7 +346,18 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC13
+## Known issues and limits in RC14
+
+- **New in RC14** *[Pi]*: SVG pictures; files dragged out to the Filer;
+  files and addresses opened in the desktop's programs; ClawsMail's
+  spelling, attachments, manual and plug-ins (RSS, Sieve, vCalendar,
+  attachment warner, address keeper); Gnumeric's manual; AbiWord's charts,
+  thesaurus, equations and WordPerfect/Works files. All tried on the fake
+  desktop and on RISC OS on Linux, not yet on the Pi
+  ([RC-TEST-PLAN.md](RC-TEST-PLAN.md) section 15).
+- **ClawsMail's RSS and calendar fetches** aren't threaded (Claws Mail is
+  built without threads), so the desktop waits while a feed or calendar
+  comes in.
 
 - **New in RC13** *[Pi]*: AbiWord (its test builds ran on the Pi: fonts,
   spelling, Left Alt menus, icons and the font preview); drawing outside
@@ -439,6 +481,10 @@ release.
     redraws reaches the screen. Every program rebuilt: L3afpad
     0.8.18.1.11-riscos32, ClawsMail 4.4.0-riscos22, Geany 2.1-riscos11,
     mtPaint 3.50.14-riscos11, Gnumeric 1.12.57-riscos16.
+  - RC14: SVG, files dragged out and opened, and the programs' missing
+    features (above). Every program rebuilt: L3afpad 0.8.18.1.11-riscos33,
+    ClawsMail 4.4.0-riscos24, Geany 2.1-riscos12, mtPaint
+    3.50.14-riscos12, Gnumeric 1.12.57-riscos17, AbiWord 3.0.8-riscos3.
 - **Fixed after the first look at ClawsMail 0.4 on the Pi:**
   - two size icons at first start (the old one stayed in the window's
     corner until something redrew it): GTK now redraws the corner when
@@ -467,19 +513,17 @@ release.
   working directory (`*Dir`) is the whole desktop's. A program that waits
   for one to finish (`g_spawn_sync`) still stops the desktop meanwhile.
 - **Gnumeric:** no Python or Perl functions and plugins, databases
-  (GDA), external linear solvers (glpk, lp_solve) or help; SVG pictures
-  aren't shown (librsvg is written in Rust, which GCCSDK can't build).
+  (GDA), external linear solvers (glpk, lp_solve), or Paradox and Psion
+  files.
 - **mtPaint:** its toolbar icons are XPM pictures, which riscos-gtk
   loads; builds of mtPaint against a gdk-pixbuf that loads its loaders
   as modules can't, in a static RISC OS program. Settings are in
   `<Choices$Write>.mtPaint`.
 - **ClawsMail:**
-  - no spell checking, other plug-ins or Claws Mail certificate manager;
+  - no PGP, other plug-ins or Claws Mail certificate manager;
   - news (NNTP) is built but untested;
   - IMAP with STARTTLS takes the same code path as imaps but hasn't been
     tested against a server;
-  - attachments can't yet be dragged out to the Filer or opened with RISC
-    OS programs;
   - links in HTML mail open in a browser, but forms and scripts in HTML
     mail do nothing (as in Claws Mail elsewhere).
 - **ClawsMail's settings,** and its mailbox by default, live in
@@ -509,7 +553,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.41-riscos1.0-rc13` builds the packages, the
+  `make release RELEASE=3.24.41-riscos1.0-rc14` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests
