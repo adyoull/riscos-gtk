@@ -47,7 +47,12 @@
   AcornSSL, redirects, Basic authentication, PUT), which HTML mail's
   pictures now use too. libical 3.0.17 for vCalendar, with its own time
   zones in the application. Test `claws-fake` (a feed, a webcal
-  calendar, the libcurl subset and a ManageSieve server).
+  calendar, the libcurl subset and a ManageSieve server). Found on RISC
+  OS on Linux: the Sieve plug-in read its account settings with sscanf's
+  `%ms` (glibc's), which UnixLib hasn't got, and the heap was overwritten
+  (Manage Sieve Filters crashed); vCalendar's week view put events under
+  the wrong days (its day columns were narrower than the day buttons).
+  Both fixed in the Claws Mail patch.
 - **AbiWord: equations.** The mathview plugin, built in, with GtkMathView
   0.8.0 (its core and libxml2 front end): Insert > Equation from LaTeX
   (itex2MML) or from a MathML file; equations in .abw and OpenDocument

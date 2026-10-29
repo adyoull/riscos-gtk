@@ -1501,6 +1501,68 @@ diff -ruN a/src/plugins/litehtml_viewer/lh_widget.cpp b/src/plugins/litehtml_vie
  			w->m_clicked_url.c_str(), -1);
  	gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
  			w->m_clicked_url.c_str(), -1);
+diff -ruN a/src/plugins/managesieve/sieve_prefs.c b/src/plugins/managesieve/sieve_prefs.c
+--- a/src/plugins/managesieve/sieve_prefs.c	2026-02-16 09:56:50.000000000 +0000
++++ b/src/plugins/managesieve/sieve_prefs.c	2026-10-29 00:05:35.454605414 +0000
+@@ -477,7 +477,7 @@
+ 	guchar tls_type, auth, auth_type;
+ 	gsize len;
+ 	gint num;
+-#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__)
++#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__) || defined (__riscos)
+ 	/* Some libc variants lack support for the ISO C extension %ms, so we
+ 	 * have to do the allocation of target buffer ourselves before
+ 	 * calling sscanf(), and copy the host string to config->host.
+@@ -501,13 +501,13 @@
+ 
+ 	enc_userid[0] = '\0';
+ 	enc_passwd[0] = '\0';
+-#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__)
++#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__) || defined (__riscos)
+ 	if ((num = sscanf(confstr, "%c%c %255s %c%hu %hhu %hhu %hhu %255s %255s",
+ #else
+ 	if ((num = sscanf(confstr, "%c%c %ms %c%hu %hhu %hhu %hhu %255s %255s",
+ #endif
+ 			&enable, &use_host,
+-#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__)
++#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__) || defined (__riscos)
+ 			tmphost,
+ #else
+ 			&config->host,
+@@ -537,7 +537,7 @@
+ 	config->auth = auth;
+ 	config->auth_type = auth_type;
+ 
+-#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__)
++#if defined(G_OS_WIN32) || defined(__DragonFly__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (__FreeBSD__) || defined (__riscos)
+ 	config->host = g_strndup(tmphost, 255);
+ #endif
+ 
+diff -ruN a/src/plugins/vcalendar/day-view.c b/src/plugins/vcalendar/day-view.c
+--- a/src/plugins/vcalendar/day-view.c	2022-05-06 11:11:04.000000000 +0100
++++ b/src/plugins/vcalendar/day-view.c	2026-10-29 08:34:05.618469893 +0000
+@@ -859,6 +859,21 @@
+         fill_hour(dw, days+1, i, text);
+     }
+     fill_days(dw, days, dw->item, first_col_day);
++#ifdef __riscos
++    /* (riscos-gtk: each column of the hours and days below as wide as its
++       button or arrow above, so events stand under their days: the two
++       grids were sized apart, and the days' columns came out narrower) */
++    for (i = 0; i <= days+1; i++) {
++        GtkWidget *h = gtk_grid_get_child_at(GTK_GRID(dw->dtable_h), i, 0);
++        GtkWidget *b = gtk_grid_get_child_at(GTK_GRID(dw->dtable), i, 0);
++        if (h && b) {
++            GtkSizeGroup *g = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
++            gtk_size_group_add_widget(g, h);
++            gtk_size_group_add_widget(g, b);
++            g_object_unref(g);
++        }
++    }
++#endif
+ }
+ 
+ void refresh_day_win(day_win *dw)
 diff -ruN a/src/plugins/vcalendar/vcalendar.c b/src/plugins/vcalendar/vcalendar.c
 --- a/src/plugins/vcalendar/vcalendar.c	2026-02-16 09:55:07.000000000 +0000
 +++ b/src/plugins/vcalendar/vcalendar.c	2026-10-28 20:09:13.293102429 +0000

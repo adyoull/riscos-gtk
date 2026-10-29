@@ -59,6 +59,8 @@ tcp_connect (const char *host, const char *port, int timeout, gboolean *timed_ou
     {
       int flags, err = 0, r;
       socklen_t len = sizeof err;
+      struct sockaddr_storage peer;
+      socklen_t plen = sizeof peer;
       fd_set w;
       struct timeval tv = { timeout, 0 };
 
@@ -79,7 +81,10 @@ tcp_connect (const char *host, const char *port, int timeout, gboolean *timed_ou
           r = select (fd + 1, NULL, &w, NULL, &tv);
           if (r == 0)
             *timed_out = TRUE;
-          if (r > 0 && getsockopt (fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0)
+          /* (RISC OS's stack can report a refused connection as writable
+             with no SO_ERROR: connected only if it has a peer) */
+          if (r > 0 && getsockopt (fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0 &&
+              getpeername (fd, (struct sockaddr *) &peer, &plen) == 0)
             {
               fcntl (fd, F_SETFL, flags);
               break;
