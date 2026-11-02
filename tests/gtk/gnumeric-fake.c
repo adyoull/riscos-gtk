@@ -1,5 +1,5 @@
 /*
- * gnumeric-fake.c - Gnumeric (1.12.57, the port) on the fake RISC OS, with
+ * gnumeric-fake.c - Gnumeric (1.12.62, the port) on the fake RISC OS, with
  * its plugins built in (GLib's static module registry, tools/
  * mkstaticmodules.py) and apps/gnumeric/riscos-gnumeric.c's start:
  *   - it starts with a workbook window;
@@ -256,6 +256,19 @@ do_fontsel (void)
   gtk_widget_destroy (win);
 }
 
+/* the fake Wimp's handle for a toplevel (as browser-fake.c) */
+static int
+handle_of (GtkWidget *top)
+{
+  int i, ox, oy;
+  gdk_window_get_origin (gtk_widget_get_window (top), &ox, &oy);
+  for (i = 0; i < FAKE_MAX_WINDOWS; i++)
+    if (fake_windows[i].handle && (fake_windows[i].x0 >> 1) == ox
+        && 1024 - (fake_windows[i].y1 >> 1) == oy)
+      return fake_windows[i].handle;
+  return 0;
+}
+
 static gboolean
 do_files (gpointer d)
 {
@@ -464,6 +477,10 @@ hook (int reason)
         Workbook *wb = wb_control_get_workbook (GNM_WBC (first_wbcg ()));
         go_doc_set_dirty (GO_DOC (wb), FALSE);      /* no "save changes?" */
       }
+      /* the fake closes its target window: by default the newest one,
+         which since GOffice 0.10.62 can be a combo box's pop-up (made
+         when the font chooser was shown), and that ignores delete */
+      fake_target_window = handle_of (GTK_WIDGET (wbcg_toplevel (first_wbcg ())));
       stage = 3;
       nulls (10);              /* then the fake closes the window */
       break;

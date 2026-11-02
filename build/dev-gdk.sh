@@ -5,7 +5,7 @@
 #   build/dev-gdk.sh            RISC OS
 #   TARGET=linuxarm build/dev-gdk.sh
 . "$(dirname "$0")/env.sh"
-G=$SRC/gtk+-3.24.41
+G=$SRC/gtk-3.24.52
 [ -d "$G/_build" ] || { echo "dev-gdk.sh: no GTK build in $G: run build-deps.sh" >&2; exit 1; }
 for f in "$REPO_DIR"/gdk/riscos/*; do
   cmp -s "$f" "$G/gdk/riscos/$(basename "$f")" || cp "$f" "$G/gdk/riscos/"

@@ -313,12 +313,12 @@ mesonlib libepoxy_1.5.10.orig.tar.gz libepoxy-1.5.10 libepoxy.a \
   -Ddocs=false -Dglx=no -Degl=no -Dx11=false -Dtests=false
 
 # ---- GTK itself, with the RISC OS GDK backend (M2) ----
-step "GTK 3.24.41 (patches/gtk+3.0-3.24.41-riscos.diff + gdk/riscos)"
+step "GTK 3.24.52 (patches/gtk+3.0-3.24.52-riscos.diff + gdk/riscos)"
 if ! have libgtk-3.a; then
-fresh gtk+3.0_3.24.41.orig.tar.xz gtk+-3.24.41
-patch -d gtk+-3.24.41 -p1 -s < "$REPO_DIR/patches/gtk+3.0-3.24.41-riscos.diff"
-cp -r "$REPO_DIR/gdk/riscos" gtk+-3.24.41/gdk/riscos
-cp "$REPO_DIR"/gtk/riscos/* gtk+-3.24.41/gtk/      # GtkMenus as Wimp menus
+fresh gtk+3.0_3.24.52.orig.tar.xz gtk-3.24.52
+patch -d gtk-3.24.52 -p1 -s < "$REPO_DIR/patches/gtk+3.0-3.24.52-riscos.diff"
+cp -r "$REPO_DIR/gdk/riscos" gtk-3.24.52/gdk/riscos
+cp "$REPO_DIR"/gtk/riscos/* gtk-3.24.52/gtk/      # GtkMenus as Wimp menus
 # The QEMU test build: the backend's SWI calls go to the fake RISC OS
 # (tests/fake/mesa-egl), whose kernel.h and swis.h stand in for UnixLib's.
 # The fake itself goes into libgdk there, so that GTK's own tools and the
@@ -326,10 +326,10 @@ cp "$REPO_DIR"/gtk/riscos/* gtk+-3.24.41/gtk/      # GtkMenus as Wimp menus
 if [ "$TARGET" = linuxarm ]; then
   F=$REPO_DIR/tests/fake/mesa-egl
   cp "$F"/fake/kernel.h "$F"/fake/swis.h "$F"/fake_riscos.h "$STAGE/include/"
-  cp "$F"/fake_riscos.c "$F"/fake_riscos.h gtk+-3.24.41/gdk/riscos/
-  sed -i "s/  'gdkriscos-server.c',/  'gdkriscos-server.c',\n  'fake_riscos.c',/" gtk+-3.24.41/gdk/riscos/meson.build
+  cp "$F"/fake_riscos.c "$F"/fake_riscos.h gtk-3.24.52/gdk/riscos/
+  sed -i "s/  'gdkriscos-server.c',/  'gdkriscos-server.c',\n  'fake_riscos.c',/" gtk-3.24.52/gdk/riscos/meson.build
 fi
-( cd gtk+-3.24.41
+( cd gtk-3.24.52
   # Nothing can be loaded without dlopen: no print backends, and the input
   # methods (IM modules) are all built into libgtk.
   meson_env meson setup _build --cross-file "$STAGE/meson-cross.txt" --wrap-mode=nofallback \

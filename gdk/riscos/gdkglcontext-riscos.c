@@ -282,6 +282,17 @@ _gdk_riscos_window_create_gl_context (GdkWindow    *window,
   return GDK_GL_CONTEXT (context);
 }
 
+/* GTK 3.24.52: whether @context is EGL's current one, so GDK can tell when
+ * something else (a program calling EGL itself) has changed it */
+gboolean
+_gdk_riscos_display_is_gl_context_current (GdkDisplay   *display,
+                                           GdkGLContext *context)
+{
+  if (!egl.ok || eglGetCurrentContext == NULL)
+    return FALSE;
+  return GDK_RISCOS_GL_CONTEXT (context)->egl_context == eglGetCurrentContext ();
+}
+
 gboolean
 _gdk_riscos_display_make_gl_context_current (GdkDisplay   *display,
                                              GdkGLContext *context)

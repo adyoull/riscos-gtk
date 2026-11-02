@@ -1,6 +1,6 @@
 | !Run for !Gnumeric - Gnumeric, the spreadsheet (GTK 3), on RISC OS
 | A UnixLib program converted to Absolute (AIF), statically linked with GTK
-| 3.24.41 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,
+| 3.24.52 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,
 | ARMEABISupport and Iconv (PackMan). It runs as a normal Wimp task.
 Set Gnumeric$Dir <Obey$Dir>
 | GOffice (Gnumeric's charts and formats) finds its plugins' descriptions here

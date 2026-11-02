@@ -12,7 +12,7 @@ so shared libraries aren't possible today.
 |---|---|---|
 | The program itself | L3afpad: GPL v2 or later. Claws Mail: GPL v3 or later. Geany: GPL v2 or later. mtPaint: GPL v3 or later. Gnumeric (with GOffice): GPL v2 or v3. AbiWord: GPL v2 or later. GTKThemeTest, GTKGLTest: MIT | GPL: the complete corresponding source, under the GPL |
 | riscos-gtk's own code: the GDK backend `gdk/riscos/`, `gtk/riscos/`, `cairo/`, the patches, `apps/*/riscos-*.c` | LGPL 2.1+ (backend code that becomes part of GTK); GPL as the program (`apps/`); MIT (the rest) | Source, as part of the library or program it belongs to |
-| GTK 3.24.41, GLib 2.80, pango, ATK, gdk-pixbuf, fribidi | LGPL 2.1 or later | See "the LGPL and static linking" below |
+| GTK 3.24.52, GLib 2.80, pango, ATK, gdk-pixbuf, fribidi | LGPL 2.1 or later | See "the LGPL and static linking" below |
 | cairo 1.18 | LGPL 2.1 or MPL 1.1 | Taken as LGPL 2.1 |
 | harfbuzz, pixman, expat, fontconfig, libffi, libepoxy, zlib, libpng, libjpeg-turbo, FreeType, PCRE2 | MIT, BSD, zlib, libpng, IJG or FreeType licences | The notices (LICENCES.md) |
 | Claws Mail only: Nettle 3.10.2 | LGPL 3 or GPL 2 | Covered by the GPL program's source |
@@ -32,7 +32,7 @@ so shared libraries aren't possible today.
 | AbiWord only: librevenge 0.0.5, libwpd 0.10.3, libwps 0.4.14 (WordPerfect and Works files) | MPL 2.0 or LGPL 2.1 or later | Taken as LGPL 2.1, as the other LGPL libraries |
 | AbiWord only: GtkMathView 0.8.0 (equations: its core and libxml2 front end) | LGPL 3 or later | As the other LGPL libraries, below |
 | AbiWord only: TeX's Computer Modern fonts cmr10, cmmi10, cmsy10, cmex10 (BaKoMa's TrueType versions, from LyX's fonts-lyx package; `fonts` in the package) | The BaKoMa Fonts Licence (free to copy and distribute with its notice) | Its notice: `fonts.LicenceBaKoMa` in the package |
-| AbiWord only: GOffice 0.10.57 and its chart plugins (charts) | GPL 2 or 3 | Covered by the GPL program's source |
+| AbiWord only: GOffice 0.10.62 and its chart plugins (charts) | GPL 2 or 3 | Covered by the GPL program's source |
 | AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
 | AbiWord and ClawsMail: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
 | GTKGLTest only: riscos-mesa (Mesa 20.3.5) | MIT | The notice; source: riscos-mesa's release |

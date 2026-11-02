@@ -107,7 +107,7 @@ sed -e "s|@RISCOS_GTK_RELEASE@|$RELEASE|g" -e "s|@RISCOS_GTK_SOURCE_URL@|$SOURCE
 
 {
   echo "riscos-gtk devkit $RELEASE"
-  echo "GTK 3.24.41, riscos-gtk commit $COMMIT$DIRTY"
+  echo "GTK 3.24.52, riscos-gtk commit $COMMIT$DIRTY"
   echo "built with riscos-crossdev $(cd "$RCD_DIR" && git describe --tags 2>/dev/null || echo 1.3), UnixLib ${UNIXLIB_VERSION:-unknown}"
   echo "source: $SOURCE_URL"
   echo "built $(date -u +%Y-%m-%dT%H:%MZ)"

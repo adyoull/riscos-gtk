@@ -23,6 +23,8 @@ GdkGLContext *_gdk_riscos_window_create_gl_context        (GdkWindow    *window,
                                                            gboolean      attached,
                                                            GdkGLContext *share,
                                                            GError      **error);
+gboolean      _gdk_riscos_display_is_gl_context_current (GdkDisplay   *display,
+                                                         GdkGLContext *context);
 gboolean      _gdk_riscos_display_make_gl_context_current (GdkDisplay   *display,
                                                            GdkGLContext *context);
 

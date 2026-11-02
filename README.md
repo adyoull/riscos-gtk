@@ -24,7 +24,7 @@ Two real programs come with it: **!L3afpad**, a text editor, and
 AcornSSL; HTML mail; links open in Iris or NetSurf). **!Geany**, the
 programmer's editor (Geany 2.1), is a demo of a large program built
 against the devkit, **!mtPaint** a painting program (mtPaint 3.50.14), and
-**!Gnumeric** a spreadsheet (Gnumeric 1.12.57), and **!AbiWord** a word processor (AbiWord
+**!Gnumeric** a spreadsheet (Gnumeric 1.12.62), and **!AbiWord** a word processor (AbiWord
 3.0.8). **!GTKThemeTest** shows every common widget, and
 **!GTKGLTest** a GtkGLArea.
 

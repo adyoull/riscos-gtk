@@ -9,7 +9,7 @@
 #   make claws      out/ClawsMail-<v>.zip
 #   make geany      out/Geany-<v>.zip: the Geany 2.1 demo
 #   make mtpaint    out/mtPaint-<v>.zip: mtPaint 3.50.14
-#   make gnumeric   out/Gnumeric-<v>.zip: Gnumeric 1.12.57 (a test build)
+#   make gnumeric   out/Gnumeric-<v>.zip: Gnumeric 1.12.62 (a test build)
 #   make emoji      out/TTF-Noto-Color-Emoji-<v>.zip: the optional colour
 #                   emoji font, a PackMan package for UnixFont (needs
 #                   FontConfig; build/build-emoji.sh)

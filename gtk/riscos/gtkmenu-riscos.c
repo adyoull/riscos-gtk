@@ -4,7 +4,7 @@
  * Copied into GTK's gtk/ folder by riscos-gtk's build; gtkmenu.c calls
  * _gtk_menu_riscos_popup () at the start of gtk_menu_popup_internal () and
  * _gtk_menu_riscos_popdown () from gtk_menu_popdown () when the display is
- * the RISC OS one (patches/gtk+3.0-3.24.41-riscos.diff).
+ * the RISC OS one (patches/gtk+3.0-3.24.52-riscos.diff).
  *
  * Instead of GTK's own pop-up window, the menu's items become a Wimp menu
  * block: text in the Wimp's alphabet, keyboard short-cuts in a column,

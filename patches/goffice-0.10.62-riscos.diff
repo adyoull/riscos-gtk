@@ -1,0 +1,3529 @@
+diff -ruN a/goffice/goffice.c b/goffice/goffice.c
+--- a/goffice/goffice.c	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/goffice.c	2026-11-02 09:04:04.628423823 +0000
+@@ -194,6 +194,20 @@
+     }
+ #endif /* GTKOSXAPPLICATION */
+ #endif
++#if defined __riscos__ || defined GO_RISCOS_UI
++	/* riscos-gtk: GOffice's files (plugins) are in the program's
++	 * application directory: GOFFICE_DIR, else /<GOffice$Dir> (set by
++	 * the program's !Run; UnixLib reads the variable) */
++	{
++	char const *dir = g_getenv ("GOFFICE_DIR");
++	if (dir == NULL)
++		dir = "/<GOffice$Dir>";
++	libgoffice_data_dir = g_build_filename (dir, "share", NULL);
++	libgoffice_icon_dir = g_build_filename (dir, "pixmaps", NULL);
++	libgoffice_locale_dir = g_build_filename (dir, "locale", NULL);
++	libgoffice_lib_dir = g_build_filename (dir, "lib", NULL);
++	}
++#endif
+ 
+ 	bindtextdomain (GETTEXT_PACKAGE, libgoffice_locale_dir);
+ 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
+diff -ruN a/goffice/gtk/go-combo-box.c b/goffice/gtk/go-combo-box.c
+--- a/goffice/gtk/go-combo-box.c	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/gtk/go-combo-box.c	2026-11-02 09:04:04.656137538 +0000
+@@ -216,6 +216,18 @@
+ 	combo_box->priv->updating_buttons = FALSE;
+ }
+ 
++/* riscos-gtk: with no current event (a delete event from the window
++ * manager, say) there's no event device: the display's seat instead */
++static void
++combo_seat_ungrab (GtkWidget *w)
++{
++	GdkDevice *device = gtk_get_current_event_device ();
++	GdkSeat *seat = device ? gdk_device_get_seat (device)
++		: gdk_display_get_default_seat (gtk_widget_get_display (w));
++	if (seat)
++		gdk_seat_ungrab (seat);
++}
++
+ static void
+ go_combo_box_popup_hide_unconditional (GOComboBox *combo_box)
+ {
+@@ -232,7 +244,7 @@
+ 
+ 	do_focus_change (combo_box->priv->toplevel, FALSE);
+ 	gtk_grab_remove (combo_box->priv->toplevel);
+-	gdk_seat_ungrab (gdk_device_get_seat (gtk_get_current_event_device ()));
++	combo_seat_ungrab (combo_box->priv->toplevel);
+ 
+ 	pdc = (GObject *)g_object_ref (combo_box->priv->popdown_container);
+ 	g_signal_emit (combo_box,
+@@ -408,7 +420,7 @@
+ 		gtk_widget_hide (combo->priv->toplevel);
+ 
+ 		gtk_grab_remove (combo->priv->toplevel);
+-		gdk_seat_ungrab (gdk_device_get_seat (gtk_get_current_event_device ()));
++		combo_seat_ungrab (combo->priv->toplevel);
+ 	}
+ 
+ 	go_combo_popup_reparent (combo->priv->popup,
+diff -ruN a/goffice/gtk/goffice-gtk.c b/goffice/gtk/goffice-gtk.c
+--- a/goffice/gtk/goffice-gtk.c	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/gtk/goffice-gtk.c	2026-11-02 09:04:04.628664948 +0000
+@@ -1267,6 +1267,32 @@
+ static void
+ go_help_display (CBHelpPaths const *paths, GdkScreen *screen)
+ {
++#if defined __riscos__ || defined GO_RISCOS_UI
++	/* riscos-gtk: the manual is HTML in the application, a file for each
++	 * section named by its id (data_dir/doc/C/ID.html, tools/
++	 * mkgnumerichelp.py), opened as the Filer would (a browser) */
++	{
++		char *leaf = g_strconcat (paths->link && *paths->link ? paths->link : "index", ".html", NULL);
++		char *path = g_build_filename (paths->data_dir, "doc", "C", leaf, NULL);
++		char *uri;
++		GError *err;
++
++		if (!g_file_test (path, G_FILE_TEST_EXISTS)) {
++			g_free (path);
++			path = g_build_filename (paths->data_dir, "doc", "C", "index.html", NULL);
++		}
++		uri = g_filename_to_uri (path, NULL, NULL);
++		err = uri ? go_gtk_url_show (uri, screen) : NULL;
++		if (err) {
++			go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR, "%s", err->message);
++			g_error_free (err);
++		}
++		g_free (uri);
++		g_free (path);
++		g_free (leaf);
++		return;
++	}
++#endif
+ #if defined(G_OS_WIN32)
+ 	static GHashTable* context_help_map = NULL;
+ 	guint id;
+diff -ruN a/goffice/gtk/goffice-gtk.c.orig b/goffice/gtk/goffice-gtk.c.orig
+--- a/goffice/gtk/goffice-gtk.c.orig	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/gtk/goffice-gtk.c.orig	2026-11-02 09:04:04.628918131 +0000
+@@ -0,0 +1,1983 @@
++/*
++ * goffice-gtk.c: Misc gtk utilities
++ *
++ * Copyright (C) 2004 Jody Goldberg (jody@gnome.org)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) version 3.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
++ * USA
++ */
++
++#include <goffice/goffice-config.h>
++#include <goffice/goffice.h>
++#include <goffice/goffice-priv.h>
++
++#include <gdk/gdkkeysyms.h>
++
++#include <atk/atkrelation.h>
++#include <atk/atkrelationset.h>
++#include <glib/gi18n-lib.h>
++#include <glib/gstdio.h>
++#include <gsf/gsf-input-stdio.h>
++#include <gsf/gsf-input-textline.h>
++#include <gsf/gsf-input-memory.h>
++
++#include <string.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
++#include <errno.h>
++
++#define PREVIEW_HSIZE 150
++#define PREVIEW_VSIZE 150
++
++#ifndef GDK_KEY_Escape
++#       define GDK_KEY_Escape GDK_Escape
++#endif
++
++/* ------------------------------------------------------------------------- */
++
++
++/**
++ * go_gtk_button_build_with_stock:
++ * @text: button label
++ * @stock_id: icon name (or stock id)
++ *
++ * Creates a new GtkButton with custom label and stock image.
++ *
++ * Since: 0.9.9
++ * Returns: (transfer full): newly created button
++ **/
++GtkWidget*
++go_gtk_button_build_with_stock (char const *text, char const* stock_id)
++{
++	GtkStockItem item;
++	GtkWidget *button = gtk_button_new_with_mnemonic (text);
++	if (gtk_stock_lookup (stock_id, &item))
++		gtk_button_set_image (GTK_BUTTON (button),
++			gtk_image_new_from_stock (stock_id, GTK_ICON_SIZE_BUTTON));
++	else
++		gtk_button_set_image (GTK_BUTTON (button),
++				      gtk_image_new_from_icon_name (stock_id, GTK_ICON_SIZE_BUTTON));
++	return button;
++}
++
++/**
++ * go_gtk_button_new_with_stock:
++ * @text: button label
++ * @stock_id: id for stock icon
++ *
++ * Creates a new GtkButton with custom label and stock image.
++ *
++ * Deprecated: 0.9.6., use go_gtk_button_build_with_stock().
++ * Returns: (transfer full): newly created button
++ **/
++GtkWidget*
++go_gtk_button_new_with_stock (char const *text, char const* stock_id)
++{
++	return go_gtk_button_build_with_stock (text, stock_id);
++}
++
++/**
++ * go_gtk_dialog_add_button:
++ * @dialog: dialog you want to add a button
++ * @text: button label
++ * @stock_id: stock icon id
++ * @response_id: respond id when button clicked
++ *
++ * Creates and adds a button with stock image to the action area of an existing dialog.
++ *
++ * Returns: (transfer none): newly created button
++ **/
++GtkWidget*
++go_gtk_dialog_add_button (GtkDialog *dialog, char const* text, char const* stock_id,
++			  gint response_id)
++{
++	GtkWidget *button;
++
++	g_return_val_if_fail (GTK_IS_DIALOG (dialog), NULL);
++	g_return_val_if_fail (text != NULL, NULL);
++	g_return_val_if_fail (stock_id != NULL, NULL);
++
++	button = go_gtk_button_build_with_stock (text, stock_id);
++	g_return_val_if_fail (button != NULL, NULL);
++
++	gtk_widget_set_can_default (button, TRUE);
++
++	gtk_widget_show (button);
++
++	gtk_dialog_add_action_widget (dialog, button, response_id);
++
++	return button;
++}
++
++
++/**
++ * apply_ui_from_file:
++ * @gui: #GtkBuilder
++ * @src: (transfer full): #GsfInput source
++ * @uifile: (nullable): filename of the UI file
++ * @error: (nullable): location to store error
++ *
++ * A helper function to load UI data from a #GsfInput. Handles uncompression
++ * and optionally loads from file if uncompressed to support relative paths.
++ * This function takes ownership of @src.
++ *
++ * Returns: %TRUE on success.
++ **/
++static gboolean
++apply_ui_from_file (GtkBuilder *gui, GsfInput *src, const char *uifile,
++		    GError **error)
++{
++	gboolean res;
++	GsfInput *orig_src;
++
++	if (!src)
++		return FALSE;
++
++	orig_src = g_object_ref (src);
++	src = gsf_input_uncompress (src);
++	if (uifile && src == orig_src) {
++		/*
++		 * This is sad, but see bugs 662503 and 662679.  Since
++		 * ui files can contain relative filenames we must use
++		 * the _file interface to load such files.  Do not
++		 * compress such files for the time being.
++		 */
++		res = gtk_builder_add_from_file (gui, uifile, error);
++	} else {
++		size_t size = gsf_input_size (src);
++		gconstpointer data = gsf_input_read (src, size, NULL);
++		res = gtk_builder_add_from_string (gui, data, size, error);
++	}
++	g_object_unref (src);
++	g_object_unref (orig_src);
++	return res;
++}
++
++
++/**
++ * go_gtk_builder_load:
++ * @uifile: the name of the file load
++ * @domain: (nullable): the translation domain
++ * @gcc: (nullable): #GOCmdContext
++ *
++ * Simple utility to open ui files. @uifile should be one of these:
++ *
++ * res:NAME  -- data from resource manager
++ * data:DATA -- data right here
++ * filename  -- data from local file
++ *
++ * Data may be compressed, regardless of source.
++ *
++ * Since 0.9.6
++ * Returns: (transfer full): a new #GtkBuilder or %NULL
++ **/
++GtkBuilder *
++go_gtk_builder_load (char const *uifile,
++		     char const *domain, GOCmdContext *gcc)
++{
++	GtkBuilder *gui;
++	GError *error = NULL;
++	gboolean ok = FALSE;
++
++	g_return_val_if_fail (uifile != NULL, NULL);
++
++	gui = gtk_builder_new ();
++	if (domain)
++		gtk_builder_set_translation_domain (gui, domain);
++
++	if (strncmp (uifile, "res:", 4) == 0) {
++		const char *resname = uifile + 4;
++		size_t len;
++		gconstpointer data;
++		GsfInput *src;
++		GBytes *bytes = NULL;
++
++		// First try go resources
++		data = go_rsm_lookup (resname, &len);
++
++		// Then try glib
++		if (!data) {
++			bytes = g_resources_lookup_data (resname, 0, NULL);
++			if (bytes) {
++				data = g_bytes_get_data (bytes, NULL);
++				len = g_bytes_get_size (bytes);
++			}
++		}
++
++		src = data
++			? gsf_input_memory_new (data, len, FALSE)
++			: NULL;
++		ok = apply_ui_from_file (gui, src, NULL, &error);
++
++		if (bytes)
++			g_bytes_unref (bytes);
++	} else if (strncmp (uifile, "data:", 5) == 0) {
++		const char *data = uifile + 5;
++		GsfInput *src = gsf_input_memory_new (data, strlen (data), FALSE);
++		ok = apply_ui_from_file (gui, src, NULL, &error);
++	} else {
++		/* we need to set the current directory so that the builder can find pixbufs */
++		GsfInput *src = gsf_input_stdio_new (uifile, &error);
++		ok = apply_ui_from_file (gui, src, uifile, &error);
++	}
++
++	if (!ok) {
++		g_object_unref (gui);
++		gui = NULL;
++	}
++
++	if (gui == NULL && gcc != NULL) {
++		char *msg;
++		if (error) {
++			msg = g_strdup (error->message);
++			g_error_free (error);
++		} else
++			msg = g_strdup_printf (_("Unable to open file '%s'"), uifile);
++		go_cmd_context_error_system (gcc, msg);
++		g_free (msg);
++	} else if (error)
++		g_error_free (error);
++
++	if (gui && go_debug_flag ("leaks")) {
++		GSList *l, *objs = gtk_builder_get_objects (gui);
++		for (l = objs; l; l = l->next) {
++			GObject *obj = l->data;
++			/* Darn -- cannot access object name! */
++			char *name = g_strdup_printf ("Anonymous from %s", uifile);
++			go_debug_check_finalized (obj, name);
++			g_free (name);
++		}
++		g_slist_free (objs);
++	}
++
++	return gui;
++}
++
++
++/**
++ * go_gtk_builder_new:
++ * @uifile: the name of the file load
++ * @domain: (nullable): the translation domain
++ * @gcc: (nullable): #GOCmdContext
++ *
++ * Simple utility to open ui files.
++ *
++ * Deprecated: 0.9.6, use go_gtk_builder_load().
++ * Returns: (transfer full): a new #GtkBuilder or %NULL
++ **/
++GtkBuilder *
++go_gtk_builder_new (char const *uifile,
++		    char const *domain, GOCmdContext *gcc)
++{
++	return go_gtk_builder_load (uifile, domain, gcc);
++}
++
++/**
++ * go_gtk_builder_load_internal:
++ * @uifile: the name of the file load
++ * @domain: (nullable): the translation domain
++ * @gcc: (nullable): #GOCmdContext
++ *
++ * Variant of go_gtk_builder_load() that searches goffice directories
++ * for files. @uifile should be one of these:
++ *
++ * res:NAME  -- data from resource manager
++ * data:DATA -- data right here
++ * filename  -- data from local file
++ *
++ * Data may be compressed, regardless of source.
++ *
++ * Since: 0.9.6
++ * Returns: (transfer full): a new #GtkBuilder or %NULL
++ **/
++GtkBuilder *
++go_gtk_builder_load_internal (char const *uifile,
++			      char const *domain, GOCmdContext *gcc)
++{
++	char *f;
++	GtkBuilder *res;
++
++	if (g_path_is_absolute (uifile) ||
++	    strncmp (uifile, "res:", 4) == 0 ||
++	    strncmp (uifile, "data:", 5) == 0)
++		return go_gtk_builder_load (uifile, domain, gcc);
++
++	f = g_build_filename (go_sys_data_dir (), "ui", uifile, NULL);
++	res = go_gtk_builder_load (f, domain, gcc);
++	g_free (f);
++
++	return res;
++}
++
++/**
++ * go_gtk_builder_signal_connect:
++ * @gui: #GtkBuilder
++ * @instance_name: widget name
++ * @detailed_signal: signal name
++ * @c_handler: (scope async): #GCallback
++ * @data: arbitrary data
++ *
++ * Convenience wrapper around g_signal_connect() for GtkBuilder.
++ *
++ * Returns: the signal id.
++ **/
++gulong
++go_gtk_builder_signal_connect	(GtkBuilder	*gui,
++				 gchar const	*instance_name,
++				 gchar const	*detailed_signal,
++				 GCallback	 c_handler,
++				 gpointer	 data)
++{
++	GObject *obj;
++	g_return_val_if_fail (gui != NULL, 0);
++	obj = gtk_builder_get_object (gui, instance_name);
++	g_return_val_if_fail (obj != NULL, 0);
++	return g_signal_connect (obj, detailed_signal, c_handler, data);
++}
++
++/**
++ * go_gtk_builder_signal_connect_swapped:
++ * @gui: #GtkBuilder
++ * @instance_name: widget name
++ * @detailed_signal: signal name
++ * @c_handler: (scope async): #GCallback
++ * @data: arbitrary data
++ *
++ * Convenience wrapper around g_signal_connect_swapped() for GtkBuilder.
++ *
++ * Returns: the signal id.
++ **/
++gulong
++go_gtk_builder_signal_connect_swapped (GtkBuilder	*gui,
++				       gchar const	*instance_name,
++				       gchar const	*detailed_signal,
++				       GCallback	 c_handler,
++				       gpointer	 data)
++{
++	GObject *obj;
++	g_return_val_if_fail (gui != NULL, 0);
++	obj = gtk_builder_get_object (gui, instance_name);
++	g_return_val_if_fail (obj != NULL, 0);
++	return g_signal_connect_swapped (obj, detailed_signal, c_handler, data);
++}
++
++/**
++ * go_gtk_builder_get_widget:
++ * @gui: the #GtkBuilder
++ * @widget_name: the name of the widget
++ *
++ * Simple wrapper around gtk_builder_get_object() which returns the object
++ * as a #GtkWidget.
++ *
++ * Returns: (transfer none): the widget or %NULL.
++ **/
++GtkWidget *
++go_gtk_builder_get_widget (GtkBuilder *gui, char const *widget_name)
++{
++	return GTK_WIDGET (gtk_builder_get_object (gui, widget_name));
++}
++
++/**
++ * go_gtk_builder_combo_box_init_text:
++ * @gui: the #GtkBuilder
++ * @widget_name: the name of the combo box in the ui file.
++ *
++ * Searches the #GtkComboBox in @gui and ensures it has a model and a
++ * renderer appropriate for using with #gtk_combo_box_append_text and friends.
++ *
++ * Returns: (transfer none): the #GtkComboBox or %NULL.
++ **/
++GtkComboBox *
++go_gtk_builder_combo_box_init_text (GtkBuilder *gui, char const *widget_name)
++{
++	GtkComboBox *box;
++	GList *cells;
++	g_return_val_if_fail (gui != NULL, NULL);
++	box = GTK_COMBO_BOX (gtk_builder_get_object (gui, widget_name));
++	/* search for the model and create one if none exists */
++	g_return_val_if_fail (box != NULL, NULL);
++	if (gtk_combo_box_get_model (box) == NULL) {
++		GtkListStore *store = gtk_list_store_new (1, G_TYPE_STRING);
++		gtk_combo_box_set_model (box, GTK_TREE_MODEL (store));
++		g_object_unref (store);
++	}
++	cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (box));
++	if (g_list_length (cells) == 0) {
++		/* populate the cell layout */
++		GtkCellRenderer *cell = gtk_cell_renderer_text_new ();
++		gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (box), cell, TRUE);
++		gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (box), cell,
++						"text", 0, NULL);
++	}
++	g_list_free (cells);
++	return box;
++}
++
++/**
++ * go_gtk_combo_box_append_text:
++ * @combo: #GtkComboBox
++ * @str: text item to append
++ *
++ * Appends @str to @combo.
++ **/
++void
++go_gtk_combo_box_append_text (GtkComboBox *combo, char const *str)
++{
++	GtkListStore *model;
++	GtkTreeIter iter;
++
++	g_return_if_fail (GTK_IS_COMBO_BOX (combo));
++	g_return_if_fail (str != NULL);
++
++	model = GTK_LIST_STORE (gtk_combo_box_get_model (combo));
++	gtk_list_store_append (model, &iter);
++	gtk_list_store_set (model, &iter, 0, str, -1);
++}
++
++/**
++ * go_gtk_combo_box_remove_text:
++ * @combo: #GtkComboBox
++ * @position: index of text to remove
++ *
++ * Removes text item at @position from @combo.
++ **/
++void
++go_gtk_combo_box_remove_text (GtkComboBox *combo, int position)
++{
++	GtkTreeModel *model;
++	GtkListStore *store;
++	GtkTreeIter iter;
++
++	g_return_if_fail (GTK_IS_COMBO_BOX_TEXT (combo));
++	g_return_if_fail (position >= 0);
++
++	model = gtk_combo_box_get_model (GTK_COMBO_BOX (combo));
++	store = GTK_LIST_STORE (model);
++	g_return_if_fail (GTK_IS_LIST_STORE (store));
++
++	if (gtk_tree_model_iter_nth_child (model, &iter, NULL, position))
++		gtk_list_store_remove (store, &iter);
++}
++
++/**
++ * go_gtk_builder_group_value:
++ * @gui: #GtkBuilder
++ * @group: (array zero-terminated=1): names of radio buttons
++ *
++ * Returns: the index of the active radio button in @group, or -1.
++ **/
++int
++go_gtk_builder_group_value (GtkBuilder *gui, char const * const group[])
++{
++	int i;
++	for (i = 0; group[i]; i++) {
++		GtkWidget *w = go_gtk_builder_get_widget (gui, group[i]);
++		if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (w)))
++			return i;
++	}
++	return -1;
++}
++
++/*
++ * A variant of gtk_window_activate_default that does not end up reactivating
++ * the widget that [Enter] was pressed in.
++ */
++static void
++cb_activate_default (GtkWindow *window)
++{
++	GtkWidget *w = gtk_window_get_default_widget (window);
++	if (w && gtk_widget_is_sensitive (w))
++		gtk_widget_activate (w);
++}
++
++/**
++ * go_gtk_editable_enters:
++ * @window: #GtkWindow
++ * @w:  #GtkWidget
++ *
++ * Normally if there's an editable widget (such as #GtkEntry) in your
++ * dialog, pressing Enter will activate the editable rather than the
++ * default dialog button. However, in most cases, the user expects to
++ * type something in and then press enter to close the dialog. This
++ * function enables that behavior.
++ **/
++void
++go_gtk_editable_enters (GtkWindow *window, GtkWidget *w)
++{
++	g_return_if_fail (GTK_IS_WINDOW (window));
++	g_signal_connect_swapped (G_OBJECT (w),
++		"activate",
++		G_CALLBACK (cb_activate_default), window);
++}
++
++/**
++ * go_gtk_widget_replace:
++ * @victim: #GtkWidget to be replaced
++ * @replacement: #GtkWidget to replace @victim
++ *
++ * Replaces @victim by @replacement in @victim's parent container.
++ **/
++void
++go_gtk_widget_replace (GtkWidget *victim, GtkWidget *replacement)
++{
++	GtkContainer *parent = GTK_CONTAINER (gtk_widget_get_parent (victim));
++
++	if (GTK_IS_GRID (parent)) {
++		int col, row, width, height;
++		gtk_container_child_get (parent,
++					 victim,
++					 "left-attach", &col,
++					 "top-attach", &row,
++					 "width", &width,
++					 "height", &height,
++					 NULL);
++		gtk_container_remove (parent, victim);
++		gtk_grid_attach (GTK_GRID (parent), replacement,
++				 col, row, width, height);
++	} else if (GTK_IS_BOX (parent)) {
++		GtkBox *box = GTK_BOX (parent);
++		gboolean expand, fill;
++		guint padding;
++		GtkPackType pack_type;
++		int pos;
++
++		gtk_box_query_child_packing (box, victim,
++					     &expand, &fill,
++					     &padding, &pack_type);
++		gtk_container_child_get (parent, victim,
++					 "position", &pos,
++					 NULL);
++		gtk_container_remove (parent, victim);
++		gtk_container_add (parent, replacement);
++		gtk_box_set_child_packing (box, replacement,
++					   expand, fill,
++					   padding, pack_type);
++		gtk_box_reorder_child (box, replacement, pos);
++	} else {
++		g_error ("Unsupported container: %s",
++			 g_type_name_from_instance ((gpointer)parent));
++	}
++}
++
++struct go_gtk_grid_data {
++	GtkWidget *child;
++	int top_attach, left_attach, height, width;
++};
++
++static GList *
++get_grid_data (GtkGrid *grid)
++{
++	GtkContainer *cont = GTK_CONTAINER (grid);
++	GList *children = gtk_container_get_children (cont);
++	GList *p;
++
++	for (p = children; p; p = p->next) {
++		GtkWidget *child = p->data;
++		struct go_gtk_grid_data *data = g_new (struct go_gtk_grid_data, 1);
++		data->child = child;
++		gtk_container_child_get (cont, child,
++					 "top-attach", &data->top_attach,
++					 "height", &data->height,
++					 "left-attach", &data->left_attach,
++					 "width", &data->width,
++					 NULL);
++		p->data = data;
++	}
++
++	return children;
++}
++
++static int
++by_row (struct go_gtk_grid_data *a, struct go_gtk_grid_data *b)
++{
++	return a->top_attach - b->top_attach;
++}
++
++
++/**
++ * go_gtk_grid_remove_row:
++ * @grid: #GtkGrid
++ * @row: row index
++ *
++ * Removes a row from @grid and shifts subsequent rows up.
++ **/
++void
++go_gtk_grid_remove_row (GtkGrid *grid, int row)
++{
++	GtkContainer *cont = GTK_CONTAINER (grid);
++	GList *children =
++		g_list_sort (get_grid_data (grid), (GCompareFunc)by_row);
++	GList *p;
++
++	for (p = children; p; p = p->next) {
++		struct go_gtk_grid_data *data = p->data;
++
++		if (data->top_attach <= row &&
++		    data->top_attach + data->height > row)
++			data->height--;
++
++		if (data->top_attach > row)
++			data->top_attach--;
++
++		if (data->height <= 0)
++			gtk_container_remove (cont, data->child);
++		else
++			gtk_container_child_set (cont, data->child,
++						 "height", data->height,
++						 "top-attach", data->top_attach,
++						 NULL);
++	}
++	g_list_free_full (children, (GDestroyNotify)g_free);
++}
++
++
++/**
++ * go_gtk_widget_disable_focus:
++ * @w: #GtkWidget
++ *
++ * Convenience wrapper to disable focus on a widgets and, if it is
++ * a container, of its children.
++ **/
++void
++go_gtk_widget_disable_focus (GtkWidget *w)
++{
++	if (GTK_IS_CONTAINER (w))
++		gtk_container_foreach (GTK_CONTAINER (w),
++			(GtkCallback) go_gtk_widget_disable_focus, NULL);
++	gtk_widget_set_can_focus (w, FALSE);
++}
++
++static void
++cb_parent_mapped (GtkWidget *parent, GtkWindow *window)
++{
++	if (gtk_widget_get_mapped (GTK_WIDGET (window))) {
++		gtk_window_present (window);
++		g_signal_handlers_disconnect_by_func (G_OBJECT (parent),
++			G_CALLBACK (cb_parent_mapped), window);
++	}
++}
++
++/**
++ * go_gtk_window_set_transient:
++ * @toplevel: The calling window
++ * @window: the transient window
++ *
++ * Make the window a child of the workbook in the command context, if there is
++ * one.  The function duplicates the positioning functionality in
++ * gnome_dialog_set_parent, but does not require the transient window to be
++ * a GnomeDialog.
++ **/
++void
++go_gtk_window_set_transient (GtkWindow *toplevel, GtkWindow *window)
++{
++#if 0
++	GtkWindowPosition position = gnome_preferences_get_dialog_position(); */
++	if (position == GTK_WIN_POS_NONE)
++		position = GTK_WIN_POS_CENTER_ON_PARENT;
++#else
++	GtkWindowPosition position = GTK_WIN_POS_CENTER_ON_PARENT;
++#endif
++
++	g_return_if_fail (GTK_IS_WINDOW (toplevel));
++	g_return_if_fail (GTK_IS_WINDOW (window));
++
++	gtk_window_set_transient_for (window, toplevel);
++
++	gtk_window_set_position (window, position);
++
++	if (!gtk_widget_get_mapped (GTK_WIDGET (toplevel)))
++		g_signal_connect_after (G_OBJECT (toplevel),
++			"map",
++			G_CALLBACK (cb_parent_mapped), window);
++}
++
++static gint
++cb_non_modal_dialog_keypress (GtkWidget *w, GdkEventKey *e)
++{
++	if(e->keyval == GDK_KEY_Escape) {
++		gtk_widget_destroy (w);
++		return TRUE;
++	}
++
++	return FALSE;
++}
++
++/**
++ * go_gtk_nonmodal_dialog:
++ * @toplevel: #GtkWindow
++ * @dialog: #GtkWindow
++ *
++ * Utility to set @dialog as a transient of @toplevel
++ * and to set up a handler for "Escape"
++ **/
++void
++go_gtk_nonmodal_dialog (GtkWindow *toplevel, GtkWindow *dialog)
++{
++	go_gtk_window_set_transient (toplevel, dialog);
++	g_signal_connect (G_OBJECT (dialog),
++		"key-press-event",
++		G_CALLBACK (cb_non_modal_dialog_keypress), NULL);
++}
++
++static void
++fsel_response_cb (GtkFileChooser *dialog, gint response_id, gboolean *result)
++{
++	if (response_id == GTK_RESPONSE_OK) {
++		char *uri = gtk_file_chooser_get_uri (dialog);
++
++		if (uri) {
++			g_free (uri);
++			*result = TRUE;
++		}
++	}
++
++	gtk_main_quit ();
++}
++
++static gint
++gu_delete_handler (GtkDialog *dialog,
++		   GdkEventAny *event,
++		   gpointer data)
++{
++	gtk_dialog_response (dialog, GTK_RESPONSE_CANCEL);
++	return TRUE; /* Do not destroy */
++}
++
++/**
++ * go_gtk_file_sel_dialog:
++ * @toplevel: #GtkWindow
++ * @w: #GtkWidget
++ *
++ * Runs a modal dialog to select a file.
++ *
++ * Returns: %TRUE if a file was selected.
++ **/
++gboolean
++go_gtk_file_sel_dialog (GtkWindow *toplevel, GtkWidget *w)
++{
++	gboolean result = FALSE;
++	gulong delete_handler;
++
++	g_return_val_if_fail (GTK_IS_WINDOW (toplevel), FALSE);
++	g_return_val_if_fail (GTK_IS_FILE_CHOOSER (w), FALSE);
++
++	gtk_window_set_modal (GTK_WINDOW (w), TRUE);
++	go_gtk_window_set_transient (toplevel, GTK_WINDOW (w));
++	g_signal_connect (w, "response",
++		G_CALLBACK (fsel_response_cb), &result);
++	delete_handler = g_signal_connect (w, "delete_event",
++		G_CALLBACK (gu_delete_handler), NULL);
++
++	gtk_widget_show (w);
++	gtk_grab_add (w);
++
++	gtk_main ();
++
++	g_signal_handler_disconnect (w, delete_handler);
++
++	return result;
++}
++
++static gboolean have_pixbufexts = FALSE;
++static GSList *pixbufexts = NULL;  /* FIXME: we leak this.  */
++
++static gboolean
++filter_images (const GtkFileFilterInfo *filter_info, gpointer data)
++{
++	if (filter_info->mime_type)
++		return strncmp (filter_info->mime_type, "image/", 6) == 0;
++
++	if (filter_info->display_name) {
++		GSList *l;
++		char const *ext = strrchr (filter_info->display_name, '.');
++		if (!ext) return FALSE;
++		ext++;
++
++		if (!have_pixbufexts) {
++			GSList *pixbuf_fmts = gdk_pixbuf_get_formats ();
++
++			for (l = pixbuf_fmts; l != NULL; l = l->next) {
++				GdkPixbufFormat *fmt = l->data;
++				gchar **support_exts = gdk_pixbuf_format_get_extensions (fmt);
++				int i;
++
++				for (i = 0; support_exts[i]; ++i)
++					pixbufexts = g_slist_prepend (pixbufexts,
++								      support_exts[i]);
++				/*
++				 * Use g_free here because the strings have been
++				 * taken by pixbufexts.
++				 */
++				g_free (support_exts);
++			}
++
++			g_slist_free (pixbuf_fmts);
++			have_pixbufexts = TRUE;
++		}
++
++		for (l = pixbufexts; l != NULL; l = l->next)
++			if (g_ascii_strcasecmp (l->data, ext) == 0)
++				return TRUE;
++	}
++
++	return FALSE;
++}
++
++static void
++update_preview_cb (GtkFileChooser *chooser)
++{
++	gchar *filename = gtk_file_chooser_get_preview_filename (chooser);
++	GtkWidget *label = g_object_get_data (G_OBJECT (chooser), "label-widget");
++	GtkWidget *image = g_object_get_data (G_OBJECT (chooser), "image-widget");
++
++	if (filename == NULL) {
++		gtk_widget_hide (image);
++		gtk_widget_hide (label);
++	} else if (g_file_test (filename, G_FILE_TEST_IS_DIR)) {
++		/* Not quite sure what to do here.  */
++		gtk_widget_hide (image);
++		gtk_widget_hide (label);
++	} else {
++		GOImage *buf;
++		gboolean dummy;
++
++		buf = go_image_new_from_file (filename, NULL);
++		if (buf) {
++			dummy = FALSE;
++		} else {
++			GdkScreen *screen = gtk_widget_get_screen (GTK_WIDGET (chooser));
++			buf = go_pixbuf_new_from_pixbuf (gtk_icon_theme_load_icon
++						(gtk_icon_theme_get_for_screen (screen),
++						 "unknown_image", 100, 0, NULL));
++			dummy = buf != NULL;
++		}
++
++		if (buf) {
++			GdkPixbuf *pixbuf = go_image_get_scaled_pixbuf (buf, PREVIEW_HSIZE, PREVIEW_VSIZE);
++			gtk_image_set_from_pixbuf (GTK_IMAGE (image), pixbuf);
++			g_object_unref (pixbuf);
++			gtk_widget_show (image);
++
++			if (dummy)
++				gtk_label_set_text (GTK_LABEL (label), "");
++			else {
++				int w = go_image_get_width (buf);
++				int h = go_image_get_height (buf);
++				char *size = g_strdup_printf (_("%d x %d"), w, h);
++				gtk_label_set_text (GTK_LABEL (label), size);
++				g_free (size);
++			}
++			gtk_widget_show (label);
++
++			g_object_unref (buf);
++		}
++	}
++
++	g_free (filename);
++}
++
++static GtkFileChooser *
++gui_image_chooser_new (gboolean is_save)
++{
++	GtkFileChooser *fsel;
++
++	fsel = GTK_FILE_CHOOSER
++		(g_object_new (GTK_TYPE_FILE_CHOOSER_DIALOG,
++			       "action", is_save ? GTK_FILE_CHOOSER_ACTION_SAVE : GTK_FILE_CHOOSER_ACTION_OPEN,
++			       "local-only", FALSE,
++			       "use-preview-label", FALSE,
++			       NULL));
++	gtk_dialog_add_buttons (GTK_DIALOG (fsel),
++				GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
++				is_save ? GTK_STOCK_SAVE : GTK_STOCK_OPEN,
++				GTK_RESPONSE_OK,
++				NULL);
++	gtk_dialog_set_default_response (GTK_DIALOG (fsel), GTK_RESPONSE_OK);
++	/* Filters */
++	{
++		GtkFileFilter *filter;
++
++		filter = gtk_file_filter_new ();
++		gtk_file_filter_set_name (filter, _("All Files"));
++		gtk_file_filter_add_pattern (filter, "*");
++		gtk_file_chooser_add_filter (fsel, filter);
++
++		filter = gtk_file_filter_new ();
++		gtk_file_filter_set_name (filter, _("Images"));
++		gtk_file_filter_add_custom (filter, GTK_FILE_FILTER_MIME_TYPE,
++					    filter_images, NULL, NULL);
++		gtk_file_chooser_add_filter (fsel, filter);
++		/* Make this filter the default */
++		gtk_file_chooser_set_filter (fsel, filter);
++	}
++
++	/* Preview */
++	{
++		GtkWidget *vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
++		GtkWidget *preview_image = gtk_image_new ();
++		GtkWidget *preview_label = gtk_label_new ("");
++
++		g_object_set_data (G_OBJECT (fsel), "image-widget", preview_image);
++		g_object_set_data (G_OBJECT (fsel), "label-widget", preview_label);
++
++		gtk_widget_set_size_request (vbox, PREVIEW_HSIZE, -1);
++
++		gtk_box_pack_start (GTK_BOX (vbox), preview_image, FALSE, FALSE, 0);
++		gtk_box_pack_start (GTK_BOX (vbox), preview_label, FALSE, FALSE, 0);
++		gtk_file_chooser_set_preview_widget (fsel, vbox);
++		g_signal_connect (fsel, "update-preview",
++				  G_CALLBACK (update_preview_cb), NULL);
++		update_preview_cb (fsel);
++	}
++	return fsel;
++}
++
++/**
++ * go_gtk_select_image:
++ * @toplevel: #GtkWindow
++ * @initial: (nullable): initial image URI
++ *
++ * Returns: (transfer full) (nullable): the selected image URI or %NULL.
++ **/
++char *
++go_gtk_select_image (GtkWindow *toplevel, char const *initial)
++{
++	return go_gtk_select_image_with_extra_widget (toplevel, initial, NULL);
++}
++
++/**
++ * go_gtk_select_image_with_extra_widget:
++ * @toplevel: #GtkWindow
++ * @initial: (nullable): initial image URI
++ * @extra: (nullable): extra widget for the file chooser
++ *
++ * Returns: (transfer full) (nullable): the selected image URI or %NULL.
++ **/
++char *
++go_gtk_select_image_with_extra_widget (GtkWindow *toplevel, char const *initial, GtkWidget *extra)
++{
++	char const *key = "go_gtk_select_image";
++	char *uri = NULL;
++	GtkFileChooser *fsel;
++
++	g_return_val_if_fail (GTK_IS_WINDOW (toplevel), NULL);
++
++	fsel = gui_image_chooser_new (FALSE);
++	if (GTK_IS_WIDGET (extra))
++		gtk_file_chooser_set_extra_widget (fsel, extra);
++
++	if (!initial)
++		initial = g_object_get_data (G_OBJECT (toplevel), key);
++	if (initial)
++		gtk_file_chooser_set_uri (fsel, initial);
++	g_object_set (G_OBJECT (fsel), "title", _("Select an Image"), NULL);
++
++	/* Show file selector */
++	if (go_gtk_file_sel_dialog (toplevel, GTK_WIDGET (fsel))) {
++		uri = gtk_file_chooser_get_uri (fsel);
++		g_object_set_data_full (G_OBJECT (toplevel),
++					key, g_strdup (uri),
++					g_free);
++	}
++	gtk_widget_destroy (GTK_WIDGET (fsel));
++	return uri;
++}
++
++typedef struct {
++	char *uri;
++	double resolution;
++	gboolean is_expanded;
++	GOImageFormat format;
++
++	// Not saved, but used by handlers
++	gboolean by_ext;
++	GSList *supported_formats;
++	GtkWidget *resolution_widget;
++} SaveInfoState;
++
++static void
++save_info_state_free (SaveInfoState *state)
++{
++	g_free (state->uri);
++	g_free (state);
++}
++
++static void
++cb_format_combo_changed (GtkComboBox *combo, SaveInfoState *state)
++{
++	gboolean sensitive;
++	int i;
++
++	i = gtk_combo_box_get_active (combo);
++	if (state->by_ext && i == 0)
++		sensitive = TRUE;
++	else {
++		GOImageFormat fmt = GPOINTER_TO_UINT
++			(g_slist_nth_data (state->supported_formats,
++					   i - state->by_ext));
++		GOImageFormatInfo const *format_info =
++			go_image_get_format_info (fmt);
++		sensitive = format_info && format_info->is_dpi_useful;
++	}
++	gtk_widget_set_sensitive (state->resolution_widget, sensitive);
++}
++
++/**
++ * go_gui_get_image_save_info:
++ * @toplevel: a #GtkWindow
++ * @supported_formats: (element-type void): a #GSList of supported file formats
++ * @ret_format: (out) (optional): default file format
++ * @resolution: (out) (optional): export resolution
++ *
++ * Opens a file chooser and lets user choose file URI and format in a list of
++ * supported ones.
++ *
++ * Returns: file URI string
++ **/
++char *
++go_gui_get_image_save_info (GtkWindow *toplevel, GSList *supported_formats,
++			    GOImageFormat *ret_format, double *resolution)
++{
++	GOImageFormat format;
++	GOImageFormatInfo const *format_info;
++	GtkComboBox *format_combo = NULL;
++	GtkFileChooser *fsel = gui_image_chooser_new (TRUE);
++	GtkWidget *expander = NULL;
++	GtkWidget *resolution_spin = NULL;
++	GtkWidget *resolution_grid;
++	GtkBuilder *gui;
++	SaveInfoState *state;
++	char const *key = "go_gui_get_image_save_info";
++	char *uri = NULL;
++
++	state = g_object_get_data (G_OBJECT (toplevel), key);
++	if (state == NULL) {
++		state = g_new (SaveInfoState, 1);
++		g_return_val_if_fail (state != NULL, NULL);
++		state->uri = NULL;
++		state->resolution = 150.0;
++		state->is_expanded = FALSE;
++		state->format = GO_IMAGE_FORMAT_SVG;
++		g_object_set_data_full (G_OBJECT (toplevel), key,
++					state, (GDestroyNotify) save_info_state_free);
++	}
++	state->supported_formats = supported_formats;
++	state->by_ext = FALSE;
++
++	g_object_set (G_OBJECT (fsel), "title", _("Save as"), NULL);
++
++	gui = go_gtk_builder_load_internal ("res:go:gtk/go-image-save-dialog-extra.ui",
++					   GETTEXT_PACKAGE, NULL);
++	if (gui != NULL) {
++		GtkWidget *widget;
++
++		state->resolution_widget = resolution_grid = go_gtk_builder_get_widget (gui, "resolution-grid");
++
++		/* Format selection UI */
++		if (supported_formats != NULL && ret_format != NULL) {
++			int i;
++			GSList *l;
++			format_combo = go_gtk_builder_combo_box_init_text (gui, "format_combo");
++
++			state->by_ext = TRUE;
++			go_gtk_combo_box_append_text (format_combo, _("Auto by extension"));
++
++			for (l = supported_formats, i = 0; l != NULL; l = l->next, i++) {
++				format = GPOINTER_TO_UINT (l->data);
++				format_info = go_image_get_format_info (format);
++				if (format_info == NULL)
++					continue;
++				go_gtk_combo_box_append_text (format_combo, _(format_info->desc));
++				if (format == state->format)
++					gtk_combo_box_set_active (format_combo, i);
++			}
++			if (gtk_combo_box_get_active (format_combo) < 0)
++				gtk_combo_box_set_active (format_combo, 0);
++		} else {
++			widget = go_gtk_builder_get_widget (gui, "file_type_box");
++			gtk_widget_hide (widget);
++		}
++
++		if (supported_formats != NULL && ret_format != NULL) {
++			widget = go_gtk_builder_get_widget (gui, "image_save_dialog_extra");
++			gtk_file_chooser_set_extra_widget (fsel, widget);
++		}
++
++		/* Export setting expander */
++		expander = go_gtk_builder_get_widget (gui, "export_expander");
++		if (resolution != NULL) {
++			gtk_expander_set_expanded (GTK_EXPANDER (expander), state->is_expanded);
++			resolution_spin = go_gtk_builder_get_widget (gui, "resolution_spin");
++			gtk_spin_button_set_value (GTK_SPIN_BUTTON (resolution_spin), state->resolution);
++		} else
++			gtk_widget_hide (expander);
++
++		if (resolution != NULL && supported_formats != NULL && ret_format != NULL) {
++			cb_format_combo_changed (format_combo, state);
++			g_signal_connect (GTK_WIDGET (format_combo), "changed",
++					  G_CALLBACK (cb_format_combo_changed),
++					  state);
++		}
++
++		g_object_unref (gui);
++	}
++
++	if (state->uri != NULL) {
++		gtk_file_chooser_set_uri (fsel, state->uri);
++		gtk_file_chooser_unselect_all (fsel);
++	}
++
++	/* Show file selector */
++ loop:
++	if (!go_gtk_file_sel_dialog (toplevel, GTK_WIDGET (fsel)))
++		goto out;
++	uri = gtk_file_chooser_get_uri (fsel);
++	if (format_combo) {
++		char *new_uri = NULL;
++		int index = gtk_combo_box_get_active (format_combo);
++
++		format = GO_IMAGE_FORMAT_UNKNOWN;
++		if (index < 0)
++			; // That's it.
++		else if (state->by_ext && index == 0) {
++			GSList *l;
++
++			for (l = supported_formats; l; l = l->next) {
++				GOImageFormat f = GPOINTER_TO_UINT (l->data);
++				GOImageFormatInfo const *format_info = go_image_get_format_info (f);
++				if (go_url_check_extension (uri, format_info->ext, NULL))
++					format = f;
++			}
++			if (format == GO_IMAGE_FORMAT_UNKNOWN)
++				goto loop;
++		} else {
++			format = GPOINTER_TO_UINT (g_slist_nth_data
++				(supported_formats, index - state->by_ext));
++			format_info = go_image_get_format_info (format);
++			if (!go_url_check_extension (uri, format_info->ext, &new_uri) &&
++			    !go_gtk_query_yes_no (GTK_WINDOW (fsel), TRUE,
++			     _("The given file extension does not match the"
++			       " chosen file type. Do you want to use this name"
++			       " anyway?"))) {
++				g_free (new_uri);
++				g_free (uri);
++				uri = NULL;
++				goto loop;
++			}
++			g_free (uri);
++			uri = new_uri;
++		}
++		*ret_format = format;
++	}
++	if (!go_gtk_url_is_writeable (GTK_WINDOW (fsel), uri, TRUE)) {
++		g_free (uri);
++		uri = NULL;
++		goto loop;
++	}
++ out:
++	if (uri != NULL && ret_format != NULL) {
++		g_free (state->uri);
++		state->uri = g_strdup (uri);
++		state->format = *ret_format;
++		if (resolution != NULL) {
++			state->is_expanded = gtk_expander_get_expanded (GTK_EXPANDER (expander));
++			*resolution =  gtk_spin_button_get_value (GTK_SPIN_BUTTON (resolution_spin));
++			state->resolution = *resolution;
++		}
++	}
++
++	gtk_widget_destroy (GTK_WIDGET (fsel));
++
++	return uri;
++}
++
++static void
++add_atk_relation (GtkWidget *w0, GtkWidget *w1, AtkRelationType type)
++{
++	AtkObject *atk0 = gtk_widget_get_accessible(w0);
++	AtkObject *atk1 = gtk_widget_get_accessible(w1);
++	AtkRelationSet *relation_set = atk_object_ref_relation_set (atk0);
++	AtkRelation *relation = atk_relation_new (&atk1, 1, type);
++	atk_relation_set_add (relation_set, relation);
++	g_object_unref (relation_set);
++	g_object_unref (relation);
++}
++
++/**
++ * go_atk_setup_label:
++ * @label: #GtkWidget
++ * @target: #GtkWidget
++ *
++ * A convenience routine to setup label-for/labeled-by relationship between a
++ * pair of widgets.
++ **/
++void
++go_atk_setup_label (GtkWidget *label, GtkWidget *target)
++{
++	 add_atk_relation (label, target, ATK_RELATION_LABEL_FOR);
++	 add_atk_relation (target, label, ATK_RELATION_LABELLED_BY);
++}
++
++typedef struct {
++	char const *data_dir;
++	char const *app;
++	char const *link;
++} CBHelpPaths;
++
++#ifdef G_OS_WIN32
++#include <windows.h>
++
++typedef HWND (* WINAPI HtmlHelpA_t) (HWND hwndCaller,
++				     LPCSTR pszFile,
++				     UINT uCommand,
++				     DWORD_PTR dwData);
++#define HH_HELP_CONTEXT 0x000F
++
++static HtmlHelpA_t
++html_help (void)
++{
++	HMODULE hhctrl;
++	static HtmlHelpA_t result = NULL;
++	static gboolean beenhere = FALSE;
++
++	if (!beenhere) {
++		hhctrl = LoadLibrary ("hhctrl.ocx");
++		if (hhctrl != NULL)
++			result = (HtmlHelpA_t) GetProcAddress (hhctrl, "HtmlHelpA");
++		beenhere = TRUE;
++	}
++
++	return result;
++}
++#endif
++
++static void
++go_help_display (CBHelpPaths const *paths, GdkScreen *screen)
++{
++#if defined(G_OS_WIN32)
++	static GHashTable* context_help_map = NULL;
++	guint id;
++
++	if (!context_help_map) {
++		GsfInput *input;
++		GsfInputTextline *textline;
++		GError *err = NULL;
++		gchar *mapfile = g_strconcat (paths->app, ".hhmap", NULL);
++		gchar *path = g_build_filename (paths->data_dir, "doc", "C", mapfile, NULL);
++
++		g_free (mapfile);
++
++		if (!(input = gsf_input_stdio_new (path, &err)) ||
++		    !(textline = (GsfInputTextline *) gsf_input_textline_new (input)))
++			go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR, "Cannot open '%s': %s",
++					      path, err ? err->message :
++							  "failed to create gsf-input-textline");
++		else {
++			gchar *line, *topic;
++			gulong id, i = 1;
++			context_help_map = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
++
++			while ((line = gsf_input_textline_utf8_gets (textline)) != NULL) {
++				if (!(id = strtoul (line, &topic, 10))) {
++					go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR,
++							      "Invalid topic id at line %lu in %s: '%s'",
++							      i, path, line);
++					continue;
++				}
++				for (; *topic == ' ' || *topic == '\t'; ++topic);
++				g_hash_table_insert (context_help_map, g_strdup (topic),
++					(gpointer)id);
++			}
++			g_object_unref (textline);
++		}
++		if (input)
++			g_object_unref (input);
++		g_free (path);
++	}
++
++	if (!context_help_map || !(id = (guint) g_hash_table_lookup (context_help_map, paths->link)))
++		go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR, "Topic '%s' not found.",
++				      paths->link);
++	else {
++		gchar *chmfile = g_strconcat (paths->app, ".chm", NULL);
++		gchar *path = g_build_filename (paths->data_dir, "doc", "C", chmfile, NULL);
++
++		g_free (chmfile);
++		if (html_help () == NULL ||
++		    !(html_help ()) (GetDesktopWindow (), path, HH_HELP_CONTEXT, id))
++			go_gtk_notice_dialog (NULL, GTK_MESSAGE_ERROR, "Failed to load HtmlHelp");
++		g_free (path);
++	}
++#else
++	char *uri = g_strconcat ("ghelp:", paths->app, "#", paths->link, NULL);
++	go_gtk_url_show (uri, screen);
++	g_free (uri);
++	return;
++#endif
++}
++
++static void
++cb_help (GtkWidget *w, CBHelpPaths const *paths)
++{
++	go_help_display (paths, gtk_widget_get_screen (w));
++}
++
++/**
++ * go_gtk_help_button_init:
++ * @w: #GtkWidget
++ * @data_dir: directory for help files
++ * @app: application name
++ * @link: help link
++ *
++ * Initializes a help button.
++ **/
++void
++go_gtk_help_button_init (GtkWidget *w, char const *data_dir, char const *app, char const *link)
++{
++	CBHelpPaths *paths = g_new (CBHelpPaths, 1);
++	GtkWidget *parent = gtk_widget_get_parent (w);
++
++	if (GTK_IS_BUTTON_BOX (parent))
++		gtk_button_box_set_child_secondary (
++			GTK_BUTTON_BOX (parent), w, TRUE);
++
++	paths->data_dir = data_dir;
++	paths->app	= app;
++	paths->link	= link;
++	g_signal_connect_data (G_OBJECT (w),
++			       "clicked", G_CALLBACK (cb_help),
++			       (gpointer)paths, (GClosureNotify)g_free,
++			       0);
++}
++
++/**
++ * go_gtk_url_is_writeable:
++ * @parent: #GtkWindow
++ * @uri: the uri to test.
++ * @overwrite_by_default: gboolean
++ *
++ * Check if it makes sense to try saving.
++ * If it's an existing file and writable for us, ask if we want to overwrite.
++ * We check for other problems, but if we miss any, the saver will report.
++ * So it doesn't have to be bulletproof.
++ *
++ * FIXME: The message boxes should really be children of the file selector,
++ * not the workbook.
++ *
++ * Returns: %TRUE if @url is writable
++ **/
++gboolean
++go_gtk_url_is_writeable (GtkWindow *parent, char const *uri,
++			 gboolean overwrite_by_default)
++{
++	gboolean result = TRUE;
++	char *filename;
++
++	if (uri == NULL || uri[0] == '\0')
++		result = FALSE;
++
++	filename = go_filename_from_uri (uri);
++	if (!filename)
++		return TRUE;  /* Just assume writable.  */
++
++	if (G_IS_DIR_SEPARATOR (filename [strlen (filename) - 1]) ||
++	    g_file_test (filename, G_FILE_TEST_IS_DIR)) {
++		go_gtk_notice_dialog (parent, GTK_MESSAGE_ERROR,
++				      _("%s\nis a directory name"), uri);
++		result = FALSE;
++	} else if (go_file_access (uri, GO_W_OK) != 0 && errno != ENOENT) {
++		go_gtk_notice_dialog (parent, GTK_MESSAGE_ERROR,
++				      _("You do not have permission to save to\n%s"),
++				      uri);
++		result = FALSE;
++	} else if (g_file_test (filename, G_FILE_TEST_EXISTS)) {
++		char *dirname = go_dirname_from_uri (uri, TRUE);
++		char *basename = go_basename_from_uri (uri);
++		GtkWidget *dialog = gtk_message_dialog_new_with_markup (parent,
++			 GTK_DIALOG_DESTROY_WITH_PARENT,
++			 GTK_MESSAGE_WARNING,
++			 GTK_BUTTONS_OK_CANCEL,
++			 _("A file called <i>%s</i> already exists in %s.\n\n"
++			   "Do you want to save over it?"),
++			 basename, dirname);
++		gtk_dialog_set_default_response (GTK_DIALOG (dialog),
++			overwrite_by_default ? GTK_RESPONSE_OK : GTK_RESPONSE_CANCEL);
++		result = GTK_RESPONSE_OK ==
++			go_gtk_dialog_run (GTK_DIALOG (dialog), parent);
++		g_free (dirname);
++		g_free (basename);
++	}
++
++	g_free (filename);
++	return result;
++}
++
++/**
++ * go_gtk_dialog_run:
++ * @dialog: #GtkDialog
++ * @parent: #GtkWindow
++ *
++ * Pop up a dialog as child of a window.
++ *
++ * Returns: result ID.
++ **/
++gint
++go_gtk_dialog_run (GtkDialog *dialog, GtkWindow *parent)
++{
++	gint      result;
++
++	g_return_val_if_fail (GTK_IS_DIALOG (dialog), GTK_RESPONSE_NONE);
++
++	if (parent) {
++		g_return_val_if_fail (GTK_IS_WINDOW (parent), GTK_RESPONSE_NONE);
++
++		go_gtk_window_set_transient (parent, GTK_WINDOW (dialog));
++	}
++
++	g_object_ref (dialog);
++
++	while ((result = gtk_dialog_run (dialog)) >= 0)
++	       ;
++	gtk_widget_destroy (GTK_WIDGET (dialog));
++
++	g_object_unref (dialog);
++
++	return result;
++}
++
++#define _VPRINTF_MESSAGE(format,args,msg) va_start (args, format); \
++					  msg = g_strdup_vprintf (format, args); \
++					  va_end (args);
++#define VPRINTF_MESSAGE(format,args,msg) _VPRINTF_MESSAGE (format, args, msg); \
++					 g_return_if_fail (msg != NULL);
++
++/*
++ * TODO:
++ * Get rid of trailing newlines /whitespace.
++ */
++/**
++ * go_gtk_notice_dialog:
++ * @parent: (nullable): #GtkWindow
++ * @type: #GtkMessageType
++ * @format: printf-style format string
++ * @...: arguments for @format
++ *
++ * Displays a modal notice dialog.
++ **/
++void
++go_gtk_notice_dialog (GtkWindow *parent, GtkMessageType type,
++		      char const *format, ...)
++{
++	va_list args;
++	gchar *msg;
++	GtkWidget *dialog;
++
++	VPRINTF_MESSAGE (format, args, msg);
++	dialog = gtk_message_dialog_new_with_markup (parent,
++		GTK_DIALOG_DESTROY_WITH_PARENT, type, GTK_BUTTONS_OK, "%s", msg);
++	g_free (msg);
++	go_gtk_dialog_run (GTK_DIALOG (dialog), parent);
++}
++
++/**
++ * go_gtk_notice_nonmodal_dialog:
++ * @parent: (nullable): #GtkWindow
++ * @ref: (inout): pointer to a #GtkWidget
++ * @type: #GtkMessageType
++ * @format: printf-style format string
++ * @...: arguments for @format
++ *
++ * Displays a non-modal notice dialog. If @ref already points to a widget,
++ * it is destroyed first.
++ **/
++void
++go_gtk_notice_nonmodal_dialog (GtkWindow *parent, GtkWidget **ref,
++			       GtkMessageType type, char const *format, ...)
++{
++	va_list args;
++	gchar *msg;
++	GtkWidget *dialog;
++
++	if (*ref != NULL)
++		gtk_widget_destroy (*ref);
++
++	VPRINTF_MESSAGE (format, args, msg);
++	*ref = dialog = gtk_message_dialog_new (parent, GTK_DIALOG_DESTROY_WITH_PARENT, type,
++					 GTK_BUTTONS_OK, "%s", msg);
++	g_free (msg);
++
++	g_signal_connect_object (G_OBJECT (dialog),
++		"response",
++		G_CALLBACK (gtk_widget_destroy), G_OBJECT (dialog), 0);
++	g_signal_connect (G_OBJECT (dialog),
++		"destroy",
++		G_CALLBACK (gtk_widget_destroyed), ref);
++
++	gtk_widget_show (dialog);
++}
++
++/**
++ * go_gtk_query_yes_no:
++ * @parent: (nullable): #GtkWindow
++ * @default_answer: default result
++ * @format: printf-style format string
++ * @...: arguments for @format
++ *
++ * Displays a modal yes/no query dialog.
++ *
++ * Returns: %TRUE if the user chooses "Yes".
++ **/
++gboolean
++go_gtk_query_yes_no (GtkWindow *parent, gboolean default_answer,
++		     char const *format, ...)
++{
++	va_list args;
++	gchar *msg;
++	GtkWidget *dialog;
++
++	_VPRINTF_MESSAGE (format, args, msg);
++	g_return_val_if_fail (msg != NULL, default_answer);
++	dialog = gtk_message_dialog_new (parent,
++		GTK_DIALOG_DESTROY_WITH_PARENT,
++		GTK_MESSAGE_QUESTION,
++		GTK_BUTTONS_YES_NO,
++		"%s", msg);
++        g_free (msg);
++	gtk_dialog_set_default_response (GTK_DIALOG (dialog),
++		default_answer ? GTK_RESPONSE_YES : GTK_RESPONSE_NO);
++	return GTK_RESPONSE_YES ==
++		go_gtk_dialog_run (GTK_DIALOG (dialog), parent);
++}
++
++/**
++ * go_dialog_guess_alternative_button_order:
++ * @dialog: #GtkDialog
++ *
++ * This function inspects the buttons in the dialog and comes up
++ * with a reasonable alternative dialog order.
++ **/
++void
++go_dialog_guess_alternative_button_order (GtkDialog *dialog)
++{
++	GList *children, *tmp;
++	int i, nchildren;
++	int *new_order;
++	int i_yes = -1, i_no = -1, i_ok = -1, i_cancel = -1, i_apply = -1;
++	gboolean again;
++	gboolean any = FALSE;
++	int loops = 0;
++
++	children = gtk_container_get_children (GTK_CONTAINER (gtk_dialog_get_action_area (dialog)));
++	if (!children)
++		return;
++
++	nchildren = g_list_length (children);
++	new_order = g_new (int, nchildren);
++
++	for (tmp = children, i = 0; tmp; tmp = tmp->next, i++) {
++		GtkWidget *child = tmp->data;
++		int res = gtk_dialog_get_response_for_widget (dialog, child);
++		new_order[i] = res;
++		switch (res) {
++		case GTK_RESPONSE_YES: i_yes = i; break;
++		case GTK_RESPONSE_NO: i_no = i; break;
++		case GTK_RESPONSE_OK: i_ok = i; break;
++		case GTK_RESPONSE_CANCEL: i_cancel = i; break;
++		case GTK_RESPONSE_APPLY: i_apply = i; break;
++		}
++	}
++	g_list_free (children);
++
++#define MAYBE_SWAP(ifirst,ilast)				\
++	if (ifirst >= 0 && ilast >= 0 && ifirst > ilast) {	\
++		int tmp;					\
++								\
++		tmp = new_order[ifirst];			\
++		new_order[ifirst] = new_order[ilast];		\
++		new_order[ilast] = tmp;				\
++								\
++		tmp = ifirst;					\
++		ifirst = ilast;					\
++		ilast = tmp;					\
++								\
++		again = TRUE;					\
++		any = TRUE;					\
++	}
++
++	do {
++		again = FALSE;
++		MAYBE_SWAP (i_yes, i_no);
++		MAYBE_SWAP (i_ok, i_cancel);
++		MAYBE_SWAP (i_cancel, i_apply);
++		MAYBE_SWAP (i_no, i_cancel);
++	} while (again && ++loops < 2);
++
++#undef MAYBE_SWAP
++
++	if (any)
++		gtk_dialog_set_alternative_button_order_from_array (dialog,
++								    nchildren,
++								    new_order);
++	g_free (new_order);
++}
++
++/**
++ * go_menu_position_below:
++ * @menu: a #GtkMenu
++ * @x: (out) (not optional): storage for the X coordinate of the menu
++ * @y: (out) (not optional): storage for the Y coordinate of the menu
++ * @push_in: (out) (not optional): storage for the push-in distance
++ * @user_data: #GtkWidget to position below
++ *
++ * Implementation of a GtkMenuPositionFunc that positions
++ * the child window under the parent one, for use with gtk_menu_popup().
++ *
++ * Deprecated: use gtk_menu_popup_at_widget() with GDK_GRAVITY_SOUTH_WEST
++ * and GDK_GRAVITY_NORTH_WEST instead.
++ **/
++G_DEPRECATED void
++go_menu_position_below (GtkMenu  *menu,
++			gint     *x,
++			gint     *y,
++			gint     *push_in,
++			gpointer  user_data)
++{
++	GtkWidget *widget = GTK_WIDGET (user_data);
++	gint sx, sy;
++	GtkRequisition req;
++	GdkRectangle monitor;
++	GdkWindow *window = gtk_widget_get_window (widget);
++	GtkAllocation size;
++
++	gtk_widget_get_allocation (widget, &size);
++
++	if (window)
++		gdk_window_get_origin (window, &sx, &sy);
++	else
++		sx = sy = 0;
++
++	if (!gtk_widget_get_has_window (widget))
++	{
++		sx += size.x;
++		sy += size.y;
++	}
++
++	gtk_widget_get_preferred_size (GTK_WIDGET (menu), &req, NULL);
++
++	if (gtk_widget_get_direction (widget) == GTK_TEXT_DIR_LTR)
++		*x = sx;
++	else
++		*x = sx + size.width - req.width;
++	*y = sy;
++
++#ifdef HAVE_GDK_DISPLAY_GET_MONITOR_AT_WINDOW
++	gdk_monitor_get_geometry
++		(gdk_display_get_monitor_at_window
++		 (gtk_widget_get_display (widget), window),
++		 &monitor);
++#else
++	{
++		GdkScreen *screen = gtk_widget_get_screen (widget);
++		gint monitor_num = gdk_screen_get_monitor_at_window (screen, window);
++		gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
++	}
++#endif
++
++	if (*x < monitor.x)
++		*x = monitor.x;
++	else if (*x + req.width > monitor.x + monitor.width)
++		*x = monitor.x + monitor.width - req.width;
++
++	if (monitor.y + monitor.height - *y - size.height >= req.height)
++		*y +=size.height;
++	else if (*y - monitor.y >= req.height)
++		*y -= req.height;
++	else if (monitor.y + monitor.height - *y - size.height > *y - monitor.y)
++		*y += size.height;
++	else
++		*y -= req.height;
++
++	*push_in = FALSE;
++}
++
++/**
++ * go_gtk_url_show:
++ * @url: the url to show
++ * @screen: (nullable): screen to show the uri on or %NULL for the default screen
++ *
++ * This function is a simple convenience wrapper for gtk_show_uri().
++ *
++ * Returns: %NULL on success, or a newly allocated #GError if something
++ * went wrong.
++ **/
++GError *
++go_gtk_url_show (gchar const *url, GdkScreen *screen)
++{
++	GError *error = NULL;
++	gtk_show_uri (screen, url, GDK_CURRENT_TIME, &error);
++	return error;
++}
++
++/**
++ * go_gtk_widget_render_icon_pixbuf:
++ * @widget: a mapped widget determining the screen targeted
++ * @icon_name: the name of the icon to render
++ * @size: the symbolic size desired.
++ *
++ * This function works as gtk_widget_render_icon_pixbuf() except that it takes
++ * an icon name, not a stock id.
++ *
++ * Returns: (transfer full): A #GdkPixbuf.
++ **/
++GdkPixbuf *
++go_gtk_widget_render_icon_pixbuf (GtkWidget   *widget,
++				  const gchar *icon_name,
++				  GtkIconSize  size)
++{
++	GdkScreen *screen;
++	GtkIconTheme *theme;
++	int pixels;
++	GdkPixbuf *res;
++
++	/* The widget really ought to be mapped.  */
++	screen = gtk_widget_has_screen (widget)
++		? gtk_widget_get_screen (widget)
++		: gdk_screen_get_default ();
++	theme = gtk_icon_theme_get_for_screen (screen);
++
++	switch (size) {
++	default:
++	case GTK_ICON_SIZE_MENU:
++	case GTK_ICON_SIZE_SMALL_TOOLBAR:
++	case GTK_ICON_SIZE_BUTTON:
++		pixels = 16;
++		break;
++	case GTK_ICON_SIZE_LARGE_TOOLBAR:
++	case GTK_ICON_SIZE_DND:
++		pixels = 24;
++		break;
++	case GTK_ICON_SIZE_DIALOG:
++		pixels = 48;
++		break;
++	}
++
++	res = gtk_icon_theme_load_icon (theme, icon_name, pixels, 0, NULL);
++
++	if (res && go_debug_flag ("leaks"))
++		go_debug_check_finalized (res, icon_name);
++
++	return res;
++}
++
++static GtkCssProvider *css_provider;
++static GSList *css_provider_screens;
++
++static void
++cb_screen_changed (GtkWidget *widget)
++{
++	GdkScreen *screen = gtk_widget_get_screen (widget);
++
++	if (!screen || g_slist_find (css_provider_screens, screen))
++		return;
++
++	css_provider_screens = g_slist_prepend (css_provider_screens, screen);
++	gtk_style_context_add_provider_for_screen
++		(screen,
++		 GTK_STYLE_PROVIDER (css_provider),
++		 GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
++}
++
++
++/**
++ * _go_gtk_widget_add_css_provider: (skip)
++ * @w: #GtkWidget
++ *
++ * Internal function to add goffice-specific css provider to @w.
++ **/
++void
++_go_gtk_widget_add_css_provider (GtkWidget *w)
++{
++	g_return_if_fail (GTK_IS_WIDGET (w));
++
++	if (!css_provider) {
++		const char *data = go_rsm_lookup ("go:gtk/goffice.css", NULL);
++		css_provider = gtk_css_provider_new ();
++		gtk_css_provider_load_from_data (css_provider, data, -1, NULL);
++	}
++
++	g_signal_connect (w, "screen-changed",
++			  G_CALLBACK (cb_screen_changed), NULL);
++	cb_screen_changed (w);
++}
++
++// ---------------------------------------------------------------------------
++// Foreign drawing style code copied from foreigndrawing.c
++
++static void
++append_element (GtkWidgetPath *path,
++                const char    *selector)
++{
++	static const struct {
++		const char    *name;
++		GtkStateFlags  state_flag;
++	} pseudo_classes[] = {
++		{ "active",        GTK_STATE_FLAG_ACTIVE },
++		{ "hover",         GTK_STATE_FLAG_PRELIGHT },
++		{ "selected",      GTK_STATE_FLAG_SELECTED },
++		{ "disabled",      GTK_STATE_FLAG_INSENSITIVE },
++		{ "indeterminate", GTK_STATE_FLAG_INCONSISTENT },
++		{ "focus",         GTK_STATE_FLAG_FOCUSED },
++		{ "backdrop",      GTK_STATE_FLAG_BACKDROP },
++		{ "dir(ltr)",      GTK_STATE_FLAG_DIR_LTR },
++		{ "dir(rtl)",      GTK_STATE_FLAG_DIR_RTL },
++		{ "link",          GTK_STATE_FLAG_LINK },
++		{ "visited",       GTK_STATE_FLAG_VISITED },
++		{ "checked",       GTK_STATE_FLAG_CHECKED },
++		{ "drop(active)",  GTK_STATE_FLAG_DROP_ACTIVE }
++	};
++	const char *next;
++	char *name;
++	char type;
++	guint i;
++
++	next = strpbrk (selector, "#.:");
++	if (next == NULL)
++		next = selector + strlen (selector);
++
++	name = g_strndup (selector, next - selector);
++	if (g_ascii_isupper (selector[0]))
++	{
++		GType gtype;
++		gtype = g_type_from_name (name);
++		if (gtype == G_TYPE_INVALID)
++		{
++			g_critical ("Unknown type name `%s'", name);
++			g_free (name);
++			return;
++		}
++		gtk_widget_path_append_type (path, gtype);
++	}
++	else
++	{
++		/* Omit type, we're using name */
++		gtk_widget_path_append_type (path, G_TYPE_NONE);
++		gtk_widget_path_iter_set_object_name (path, -1, name);
++	}
++	g_free (name);
++
++	while (*next != '\0')
++	{
++		type = *next;
++		selector = next + 1;
++		next = strpbrk (selector, "#.:");
++		if (next == NULL)
++			next = selector + strlen (selector);
++		name = g_strndup (selector, next - selector);
++
++		switch (type)
++		{
++		case '#':
++			gtk_widget_path_iter_set_name (path, -1, name);
++			break;
++
++		case '.':
++			gtk_widget_path_iter_add_class (path, -1, name);
++			break;
++
++		case ':':
++			for (i = 0; i < G_N_ELEMENTS (pseudo_classes); i++)
++			{
++				if (g_str_equal (pseudo_classes[i].name, name))
++				{
++					gtk_widget_path_iter_set_state (path,
++									-1,
++									gtk_widget_path_iter_get_state (path, -1)
++									| pseudo_classes[i].state_flag);
++					break;
++				}
++			}
++			if (i == G_N_ELEMENTS (pseudo_classes))
++				g_critical ("Unknown pseudo-class :%s", name);
++			break;
++
++		default:
++			g_assert_not_reached ();
++			break;
++		}
++
++		g_free (name);
++	}
++}
++
++static GtkStyleContext *
++create_context_for_path (GtkWidgetPath   *path,
++                         GtkStyleContext *parent)
++{
++	GtkStyleContext *context;
++
++	context = gtk_style_context_new ();
++	gtk_style_context_set_path (context, path);
++	gtk_style_context_set_parent (context, parent);
++	/* Unfortunately, we have to explicitly set the state again here
++	 * for it to take effect
++	 */
++	gtk_style_context_set_state (context, gtk_widget_path_iter_get_state (path, -1));
++	gtk_widget_path_unref (path);
++
++	return context;
++}
++
++/**
++ * go_style_context_from_selector:
++ * @parent: (nullable): style context for container
++ * @selector: a css selector
++ *
++ * Returns: (transfer full): a new style context.
++ */
++GtkStyleContext *
++go_style_context_from_selector (GtkStyleContext *parent,
++				const char      *selector)
++{
++	GtkWidgetPath *path;
++
++	g_return_val_if_fail (selector != NULL, NULL);
++
++	path = parent
++		? gtk_widget_path_copy (gtk_style_context_get_path (parent))
++		: gtk_widget_path_new ();
++
++	append_element (path, selector);
++
++	return create_context_for_path (path, parent);
++}
++
++// ---------------------------------------------------------------------------
++
++/**
++ * _go_gtk_shutdown: (skip)
++ *
++ * Shuts down goffice-gtk.
++ **/
++void
++_go_gtk_shutdown (void)
++{
++	g_clear_object (&css_provider);
++	g_slist_free (css_provider_screens);
++	css_provider_screens = NULL;
++	g_slist_free_full (pixbufexts, g_free);
++	pixbufexts = NULL;
++	have_pixbufexts = FALSE;
++}
+diff -ruN a/goffice/utils/go-file.c b/goffice/utils/go-file.c
+--- a/goffice/utils/go-file.c	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/utils/go-file.c	2026-11-02 09:04:04.629552022 +0000
+@@ -552,6 +552,15 @@
+ 	GFile *file = g_file_new_for_uri (uri);
+ 	char *res = g_file_get_basename (file);
+ 	g_object_unref (file);
++#if defined(__riscos__) || defined(GO_RISCOS_UI)
++	/* RISC OS port: the basename is the file name's own bytes (Latin-1
++	   on RISC OS), so convert it to UTF-8 as documented */
++	if (res) {
++		char *display = g_filename_display_name (res);
++		g_free (res);
++		res = display;
++	}
++#endif
+ 	return res;
+ }
+ 
+@@ -774,6 +783,10 @@
+ 	}
+ 
+ 	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER);
++	if (name == NULL) {	/* RISC OS port: not every system has one */
++		g_object_unref (info);
++		return NULL;
++	}
+ 	(void) go_guess_encoding (name, strlen (name),
+ 				  NULL, &nameutf8, NULL);
+ 	g_object_unref (info);
+@@ -805,6 +818,10 @@
+ 	}
+ 
+ 	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_GROUP);
++	if (name == NULL) {	/* RISC OS port: not every system has one */
++		g_object_unref (info);
++		return NULL;
++	}
+ 	(void) go_guess_encoding (name, strlen (name),
+ 				  NULL, &nameutf8, NULL);
+ 	g_object_unref (info);
+diff -ruN a/goffice/utils/go-file.c.orig b/goffice/utils/go-file.c.orig
+--- a/goffice/utils/go-file.c.orig	1970-01-01 01:00:00.000000000 +0100
++++ b/goffice/utils/go-file.c.orig	2026-11-02 09:04:04.629747806 +0000
+@@ -0,0 +1,1397 @@
++/*
++ * go-file.c :
++ *
++ * Copyright (C) 2004,2009-2012 Morten Welinder (terra@gnome.org)
++ * Copyright (C) 2003, Red Hat, Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) version 3.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
++ * USA
++ */
++
++#include <goffice/goffice-config.h>
++#include <goffice/goffice.h>
++#include <gsf/gsf-input-memory.h>
++#include <gsf/gsf-input-stdio.h>
++#include <gsf/gsf-output-stdio.h>
++#include <glib/gstdio.h>
++#include <glib/gi18n-lib.h>
++#include <gsf/gsf-input-gio.h>
++#include <gsf/gsf-output-gio.h>
++#ifdef G_OS_WIN32
++#include <windows.h>
++#include <io.h>
++#endif
++#ifdef GOFFICE_WITH_GTK
++#include <gtk/gtk.h>
++#endif
++#include <string.h>
++#include <stdlib.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
++#ifdef HAVE_PWD_H
++#include <pwd.h>
++#endif
++#ifdef HAVE_GRP_H
++#include <grp.h>
++#endif
++#include <time.h>
++
++/**
++ * GOFilePermissions:
++ * @owner_read: owner can read.
++ * @owner_write: owner can write.
++ * @owner_execute: owner can execute.
++ * @group_read: group can read.
++ * @group_write: group can write.
++ * @group_execute: group can execute.
++ * @others_read: everybody can read.
++ * @others_write: everybody can write.
++ * @others_execute: everybody can execute.
++ **/
++
++/**
++ * GODotDot:
++ * @GO_DOTDOT_SYNTACTIC: assume no symlinks.
++ * @GO_DOTDOT_TEST: check.
++ * @GO_DOTDOT_LEAVE: leave alone.
++ **/
++
++#ifdef G_OS_WIN32
++typedef HRESULT (WINAPI *FindMimeFromData_t) (LPBC pBC,
++					      LPCWSTR pwzUrl,
++					      LPVOID pBuffer,
++					      DWORD cbSize,
++					      LPCWSTR pwzMimeProposed,
++					      DWORD dwMimeFlags,
++					      LPWSTR *ppwzMimeOut,
++					      DWORD dwReserved);
++#define FMFD_ENABLEMIMESNIFFING 2
++
++static FindMimeFromData_t
++find_mime_from_data (void)
++{
++	HMODULE urlmon;
++	static FindMimeFromData_t result = NULL;
++	static gboolean beenhere = FALSE;
++
++	if (!beenhere) {
++		urlmon = LoadLibrary ("urlmon.dll");
++		if (urlmon != NULL)
++			result = (FindMimeFromData_t) GetProcAddress (urlmon, "FindMimeFromData");
++		beenhere = TRUE;
++	}
++
++	return result;
++}
++
++#endif
++/* ------------------------------------------------------------------------- */
++
++/**
++ * go_filename_from_uri:
++ * @uri: an escaped URI
++ *
++ * Convert an escaped URI into a filename.
++ *
++ * Returns: (transfer full): the filename.
++ **/
++char *
++go_filename_from_uri (char const *uri)
++{
++	return g_filename_from_uri (uri, NULL, NULL);
++}
++
++/**
++ * go_filename_to_uri:
++ * @filename: a filename
++ *
++ * Convert a filename into an escaped URI.
++ *
++ * Returns: (transfer full): the escaped URI.
++ **/
++char *
++go_filename_to_uri (char const *filename)
++{
++	char *simp, *uri;
++
++	g_return_val_if_fail (filename != NULL, NULL);
++
++	simp = go_filename_simplify (filename, GO_DOTDOT_TEST, TRUE);
++
++	uri = g_filename_to_uri (simp, NULL, NULL);
++	g_free (simp);
++	return uri;
++}
++
++/**
++ * go_filename_simplify:
++ * @filename: a filename
++ * @dotdot: how to handle ".."
++ * @make_absolute: whether to make the path absolute
++ *
++ * Simplifies a filename.
++ *
++ * Returns: (transfer full): the simplified filename.
++ **/
++char *
++go_filename_simplify (char const *filename, GODotDot dotdot,
++		      gboolean make_absolute)
++{
++	char *simp, *p, *q;
++
++	g_return_val_if_fail (filename != NULL, NULL);
++
++	if (make_absolute && !g_path_is_absolute (filename)) {
++		/*
++		 * FIXME: this probably does not work for "c:foo" on
++		 * Win32.
++		 */
++		char *current_dir = g_get_current_dir ();
++		simp = g_build_filename (current_dir, filename, NULL);
++		g_free (current_dir);
++	} else
++		simp = g_strdup (filename);
++
++	for (p = q = simp; *p;) {
++		if (p != simp &&
++		    G_IS_DIR_SEPARATOR (p[0]) &&
++		    G_IS_DIR_SEPARATOR (p[1])) {
++			/* "//" --> "/", except initially.  */
++			p++;
++			continue;
++		}
++
++		if (G_IS_DIR_SEPARATOR (p[0]) &&
++		    p[1] == '.' &&
++		    G_IS_DIR_SEPARATOR (p[2])) {
++			/* "/./" -> "/".  */
++			p += 2;
++			continue;
++		}
++
++		if (G_IS_DIR_SEPARATOR (p[0]) &&
++		    p[1] == '.' &&
++		    p[2] == '.' &&
++		    G_IS_DIR_SEPARATOR (p[3])) {
++			if (p == simp) {
++				/* "/../" --> "/" initially.  */
++				p += 3;
++				continue;
++			} else if (p == simp + 1) {
++				/* Nothing, leave "//../" initially alone.  */
++			} else {
++				/*
++				 * "prefix/dir/../" --> "prefix/" if
++				 * "dir" is an existing directory (not
++				 * a symlink).
++				 */
++				gboolean isdir;
++
++				switch (dotdot) {
++				case GO_DOTDOT_SYNTACTIC:
++					isdir = TRUE;
++					break;
++				case GO_DOTDOT_TEST: {
++					GStatBuf statbuf;
++					char savec = *q;
++					/*
++					 * Terminate the path so far so we can
++					 * it.  Restore because "p" loops over
++					 * the same.
++					 */
++					*q = 0;
++					isdir = (g_lstat (simp, &statbuf) == 0) &&
++						1;/*S_ISDIR (statbuf.st_mode);*/
++					*q = savec;
++					break;
++				}
++				default:
++					isdir = FALSE;
++					break;
++				}
++
++				if (isdir) {
++					do {
++						g_assert (q != simp);
++						q--;
++					} while (!G_IS_DIR_SEPARATOR (*q));
++					p += 3;
++					continue;
++				} else {
++					/*
++					 * Do nothing.
++					 *
++					 * Maybe the prefix does not
++					 * exist, or maybe it is not
++					 * a directory (for example
++					 * because it is a symlink).
++					 */
++				}
++			}
++		}
++
++		*q++ = *p++;
++	}
++	*q = 0;
++
++	return simp;
++}
++
++/*
++ * Simplify a potentially non-local path using only slashes.
++ */
++static char *
++simplify_path (char const *uri)
++{
++	char *simp, *p, *q;
++
++	simp = g_strdup (uri);
++
++	for (p = q = simp; *p;) {
++		if (p[0] == '/' && p[1] == '/') {
++			/* "//" --> "/".  */
++			p++;
++			continue;
++		}
++
++		if (p[0] == '/' && p[1] == '.' && p[2] == '/') {
++			/* "/./" -> "/".  */
++			p += 2;
++			continue;
++		}
++
++		if (p[0] == '/' && p[1] == '.' && p[2] == '.' && p[3] == '/') {
++			if (p == simp) {
++				/* "/../" --> "/" initially.  */
++				p += 3;
++				continue;
++			} else {
++				/* Leave alone */
++			}
++		}
++
++		*q++ = *p++;
++	}
++	*q = 0;
++
++	return simp;
++}
++
++static char *
++simplify_host_path (char const *uri, size_t hstart)
++{
++	char const *slash = strchr (uri + hstart, '/');
++	char *simp, *psimp;
++	size_t pstart;
++
++	if (!slash)
++		return g_strdup (uri);
++
++	pstart = slash + 1 - uri;
++	psimp = simplify_path (slash + 1);
++	simp = g_new (char, pstart + strlen (psimp) + 1);
++	memcpy (simp, uri, pstart);
++	strcpy (simp + pstart, psimp);
++	g_free (psimp);
++	return simp;
++}
++
++/**
++ * go_url_simplify:
++ * @uri: a URI
++ *
++ * Simplifies a URI.
++ *
++ * Returns: (transfer full): the simplified URI.
++ **/
++char *
++go_url_simplify (char const *uri)
++{
++	char *simp, *p;
++
++	g_return_val_if_fail (uri != NULL, NULL);
++
++	if (g_ascii_strncasecmp (uri, "file:///", 8) == 0) {
++		char *filename = go_filename_from_uri (uri);
++		char *simp = filename ? go_filename_to_uri (filename) : NULL;
++		g_free (filename);
++		return simp;
++	}
++
++	if (g_ascii_strncasecmp (uri, "http://", 7) == 0)
++		simp = simplify_host_path (uri, 7);
++	else if (g_ascii_strncasecmp (uri, "https://", 8) == 0)
++		simp = simplify_host_path (uri, 8);
++	else if (g_ascii_strncasecmp (uri, "ftp://", 6) == 0)
++		simp = simplify_host_path (uri, 6);
++	else
++		simp = g_strdup (uri);
++
++	/* Lower-case protocol name.  */
++	for (p = simp; g_ascii_isalpha (*p); p++)
++		*p = g_ascii_tolower (*p);
++
++	return simp;
++}
++
++
++/**
++ * go_url_resolve_relative:
++ * @ref_uri: reference URI
++ * @rel_uri: relative URI
++ *
++ * Resolves a relative URI against a reference URI.
++ * This is more or less the same as gnome_vfs_uri_make_full_from_relative.
++ *
++ * Returns: (transfer full): the resolved URI.
++ **/
++char *
++go_url_resolve_relative (char const *ref_uri, char const *rel_uri)
++{
++	char *simp, *uri;
++
++	size_t len;
++
++	g_return_val_if_fail (ref_uri != NULL, NULL);
++	g_return_val_if_fail (rel_uri != NULL, NULL);
++
++	len = strlen (ref_uri);
++
++	/* FIXME: This doesn't work if ref_uri starts with a slash.  */
++
++	uri = g_new (char, len + strlen (rel_uri) + 1);
++	memcpy (uri, ref_uri, len + 1);
++	while (len > 0 && uri[len - 1] != '/')
++		len--;
++	if (len == 0) {
++		g_free (uri);
++		return NULL;
++	}
++
++	strcpy (uri + len, rel_uri);
++
++	simp = go_url_simplify (uri);
++	g_free (uri);
++	return simp;
++}
++
++/* ------------------------------------------------------------------------- */
++
++static char *
++make_rel (char const *uri, char const *ref_uri,
++	  char const *uri_host, char const *slash)
++{
++	char const *p, *q;
++	int n;
++	GString *res;
++
++	if (!slash)
++		return NULL;
++
++	if (uri_host != NULL &&
++	    strncmp (uri_host, ref_uri + (uri_host - uri), slash - uri_host))
++		return NULL;
++
++	for (p = slash; *p; p++) {
++		if (*p != ref_uri[p - uri])
++			break;
++		else if (*p == '/')
++			slash = p;
++	}
++	/* URI components agree until slash.  */
++
++	/* Find out the number of '/' in uri after slash.  */
++	n = 0;
++	q = slash;
++	while (1) {
++		q = strchr (q + 1, '/');
++		if (q)
++			n++;
++		else
++			break;
++	}
++
++	res = g_string_new (NULL);
++	while (n-- > 0)
++		g_string_append (res, "../");
++	g_string_append (res, slash + 1);
++	return g_string_free (res, FALSE);
++}
++
++/**
++ * go_url_make_relative:
++ * @uri: a URI
++ * @ref_uri: reference URI
++ *
++ * Creates a relative URI from @uri relative to @ref_uri.
++ *
++ * Returns: (transfer full) (nullable): the relative URI, or %NULL if they
++ * are on different hosts or use different protocols.
++ **/
++char *
++go_url_make_relative (char const *uri, char const *ref_uri)
++{
++	int i;
++
++	/* Check that protocols are the same.  */
++	for (i = 0; 1; i++) {
++		char c = uri[i];
++		char rc = ref_uri[i];
++
++		if (c == 0)
++			return NULL;
++
++		if (c == ':') {
++			if (rc == ':')
++				break;
++			return NULL;
++		}
++
++		if (g_ascii_tolower (c) != g_ascii_tolower (rc))
++			return NULL;
++	}
++
++	if (g_ascii_strncasecmp (uri, "file:///", 8) == 0)
++		return make_rel (uri, ref_uri, NULL, uri + 7);  /* Yes, 7.  */
++
++	if (g_ascii_strncasecmp (uri, "http://", 7) == 0)
++		return make_rel (uri, ref_uri, uri + 7, strchr (uri + 7, '/'));
++
++	if (g_ascii_strncasecmp (uri, "https://", 8) == 0)
++		return make_rel (uri, ref_uri, uri + 8, strchr (uri + 8, '/'));
++
++	if (g_ascii_strncasecmp (uri, "ftp://", 6) == 0)
++		return make_rel (uri, ref_uri, uri + 6, strchr (uri + 6, '/'));
++
++	return NULL;
++}
++
++/* ------------------------------------------------------------------------- */
++
++static gboolean
++is_fd_uri (char const *uri, int *fd)
++{
++	unsigned long ul;
++	char *end;
++
++	if (g_ascii_strncasecmp (uri, "fd://", 5))
++		return FALSE;
++	uri += 5;
++	if (!g_ascii_isdigit (*uri))
++		return FALSE;  /* Space, for example.  */
++
++	ul = strtoul (uri, &end, 10);
++
++	/* Accept a terminating slash because go_shell_arg_to_uri will add
++	   one. */
++	if (*end == '/') end++;
++
++	if (*end != 0 || ul > INT_MAX)
++		return FALSE;
++
++	*fd = (int)ul;
++	return TRUE;
++}
++
++/* ------------------------------------------------------------------------- */
++
++/**
++ * go_shell_arg_to_uri:
++ * @arg: a shell argument in filename encoding
++ *
++ * Convert a shell argv entry (assumed already translated into filename
++ * encoding) to an escaped URI.
++ *
++ * Returns: (transfer full): the escaped URI.
++ **/
++char *
++go_shell_arg_to_uri (char const *arg)
++{
++	GFile *file;
++	gchar *tmp;
++	int fd;
++
++	/*
++	 * We do this explicitly because gio under Win32 likes to map
++	 * things to file://  It does not hurt anywhere.
++	 */
++	if (is_fd_uri (arg, &fd))
++		return g_strdup (arg);
++
++	file = g_file_new_for_commandline_arg (arg);
++	tmp = g_file_get_uri (file);
++	g_object_unref (file);
++	return tmp;
++}
++
++/**
++ * go_basename_from_uri:
++ * @uri: The uri
++ *
++ * Decode the final path component.  Returns as UTF-8 encoded suitable
++ * for display.
++ *
++ * Returns: (transfer full): UTF-8 encoded basename.
++ **/
++char *
++go_basename_from_uri (char const *uri)
++{
++	GFile *file = g_file_new_for_uri (uri);
++	char *res = g_file_get_basename (file);
++	g_object_unref (file);
++	return res;
++}
++
++/**
++ * go_dirname_from_uri:
++ * @uri: target
++ * @brief: if %TRUE, hide "file://" if present.
++ *
++ * Decode the all but the final path component.  Returns as UTF-8 encoded
++ * suitable for display.
++ *
++ * Returns: (transfer full): UTF-8 encoded directory part.
++ **/
++char *
++go_dirname_from_uri (char const *uri, gboolean brief)
++{
++	char *dirname_utf8, *dirname;
++	char *uri_dirname = g_path_get_dirname (uri);
++	dirname = uri_dirname ? go_filename_from_uri (uri_dirname) : NULL;
++	g_free (uri_dirname);
++
++	if (dirname) {
++		char *temp = g_strconcat ("file://", dirname, NULL);
++		g_free (dirname);
++		dirname = temp;
++	}
++
++	if (brief && dirname &&
++	    g_ascii_strncasecmp (dirname, "file:///", 8) == 0) {
++		char *temp = g_strdup (dirname + 7);
++		g_free (dirname);
++		dirname = temp;
++	}
++
++	dirname_utf8 = dirname ? g_filename_display_name (dirname) : NULL;
++	g_free (dirname);
++	return dirname_utf8;
++}
++
++/* ------------------------------------------------------------------------- */
++
++static GsfInput *
++open_plain_file (char const *path, GError **err)
++{
++	GsfInput *input = gsf_input_mmap_new (path, NULL);
++	if (input != NULL)
++		return input;
++	/* Only report error if stdio fails too */
++	return gsf_input_stdio_new (path, err);
++}
++
++
++/**
++ * go_file_open:
++ * @uri: target uri
++ * @err: (out) (optional) (nullable): #GError
++ *
++ * Try all available methods to open a file or return an error
++ * Returns: (transfer full): non-%NULL on success
++ **/
++GsfInput *
++go_file_open (char const *uri, GError **err)
++{
++	char *filename;
++	int fd;
++
++	if (err != NULL)
++		*err = NULL;
++	g_return_val_if_fail (uri != NULL, NULL);
++
++	if (uri[0] == G_DIR_SEPARATOR) {
++		g_warning ("Got plain filename %s in go_file_open.", uri);
++		return open_plain_file (uri, err);
++	}
++
++	filename = go_filename_from_uri (uri);
++	if (filename) {
++		GsfInput *result = open_plain_file (filename, err);
++		g_free (filename);
++		return result;
++	}
++
++	if (is_fd_uri (uri, &fd)) {
++		int fd2 = dup (fd);
++		FILE *fil = fd2 != -1 ? fdopen (fd2, "rb") : NULL;
++		GsfInput *result = fil ? gsf_input_stdio_new_FILE (uri, fil, FALSE) : NULL;
++
++		if (!result)
++			g_set_error (err, gsf_output_error_id (), 0,
++				     "Unable to read from %s", uri);
++		return result;
++	}
++
++	/* for now, GIO seems unable to retrieve files properly using http(s)
++	 * see https://bugzilla.gnome.org/show_bug.cgi?id=724970 */
++	if (!g_ascii_strncasecmp (uri, "http://", 7) || !g_ascii_strncasecmp (uri, "https://", 8))
++		return gsf_input_http_new (uri, err);
++
++	return gsf_input_gio_new_for_uri (uri, err);
++}
++
++/**
++ * go_file_create:
++ * @uri: target uri
++ * @err: (out) (optional) (nullable): #GError
++ *
++ * Creates a file or return an error. If the file already exists, it is
++ * replaced.
++ *
++ * Returns: (transfer full): #GsfOutput for new file.
++ **/
++GsfOutput *
++go_file_create (char const *uri, GError **err)
++{
++	char *filename;
++	int fd;
++
++	g_return_val_if_fail (uri != NULL, NULL);
++
++	filename = go_filename_from_uri (uri);
++	if (filename) {
++		GsfOutput *result = gsf_output_stdio_new (filename, err);
++		g_free (filename);
++		return result;
++	}
++
++	if (is_fd_uri (uri, &fd)) {
++		int fd2 = dup (fd);
++		FILE *fil = fd2 != -1 ? fdopen (fd2, "wb") : NULL;
++		GsfOutput *result = fil ? gsf_output_stdio_new_FILE (uri, fil, FALSE) : NULL;
++
++		if (!result)
++			g_set_error (err, gsf_output_error_id (), 0,
++				     "Unable to write to %s", uri);
++		return result;
++	}
++
++	return gsf_output_gio_new_for_uri (uri, err);
++}
++
++/* ------------------------------------------------------------------------- */
++/* Adapted from gtkfilechooserdefault.c.  Unfortunately it is static there.  */
++
++/**
++ * go_file_split_urls:
++ * @data: a string filled with a list of URIs separated by new lines.
++ *
++ * Splits the chain into a list of URIs. Lines starting with '#' are ignored.
++ * Returns: (element-type utf8) (transfer full): the URIs list.
++ **/
++GSList *
++go_file_split_urls (char const *data)
++{
++  GSList *uris;
++  char const *p, *q;
++
++  uris = NULL;
++
++  p = data;
++
++  /* We don't actually try to validate the URI according to RFC
++   * 2396, or even check for allowed characters - we just ignore
++   * comments and trim whitespace off the ends.  We also
++   * allow LF delimination as well as the specified CRLF.
++   *
++   * We do allow comments like specified in RFC 2483.
++   */
++  while (p)
++    {
++      if (*p != '#')
++	{
++	  while (g_ascii_isspace (*p))
++	    p++;
++
++	  q = p;
++	  while (*q && (*q != '\n') && (*q != '\r'))
++	    q++;
++
++	  if (q > p)
++	    {
++	      q--;
++	      while (q > p && g_ascii_isspace (*q))
++		q--;
++
++	      if (q > p)
++		uris = g_slist_prepend (uris, g_strndup (p, q - p + 1));
++	    }
++	}
++      p = strchr (p, '\n');
++      if (p)
++	p++;
++    }
++
++  uris = g_slist_reverse (uris);
++  return uris;
++}
++
++/**
++ * go_file_get_owner_name:
++ * @uri: a URI
++ *
++ * Returns the real name of the owner of a URI.
++ *
++ * Returns: (transfer full) (nullable): the owner name in UTF-8, or %NULL on error.
++ **/
++gchar *
++go_file_get_owner_name (char const *uri)
++{
++	char const *name;
++	GString *nameutf8 = NULL;
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++	GFileInfo *info = g_file_query_info (file,
++					     G_FILE_ATTRIBUTE_OWNER_USER,
++					     G_FILE_QUERY_INFO_NONE, NULL, &error);
++
++	if (error) {
++		g_error_free (error);
++		return NULL;
++	}
++
++	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER);
++	(void) go_guess_encoding (name, strlen (name),
++				  NULL, &nameutf8, NULL);
++	g_object_unref (info);
++	return (nameutf8 ? g_string_free (nameutf8, FALSE) : NULL);
++}
++
++/**
++ * go_file_get_group_name:
++ * @uri: a URI
++ *
++ * Returns the group name of the owner of a URI.
++ *
++ * Returns: (transfer full) (nullable): the group name in UTF-8, or %NULL on error.
++ **/
++gchar *
++go_file_get_group_name (char const *uri)
++{
++	char const *name;
++	GString *nameutf8 = NULL;
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++	GFileInfo *info = g_file_query_info (file,
++					     G_FILE_ATTRIBUTE_OWNER_GROUP,
++					     G_FILE_QUERY_INFO_NONE, NULL, &error);
++
++	if (error) {
++		g_error_free (error);
++		return NULL;
++	}
++
++	name = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_GROUP);
++	(void) go_guess_encoding (name, strlen (name),
++				  NULL, &nameutf8, NULL);
++	g_object_unref (info);
++	return (nameutf8 ? g_string_free (nameutf8, FALSE) : NULL);
++}
++
++static GOFilePermissions *
++go_file_permissions_copy (GOFilePermissions const *permissions)
++{
++	return go_memdup (permissions, sizeof (GOFilePermissions));
++}
++
++/**
++ * go_file_permissions_get_type:
++ *
++ * Returns: the #GType for #GOFilePermissions.
++ **/
++GType
++go_file_permissions_get_type (void)
++{
++	static GType t = 0;
++
++	if (t == 0) {
++		t = g_boxed_type_register_static ("GOFilePermissions",
++			 (GBoxedCopyFunc)go_file_permissions_copy,
++			 (GBoxedFreeFunc)g_free);
++	}
++	return t;
++}
++
++/**
++ * go_get_file_permissions:
++ * @uri: a URI
++ *
++ * Returns the file permissions for @uri.
++ *
++ * Returns: (transfer full) (nullable): the file permissions, or %NULL on error.
++ **/
++GOFilePermissions *
++go_get_file_permissions (char const *uri)
++{
++	GOFilePermissions * file_permissions = NULL;
++
++	/* Try getting unix mode */
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++	GFileInfo *info = g_file_query_info (file,
++					     G_FILE_ATTRIBUTE_UNIX_MODE,
++					     G_FILE_QUERY_INFO_NONE, NULL, &error);
++	if (error) {
++		g_error_free (error);
++		error = NULL;
++	   	info = g_file_query_info (file,
++					  G_FILE_ATTRIBUTE_ACCESS_CAN_READ","
++					  G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE","
++					  G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE,
++					  G_FILE_QUERY_INFO_NONE, NULL, &error);
++		if (error)
++			g_error_free (error);
++		else {
++			file_permissions = g_new0 (GOFilePermissions, 1);
++
++			/* Owner  Permissions */
++			file_permissions->owner_read    = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ);
++			file_permissions->owner_write   = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE);
++			file_permissions->owner_execute = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE);
++		}
++	} else {
++		mode_t mode = (mode_t) g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_UNIX_MODE);
++		file_permissions = g_new0 (GOFilePermissions, 1);
++
++		/* Owner  Permissions */
++		file_permissions->owner_read    = ((mode & S_IRUSR) != 0);
++		file_permissions->owner_write   = ((mode & S_IWUSR) != 0);
++		file_permissions->owner_execute = ((mode & S_IXUSR) != 0);
++
++#ifndef G_OS_WIN32
++		/* Group  Permissions */
++		file_permissions->group_read    = ((mode & S_IRGRP) != 0);
++		file_permissions->group_write   = ((mode & S_IWGRP) != 0);
++		file_permissions->group_execute = ((mode & S_IXGRP) != 0);
++
++		/* Others Permissions */
++		file_permissions->others_read    = ((mode & S_IROTH) != 0);
++		file_permissions->others_write   = ((mode & S_IWOTH) != 0);
++		file_permissions->others_execute = ((mode & S_IXOTH) != 0);
++#else
++		file_permissions->group_read    =
++		file_permissions->group_write   =
++		file_permissions->group_execute =
++		file_permissions->others_read    =
++		file_permissions->others_write   =
++		file_permissions->others_execute = FALSE;
++#endif /* G_OS_WIN32 */
++	}
++
++	if (info)
++		g_object_unref (info);
++	g_object_unref (file);
++
++	return file_permissions;
++}
++
++/**
++ * go_set_file_permissions:
++ * @uri: a URI
++ * @file_permissions: the file permissions
++ *
++ * Sets the file permissions for @uri.
++ **/
++void
++go_set_file_permissions (char const *uri, GOFilePermissions * file_permissions)
++{
++	guint32 permissions = 0;
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++
++	/* Set owner permissions */
++	if (file_permissions->owner_read == TRUE)
++		permissions |= S_IRUSR;
++
++	if (file_permissions->owner_write == TRUE)
++		permissions |= S_IWUSR;
++
++	if (file_permissions->owner_execute == TRUE)
++		permissions |= S_IXUSR;
++
++#ifndef G_OS_WIN32
++	/* Set group permissions */
++	if (file_permissions->group_read == TRUE)
++		permissions |= S_IRGRP;
++
++	if (file_permissions->group_write == TRUE)
++		permissions |= S_IWGRP;
++
++	if (file_permissions->group_execute == TRUE)
++		permissions |= S_IXGRP;
++
++	/* Set others permissions */
++	if (file_permissions->others_read == TRUE)
++		permissions |= S_IROTH;
++
++	if (file_permissions->others_write == TRUE)
++		permissions |= S_IWOTH;
++
++	if (file_permissions->others_execute == TRUE)
++		permissions |= S_IXOTH;
++#endif
++
++	/* Try setting unix mode */
++	g_file_set_attribute_uint32 (file,
++				     G_FILE_ATTRIBUTE_UNIX_MODE,
++				     permissions,
++				     G_FILE_QUERY_INFO_NONE,
++				     NULL, &error);
++	if (error) {
++		/* Try setting access flags */
++		GFileInfo *info = g_file_info_new ();
++		g_error_free (error);
++		g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ, file_permissions->owner_read);
++		g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, file_permissions->owner_write);
++		g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE, file_permissions->owner_execute);
++		g_file_set_attributes_from_info (file,
++						 info,
++						 G_FILE_QUERY_INFO_NONE,
++						 NULL, NULL);
++	}
++
++	g_object_unref (file);
++}
++
++typedef enum {
++	GO_FILE_DATE_TYPE_ACCESSED = 0,
++	GO_FILE_DATE_TYPE_MODIFIED,
++	GO_FILE_DATE_TYPE_CHANGED
++} GOFileDateType;
++
++static time_t
++go_file_get_date (char const *uri, GOFileDateType type)
++{
++	time_t tm = -1;
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++	GFileInfo *info = NULL;
++
++	switch (type) {
++	case GO_FILE_DATE_TYPE_ACCESSED:
++		info = g_file_query_info (file,
++					  G_FILE_ATTRIBUTE_TIME_ACCESS,
++					  G_FILE_QUERY_INFO_NONE, NULL, &error);
++		if (error) {
++			g_error_free (error);
++			break;
++		}
++		tm = (time_t) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_ACCESS);
++		break;
++	case GO_FILE_DATE_TYPE_MODIFIED:
++		info = g_file_query_info (file,
++					  G_FILE_ATTRIBUTE_TIME_MODIFIED,
++					  G_FILE_QUERY_INFO_NONE, NULL, &error);
++		if (error) {
++			g_error_free (error);
++			break;
++		}
++		tm = (time_t) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
++		break;
++	case GO_FILE_DATE_TYPE_CHANGED:
++		info = g_file_query_info (file,
++					  G_FILE_ATTRIBUTE_TIME_CHANGED,
++					  G_FILE_QUERY_INFO_NONE, NULL, &error);
++		if (error) {
++			g_error_free (error);
++			break;
++		}
++		tm = (time_t) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_CHANGED);
++		break;
++	}
++
++	if (info)
++		g_object_unref (info);
++	g_object_unref (file);
++
++	return tm;
++}
++
++/**
++ * go_file_get_date_accessed:
++ * @uri: a URI
++ *
++ * Returns the last access time of @uri.
++ *
++ * Returns: the last access time, or -1 on error.
++ **/
++time_t
++go_file_get_date_accessed (char const *uri)
++{
++	return go_file_get_date (uri, GO_FILE_DATE_TYPE_ACCESSED);
++}
++
++/**
++ * go_file_get_date_modified:
++ * @uri: a URI
++ *
++ * Returns the last modification time of @uri.
++ *
++ * Returns: the last modification time, or -1 on error.
++ **/
++time_t
++go_file_get_date_modified (char const *uri)
++{
++	return go_file_get_date (uri, GO_FILE_DATE_TYPE_MODIFIED);
++}
++
++/**
++ * go_file_get_date_changed:
++ * @uri: a URI
++ *
++ * Returns the last status change time of @uri.
++ *
++ * Returns: the last status change time, or -1 on error.
++ **/
++time_t
++go_file_get_date_changed (char const *uri)
++{
++	return go_file_get_date (uri, GO_FILE_DATE_TYPE_CHANGED);
++}
++
++/**
++ * go_file_get_modtime:
++ * @uri: The uri
++ *
++ * Determine the last modification time of @uri.
++ *
++ * Returns: (transfer full) (nullable): the modification time of the
++ * file.
++ **/
++GDateTime *
++go_file_get_modtime (char const *uri)
++{
++	GDateTime *modtime = NULL;
++	GFile *file = g_file_new_for_uri (uri);
++	GFileInfo *info;
++
++	info = g_file_query_info (file,
++				  G_FILE_ATTRIBUTE_TIME_MODIFIED ","
++				  G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC,
++				  G_FILE_QUERY_INFO_NONE, NULL, NULL);
++	if (info) {
++#ifdef HAVE_G_FILE_INFO_GET_MODIFICATION_DATE_TIME
++		modtime = g_file_info_get_modification_date_time (info);
++#else
++		GTimeVal tv;
++		g_file_info_get_modification_time (info, &tv);
++		modtime = g_date_time_new_from_timeval_utc (&tv);
++#endif
++		g_object_unref (info);
++	}
++
++	g_object_unref (file);
++
++	return modtime;
++}
++
++/* ------------------------------------------------------------------------- */
++
++/**
++ * go_url_encode:
++ * @uri: The uri part to be encoded
++ * @type: 0: mailto, 1: file or http
++ *
++ * url-encode a string according to RFC 2368.
++ *
++ * Returns: (transfer full): encoded string.
++ **/
++gchar*
++go_url_encode (gchar const *uri_fragment, int type)
++{
++	char const *good;
++
++	g_return_val_if_fail (*uri_fragment != '\0', NULL);
++
++	switch (type) {
++	case 0: /* mailto: */
++		good = ".-_@";
++		break;
++	case 1: /* file: or http: */
++		good = G_URI_RESERVED_CHARS_ALLOWED_IN_PATH;
++		break;
++	default:
++		return NULL;
++	}
++
++	return g_uri_escape_string (uri_fragment, good, FALSE);
++}
++
++/**
++ * go_url_check_extension:
++ * @uri: Uri
++ * @std_ext: Standard extension for the content type
++ * @new_uri: (out) (optional) (nullable): New uri
++ *
++ * Modifies given @uri by adding the extension @std_ext if needed.
++ * If no @std_ext is given or @uri already has some extension,
++ * it just copies @uri.
++ *
++ * Value in new_uri:  newly allocated string which you should free after
++ *                    use, containing (optionally) modified uri.
++ *
++ * Return Value: %FALSE if the uri has an extension not matching @std_ext
++ */
++gboolean
++go_url_check_extension (gchar const *uri,
++			gchar const *std_ext,
++			gchar **new_uri)
++{
++	gchar *base;
++	gchar *user_ext;
++	gboolean res;
++
++	g_return_val_if_fail (uri != NULL, FALSE);
++
++	res      = TRUE;
++	base     = g_path_get_basename (uri);
++	user_ext = strrchr (base, '.');
++	if (std_ext != NULL && strlen (std_ext) > 0 && !user_ext && new_uri)
++		*new_uri = g_strconcat (uri, ".", std_ext, NULL);
++	else {
++		if (user_ext != NULL && std_ext != NULL)
++			res = !go_utf8_collate_casefold (user_ext + 1, std_ext);
++		if (new_uri)
++			*new_uri = g_strdup (uri);
++	}
++	g_free (base);
++
++	return res;
++}
++
++/**
++ * go_get_mime_type:
++ * @uri: the uri.
++ *
++ * Returns: (transfer full): the mime type for the file.
++**/
++gchar *
++go_get_mime_type (gchar const *uri)
++{
++#if defined(G_OS_WIN32)
++	/* Do we really need that? */
++	LPWSTR wuri, mime_type;
++
++	wuri = g_utf8_to_utf16 (uri, -1, NULL, NULL, NULL);
++	if (wuri &&
++	    find_mime_from_data () &&
++	    (find_mime_from_data ()) (NULL, wuri,
++				      NULL, 0,
++				      NULL, FMFD_ENABLEMIMESNIFFING, &mime_type, 0) == NOERROR)	{
++		g_free (wuri);
++		return g_utf16_to_utf8 (mime_type, -1, NULL, NULL, NULL);
++	}
++
++	g_free (wuri);
++
++	/* We try to determine mime using FindMimeFromData().
++	 * However, we are not sure whether the functions will know about
++	 * the necessary mime types. In the worst wase we fall back to
++	 * "text/plain"
++	 */
++	return g_strdup ("text/plain");
++#else
++	GFile *file = g_file_new_for_uri (uri);
++	GError *error = NULL;
++	gchar *content_type = NULL, *mime_type = NULL;
++	GFileInfo *info = g_file_query_info (file,
++					     G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
++					     G_FILE_QUERY_INFO_NONE,
++					     NULL, &error);
++	g_object_unref (file);
++	if (error) {
++		g_error_free (error);
++		/* on failure, try to guess from the file name */
++		content_type = g_content_type_guess (uri, NULL, 0, NULL);
++	} else
++		content_type = g_strdup (g_file_info_get_content_type (info));
++	if (content_type) {
++		mime_type = g_content_type_get_mime_type (content_type);
++		g_free (content_type);
++	}
++	if (info)
++		g_object_unref (info);
++	if (mime_type)
++		return mime_type;
++	return g_strdup ("application/octet-stream");
++#endif
++}
++
++/**
++ * go_get_mime_type_for_data:
++ * @data: the data.
++ * @data_size: the data size
++ *
++ * Returns: (transfer full): the mime type for the data.
++**/
++gchar *
++go_get_mime_type_for_data (gconstpointer data, int data_size)
++{
++#if defined(G_OS_WIN32)
++	/* Do we really need that? */
++	LPWSTR mime_type;
++
++	if (find_mime_from_data () &&
++	    (find_mime_from_data ()) (NULL, NULL,
++				      (LPVOID)data, data_size,
++				      NULL, FMFD_ENABLEMIMESNIFFING, &mime_type, 0) == NOERROR)	{
++		return g_utf16_to_utf8 (mime_type, -1, NULL, NULL, NULL);
++	}
++
++	/* We try to determine mime using FindMimeFromData().
++	 * However, we are not sure whether the functions will know about
++	 * the necessary mime types. In the worst wase we fall back to
++	 * "text/plain" */
++	return g_strdup ("text/plain");
++#else
++	gchar *content_type = g_content_type_guess (NULL, data, data_size, NULL);
++	gchar *mime_type = NULL;
++	if (content_type) {
++		mime_type = g_content_type_get_mime_type (content_type);
++		g_free (content_type);
++	}
++	if (mime_type)
++		return mime_type;
++	return g_strdup ("application/octet-stream");
++#endif
++}
++
++/**
++ * go_mime_type_get_description:
++ * @mime_type: the mime type to describe.
++ *
++ * Returns: (transfer full): the description for the mime type. If the
++ * description is not found, a copy of the mime type itself will be
++ * returned.
++**/
++gchar *
++go_mime_type_get_description (gchar const *mime_type)
++{
++	char *content_type = g_content_type_from_mime_type (mime_type);
++	char *description = NULL;
++	if (content_type) {
++		description = g_content_type_get_description (content_type);
++		g_free (content_type);
++	}
++	return description ? description : g_strdup (mime_type);
++}
++
++/* ------------------------------------------------------------------------- */
++
++#ifdef G_OS_WIN32
++static gchar **saved_args;
++#endif
++
++/**
++ * go_shell_argv_to_glib_encoding:
++ * @argc: arguments number
++ * @argv: command line arguments
++ *
++ * Transform arguments to UTF-8 when needed.
++ * Returns: (transfer none): the arguments in UTF-8 locale.
++ **/
++gchar const **
++go_shell_argv_to_glib_encoding (gint argc, gchar const **argv)
++{
++#ifdef G_OS_WIN32
++	gchar **args;
++
++	g_return_val_if_fail (saved_args == NULL, argv);
++
++	args = g_new (gchar *, argc + 1);
++	args[argc] = NULL;
++
++	if (G_WIN32_IS_NT_BASED ()) {
++		LPWSTR *wargs;
++		gint i, narg;
++		GIConv conv;
++
++		wargs = CommandLineToArgvW (GetCommandLineW (), &narg);
++		conv = g_iconv_open ("utf-8", "utf-16le");
++		for (i = 0; i < narg; ++i)
++			args[i] = g_convert_with_iconv ((const gchar *)wargs[i],
++							wcslen (wargs[i]) << 1,
++							conv,
++							NULL, NULL, NULL);
++		g_iconv_close (conv);
++	} else {
++		int i;
++		for (i = 0; i < argc; ++i)
++			args[i] = g_locale_to_utf8 (argv[i], -1, NULL, NULL, NULL);
++	}
++
++	saved_args = args;
++
++	return (gchar const **) args;
++#else
++	return argv;
++#endif
++}
++
++/**
++ * go_shell_argv_to_glib_encoding_free:
++ *
++ * Frees the memory allocated by go_shell_argv_to_glib_encoding().
++ **/
++void
++go_shell_argv_to_glib_encoding_free (void)
++{
++#ifdef G_OS_WIN32
++	/* What if someone -- like the option parser -- has taken elements
++	   out of the array?  */
++	g_strfreev (saved_args);
++#endif
++}
++
++/**
++ * go_file_access:
++ * @uri: a URI
++ * @mode: access mode (e.g., GO_R_OK)
++ *
++ * Checks access for @uri.
++ *
++ * Returns: 0 on success, or -1 on error.
++ **/
++gint
++go_file_access (char const *uri, gint mode)
++{
++	gint ret;
++	gchar *filename;
++
++	filename = go_filename_from_uri (uri);
++	if (!filename)
++		return -1;
++
++#ifdef G_OS_WIN32
++	/* FIXME FIXME FIXME Use Security API instead of checking file attributes only on NT-based environment */
++#endif
++
++	ret = g_access (filename, mode);
++
++	g_free (filename);
++
++	return ret;
++}

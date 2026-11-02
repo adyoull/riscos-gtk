@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# !Gnumeric: Gnumeric 1.12.57 (GPL v2/v3), the spreadsheet, on GTK 3 for
+# !Gnumeric: Gnumeric 1.12.62 (GPL v2/v3), the spreadsheet, on GTK 3 for
 # RISC OS.
 #   RCD_DIR=... SRC=... SYSROOT=... build/build-gnumeric.sh
 #   TARGET=linuxarm ...: the same build for the tests (stops after make)
@@ -7,9 +7,9 @@
 #   libxml2 2.9.14 and librsvg 2.40.20 (build-svg.sh: SVG pictures),
 #   libxslt 1.1.39 (GOffice's MathML),
 #   libgsf 1.14.51 (structured files: OLE2, ZIP; no bz2, no introspection),
-#   GOffice 0.10.57 (charts, number formats; patches/goffice-0.10.57-riscos.diff:
+#   GOffice 0.10.62 (charts, number formats; patches/goffice-0.10.62-riscos.diff:
 #     its settings in a key file),
-# then Gnumeric (patches/gnumeric-1.12.57-riscos.diff).
+# then Gnumeric (patches/gnumeric-1.12.62-riscos.diff).
 # Gnumeric's and GOffice's plugins (functions, file formats, chart types)
 # are linked in: see build/mkstaticmodules.sh and GLib's static module
 # registry (patches/glib-2.80.0-riscos.diff, g_module_register_static).
@@ -71,12 +71,12 @@ if [ ! -f "$STAGE/lib/libgsf-1.a" ]; then
    make install-pkgconfigDATA DESTDIR="$SYSROOT" >> ../libgsf.log 2>&1) || fail "$SRC/libgsf.log"
 fi
 # ---- GOffice ----
-GO=$SRC/goffice-0.10.57
+GO=$SRC/goffice-0.10.62
 if [ ! -f "$STAGE/lib/libgoffice-0.10.a" ]; then
   log GOffice
-  rm -rf "$GO"; tar -xf "$DL/goffice_0.10.57.orig.tar.xz" -C "$SRC"
-  [ ! -f "$REPO_DIR/patches/goffice-0.10.57-riscos.diff" ] ||
-    patch -d "$GO" -p1 -s < "$REPO_DIR/patches/goffice-0.10.57-riscos.diff"
+  rm -rf "$GO"; tar -xf "$DL/goffice-0.10.62.tar.xz" -C "$SRC"
+  [ ! -f "$REPO_DIR/patches/goffice-0.10.62-riscos.diff" ] ||
+    patch -d "$GO" -p1 -s < "$REPO_DIR/patches/goffice-0.10.62-riscos.diff"
   (cd "$GO" && CFLAGS="$RO_CFLAGS -Wno-deprecated-declarations $FREXPL $RISCOS_UI" PKG_CONFIG="pkg-config --static" \
      ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --libdir=$PREFIX/lib \
      --disable-shared --enable-static --with-config-backend=keyfile --without-lasem \
@@ -90,11 +90,11 @@ if [ ! -f "$STAGE/lib/libgoffice-0.10.a" ]; then
    make install-pkgconfigDATA DESTDIR="$SYSROOT" >> ../goffice.log 2>&1) || fail "$SRC/goffice.log"
 fi
 # ---- Gnumeric ----
-V=1.12.57
+V=1.12.62
 GN=$SRC/gnumeric-$V
 if [ -z "${GNUMERIC_RELINK:-}" ]; then
   log Gnumeric
-  rm -rf "$GN"; tar -xf "$DL/gnumeric_$V.orig.tar.xz" -C "$SRC"
+  rm -rf "$GN"; tar -xf "$DL/gnumeric-$V.tar.xz" -C "$SRC"
   [ ! -f "$REPO_DIR/patches/gnumeric-$V-riscos.diff" ] ||
     patch -d "$GN" -p1 -s < "$REPO_DIR/patches/gnumeric-$V-riscos.diff"
   (cd "$GN" && CFLAGS="$RO_CFLAGS -Wno-deprecated-declarations $FREXPL $RISCOS_UI" PKG_CONFIG="pkg-config --static" \
@@ -121,6 +121,11 @@ for x in "$GN"/plugins/*/plugin.xml "$GO"/plugins/*/plugin.xml; do
   d=$(dirname "$x"); n=$(basename "$d"); mf=$(module_file "$x")
   case "$SKIP" in *" $n "*) continue ;; esac
   [ -n "$mf" ] && ls "$d"/*.o > /dev/null 2>&1 || continue
+  # make -k goes on past a compile error: a plugin with some objects
+  # missing would only fail at the link, or not at all
+  n_lo=$(ls "$d"/*.lo 2>/dev/null | wc -l)
+  [ "$n_lo" = 0 ] || [ "$n_lo" = "$(ls "$d"/*.o | wc -l)" ] ||
+    { echo "build-gnumeric.sh: plugin $n: $n_lo .lo files but $(ls "$d"/*.o | wc -l) objects" >&2; fail "$SRC/gnumeric.log"; }
   MODS+=("$n/$mf=$(ls "$d"/*.o | tr '\n' ,)")
 done
 ST=$SRC/gnumeric-static
@@ -140,7 +145,7 @@ GN_LIBS="$GN/src/io-context-gtk.o $(cat "$ST.archives") $SRC/libspreadsheet.a"
 GN_CFLAGS="-I$GN -I$GN/src $(pkg-config --cflags libgoffice-0.10 gtk+-3.0 libgsf-1)"
 GN_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 libxml-2.0 libxslt gmodule-2.0) -lm"
 # ---- !Gnumeric ----
-VERSION=${VERSION:-1.12.57-riscos17}
+VERSION=${VERSION:-1.12.62-riscos18}
 APP=$SRC/gnumeric-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/gnumeric/app" "$APP"
 # the plugins' descriptions (what each built-in module provides), in the

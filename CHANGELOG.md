@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased (after RC14)
+- **GTK 3.24.52** (from 3.24.41): eleven bug-fix releases. The RISC OS
+  patch applies unchanged (`patches/gtk+3.0-3.24.52-riscos.diff`, with new
+  offsets). GTK 3.24.52 asks each backend whether a GL context is still
+  current (`is_gl_context_current`, with no default), so the RISC OS
+  backend now answers from EGL's current context
+  (`gdk/riscos/gdkglcontext-riscos.c`); without it GtkGLArea would crash.
+- **Gnumeric 1.12.62 with GOffice 0.10.62** (from 1.12.57 and 0.10.57):
+  bug and crash fixes, and new functions (XLOOKUP, XMATCH, TEXTBEFORE,
+  TEXTAFTER, TEXTSPLIT and more). Their sources come from the release tags
+  on GitHub (see docs/BUILDING.md). Patch changes:
+  - five file-format plug-ins (Applix, Lotus 1-2-3, Quattro Pro, SYLK)
+    now use strnlen, which UnixLib's string.h declares only under
+    _GNU_SOURCE: they define it on RISC OS;
+  - Applix's boot.c still calls applix_write, whose source upstream
+    removed: the unused save function is left out, as it stopped the
+    static link.
+  - build-gnumeric.sh now stops if a built-in plug-in has some of its
+    objects missing (make -k had let a half-built plug-in reach the link).
+  - GOffice's combo boxes ungrab through the current event's device,
+    which is NULL when there's no current event (a delete event): they
+    use the display's seat then (`patches/goffice-0.10.62-riscos.diff`).
+  - gnumeric-fake closes Gnumeric's own window: since 0.10.62 a combo
+    box's pop-up can be the newest window, which the fake Wimp closed by
+    default, and that pop-up ignores delete (the test looped).
+- **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos34, ClawsMail
+  4.4.0-riscos25, Geany 2.1-riscos13, mtPaint 3.50.14-riscos13, Gnumeric
+  1.12.62-riscos18, AbiWord 3.0.8-riscos4 (GOffice 0.10.62),
+  GTKThemeTest and GTKGLTest 3.24.52-riscos1.0-rc15.
+- tools/mkgnumerichelp.py copies folders in the manual's figures (1.12.62
+  has figures/icons).
+- Tested: the Linux suite, 576 ok (Geany and mtPaint fakes not built);
+  every program on RISC OS 5.31-6 in the ROL test bed.
+
 ## 3.24.41-riscos1.0-rc14 (2026-10-29)
 - **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos33, ClawsMail
   4.4.0-riscos24, Geany 2.1-riscos12, mtPaint 3.50.14-riscos12, Gnumeric

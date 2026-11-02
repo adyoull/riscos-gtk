@@ -31,9 +31,9 @@ or adapted from other projects keep their original licence, listed below.
 | `patches/mtpaint-3.50.14-riscos.diff` (including its RISC OS file picker in `src/fpick.c`), `apps/mtpaint/*` (riscos-mtpaint.c, the app files; Licence is mtPaint's COPYING, GPL-3), `build/build-mtpaint.sh` | Changes to and RISC OS start-up for [mtPaint](https://mtpaint.sourceforge.net/) 3.50.14 (Mark Tyler, Dmitry Groshev) | GPL version 3 or later, as mtPaint |
 | `apps/mtpaint/app/!Sprites`, `!Sprites11` (made by `tools/mkmtpaintsprites.py`, MIT) | mtPaint's icon, `doc/mtpaint.png` | GPL version 3 or later, as mtPaint |
 | `tests/gtk/menuclick-fake.c`, `tests/gtk/spawn-fake.c`, `tests/gtk/mtpaint-fake.c`, `tests/gtk/mkpng.py`, `tools/mkmtpaintsprites.py` | Written for riscos-gtk | MIT |
-| `patches/gnumeric-1.12.57-riscos.diff`, `apps/gnumeric/*` (riscos-gnumeric.c, the app files; Licence is Gnumeric's COPYING with the GPL 2 and 3 texts), `build/build-gnumeric.sh` | Changes to and RISC OS start-up for [Gnumeric](http://www.gnumeric.org/) 1.12.57 (the Gnumeric developers) | GPL version 2 or 3, as Gnumeric |
+| `patches/gnumeric-1.12.62-riscos.diff`, `apps/gnumeric/*` (riscos-gnumeric.c, the app files; Licence is Gnumeric's COPYING with the GPL 2 and 3 texts), `build/build-gnumeric.sh` | Changes to and RISC OS start-up for [Gnumeric](http://www.gnumeric.org/) 1.12.62 (the Gnumeric developers) | GPL version 2 or 3, as Gnumeric |
 | `apps/gnumeric/app/!Sprites`, `!Sprites11` (made by `tools/mkgnumericsprites.py`, MIT) | Gnumeric's icon, `icons/*/apps/org.gnumeric.gnumeric.png` | GPL version 2 or 3, as Gnumeric |
-| `patches/goffice-0.10.57-riscos.diff` | Changes to [GOffice](https://gitlab.gnome.org/GNOME/goffice) 0.10.57 (the GOffice developers) | GPL version 2 or 3, as GOffice |
+| `patches/goffice-0.10.62-riscos.diff` | Changes to [GOffice](https://gitlab.gnome.org/GNOME/goffice) 0.10.62 (the GOffice developers) | GPL version 2 or 3, as GOffice |
 | libxml2 2.9.14, libxslt 1.1.39 (built by `build/build-gnumeric.sh`, linked into !Gnumeric; not in this repository) | [libxml2, libxslt](https://gitlab.gnome.org/GNOME/libxml2), Daniel Veillard and others | MIT |
 | libgsf 1.14.51 (built by `build/build-gnumeric.sh`, linked into !Gnumeric; not in this repository) | [libgsf](https://gitlab.gnome.org/GNOME/libgsf), the GNOME project | LGPL version 2.1 |
 | The apps' `share/mime` (made by `build/mkmime.sh`, MIT, from shared-mime-info 2.4's `freedesktop.org.xml`; not otherwise in this repository) | [shared-mime-info](https://gitlab.freedesktop.org/xdg/shared-mime-info), freedesktop.org (its COPYING goes with it as `Licence`) | GPL version 2 or later |
@@ -49,7 +49,7 @@ or adapted from other projects keep their original licence, listed below.
 | `riscos/licences/LGPL-2.1.txt` | The GNU LGPL 2.1 text (Free Software Foundation), copied into every package as LicenceLGPL | Verbatim copying permitted |
 | `tests/claws/mailserver.py`, `tests/gtk/claws-fake.c`, `tests/gtk/claws-fake-claws.c` | Written for riscos-gtk | MIT |
 | The AcornSSL section of `tests/fake/mesa-egl/fake_riscos.c` (test code, not in any package) | Adapted from [riscos-ffmpeg](https://github.com/adyoull/riscos-ffmpeg)'s `tests/host/fake_acornssl.c` | GPL version 2 or later, as riscos-ffmpeg |
-| `patches/gtk+3.0-3.24.41-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
+| `patches/gtk+3.0-3.24.52-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
 | `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |
 | `patches/gdk-pixbuf-2.42.10-riscos.diff` | Changes to gdk-pixbuf | LGPL version 2.1 or later, as gdk-pixbuf |

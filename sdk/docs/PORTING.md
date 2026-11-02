@@ -279,7 +279,7 @@ has its own configure script:
 - **Buttons:** it paints with the right button; on RISC OS that's Adjust,
   and it leaves Menu to riscos-gtk.
 
-**Gnumeric** (1.12.57: riscos-gtk's `!Gnumeric`, `build/build-gnumeric.sh`)
+**Gnumeric** (1.12.62: riscos-gtk's `!Gnumeric`, `build/build-gnumeric.sh`)
 needs libxml2, libxslt, libgsf and GOffice first, all built static:
 
 - **Plugins:** 34 plugins, and GOffice's 9, each a GModule found through its

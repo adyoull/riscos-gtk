@@ -315,7 +315,7 @@ fi
 # plugin functions, .xlsx and .ods, a chart plot. Needs build-gnumeric.sh
 # run for this target first ($SRC/gnumeric-libs.txt)
 if [ -f "$SRC/gnumeric-libs.txt" ]; then
-  GN=$SRC/gnumeric-1.12.57; GNT=$REPO_DIR/out/gnumeric-linuxarm
+  GN=$SRC/gnumeric-1.12.62; GNT=$REPO_DIR/out/gnumeric-linuxarm
   rm -rf "$GNT"; mkdir -p "$GNT/out"
   cp -r "$HA"/. "$GNT/"; cp -r "$SRC/gnumeric-app/lib" "$SRC/gnumeric-app/goffice" "$GNT/"
   cp -rn "$SRC/gnumeric-app/share"/. "$GNT/share/"

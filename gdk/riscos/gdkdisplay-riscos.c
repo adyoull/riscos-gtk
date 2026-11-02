@@ -404,6 +404,7 @@ gdk_riscos_display_class_init (GdkRiscosDisplayClass * class)
   display_class->get_primary_monitor = gdk_riscos_display_get_primary_monitor;
 
   /* OpenGL (GtkGLArea) through riscos-mesa's EGL: gdkglcontext-riscos.c */
+  display_class->is_gl_context_current = _gdk_riscos_display_is_gl_context_current;
   display_class->make_gl_context_current = _gdk_riscos_display_make_gl_context_current;
 }
 

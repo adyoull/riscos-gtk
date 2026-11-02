@@ -7,7 +7,7 @@ that has no file of its own (it goes on to the section's file and place).
   mkgnumerichelp.py GNUMERIC_SRC OUTDIR
 
 Needs xsltproc and the DocBook XSL stylesheets (docbook-xsl), and Pillow.
-The program opens OUTDIR/<id>.html (patches/goffice-0.10.57-riscos.diff,
+The program opens OUTDIR/<id>.html (patches/goffice-0.10.62-riscos.diff,
 go_help_display) and OUTDIR/index.html (Help > Contents).
 MIT licence. Copyright (C) 2026 Andrew Youll.
 """
@@ -46,7 +46,10 @@ def main():
             im.quantize(colors=128, method=Image.Quantize.FASTOCTREE).save(
                 os.path.join(figs, f), optimize=True)
         else:
-            shutil.copy(p, figs)
+            if os.path.isdir(p):
+                shutil.copytree(p, os.path.join(figs, f))
+            else:
+                shutil.copy(p, figs)
     # where each id is
     where = {}
     for f in os.listdir(out):

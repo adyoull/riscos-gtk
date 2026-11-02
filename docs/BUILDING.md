@@ -13,8 +13,18 @@ This was built on Ubuntu 24.04, x86-64.
 sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
     autoconf-archive zstd gperf cmake curl unzip xz-utils python3-packaging python3-pil \
     libglib2.0-dev-bin shared-mime-info libgdk-pixbuf2.0-bin \
+    gtk-doc-tools intltool autopoint yelp-tools xsltproc docbook-xsl \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
+
+- `gtk-doc-tools`, `intltool`, `autopoint`, `yelp-tools`: GOffice 0.10.62
+  and Gnumeric 1.12.62 aren't in Ubuntu yet, and GNOME's download server
+  can't be reached from the build machine, so `build/fetch-sources.sh`
+  clones their release tags from GitHub's mirror, checks each tag's
+  commit, and runs their `autogen.sh` (which needs these) to make the
+  tarball a release would have. Those two tarballs have no sha256 in
+  `build/SHA256SUMS.txt`: what autogen.sh writes depends on the
+  machine's autotools, so the commit is the check.
 
 - `zstd`: the British English dictionary comes in Ubuntu's .deb, whose
   data is zstd-compressed (build/build-spell.sh).

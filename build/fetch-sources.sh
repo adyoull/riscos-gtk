@@ -15,6 +15,22 @@ REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
 mkdir -p "$DL"
 cd "$DL"
 U=https://archive.ubuntu.com/ubuntu/pool/main
+# gittag FILE REPO TAG COMMIT: a release only on GNOME's servers (which this
+# machine can't reach): its tag cloned from GitHub's mirror, checked against
+# the commit, autogen.sh run (as for a release tarball; needs gtk-doc-tools
+# and intltool) and packed as FILE. The commit is the check, not a sha256:
+# the generated files depend on the build machine's autotools.
+gittag() {
+  [ -s "$1" ] && return 0
+  echo "fetch $1 (git $3)"
+  local t; t=$(mktemp -d)
+  git clone -q --depth 1 -b "$3" "$2" "$t/${1%.tar.xz}" 2>/dev/null &&
+  [ "$(git -C "$t/${1%.tar.xz}" rev-parse HEAD)" = "$4" ] &&
+  (cd "$t/${1%.tar.xz}" && rm -rf .git && NOCONFIGURE=1 ./autogen.sh > ../autogen.log 2>&1) &&
+  tar -C "$t" --sort=name --owner=0 --group=0 --mtime=@0 -cJf "$1.part" "${1%.tar.xz}" &&
+  mv "$1.part" "$1" || { rm -f "$1.part"; echo "  FAILED: $2 $3" >&2; }
+  rm -rf "$t"
+}
 get() {  # file url
   [ -s "$1" ] && return 0
   echo "fetch $1"; curl -fsSL -o "$1.part" "$2" && mv "$1.part" "$1" || { rm -f "$1.part"; echo "  FAILED: $2" >&2; }
@@ -40,7 +56,7 @@ get gdk-pixbuf_2.42.10+dfsg.orig.tar.xz $U/g/gdk-pixbuf/gdk-pixbuf_2.42.10+dfsg.
 get atk1.0_2.36.0.orig.tar.xz       $U/a/atk1.0/atk1.0_2.36.0.orig.tar.xz
 get libepoxy_1.5.10.orig.tar.gz     $U/libe/libepoxy/libepoxy_1.5.10.orig.tar.gz
 # GTK itself (M2)
-get gtk+3.0_3.24.41.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz
+get gtk+3.0_3.24.52.orig.tar.xz     $U/g/gtk+3.0/gtk+3.0_3.24.52.orig.tar.xz
 # the RISCOS icon theme is taken from Adwaita's PNGs (build/mkicons.py)
 get adwaita-icon-theme_3.36.1.orig.tar.xz $U/a/adwaita-icon-theme/adwaita-icon-theme_3.36.1.orig.tar.xz
 # L3afpad, the first GTK program ported (build/build-l3afpad.sh; universe)
@@ -63,8 +79,9 @@ get gumbo-parser_0.12.0+dfsg.orig.tar.xz https://archive.ubuntu.com/ubuntu/pool/
 get libxml2_2.9.14+dfsg.orig.tar.xz $U/libx/libxml2/libxml2_2.9.14+dfsg.orig.tar.xz
 get libxslt_1.1.39.orig.tar.xz      $U/libx/libxslt/libxslt_1.1.39.orig.tar.xz
 get libgsf_1.14.51.orig.tar.xz      $U/libg/libgsf/libgsf_1.14.51.orig.tar.xz
-get goffice_0.10.57.orig.tar.xz     https://archive.ubuntu.com/ubuntu/pool/universe/g/goffice/goffice_0.10.57.orig.tar.xz
-get gnumeric_1.12.57.orig.tar.xz    https://archive.ubuntu.com/ubuntu/pool/universe/g/gnumeric/gnumeric_1.12.57.orig.tar.xz
+# (GOffice and Gnumeric 0.10.62/1.12.62 aren't in Ubuntu yet: their tags)
+gittag goffice-0.10.62.tar.xz  https://github.com/GNOME/goffice  GOFFICE_0_10_62  8921ec401a10b4350bb059a03e4a749b86765a5f
+gittag gnumeric-1.12.62.tar.xz https://github.com/GNOME/gnumeric GNUMERIC_1_12_62 221aa9306b42a347b1aa18a3fa8482ea6ef9b6da
 # AbiWord, the word processor (build/build-abiword.sh; universe), and what
 # it needs besides Gnumeric's libraries: wv (Word 97-2003 files) and
 # Boost's headers. AbiWord 3.0.8 is Debian's (+ds: the .git files left
