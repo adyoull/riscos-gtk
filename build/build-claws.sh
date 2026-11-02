@@ -49,6 +49,7 @@ patch -d "$C" -p1 -s < "$REPO_DIR/patches/claws-mail-$V-riscos.diff"
 if [ ! -f "$STAGE/lib/libetpan.a" ]; then
   E=$SRC/libetpan-1.9.4
   rm -rf "$E"; tar -xf "$DL/libetpan_1.9.4.orig.tar.xz" -C "$SRC"
+  security_patches "$E"
   (cd "$E" && CFLAGS="$RO_CFLAGS -Wno-deprecated-declarations" \
      CPPFLAGS="-I$C/src/common/gnutls-acornssl" ac_cv_lib_gnutls_gnutls_global_deinit=yes \
      ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX --libdir=$PREFIX/lib \

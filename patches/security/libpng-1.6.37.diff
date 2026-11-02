@@ -1,0 +1,1981 @@
+riscos-gtk: security fixes for libpng-1.6.37, from Ubuntu's package 1.6.37-3ubuntu0.7
+(libpng1.6_1.6.37-3ubuntu0.7.debian.tar.xz: debian/patches), applied in its series order:
+  72fa126446460347a504f3d9b90f24aed1365595.patch
+  326.patch
+  CVE-2025-64505.patch
+  CVE-2025-64506.patch
+  CVE-2025-64720.patch
+  CVE-2025-65018.patch
+  CVE-2025-66293-1.patch
+  CVE-2025-66293-2.patch
+  CVE-2026-22695.patch
+  CVE-2026-22801.patch
+  CVE-2026-25646.patch
+  CVE-2026-33416-pre1.patch
+  CVE-2026-33416-pre2.patch
+  CVE-2026-33416-1.patch
+  CVE-2026-33416-2.patch
+  CVE-2026-33416-3.patch
+  CVE-2026-33416-4.patch
+  CVE-2026-33416-5.patch
+  CVE-2026-33636.patch
+  CVE-2026-34757-1.patch
+  CVE-2026-34757-2.patch
+  rowbytes_overflow.patch
+  CVE-2026-46675.patch
+Made by tools/mksecuritypatch.sh from libpng1.6_1.6.37.orig.tar.gz.
+
+diff -ruN a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -500,6 +500,9 @@
+ set(pngstest_sources
+   contrib/libtests/pngstest.c
+ )
++set(pnggetset_sources
++    contrib/libtests/pnggetset.c
++)
+ set(pngunknown_sources
+   contrib/libtests/pngunknown.c
+ )
+@@ -642,6 +645,15 @@
+ 
+   png_add_test(NAME pngtest COMMAND pngtest FILES "${PNGTEST_PNG}")
+ 
++  # pnggetset test:
++  # Getter-to-setter roundtrips for various chunk types.
++  add_executable(pnggetset ${pnggetset_sources})
++  target_link_libraries(pnggetset
++                        PRIVATE png_shared)
++
++  png_add_test(NAME pnggetset
++               COMMAND pnggetset)
++
+   add_executable(pngvalid ${pngvalid_sources})
+   target_link_libraries(pngvalid png)
+ 
+@@ -729,6 +741,13 @@
+     endforeach()
+   endforeach()
+ 
++  # Regression test:
++  # Use stride_extra > 32767 to trigger row_bytes > 65535 for linear images.
++  png_add_test(NAME pngstest-large-stride
++               COMMAND pngstest
++               OPTIONS --stride-extra 33000 --tmpfile "large-stride-" --log
++               FILES "${CMAKE_CURRENT_SOURCE_DIR}/contrib/testpngs/rgb-alpha-16-linear.png")
++
+   add_executable(pngunknown ${pngunknown_sources})
+   target_link_libraries(pngunknown png)
+ 
+diff -ruN a/Makefile.am b/Makefile.am
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -12,7 +12,7 @@
+ ACLOCAL_AMFLAGS = -I scripts
+ 
+ # test programs - run on make check, make distcheck
+-check_PROGRAMS= pngtest pngunknown pngstest pngvalid pngimage pngcp
++check_PROGRAMS= pngtest pnggetset pngunknown pngstest pngvalid pngimage pngcp
+ if HAVE_CLOCK_GETTIME
+ check_PROGRAMS += timepng
+ endif
+@@ -33,6 +33,9 @@
+ pngtest_SOURCES = pngtest.c
+ pngtest_LDADD = libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@.la
+ 
++pnggetset_SOURCES = contrib/libtests/pnggetset.c
++pnggetset_LDADD = libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@.la
++
+ pngvalid_SOURCES = contrib/libtests/pngvalid.c
+ pngvalid_LDADD = libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@.la
+ 
+@@ -59,8 +62,8 @@
+ # Generally these are single line shell scripts to run a test with a particular
+ # set of parameters:
+ TESTS =\
+-   tests/pngtest\
+-   tests/pngtest-badpngs\
++   tests/pngtest-all\
++   tests/pnggetset\
+    tests/pngvalid-gamma-16-to-8 tests/pngvalid-gamma-alpha-mode\
+    tests/pngvalid-gamma-background tests/pngvalid-gamma-expand16-alpha-mode\
+    tests/pngvalid-gamma-expand16-background\
+@@ -240,9 +243,10 @@
+ pngtest.o: pnglibconf.h
+ 
+ contrib/libtests/makepng.o: pnglibconf.h
++contrib/libtests/pnggetset.o: pnglibconf.h
++contrib/libtests/pngimage.o: pnglibconf.h
+ contrib/libtests/pngstest.o: pnglibconf.h
+ contrib/libtests/pngunknown.o: pnglibconf.h
+-contrib/libtests/pngimage.o: pnglibconf.h
+ contrib/libtests/pngvalid.o: pnglibconf.h
+ contrib/libtests/readpng.o: pnglibconf.h
+ contrib/libtests/tarith.o: pnglibconf.h
+diff -ruN a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -736,8 +736,7 @@
+ # Generally these are single line shell scripts to run a test with a particular
+ # set of parameters:
+ TESTS = \
+-   tests/pngtest\
+-   tests/pngtest-badpngs\
++   tests/pngtest-all\
+    tests/pngvalid-gamma-16-to-8 tests/pngvalid-gamma-alpha-mode\
+    tests/pngvalid-gamma-background tests/pngvalid-gamma-expand16-alpha-mode\
+    tests/pngvalid-gamma-expand16-background\
+@@ -1578,16 +1577,9 @@
+ 	        am__force_recheck=am--force-recheck \
+ 	        TEST_LOGS="$$log_list"; \
+ 	exit $$?
+-tests/pngtest.log: tests/pngtest
+-	@p='tests/pngtest'; \
+-	b='tests/pngtest'; \
+-	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+-	--log-file $$b.log --trs-file $$b.trs \
+-	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+-	"$$tst" $(AM_TESTS_FD_REDIRECT)
+-tests/pngtest-badpngs.log: tests/pngtest-badpngs
+-	@p='tests/pngtest-badpngs'; \
+-	b='tests/pngtest-badpngs'; \
++tests/pngtest-all.log: tests/pngtest-all
++	@p='tests/pngtest-all'; \
++	b='tests/pngtest-all'; \
+ 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+ 	--log-file $$b.log --trs-file $$b.trs \
+ 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+diff -ruN a/arm/palette_neon_intrinsics.c b/arm/palette_neon_intrinsics.c
+--- a/arm/palette_neon_intrinsics.c
++++ b/arm/palette_neon_intrinsics.c
+@@ -1,7 +1,7 @@
+ 
+ /* palette_neon_intrinsics.c - NEON optimised palette expansion functions
+  *
+- * Copyright (c) 2018-2019 Cosmin Truta
++ * Copyright (c) 2018-2026 Cosmin Truta
+  * Copyright (c) 2017-2018 Arm Holdings. All rights reserved.
+  * Written by Richard Townsend <Richard.Townsend@arm.com>, February 2017.
+  *
+@@ -79,7 +79,7 @@
+     */
+    *ddp = *ddp - ((pixels_per_chunk * sizeof(png_uint_32)) - 1);
+ 
+-   for (i = 0; i < row_width; i += pixels_per_chunk)
++   for (i = 0; i + pixels_per_chunk <= row_width; i += pixels_per_chunk)
+    {
+       uint32x4_t cur;
+       png_bytep sp = *ssp - i, dp = *ddp - (i << 2);
+@@ -89,13 +89,12 @@
+       cur = vld1q_lane_u32(riffled_palette + *(sp - 0), cur, 3);
+       vst1q_u32((void *)dp, cur);
+    }
+-   if (i != row_width)
+-   {
+-      /* Remove the amount that wasn't processed. */
+-      i -= pixels_per_chunk;
+-   }
+ 
+-   /* Decrement output pointers. */
++   /* Undo the pre-adjustment of *ddp before the pointer handoff,
++    * so the scalar fallback in pngrtran.c receives a dp that points
++    * to the correct position.
++    */
++   *ddp = *ddp + (pixels_per_chunk * 4 - 1);
+    *ssp = *ssp - i;
+    *ddp = *ddp - (i << 2);
+    return i;
+@@ -119,7 +118,7 @@
+    /* Seeking this back by 8 pixels x 3 bytes. */
+    *ddp = *ddp - ((pixels_per_chunk * sizeof(png_color)) - 1);
+ 
+-   for (i = 0; i < row_width; i += pixels_per_chunk)
++   for (i = 0; i + pixels_per_chunk <= row_width; i += pixels_per_chunk)
+    {
+       uint8x8x3_t cur;
+       png_bytep sp = *ssp - i, dp = *ddp - ((i << 1) + i);
+@@ -134,13 +133,11 @@
+       vst3_u8((void *)dp, cur);
+    }
+ 
+-   if (i != row_width)
+-   {
+-      /* Remove the amount that wasn't processed. */
+-      i -= pixels_per_chunk;
+-   }
+-
+-   /* Decrement output pointers. */
++   /* Undo the pre-adjustment of *ddp before the pointer handoff,
++    * so the scalar fallback in pngrtran.c receives a dp that points
++    * to the correct position.
++    */
++   *ddp = *ddp + (pixels_per_chunk * 3 - 1);
+    *ssp = *ssp - i;
+    *ddp = *ddp - ((i << 1) + i);
+    return i;
+diff -ruN a/contrib/libtests/pnggetset.c b/contrib/libtests/pnggetset.c
+--- a/contrib/libtests/pnggetset.c
++++ b/contrib/libtests/pnggetset.c
+@@ -0,0 +1,648 @@
++/* pnggetset.c
++ *
++ * Copyright (c) 2026 Cosmin Truta
++ *
++ * This code is released under the libpng license.
++ * For conditions of distribution and use, see the disclaimer
++ * and license in png.h
++ *
++ * Test the get-then-set roundtrip for chunk types whose getters return
++ * a pointer to internal storage.
++ *
++ * Passing such a pointer back into the corresponding setter must not
++ * cause a use-after-free.  A previous version freed the internal buffer
++ * before copying from the caller-supplied pointer.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#if defined(HAVE_CONFIG_H) && !defined(PNG_NO_CONFIG_H)
++#  include <config.h>
++#endif
++
++#ifdef PNG_FREESTANDING_TESTS
++#  include <png.h>
++#else
++#  include "../../png.h"
++#endif
++
++/* Test: get the PLTE, pass it straight back to set, verify roundtrip. */
++static int
++test_plte_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_color palette[4];
++   png_colorp got_palette = NULL;
++   int num_palette = 0;
++   int i;
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr, "pnggetset: libpng error in test_plte_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Set up a palette-color image header. */
++   png_set_IHDR(png_ptr, info_ptr, 1, 1, 8, PNG_COLOR_TYPE_PALETTE,
++       PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
++
++   /* Populate with recognizable values. */
++   for (i = 0; i < 4; i++)
++   {
++      palette[i].red   = (png_byte)(i * 10);
++      palette[i].green = (png_byte)(i * 20);
++      palette[i].blue  = (png_byte)(i * 30);
++   }
++   png_set_PLTE(png_ptr, info_ptr, palette, 4);
++
++   /* Get the internal pointer and feed it straight back. */
++   png_get_PLTE(png_ptr, info_ptr, &got_palette, &num_palette);
++   if (got_palette == NULL || num_palette != 4)
++   {
++      fprintf(stderr, "pnggetset: png_get_PLTE returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: the pointer aliases info_ptr->palette. */
++   png_set_PLTE(png_ptr, info_ptr, got_palette, num_palette);
++
++   /* Verify the data survived the roundtrip. */
++   got_palette = NULL;
++   num_palette = 0;
++   png_get_PLTE(png_ptr, info_ptr, &got_palette, &num_palette);
++   if (got_palette == NULL || num_palette != 4)
++   {
++      fprintf(stderr, "pnggetset: PLTE lost after roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   for (i = 0; i < 4; i++)
++   {
++      if (got_palette[i].red   != (png_byte)(i * 10) ||
++          got_palette[i].green != (png_byte)(i * 20) ||
++          got_palette[i].blue  != (png_byte)(i * 30))
++      {
++         fprintf(stderr,
++             "pnggetset: PLTE entry %d corrupted after roundtrip\n", i);
++         png_destroy_write_struct(&png_ptr, &info_ptr);
++         return 1;
++      }
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++
++#ifdef PNG_hIST_SUPPORTED
++/* Test: get the hIST, pass it straight back to set, verify roundtrip. */
++static int
++test_hist_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_color palette[4];
++   png_uint_16 hist[4];
++   png_uint_16p got_hist = NULL;
++   int i;
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr, "pnggetset: libpng error in test_hist_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Set up a palette-color image header. */
++   memset(palette, 0, sizeof palette);
++   png_set_IHDR(png_ptr, info_ptr, 1, 1, 8, PNG_COLOR_TYPE_PALETTE,
++       PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
++   png_set_PLTE(png_ptr, info_ptr, palette, 4);
++
++   /* Populate with recognizable values. */
++   for (i = 0; i < 4; i++)
++      hist[i] = (png_uint_16)(i * 100 + 42);
++
++   png_set_hIST(png_ptr, info_ptr, hist);
++
++   /* Get the internal pointer and feed it straight back. */
++   if (png_get_hIST(png_ptr, info_ptr, &got_hist) == 0 || got_hist == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_get_hIST returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: the pointer aliases info_ptr->hist. */
++   png_set_hIST(png_ptr, info_ptr, got_hist);
++
++   /* Verify the data survived the roundtrip. */
++   got_hist = NULL;
++   if (png_get_hIST(png_ptr, info_ptr, &got_hist) == 0 || got_hist == NULL)
++   {
++      fprintf(stderr, "pnggetset: hIST lost after roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   for (i = 0; i < 4; i++)
++   {
++      if (got_hist[i] != (png_uint_16)(i * 100 + 42))
++      {
++         fprintf(stderr,
++             "pnggetset: hIST entry %d corrupted after roundtrip\n", i);
++         png_destroy_write_struct(&png_ptr, &info_ptr);
++         return 1;
++      }
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++#endif /* PNG_hIST_SUPPORTED */
++
++#ifdef PNG_tRNS_SUPPORTED
++/* Test: get the tRNS, pass it straight back to set, verify roundtrip. */
++static int
++test_trns_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_color palette[4];
++   png_byte trans_alpha[4];
++   png_color_16 trans_color;
++   png_bytep got_alpha = NULL;
++   png_color_16p got_color = NULL;
++   int num_trans = 0;
++   int i;
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr, "pnggetset: libpng error in test_trns_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Set up a palette-color image. */
++   memset(palette, 0, sizeof palette);
++   png_set_IHDR(png_ptr, info_ptr, 1, 1, 8, PNG_COLOR_TYPE_PALETTE,
++       PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
++   png_set_PLTE(png_ptr, info_ptr, palette, 4);
++
++   /* Populate tRNS with recognizable values. */
++   for (i = 0; i < 4; i++)
++      trans_alpha[i] = (png_byte)(0xff - i * 0x11);
++   memset(&trans_color, 0, sizeof trans_color);
++
++   png_set_tRNS(png_ptr, info_ptr, trans_alpha, 4, &trans_color);
++
++   /* Get the internal pointer and feed it straight back. */
++   png_get_tRNS(png_ptr, info_ptr, &got_alpha, &num_trans, &got_color);
++   if (got_alpha == NULL || num_trans != 4)
++   {
++      fprintf(stderr, "pnggetset: png_get_tRNS returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: the pointer aliases info_ptr->trans_alpha. */
++   png_set_tRNS(png_ptr, info_ptr, got_alpha, num_trans, got_color);
++
++   /* Verify the data survived the roundtrip. */
++   got_alpha = NULL;
++   num_trans = 0;
++   png_get_tRNS(png_ptr, info_ptr, &got_alpha, &num_trans, &got_color);
++   if (got_alpha == NULL || num_trans != 4)
++   {
++      fprintf(stderr, "pnggetset: tRNS lost after roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   for (i = 0; i < 4; i++)
++   {
++      if (got_alpha[i] != (png_byte)(0xff - i * 0x11))
++      {
++         fprintf(stderr,
++             "pnggetset: tRNS entry %d corrupted after roundtrip\n", i);
++         png_destroy_write_struct(&png_ptr, &info_ptr);
++         return 1;
++      }
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++#endif /* PNG_tRNS_SUPPORTED */
++
++#ifdef PNG_TEXT_SUPPORTED
++/* Test: get the text array, pass it straight back to set, verify data. */
++#define TEXT_COUNT 6 /* enough to trigger reallocation on the second set */
++static int
++test_text_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_text text_entries[TEXT_COUNT];
++   png_textp got_text = NULL;
++   int got_num_text = 0;
++   int i;
++
++   /* Recognizable keys and values. */
++   static const char *keys[TEXT_COUNT] = {
++      "Title", "Author", "Desc", "Copyright", "Source", "Comment"
++   };
++   static const char *vals[TEXT_COUNT] = {
++      "t0", "t1", "t2", "t3", "t4", "t5"
++   };
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr, "pnggetset: libpng error in test_text_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Populate the text entries. */
++   memset(text_entries, 0, sizeof text_entries);
++   for (i = 0; i < TEXT_COUNT; i++)
++   {
++      text_entries[i].compression = PNG_TEXT_COMPRESSION_NONE;
++      text_entries[i].key = (png_charp)keys[i];
++      text_entries[i].text = (png_charp)vals[i];
++   }
++   png_set_text(png_ptr, info_ptr, text_entries, TEXT_COUNT);
++
++   /* Get the internal pointer and feed it straight back (append). */
++   png_get_text(png_ptr, info_ptr, &got_text, &got_num_text);
++   if (got_text == NULL || got_num_text != TEXT_COUNT)
++   {
++      fprintf(stderr, "pnggetset: png_get_text returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: got_text aliases info_ptr->text. */
++   png_set_text(png_ptr, info_ptr, got_text, got_num_text);
++
++   /* Verify the original entries survived. */
++   got_text = NULL;
++   got_num_text = 0;
++   png_get_text(png_ptr, info_ptr, &got_text, &got_num_text);
++   if (got_text == NULL || got_num_text != TEXT_COUNT * 2)
++   {
++      fprintf(stderr, "pnggetset: text count %d, expected %d after roundtrip\n",
++          got_num_text, TEXT_COUNT * 2);
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   for (i = 0; i < TEXT_COUNT; i++)
++   {
++      if (got_text[i].key == NULL ||
++          strcmp(got_text[i].key, keys[i]) != 0 ||
++          got_text[i].text == NULL ||
++          strcmp(got_text[i].text, vals[i]) != 0)
++      {
++         fprintf(stderr,
++             "pnggetset: text entry %d corrupted after roundtrip\n", i);
++         png_destroy_write_struct(&png_ptr, &info_ptr);
++         return 1;
++      }
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++#undef TEXT_COUNT
++#endif /* PNG_TEXT_SUPPORTED */
++
++#ifdef PNG_sPLT_SUPPORTED
++/* Test: get the sPLT array, pass it straight back to set, verify data. */
++static int
++test_splt_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_sPLT_t splt;
++   png_sPLT_entry splt_entries[4];
++   png_sPLT_tp got_spalettes = NULL;
++   int got_num, i;
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr, "pnggetset: libpng error in test_splt_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Populate with recognizable values. */
++   memset(splt_entries, 0, sizeof splt_entries);
++   for (i = 0; i < 4; i++)
++   {
++      splt_entries[i].red = (png_uint_16)(i * 1000);
++      splt_entries[i].green = (png_uint_16)(i * 2000);
++      splt_entries[i].blue = (png_uint_16)(i * 3000);
++      splt_entries[i].alpha = 0xffffU;
++      splt_entries[i].frequency = (png_uint_16)(i + 1);
++   }
++   memset(&splt, 0, sizeof splt);
++   splt.name = (png_charp)"test_sPLT";
++   splt.depth = 16;
++   splt.entries = splt_entries;
++   splt.nentries = 4;
++
++   png_set_sPLT(png_ptr, info_ptr, &splt, 1);
++
++   /* Get the internal pointer and feed it straight back (append). */
++   got_num = png_get_sPLT(png_ptr, info_ptr, &got_spalettes);
++   if (got_spalettes == NULL || got_num != 1)
++   {
++      fprintf(stderr, "pnggetset: png_get_sPLT returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: got_spalettes aliases internal storage. */
++   png_set_sPLT(png_ptr, info_ptr, got_spalettes, got_num);
++
++   /* Verify the original entry survived. */
++   got_spalettes = NULL;
++   got_num = png_get_sPLT(png_ptr, info_ptr, &got_spalettes);
++   if (got_spalettes == NULL || got_num != 2)
++   {
++      fprintf(stderr, "pnggetset: sPLT count %d, expected 2 after roundtrip\n",
++          got_num);
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   if (strcmp(got_spalettes[0].name, "test_sPLT") != 0 ||
++       got_spalettes[0].nentries != 4 ||
++       got_spalettes[0].depth != 16)
++   {
++      fprintf(stderr,
++          "pnggetset: sPLT entry 0 corrupted after roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   for (i = 0; i < 4; i++)
++   {
++      if (got_spalettes[0].entries[i].red != (png_uint_16)(i * 1000) ||
++          got_spalettes[0].entries[i].green != (png_uint_16)(i * 2000) ||
++          got_spalettes[0].entries[i].blue != (png_uint_16)(i * 3000))
++      {
++         fprintf(stderr,
++             "pnggetset: sPLT[0] entry %d corrupted after roundtrip\n", i);
++         png_destroy_write_struct(&png_ptr, &info_ptr);
++         return 1;
++      }
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++#endif /* PNG_sPLT_SUPPORTED */
++
++#ifdef PNG_STORE_UNKNOWN_CHUNKS_SUPPORTED
++/* Test: get unknown chunks, pass them straight back to set, verify data. */
++static int
++test_unknown_roundtrip(void)
++{
++   png_structp png_ptr;
++   png_infop info_ptr;
++   png_unknown_chunk unk;
++   png_unknown_chunkp got_unknowns = NULL;
++   int got_num;
++   static const png_byte test_data[] = {0xde, 0xad, 0xbe, 0xef};
++
++   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
++       NULL, NULL, NULL);
++   if (png_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_write_struct failed\n");
++      return 1;
++   }
++
++   info_ptr = png_create_info_struct(png_ptr);
++   if (info_ptr == NULL)
++   {
++      fprintf(stderr, "pnggetset: png_create_info_struct failed\n");
++      png_destroy_write_struct(&png_ptr, NULL);
++      return 1;
++   }
++
++   if (setjmp(png_jmpbuf(png_ptr)))
++   {
++      fprintf(stderr,
++          "pnggetset: libpng error in test_unknown_roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* Set up an unknown chunk with recognizable data. */
++   memset(&unk, 0, sizeof unk);
++   memcpy(unk.name, "teSt", 5);
++   unk.data = (png_bytep)test_data;
++   unk.size = sizeof test_data;
++   unk.location = PNG_HAVE_IHDR;
++
++   png_set_keep_unknown_chunks(png_ptr, PNG_HANDLE_CHUNK_ALWAYS, NULL, 0);
++   png_set_unknown_chunks(png_ptr, info_ptr, &unk, 1);
++
++   /* Get the internal pointer and feed it straight back (append). */
++   got_num = png_get_unknown_chunks(png_ptr, info_ptr, &got_unknowns);
++   if (got_unknowns == NULL || got_num != 1)
++   {
++      fprintf(stderr,
++          "pnggetset: png_get_unknown_chunks returned unexpected values\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   /* This is the critical call: got_unknowns aliases internal storage. */
++   png_set_unknown_chunks(png_ptr, info_ptr, got_unknowns, got_num);
++
++   /* Verify the original entry survived. */
++   got_unknowns = NULL;
++   got_num = png_get_unknown_chunks(png_ptr, info_ptr, &got_unknowns);
++   if (got_unknowns == NULL || got_num != 2)
++   {
++      fprintf(stderr,
++          "pnggetset: unknown_chunks count %d, expected 2 after roundtrip\n",
++          got_num);
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++   if (memcmp(got_unknowns[0].name, "teSt", 4) != 0 ||
++       got_unknowns[0].size != sizeof test_data ||
++       memcmp(got_unknowns[0].data, test_data, sizeof test_data) != 0)
++   {
++      fprintf(stderr,
++          "pnggetset: unknown chunk 0 corrupted after roundtrip\n");
++      png_destroy_write_struct(&png_ptr, &info_ptr);
++      return 1;
++   }
++
++   png_destroy_write_struct(&png_ptr, &info_ptr);
++   return 0;
++}
++#endif /* PNG_STORE_UNKNOWN_CHUNKS_SUPPORTED */
++
++int
++main(void)
++{
++   int result = 0;
++
++   printf("Testing PLTE get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_plte_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++
++#ifdef PNG_hIST_SUPPORTED
++   printf("Testing hIST get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_hist_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++#endif
++
++#ifdef PNG_tRNS_SUPPORTED
++   printf("Testing tRNS get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_trns_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++#endif
++
++#ifdef PNG_TEXT_SUPPORTED
++   printf("Testing tEXt get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_text_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++#endif
++
++#ifdef PNG_sPLT_SUPPORTED
++   printf("Testing sPLT get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_splt_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++#endif
++
++#ifdef PNG_STORE_UNKNOWN_CHUNKS_SUPPORTED
++   printf("Testing unknown chunks get-then-set roundtrip... ");
++   fflush(stdout);
++   if (test_unknown_roundtrip() != 0)
++   {
++      printf("FAIL\n");
++      result = 1;
++   }
++   else
++      printf("PASS\n");
++#endif
++
++   return result;
++}
+diff -ruN a/contrib/libtests/pngstest.c b/contrib/libtests/pngstest.c
+--- a/contrib/libtests/pngstest.c
++++ b/contrib/libtests/pngstest.c
+@@ -3567,6 +3567,33 @@
+          opts |= NO_RESEED;
+       else if (strcmp(arg, "--fault-gbg-warning") == 0)
+          opts |= GBG_ERROR;
++      else if (strcmp(arg, "--stride-extra") == 0)
++      {
++         if (c+1 < argc)
++         {
++            char *ep;
++            unsigned long val = strtoul(argv[++c], &ep, 0);
++
++            if (ep > argv[c] && *ep == 0 && val <= 65535)
++               stride_extra = (int)val;
++
++            else
++            {
++               fflush(stdout);
++               fprintf(stderr, "%s: bad argument for --stride-extra: %s\n",
++                  argv[0], argv[c]);
++               exit(99);
++            }
++         }
++
++         else
++         {
++            fflush(stdout);
++            fprintf(stderr, "%s: missing argument for --stride-extra\n",
++               argv[0]);
++            exit(99);
++         }
++      }
+       else if (strcmp(arg, "--tmpfile") == 0)
+       {
+          if (c+1 < argc)
+diff -ruN a/pngread.c b/pngread.c
+--- a/pngread.c
++++ b/pngread.c
+@@ -959,21 +959,19 @@
+    png_ptr->quantize_index = NULL;
+ #endif
+ 
+-   if ((png_ptr->free_me & PNG_FREE_PLTE) != 0)
+-   {
+-      png_zfree(png_ptr, png_ptr->palette);
+-      png_ptr->palette = NULL;
+-   }
+-   png_ptr->free_me &= ~PNG_FREE_PLTE;
++   /* png_ptr->palette is always independently allocated (not aliased
++    * with info_ptr->palette), so free it unconditionally.
++    */
++   png_free(png_ptr, png_ptr->palette);
++   png_ptr->palette = NULL;
+ 
+ #if defined(PNG_tRNS_SUPPORTED) || \
+     defined(PNG_READ_EXPAND_SUPPORTED) || defined(PNG_READ_BACKGROUND_SUPPORTED)
+-   if ((png_ptr->free_me & PNG_FREE_TRNS) != 0)
+-   {
+-      png_free(png_ptr, png_ptr->trans_alpha);
+-      png_ptr->trans_alpha = NULL;
+-   }
+-   png_ptr->free_me &= ~PNG_FREE_TRNS;
++   /* png_ptr->trans_alpha is always independently allocated (not aliased
++    * with info_ptr->trans_alpha), so free it unconditionally.
++    */
++   png_free(png_ptr, png_ptr->trans_alpha);
++   png_ptr->trans_alpha = NULL;
+ #endif
+ 
+    inflateEnd(&png_ptr->zstream);
+@@ -3260,6 +3258,56 @@
+    }
+ }
+ 
++/* Row reading for interlaced 16-to-8 bit depth conversion with local buffer. */
++static int
++png_image_read_direct_scaled(png_voidp argument)
++{
++   png_image_read_control *display = png_voidcast(png_image_read_control*,
++       argument);
++   png_imagep image = display->image;
++   png_structrp png_ptr = image->opaque->png_ptr;
++   png_inforp info_ptr = image->opaque->info_ptr;
++   png_bytep local_row = png_voidcast(png_bytep, display->local_row);
++   png_bytep first_row = png_voidcast(png_bytep, display->first_row);
++   ptrdiff_t row_bytes = display->row_bytes;
++   size_t copy_bytes = png_get_rowbytes(png_ptr, info_ptr);
++   int passes;
++
++   /* Handle interlacing. */
++   switch (png_ptr->interlaced)
++   {
++      case PNG_INTERLACE_NONE:
++         passes = 1;
++         break;
++
++      case PNG_INTERLACE_ADAM7:
++         passes = PNG_INTERLACE_ADAM7_PASSES;
++         break;
++
++      default:
++         png_error(png_ptr, "unknown interlace type");
++   }
++
++   /* Read each pass using local_row as intermediate buffer. */
++   while (--passes >= 0)
++   {
++      png_uint_32 y = image->height;
++      png_bytep output_row = first_row;
++
++      for (; y > 0; --y)
++      {
++         /* Read into local_row (gets transformed 8-bit data). */
++         png_read_row(png_ptr, local_row, NULL);
++
++         /* Copy from local_row to user buffer. */
++         memcpy(output_row, local_row, copy_bytes);
++         output_row += row_bytes;
++      }
++   }
++
++   return 1;
++}
++
+ /* Just the row reading part of png_image_read. */
+ static int
+ png_image_read_composite(png_voidp argument)
+@@ -3290,6 +3338,7 @@
+       ptrdiff_t    step_row = display->row_bytes;
+       unsigned int channels =
+           (image->format & PNG_FORMAT_FLAG_COLOR) != 0 ? 3 : 1;
++      int optimize_alpha = (png_ptr->flags & PNG_FLAG_OPTIMIZE_ALPHA) != 0;
+       int pass;
+ 
+       for (pass = 0; pass < passes; ++pass)
+@@ -3346,20 +3395,44 @@
+ 
+                      if (alpha < 255) /* else just use component */
+                      {
+-                        /* This is PNG_OPTIMIZED_ALPHA, the component value
+-                         * is a linear 8-bit value.  Combine this with the
+-                         * current outrow[c] value which is sRGB encoded.
+-                         * Arithmetic here is 16-bits to preserve the output
+-                         * values correctly.
+-                         */
+-                        component *= 257*255; /* =65535 */
+-                        component += (255-alpha)*png_sRGB_table[outrow[c]];
++                        if (optimize_alpha != 0)
++                        {
++                           /* This is PNG_OPTIMIZED_ALPHA, the component value
++                            * is a linear 8-bit value.  Combine this with the
++                            * current outrow[c] value which is sRGB encoded.
++                            * Arithmetic here is 16-bits to preserve the output
++                            * values correctly.
++                            */
++                           component *= 257*255; /* =65535 */
++                           component += (255-alpha)*png_sRGB_table[outrow[c]];
+ 
+-                        /* So 'component' is scaled by 255*65535 and is
+-                         * therefore appropriate for the sRGB to linear
+-                         * conversion table.
+-                         */
+-                        component = PNG_sRGB_FROM_LINEAR(component);
++                           /* Clamp to the valid range to defend against
++                            * unforeseen cases where the data might be sRGB
++                            * instead of linear premultiplied.
++                            * (Belt-and-suspenders for GitHub Issue #764.)
++                            */
++                           if (component > 255*65535)
++                              component = 255*65535;
++
++                           /* So 'component' is scaled by 255*65535 and is
++                            * therefore appropriate for the sRGB-to-linear
++                            * conversion table.
++                            */
++                           component = PNG_sRGB_FROM_LINEAR(component);
++                        }
++                        else
++                        {
++                           /* Compositing was already done on the palette
++                            * entries.  The data is sRGB premultiplied on black.
++                            * Composite with the background in sRGB space.
++                            * This is not gamma-correct, but matches what was
++                            * done to the palette.
++                            */
++                           png_uint_32 background = outrow[c];
++                           component += ((255-alpha) * background + 127) / 255;
++                           if (component > 255)
++                              component = 255;
++                        }
+                      }
+ 
+                      outrow[c] = (png_byte)component;
+@@ -3681,6 +3754,7 @@
+    int linear = (format & PNG_FORMAT_FLAG_LINEAR) != 0;
+    int do_local_compose = 0;
+    int do_local_background = 0; /* to avoid double gamma correction bug */
++   int do_local_scale = 0; /* for interlaced 16-to-8 bit conversion */
+    int passes = 0;
+ 
+    /* Add transforms to ensure the correct output format is produced then check
+@@ -3807,8 +3881,16 @@
+             png_set_expand_16(png_ptr);
+ 
+          else /* 8-bit output */
++         {
+             png_set_scale_16(png_ptr);
+ 
++            /* For interlaced images, use local_row buffer to avoid overflow
++             * in png_combine_row() which writes using IHDR bit-depth.
++             */
++            if (png_ptr->interlaced != 0)
++               do_local_scale = 1;
++         }
++
+          change &= ~PNG_FORMAT_FLAG_LINEAR;
+       }
+ 
+@@ -4081,6 +4163,24 @@
+       display->local_row = NULL;
+       png_free(png_ptr, row);
+ 
++      return result;
++   }
++
++   else if (do_local_scale != 0)
++   {
++      /* For interlaced 16-to-8 conversion, use an intermediate row buffer
++       * to avoid buffer overflows in png_combine_row. The local_row is sized
++       * for the transformed (8-bit) output, preventing the overflow that would
++       * occur if png_combine_row wrote 16-bit data directly to the user buffer.
++       */
++      int result;
++      png_voidp row = png_malloc(png_ptr, png_get_rowbytes(png_ptr, info_ptr));
++
++      display->local_row = row;
++      result = png_safe_execute(image, png_image_read_direct_scaled, display);
++      display->local_row = NULL;
++      png_free(png_ptr, row);
++
+       return result;
+    }
+ 
+diff -ruN a/pngrtran.c b/pngrtran.c
+--- a/pngrtran.c
++++ b/pngrtran.c
+@@ -441,8 +441,8 @@
+       int i;
+ 
+       png_ptr->quantize_index = (png_bytep)png_malloc(png_ptr,
+-          (png_alloc_size_t)((png_uint_32)num_palette * (sizeof (png_byte))));
+-      for (i = 0; i < num_palette; i++)
++          PNG_MAX_PALETTE_LENGTH * (sizeof (png_byte)));
++      for (i = 0; i < PNG_MAX_PALETTE_LENGTH; i++)
+          png_ptr->quantize_index[i] = (png_byte)i;
+    }
+ 
+@@ -642,8 +642,8 @@
+                          break;
+ 
+                      t->next = hash[d];
+-                     t->left = (png_byte)i;
+-                     t->right = (png_byte)j;
++                     t->left = png_ptr->palette_to_index[i];
++                     t->right = png_ptr->palette_to_index[j];
+                      hash[d] = t;
+                   }
+                }
+@@ -745,7 +745,13 @@
+    }
+    if (png_ptr->palette == NULL)
+    {
+-      png_ptr->palette = palette;
++      /* Allocate an owned copy rather than aliasing the caller's pointer,
++       * so that png_read_destroy can free png_ptr->palette unconditionally.
++       */
++      png_ptr->palette = png_voidcast(png_colorp, png_calloc(png_ptr,
++          PNG_MAX_PALETTE_LENGTH * (sizeof (png_color))));
++      memcpy(png_ptr->palette, palette, (unsigned int)num_palette *
++          (sizeof (png_color)));
+    }
+    png_ptr->num_palette = (png_uint_16)num_palette;
+ 
+@@ -1694,19 +1700,51 @@
+                   }
+                   else /* if (png_ptr->trans_alpha[i] != 0xff) */
+                   {
+-                     png_byte v, w;
+-
+-                     v = png_ptr->gamma_to_1[palette[i].red];
+-                     png_composite(w, v, png_ptr->trans_alpha[i], back_1.red);
+-                     palette[i].red = png_ptr->gamma_from_1[w];
+-
+-                     v = png_ptr->gamma_to_1[palette[i].green];
+-                     png_composite(w, v, png_ptr->trans_alpha[i], back_1.green);
+-                     palette[i].green = png_ptr->gamma_from_1[w];
+-
+-                     v = png_ptr->gamma_to_1[palette[i].blue];
+-                     png_composite(w, v, png_ptr->trans_alpha[i], back_1.blue);
+-                     palette[i].blue = png_ptr->gamma_from_1[w];
++                     if ((png_ptr->flags & PNG_FLAG_OPTIMIZE_ALPHA) != 0)
++                     {
++                        /* Premultiply only:
++                         * component = round((component * alpha) / 255)
++                         */
++                        png_uint_32 component;
++
++                        component = png_ptr->gamma_to_1[palette[i].red];
++                        component =
++                            (component * png_ptr->trans_alpha[i] + 128) / 255;
++                        palette[i].red = png_ptr->gamma_from_1[component];
++
++                        component = png_ptr->gamma_to_1[palette[i].green];
++                        component =
++                            (component * png_ptr->trans_alpha[i] + 128) / 255;
++                        palette[i].green = png_ptr->gamma_from_1[component];
++
++                        component = png_ptr->gamma_to_1[palette[i].blue];
++                        component =
++                            (component * png_ptr->trans_alpha[i] + 128) / 255;
++                        palette[i].blue = png_ptr->gamma_from_1[component];
++                     }
++                     else
++                     {
++                        /* Composite with background color:
++                         * component =
++                         *    alpha * component + (1 - alpha) * background
++                         */
++                        png_byte v, w;
++
++                        v = png_ptr->gamma_to_1[palette[i].red];
++                        png_composite(w, v,
++                            png_ptr->trans_alpha[i], back_1.red);
++                        palette[i].red = png_ptr->gamma_from_1[w];
++
++                        v = png_ptr->gamma_to_1[palette[i].green];
++                        png_composite(w, v,
++                            png_ptr->trans_alpha[i], back_1.green);
++                        palette[i].green = png_ptr->gamma_from_1[w];
++
++                        v = png_ptr->gamma_to_1[palette[i].blue];
++                        png_composite(w, v,
++                            png_ptr->trans_alpha[i], back_1.blue);
++                        palette[i].blue = png_ptr->gamma_from_1[w];
++                     }
+                   }
+                }
+                else
+@@ -1724,6 +1762,7 @@
+              * transformations elsewhere.
+              */
+             png_ptr->transformations &= ~(PNG_COMPOSE | PNG_GAMMA);
++            png_ptr->flags &= ~PNG_FLAG_OPTIMIZE_ALPHA;
+          } /* color_type == PNG_COLOR_TYPE_PALETTE */
+ 
+          /* if (png_ptr->background_gamma_type!=PNG_BACKGROUND_GAMMA_UNKNOWN) */
+@@ -1941,6 +1980,17 @@
+ {
+    png_debug(1, "in png_read_transform_info");
+ 
++   if (info_ptr->color_type == PNG_COLOR_TYPE_PALETTE &&
++       info_ptr->palette != NULL && png_ptr->palette != NULL)
++   {
++      /* Sync info_ptr->palette with png_ptr->palette, which may
++       * have been modified by png_init_read_transformations
++       * (e.g. for gamma correction or background compositing).
++       */
++      memcpy(info_ptr->palette, png_ptr->palette,
++          PNG_MAX_PALETTE_LENGTH * (sizeof (png_color)));
++   }
++
+ #ifdef PNG_READ_EXPAND_SUPPORTED
+    if ((png_ptr->transformations & PNG_EXPAND) != 0)
+    {
+@@ -2235,7 +2285,7 @@
+       }
+       row_info->bit_depth = 8;
+       row_info->pixel_depth = (png_byte)(8 * row_info->channels);
+-      row_info->rowbytes = row_width * row_info->channels;
++      row_info->rowbytes = (size_t)row_width * row_info->channels;
+    }
+ }
+ #endif
+@@ -2437,7 +2487,7 @@
+ 
+       row_info->bit_depth = 8;
+       row_info->pixel_depth = (png_byte)(8 * row_info->channels);
+-      row_info->rowbytes = row_info->width * row_info->channels;
++      row_info->rowbytes = (size_t)row_info->width * row_info->channels;
+    }
+ }
+ #endif
+@@ -2465,7 +2515,7 @@
+ 
+       row_info->bit_depth = 8;
+       row_info->pixel_depth = (png_byte)(8 * row_info->channels);
+-      row_info->rowbytes = row_info->width * row_info->channels;
++      row_info->rowbytes = (size_t)row_info->width * row_info->channels;
+    }
+ }
+ #endif
+@@ -2701,7 +2751,7 @@
+             *(--dp) = lo_filler;
+             row_info->channels = 2;
+             row_info->pixel_depth = 16;
+-            row_info->rowbytes = row_width * 2;
++            row_info->rowbytes = (size_t)row_width * 2;
+          }
+ 
+          else
+@@ -2716,7 +2766,7 @@
+             }
+             row_info->channels = 2;
+             row_info->pixel_depth = 16;
+-            row_info->rowbytes = row_width * 2;
++            row_info->rowbytes = (size_t)row_width * 2;
+          }
+       }
+ 
+@@ -2739,7 +2789,7 @@
+             *(--dp) = hi_filler;
+             row_info->channels = 2;
+             row_info->pixel_depth = 32;
+-            row_info->rowbytes = row_width * 4;
++            row_info->rowbytes = (size_t)row_width * 4;
+          }
+ 
+          else
+@@ -2756,7 +2806,7 @@
+             }
+             row_info->channels = 2;
+             row_info->pixel_depth = 32;
+-            row_info->rowbytes = row_width * 4;
++            row_info->rowbytes = (size_t)row_width * 4;
+          }
+       }
+ #endif
+@@ -2780,7 +2830,7 @@
+             *(--dp) = lo_filler;
+             row_info->channels = 4;
+             row_info->pixel_depth = 32;
+-            row_info->rowbytes = row_width * 4;
++            row_info->rowbytes = (size_t)row_width * 4;
+          }
+ 
+          else
+@@ -2797,7 +2847,7 @@
+             }
+             row_info->channels = 4;
+             row_info->pixel_depth = 32;
+-            row_info->rowbytes = row_width * 4;
++            row_info->rowbytes = (size_t)row_width * 4;
+          }
+       }
+ 
+@@ -2824,7 +2874,7 @@
+             *(--dp) = hi_filler;
+             row_info->channels = 4;
+             row_info->pixel_depth = 64;
+-            row_info->rowbytes = row_width * 8;
++            row_info->rowbytes = (size_t)row_width * 8;
+          }
+ 
+          else
+@@ -2846,7 +2896,7 @@
+ 
+             row_info->channels = 4;
+             row_info->pixel_depth = 64;
+-            row_info->rowbytes = row_width * 8;
++            row_info->rowbytes = (size_t)row_width * 8;
+          }
+       }
+ #endif
+@@ -4340,7 +4390,7 @@
+                }
+                row_info->bit_depth = 8;
+                row_info->pixel_depth = 32;
+-               row_info->rowbytes = row_width * 4;
++               row_info->rowbytes = (size_t)row_width * 4;
+                row_info->color_type = 6;
+                row_info->channels = 4;
+             }
+@@ -4348,7 +4398,7 @@
+             else
+             {
+                sp = row + (size_t)row_width - 1;
+-               dp = row + (size_t)(row_width * 3) - 1;
++               dp = row + (size_t)row_width * 3 - 1;
+                i = 0;
+ #ifdef PNG_ARM_NEON_INTRINSICS_AVAILABLE
+                i = png_do_expand_palette_rgb8_neon(png_ptr, row_info, row,
+@@ -4367,7 +4417,7 @@
+ 
+                row_info->bit_depth = 8;
+                row_info->pixel_depth = 24;
+-               row_info->rowbytes = row_width * 3;
++               row_info->rowbytes = (size_t)row_width * 3;
+                row_info->color_type = 2;
+                row_info->channels = 3;
+             }
+diff -ruN a/pngrutil.c b/pngrutil.c
+--- a/pngrutil.c
++++ b/pngrutil.c
+@@ -333,6 +333,18 @@
+ }
+ #endif /* READ_iCCP|iTXt|pCAL|sCAL|sPLT|tEXt|zTXt|SEQUENTIAL_READ */
+ 
++/* Detach the zstream from the input and output buffers left by
++ * the current or a previous owner, and possibly deallocated since.
++ */
++static void
++png_inflate_detach_buffers(png_structrp png_ptr)
++{
++   png_ptr->zstream.next_in = NULL;
++   png_ptr->zstream.avail_in = 0;
++   png_ptr->zstream.next_out = NULL;
++   png_ptr->zstream.avail_out = 0;
++}
++
+ /* png_inflate_claim: claim the zstream for some nefarious purpose that involves
+  * decompression.  Returns Z_OK on success, else a zlib error code.  It checks
+  * the owner but, in final release builds, just issues a warning if some other
+@@ -393,13 +405,7 @@
+ 
+ #endif /* ZLIB_VERNUM >= 0x1240 */
+ 
+-      /* Set this for safety, just in case the previous owner left pointers to
+-       * memory allocations.
+-       */
+-      png_ptr->zstream.next_in = NULL;
+-      png_ptr->zstream.avail_in = 0;
+-      png_ptr->zstream.next_out = NULL;
+-      png_ptr->zstream.avail_out = 0;
++      png_inflate_detach_buffers(png_ptr);
+ 
+       if ((png_ptr->flags & PNG_FLAG_ZSTREAM_INITIALIZED) != 0)
+       {
+@@ -746,7 +752,8 @@
+          else if (ret == Z_OK)
+             ret = PNG_UNEXPECTED_ZLIB_RETURN;
+ 
+-         /* Release the claimed stream */
++         /* Release the claimed stream. */
++         png_inflate_detach_buffers(png_ptr);
+          png_ptr->zowner = 0;
+       }
+ 
+@@ -1049,14 +1056,6 @@
+    }
+ #endif
+ 
+-   /* TODO: png_set_PLTE has the side effect of setting png_ptr->palette to its
+-    * own copy of the palette.  This has the side effect that when png_start_row
+-    * is called (this happens after any call to png_read_update_info) the
+-    * info_ptr palette gets changed.  This is extremely unexpected and
+-    * confusing.
+-    *
+-    * Fix this by not sharing the palette in this way.
+-    */
+    png_set_PLTE(png_ptr, info_ptr, palette, num);
+ 
+    /* The three chunks, bKGD, hIST and tRNS *must* appear after PLTE and before
+@@ -1579,6 +1578,7 @@
+ 
+                                     if (errmsg == NULL)
+                                     {
++                                       png_inflate_detach_buffers(png_ptr);
+                                        png_ptr->zowner = 0;
+                                        return;
+                                     }
+@@ -1605,7 +1605,8 @@
+                else /* profile truncated */
+                   errmsg = png_ptr->zstream.msg;
+ 
+-               /* Release the stream */
++               /* Release the claimed stream. */
++               png_inflate_detach_buffers(png_ptr);
+                png_ptr->zowner = 0;
+             }
+ 
+@@ -1907,10 +1908,6 @@
+       return;
+    }
+ 
+-   /* TODO: this is a horrible side effect in the palette case because the
+-    * png_struct ends up with a pointer to the tRNS buffer owned by the
+-    * png_info.  Fix this.
+-    */
+    png_set_tRNS(png_ptr, info_ptr, readbuf, png_ptr->num_trans,
+        &(png_ptr->trans_color));
+ }
+@@ -2079,7 +2076,7 @@
+       if (i == 1 && buf[0] != 'M' && buf[0] != 'I'
+                  && info_ptr->eXIf_buf[0] != buf[0])
+       {
+-         png_crc_finish(png_ptr, length);
++         png_crc_finish(png_ptr, length-i-1);
+          png_chunk_benign_error(png_ptr, "incorrect byte-order specifier");
+          png_free(png_ptr, info_ptr->eXIf_buf);
+          info_ptr->eXIf_buf = NULL;
+@@ -4306,11 +4303,7 @@
+     */
+    if (png_ptr->zowner == png_IDAT)
+    {
+-      /* Always do this; the pointers otherwise point into the read buffer. */
+-      png_ptr->zstream.next_in = NULL;
+-      png_ptr->zstream.avail_in = 0;
+-
+-      /* Now we no longer own the zstream. */
++      png_inflate_detach_buffers(png_ptr);
+       png_ptr->zowner = 0;
+ 
+       /* The slightly weird semantics of the sequential IDAT reading is that we
+diff -ruN a/pngset.c b/pngset.c
+--- a/pngset.c
++++ b/pngset.c
+@@ -1,7 +1,7 @@
+ 
+ /* pngset.c - storage of image information into info struct
+  *
+- * Copyright (c) 2018 Cosmin Truta
++ * Copyright (c) 2018-2023 Cosmin Truta
+  * Copyright (c) 1998-2018 Glenn Randers-Pehrson
+  * Copyright (c) 1996-1997 Andreas Dilger
+  * Copyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc.
+@@ -172,11 +172,10 @@
+       return;
+    }
+ 
+-   info_ptr->free_me |= PNG_FREE_EXIF;
+-
+    for (i = 0; i < (int) info_ptr->num_exif; i++)
+       info_ptr->exif[i] = eXIf_buf[i];
+ 
++   info_ptr->free_me |= PNG_FREE_EXIF;
+    info_ptr->valid |= PNG_INFO_eXIf;
+ }
+ #endif /* eXIf */
+@@ -210,6 +209,7 @@
+ png_set_hIST(png_const_structrp png_ptr, png_inforp info_ptr,
+     png_const_uint_16p hist)
+ {
++   png_uint_16 safe_hist[PNG_MAX_PALETTE_LENGTH];
+    int i;
+ 
+    png_debug1(1, "in %s storage function", "hIST");
+@@ -226,6 +226,13 @@
+       return;
+    }
+ 
++   /* Snapshot the caller's hist before freeing, in case it points to
++    * info_ptr->hist (getter-to-setter aliasing).
++    */
++   memcpy(safe_hist, hist, (unsigned int)info_ptr->num_palette *
++       (sizeof (png_uint_16)));
++   hist = safe_hist;
++
+    png_free_data(png_ptr, info_ptr, PNG_FREE_HIST, 0);
+ 
+    /* Changed from info->num_palette to PNG_MAX_PALETTE_LENGTH in
+@@ -237,15 +244,13 @@
+    if (info_ptr->hist == NULL)
+    {
+       png_warning(png_ptr, "Insufficient memory for hIST chunk data");
+-
+       return;
+    }
+ 
+-   info_ptr->free_me |= PNG_FREE_HIST;
+-
+    for (i = 0; i < info_ptr->num_palette; i++)
+       info_ptr->hist[i] = hist[i];
+ 
++   info_ptr->free_me |= PNG_FREE_HIST;
+    info_ptr->valid |= PNG_INFO_hIST;
+ }
+ #endif
+@@ -367,6 +372,8 @@
+ 
+    memcpy(info_ptr->pcal_purpose, purpose, length);
+ 
++   info_ptr->free_me |= PNG_FREE_PCAL;
++
+    png_debug(3, "storing X0, X1, type, and nparams in info");
+    info_ptr->pcal_X0 = X0;
+    info_ptr->pcal_X1 = X1;
+@@ -383,7 +390,6 @@
+    if (info_ptr->pcal_units == NULL)
+    {
+       png_warning(png_ptr, "Insufficient memory for pCAL units");
+-
+       return;
+    }
+ 
+@@ -395,7 +401,6 @@
+    if (info_ptr->pcal_params == NULL)
+    {
+       png_warning(png_ptr, "Insufficient memory for pCAL params");
+-
+       return;
+    }
+ 
+@@ -413,7 +418,6 @@
+       if (info_ptr->pcal_params[i] == NULL)
+       {
+          png_warning(png_ptr, "Insufficient memory for pCAL parameter");
+-
+          return;
+       }
+ 
+@@ -421,7 +425,6 @@
+    }
+ 
+    info_ptr->valid |= PNG_INFO_pCAL;
+-   info_ptr->free_me |= PNG_FREE_PCAL;
+ }
+ #endif
+ 
+@@ -478,18 +481,17 @@
+ 
+    if (info_ptr->scal_s_height == NULL)
+    {
+-      png_free (png_ptr, info_ptr->scal_s_width);
++      png_free(png_ptr, info_ptr->scal_s_width);
+       info_ptr->scal_s_width = NULL;
+ 
+       png_warning(png_ptr, "Memory allocation failed while processing sCAL");
+-
+       return;
+    }
+ 
+    memcpy(info_ptr->scal_s_height, sheight, lengthh);
+ 
+-   info_ptr->valid |= PNG_INFO_sCAL;
+    info_ptr->free_me |= PNG_FREE_SCAL;
++   info_ptr->valid |= PNG_INFO_sCAL;
+ }
+ 
+ #  ifdef PNG_FLOATING_POINT_SUPPORTED
+@@ -572,7 +574,7 @@
+ png_set_PLTE(png_structrp png_ptr, png_inforp info_ptr,
+     png_const_colorp palette, int num_palette)
+ {
+-
++   png_color safe_palette[PNG_MAX_PALETTE_LENGTH];
+    png_uint_32 max_palette_length;
+ 
+    png_debug1(1, "in %s storage function", "PLTE");
+@@ -606,30 +608,48 @@
+       png_error(png_ptr, "Invalid palette");
+    }
+ 
+-   /* It may not actually be necessary to set png_ptr->palette here;
+-    * we do it for backward compatibility with the way the png_handle_tRNS
+-    * function used to do the allocation.
+-    *
+-    * 1.6.0: the above statement appears to be incorrect; something has to set
+-    * the palette inside png_struct on read.
++   /* Snapshot the caller's palette before freeing, in case it points to
++    * info_ptr->palette (getter-to-setter aliasing).
+     */
++   if (num_palette > 0)
++      memcpy(safe_palette, palette, (unsigned int)num_palette *
++          (sizeof (png_color)));
++
++   palette = safe_palette;
++
+    png_free_data(png_ptr, info_ptr, PNG_FREE_PLTE, 0);
+ 
+    /* Changed in libpng-1.2.1 to allocate PNG_MAX_PALETTE_LENGTH instead
+     * of num_palette entries, in case of an invalid PNG file or incorrect
+     * call to png_set_PLTE() with too-large sample values.
++    *
++    * Allocate independent buffers for info_ptr and png_ptr so that the
++    * lifetime of png_ptr->palette is decoupled from the lifetime of
++    * info_ptr->palette.  Previously, these two pointers were aliased,
++    * which caused a use-after-free vulnerability if png_free_data freed
++    * info_ptr->palette while png_ptr->palette was still in use by the
++    * row transform functions (e.g. png_do_expand_palette).
++    *
++    * Both buffers are allocated with png_calloc to zero-fill, because
++    * the ARM NEON palette riffle reads all 256 entries unconditionally,
++    * regardless of num_palette.
+     */
++   png_free(png_ptr, png_ptr->palette);
+    png_ptr->palette = png_voidcast(png_colorp, png_calloc(png_ptr,
+        PNG_MAX_PALETTE_LENGTH * (sizeof (png_color))));
++   info_ptr->palette = png_voidcast(png_colorp, png_calloc(png_ptr,
++       PNG_MAX_PALETTE_LENGTH * (sizeof (png_color))));
++   png_ptr->num_palette = info_ptr->num_palette = (png_uint_16)num_palette;
+ 
+    if (num_palette > 0)
++   {
++      memcpy(info_ptr->palette, palette, (unsigned int)num_palette *
++          (sizeof (png_color)));
+       memcpy(png_ptr->palette, palette, (unsigned int)num_palette *
+           (sizeof (png_color)));
+-   info_ptr->palette = png_ptr->palette;
+-   info_ptr->num_palette = png_ptr->num_palette = (png_uint_16)num_palette;
++   }
+ 
+    info_ptr->free_me |= PNG_FREE_PLTE;
+-
+    info_ptr->valid |= PNG_INFO_PLTE;
+ }
+ 
+@@ -774,6 +794,7 @@
+     png_const_textp text_ptr, int num_text)
+ {
+    int i;
++   png_textp old_text = NULL;
+ 
+    png_debug1(1, "in %lx storage function", png_ptr == NULL ? 0xabadca11U :
+       (unsigned long)png_ptr->chunk_name);
+@@ -821,7 +842,10 @@
+          return 1;
+       }
+ 
+-      png_free(png_ptr, info_ptr->text);
++      /* Defer freeing the old array until after the copy loop below,
++       * in case text_ptr aliases info_ptr->text (getter-to-setter).
++       */
++      old_text = info_ptr->text;
+ 
+       info_ptr->text = new_text;
+       info_ptr->free_me |= PNG_FREE_TEXT;
+@@ -906,6 +930,7 @@
+       {
+          png_chunk_report(png_ptr, "text chunk: out of memory",
+              PNG_CHUNK_WRITE_ERROR);
++         png_free(png_ptr, old_text);
+ 
+          return 1;
+       }
+@@ -959,6 +984,8 @@
+       png_debug1(3, "transferred text chunk %d", info_ptr->num_text);
+    }
+ 
++   png_free(png_ptr, old_text);
++
+    return(0);
+ }
+ #endif
+@@ -1002,25 +1029,50 @@
+ 
+    if (trans_alpha != NULL)
+    {
+-       /* It may not actually be necessary to set png_ptr->trans_alpha here;
+-        * we do it for backward compatibility with the way the png_handle_tRNS
+-        * function used to do the allocation.
+-        *
+-        * 1.6.0: The above statement is incorrect; png_handle_tRNS effectively
+-        * relies on png_set_tRNS storing the information in png_struct
+-        * (otherwise it won't be there for the code in pngrtran.c).
++       /* Snapshot the caller's trans_alpha before freeing, in case it
++        * points to info_ptr->trans_alpha (getter-to-setter aliasing).
+         */
++       png_byte safe_trans[PNG_MAX_PALETTE_LENGTH];
++
++       if (num_trans > 0 && num_trans <= PNG_MAX_PALETTE_LENGTH)
++          memcpy(safe_trans, trans_alpha, (size_t)num_trans);
++
++       trans_alpha = safe_trans;
+ 
+        png_free_data(png_ptr, info_ptr, PNG_FREE_TRNS, 0);
+ 
+        if (num_trans > 0 && num_trans <= PNG_MAX_PALETTE_LENGTH)
+        {
+-         /* Changed from num_trans to PNG_MAX_PALETTE_LENGTH in version 1.2.1 */
++          /* Allocate info_ptr's copy of the transparency data.
++           * Initialize all entries to fully opaque (0xff), then overwrite
++           * the first num_trans entries with the actual values.
++           */
+           info_ptr->trans_alpha = png_voidcast(png_bytep,
+               png_malloc(png_ptr, PNG_MAX_PALETTE_LENGTH));
++          memset(info_ptr->trans_alpha, 0xff, PNG_MAX_PALETTE_LENGTH);
+           memcpy(info_ptr->trans_alpha, trans_alpha, (size_t)num_trans);
++          info_ptr->free_me |= PNG_FREE_TRNS;
++          info_ptr->valid |= PNG_INFO_tRNS;
++
++          /* Allocate an independent copy for png_struct, so that the
++           * lifetime of png_ptr->trans_alpha is decoupled from the
++           * lifetime of info_ptr->trans_alpha.  Previously these two
++           * pointers were aliased, which caused a use-after-free if
++           * png_free_data freed info_ptr->trans_alpha while
++           * png_ptr->trans_alpha was still in use by the row transform
++           * functions (e.g. png_do_expand_palette).
++           */
++          png_free(png_ptr, png_ptr->trans_alpha);
++          png_ptr->trans_alpha = png_voidcast(png_bytep,
++              png_malloc(png_ptr, PNG_MAX_PALETTE_LENGTH));
++          memset(png_ptr->trans_alpha, 0xff, PNG_MAX_PALETTE_LENGTH);
++          memcpy(png_ptr->trans_alpha, trans_alpha, (size_t)num_trans);
++       }
++       else
++       {
++          png_free(png_ptr, png_ptr->trans_alpha);
++          png_ptr->trans_alpha = NULL;
+        }
+-       png_ptr->trans_alpha = info_ptr->trans_alpha;
+    }
+ 
+    if (trans_color != NULL)
+@@ -1051,8 +1103,8 @@
+ 
+    if (num_trans != 0)
+    {
+-      info_ptr->valid |= PNG_INFO_tRNS;
+       info_ptr->free_me |= PNG_FREE_TRNS;
++      info_ptr->valid |= PNG_INFO_tRNS;
+    }
+ }
+ #endif
+@@ -1071,6 +1123,7 @@
+  */
+ {
+    png_sPLT_tp np;
++   png_sPLT_tp old_spalettes;
+ 
+    if (png_ptr == NULL || info_ptr == NULL || nentries <= 0 || entries == NULL)
+       return;
+@@ -1086,11 +1139,14 @@
+    {
+       /* Out of memory or too many chunks */
+       png_chunk_report(png_ptr, "too many sPLT chunks", PNG_CHUNK_WRITE_ERROR);
+-
+       return;
+    }
+ 
+-   png_free(png_ptr, info_ptr->splt_palettes);
++   /* Defer freeing the old array until after the copy loop below,
++    * in case entries aliases info_ptr->splt_palettes (getter-to-setter).
++    */
++   old_spalettes = info_ptr->splt_palettes;
++
+    info_ptr->splt_palettes = np;
+    info_ptr->free_me |= PNG_FREE_SPLT;
+ 
+@@ -1153,6 +1209,8 @@
+    }
+    while (--nentries);
+ 
++   png_free(png_ptr, old_spalettes);
++
+    if (nentries > 0)
+       png_chunk_report(png_ptr, "sPLT out of memory", PNG_CHUNK_WRITE_ERROR);
+ }
+@@ -1201,6 +1259,7 @@
+     png_inforp info_ptr, png_const_unknown_chunkp unknowns, int num_unknowns)
+ {
+    png_unknown_chunkp np;
++   png_unknown_chunkp old_unknowns;
+ 
+    if (png_ptr == NULL || info_ptr == NULL || num_unknowns <= 0 ||
+        unknowns == NULL)
+@@ -1244,11 +1303,14 @@
+    {
+       png_chunk_report(png_ptr, "too many unknown chunks",
+           PNG_CHUNK_WRITE_ERROR);
+-
+       return;
+    }
+ 
+-   png_free(png_ptr, info_ptr->unknown_chunks);
++   /* Defer freeing the old array until after the copy loop below,
++    * in case unknowns aliases info_ptr->unknown_chunks (getter-to-setter).
++    */
++   old_unknowns = info_ptr->unknown_chunks;
++
+    info_ptr->unknown_chunks = np; /* safe because it is initialized */
+    info_ptr->free_me |= PNG_FREE_UNKN;
+ 
+@@ -1293,6 +1355,8 @@
+       ++np;
+       ++(info_ptr->unknown_chunks_num);
+    }
++
++   png_free(png_ptr, old_unknowns);
+ }
+ 
+ void PNGAPI
+diff -ruN a/pngwrite.c b/pngwrite.c
+--- a/pngwrite.c
++++ b/pngwrite.c
+@@ -962,6 +962,16 @@
+    png_ptr->chunk_list = NULL;
+ #endif
+ 
++#if defined(PNG_tRNS_SUPPORTED)
++   /* Free the independent copy of trans_alpha owned by png_struct. */
++   png_free(png_ptr, png_ptr->trans_alpha);
++   png_ptr->trans_alpha = NULL;
++#endif
++
++   /* Free the independent copy of the palette owned by png_struct. */
++   png_free(png_ptr, png_ptr->palette);
++   png_ptr->palette = NULL;
++
+    /* The error handling and memory handling information is left intact at this
+     * point: the jmp_buf may still have to be freed.  See png_destroy_png_struct
+     * for how this happens.
+@@ -1622,7 +1632,7 @@
+       }
+ 
+       png_write_row(png_ptr, png_voidcast(png_const_bytep, display->local_row));
+-      input_row += (png_uint_16)display->row_bytes/(sizeof (png_uint_16));
++      input_row += display->row_bytes / 2;
+    }
+ 
+    return 1;
+@@ -1748,7 +1758,7 @@
+ 
+          png_write_row(png_ptr, png_voidcast(png_const_bytep,
+              display->local_row));
+-         input_row += (png_uint_16)display->row_bytes/(sizeof (png_uint_16));
++         input_row += display->row_bytes / 2;
+       } /* while y */
+    }
+ 
+@@ -1773,7 +1783,7 @@
+          }
+ 
+          png_write_row(png_ptr, output_row);
+-         input_row += (png_uint_16)display->row_bytes/(sizeof (png_uint_16));
++         input_row += display->row_bytes / 2;
+       }
+    }
+ 
+@@ -2092,7 +2102,7 @@
+       ptrdiff_t row_bytes = display->row_stride;
+ 
+       if (linear != 0)
+-         row_bytes *= (sizeof (png_uint_16));
++         row_bytes *= 2;
+ 
+       if (row_bytes < 0)
+          row += (image->height-1) * (-row_bytes);
+@@ -2119,8 +2129,7 @@
+     * before it is written.  This only applies when the input is 16-bit and
+     * either there is an alpha channel or it is converted to 8-bit.
+     */
+-   if ((linear != 0 && alpha != 0 ) ||
+-       (colormap == 0 && display->convert_to_8bit != 0))
++   if (linear != 0 && (alpha != 0 || display->convert_to_8bit != 0))
+    {
+       png_bytep row = png_voidcast(png_bytep, png_malloc(png_ptr,
+           png_get_rowbytes(png_ptr, info_ptr)));
+diff -ruN a/tests/pnggetset b/tests/pnggetset
+--- a/tests/pnggetset
++++ b/tests/pnggetset
+@@ -0,0 +1,5 @@
++#!/bin/sh
++
++# pnggetset test:
++# Getter-to-setter roundtrips for various chunk types.
++exec ./pnggetset
+diff -ruN a/tests/pngstest-large-stride b/tests/pngstest-large-stride
+--- a/tests/pngstest-large-stride
++++ b/tests/pngstest-large-stride
+@@ -0,0 +1,8 @@
++#!/bin/sh
++
++# Regression test:
++# Use stride_extra > 32767 to trigger row_bytes > 65535 for linear images.
++exec ./pngstest \
++     --stride-extra 33000 \
++     --tmpfile "large-stride-" \
++     --log "${srcdir}/contrib/testpngs/rgb-alpha-16-linear.png"
+diff -ruN a/tests/pngtest b/tests/pngtest
+--- a/tests/pngtest
++++ b/tests/pngtest
+@@ -1,2 +0,0 @@
+-#!/bin/sh
+-exec ./pngtest --strict ${srcdir}/pngtest.png
+diff -ruN a/tests/pngtest-all b/tests/pngtest-all
+--- a/tests/pngtest-all
++++ b/tests/pngtest-all
+@@ -0,0 +1,16 @@
++#!/bin/sh
++
++# normal execution
++
++./pngtest --strict ${srcdir}/pngtest.png
++
++# various crashers
++# using --relaxed because some come from fuzzers that don't maintain CRC's
++
++./pngtest --relaxed ${srcdir}/contrib/testpngs/crashers/badcrc.png
++./pngtest --relaxed ${srcdir}/contrib/testpngs/crashers/badadler.png
++./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/bad_iCCP.png
++./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/empty_ancillary_chunks.png
++./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/huge_*_chunk.png \
++    ${srcdir}/contrib/testpngs/crashers/huge_*safe_to_copy.png
++./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/huge_IDAT.png
+diff -ruN a/tests/pngtest-badpngs b/tests/pngtest-badpngs
+--- a/tests/pngtest-badpngs
++++ b/tests/pngtest-badpngs
+@@ -1,13 +0,0 @@
+-#!/bin/sh
+-
+-# various crashers
+-# using --relaxed because some come from fuzzers that don't maintain CRC's
+-
+-./pngtest --relaxed ${srcdir}/contrib/testpngs/crashers/badcrc.png
+-./pngtest --relaxed ${srcdir}/contrib/testpngs/crashers/badadler.png
+-./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/bad_iCCP.png
+-./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/empty_ancillary_chunks.png
+-./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/huge_*_chunk.png \
+-    ${srcdir}/contrib/testpngs/crashers/huge_*safe_to_copy.png
+-
+-exec ./pngtest --xfail ${srcdir}/contrib/testpngs/crashers/huge_IDAT.png

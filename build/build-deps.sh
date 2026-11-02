@@ -26,6 +26,7 @@ have() { [ -f "$STAGE/lib/$1" ] && echo "    (already built)"; }
 need() { [ -f "$STAGE/lib/$1" ] || { echo "build-deps.sh: $1 was not built (see the log in $SRC)" >&2; exit 1; }; }
 fresh() {  # tarball dir: unpack a clean copy
   rm -rf "$2"; tar xf "$DL/$1"
+  security_patches "$2"
 }
 
 # Compiler wrappers, used by meson, CMake and autotools alike: GCCSDK's

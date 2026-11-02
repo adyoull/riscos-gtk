@@ -127,3 +127,15 @@ export GLIB_MESON_OPTS="--wrap-mode=nofallback -Dselinux=disabled -Dxattr=false 
  -Dman-pages=disabled -Ddtrace=false -Dsystemtap=false -Dsysprof=disabled \
  -Ddocumentation=false -Dtests=false -Dinstalled_tests=false -Dnls=disabled \
  -Dlibelf=disabled -Dintrospection=disabled -Dglib_debug=disabled"
+
+# security_patches DIR: Ubuntu's security fixes for a library we build from
+# its original tarball (patches/security/<DIR's name>.diff, made from
+# Ubuntu's debian/patches by tools/mksecuritypatch.sh; see
+# patches/security/README.md), applied right after unpacking, before any
+# RISC OS patch.
+security_patches() {
+  local f="$REPO_DIR/patches/security/$(basename "$1").diff"
+  if [ -f "$f" ]; then
+    patch -d "$1" -p1 -s < "$f"
+  fi
+}

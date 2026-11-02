@@ -1,0 +1,115 @@
+riscos-gtk: security fixes for gdk-pixbuf-2.42.10, from Ubuntu's package 2.42.10+dfsg-3ubuntu3.3
+(gdk-pixbuf_2.42.10+dfsg-3ubuntu3.3.debian.tar.xz: debian/patches), applied in its series order:
+  CVE-2022-48622-1.patch
+  CVE-2022-48622-2.patch
+  CVE-2022-48622-3.patch
+  CVE-2025-6199.patch
+  CVE-2025-7345.patch
+  CVE-2026-5201.patch
+Made by tools/mksecuritypatch.sh from gdk-pixbuf_2.42.10+dfsg.orig.tar.xz.
+
+diff -ruN a/gdk-pixbuf/io-ani.c b/gdk-pixbuf/io-ani.c
+--- a/gdk-pixbuf/io-ani.c
++++ b/gdk-pixbuf/io-ani.c
+@@ -295,6 +295,23 @@
+         
+         if (context->chunk_id == TAG_anih) 
+ 	{
++		if (context->chunk_size < 36)
++		{
++			g_set_error_literal (error,
++                                             GDK_PIXBUF_ERROR,
++                                             GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
++                                             _("Malformed chunk in animation"));
++			return FALSE;
++		}
++		if (context->animation)
++		{
++			g_set_error_literal (error,
++                                             GDK_PIXBUF_ERROR,
++                                             GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
++                                             _("Invalid header in animation"));
++			return FALSE;
++		}
++
+ 		context->HeaderSize = read_int32 (context);
+ 		context->NumFrames = read_int32 (context);
+ 		context->NumSteps = read_int32 (context);
+@@ -436,7 +453,7 @@
+ 	}
+         else if (context->chunk_id == TAG_INAM) 
+ 	{
+-		if (!context->animation) 
++		if (!context->animation || context->title)
+ 		{
+ 			g_set_error_literal (error,
+                                              GDK_PIXBUF_ERROR,
+@@ -463,7 +480,7 @@
+ 	}
+         else if (context->chunk_id == TAG_IART) 
+ 	{
+-		if (!context->animation) 
++		if (!context->animation || context->author)
+ 		{
+ 			g_set_error_literal (error,
+                                              GDK_PIXBUF_ERROR,
+diff -ruN a/gdk-pixbuf/io-jpeg.c b/gdk-pixbuf/io-jpeg.c
+--- a/gdk-pixbuf/io-jpeg.c
++++ b/gdk-pixbuf/io-jpeg.c
+@@ -356,6 +356,7 @@
+ 		context->icc_profile = g_new (gchar, chunk_size);
+ 		/* copy the segment data to the profile space */
+ 		memcpy (context->icc_profile, marker->data + 14, chunk_size);
++                ret = TRUE;
+ 		goto out;
+ 	}
+ 
+@@ -377,12 +378,15 @@
+ 	/* copy the segment data to the profile space */
+ 	memcpy (context->icc_profile + offset, marker->data + 14, chunk_size);
+ 
+-	/* it's now this big plus the new data we've just copied */
+-	context->icc_profile_size += chunk_size;
++        context->icc_profile_size = MAX (context->icc_profile_size, offset + chunk_size);
+ 
+ 	/* success */
+ 	ret = TRUE;
+ out:
++        if (!ret) {
++                g_free (context->icc_profile);
++                context->icc_profile = NULL;
++        }
+ 	return ret;
+ }
+ 
+@@ -621,6 +625,18 @@
+ 	cinfo->do_fancy_upsampling = FALSE;
+ 	cinfo->do_block_smoothing = FALSE;
+ 
++        /* Reject unsupported component counts */
++        if (cinfo->output_components != 3 && cinfo->output_components != 4 &&
++            !(cinfo->output_components == 1 &&
++              cinfo->out_color_space == JCS_GRAYSCALE)) {
++                g_set_error (error,
++                             GDK_PIXBUF_ERROR,
++                             GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
++                             _("Unsupported number of color components (%d)"),
++                             cinfo->output_components);
++                goto out;
++        }
++
+ 	pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, 
+ 				 cinfo->out_color_components == 4 ? TRUE : FALSE, 
+ 				 8,
+diff -ruN a/gdk-pixbuf/lzw.c b/gdk-pixbuf/lzw.c
+--- a/gdk-pixbuf/lzw.c
++++ b/gdk-pixbuf/lzw.c
+@@ -208,7 +208,7 @@
+                                 /* Invalid code received - just stop here */
+                                 if (self->code >= self->code_table_size) {
+                                         self->last_code = self->eoi_code;
+-                                        return output_length;
++                                        return n_written;
+                                 }
+ 
+                                 /* Convert codeword into indexes */

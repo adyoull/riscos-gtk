@@ -43,6 +43,7 @@ if [ ! -f "$STAGE/lib/libxslt.a" ]; then
   log libxslt
   T=$SRC/libxslt-1.1.39
   rm -rf "$T"; tar -xf "$DL/libxslt_1.1.39.orig.tar.xz" -C "$SRC"
+  security_patches "$T"
   (cd "$T" && CFLAGS="$RO_CFLAGS" PKG_CONFIG="pkg-config --static" ./configure --host=$HOST --build=$BUILD \
      --prefix=$PREFIX --libdir=$PREFIX/lib --disable-shared --enable-static --without-python \
      --without-crypto --without-debug --without-debugger --without-profiler --without-plugins \
@@ -61,6 +62,7 @@ if [ ! -f "$STAGE/lib/libgsf-1.a" ]; then
   log libgsf
   G=$SRC/libgsf-1.14.51
   rm -rf "$G"; tar -xf "$DL/libgsf_1.14.51.orig.tar.xz" -C "$SRC"
+  security_patches "$G"
   (cd "$G" && CFLAGS="$RO_CFLAGS" PKG_CONFIG="pkg-config --static" ./configure --host=$HOST --build=$BUILD \
      --prefix=$PREFIX --libdir=$PREFIX/lib --disable-shared --enable-static --without-bz2 \
      --disable-introspection --without-gdk-pixbuf --disable-nls --disable-gtk-doc \

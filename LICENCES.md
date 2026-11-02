@@ -51,6 +51,7 @@ or adapted from other projects keep their original licence, listed below.
 | The AcornSSL section of `tests/fake/mesa-egl/fake_riscos.c` (test code, not in any package) | Adapted from [riscos-ffmpeg](https://github.com/adyoull/riscos-ffmpeg)'s `tests/host/fake_acornssl.c` | GPL version 2 or later, as riscos-ffmpeg |
 | `patches/gtk+3.0-3.24.52-riscos.diff` | Changes to GTK | LGPL version 2.1 or later, as GTK |
 | `patches/glib-2.80.0-riscos.diff` | Changes to GLib | LGPL version 2.1 or later, as GLib |
+| `patches/security/*.diff` | Security fixes for zlib, GLib, libpng, FreeType, Expat, gdk-pixbuf, libxml2, libxslt, libgsf, libcroco and libetpan, made from Ubuntu's and Debian's `debian/patches` by `tools/mksecuritypatch.sh` (see patches/security/README.md) | As the library each one changes |
 | `patches/fontconfig-2.14.1-riscos.diff` | riscos-warzone2100 `patches/fontconfig/`; changes to fontconfig | fontconfig's licence (MIT-style) |
 | `patches/gdk-pixbuf-2.42.10-riscos.diff` | Changes to gdk-pixbuf | LGPL version 2.1 or later, as gdk-pixbuf |
 | `patches/libepoxy-1.5.10-riscos.diff` | Changes to libepoxy | MIT, as libepoxy |

@@ -39,6 +39,19 @@
     c.hello is C; and the build commands' %d, %f and %e give it as
     hello.c in the folder above, which the compiler (with UnixLib's
     default) finds as c.hello.
+- **Security fixes in the libraries.** The libraries are built from their
+  original tarballs, which don't have the fixes Ubuntu applies to its own
+  packages of the same versions. `patches/security/` now carries them
+  (154 of Ubuntu's patches, made by `tools/mksecuritypatch.sh`), applied
+  before the RISC OS patches (`security_patches` in build/env.sh): zlib
+  (2), GLib (49), libpng (23), FreeType (6), Expat (27), gdk-pixbuf (6),
+  libxml2 (32), libxslt (5), libgsf (1), libcroco (2) and libetpan (1).
+  See patches/security/README.md for what was left out and why.
+  libxml2's fixes add fields to its structures, so everything using it is
+  rebuilt.
+- build-svg.sh removes libxml2's .la file after installing it, as the
+  other libraries' are: on a clean build it led libtool to crossdev's
+  libm.la, and ClawsMail's link failed.
 - **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos34, ClawsMail
   4.4.0-riscos25, Geany 2.1-riscos13, mtPaint 3.50.14-riscos13, Gnumeric
   1.12.62-riscos18, AbiWord 3.0.8-riscos4 (GOffice 0.10.62),

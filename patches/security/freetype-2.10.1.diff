@@ -1,0 +1,128 @@
+riscos-gtk: security fixes for freetype-2.10.1, from Ubuntu's package 2.10.1-2ubuntu0.4
+(freetype_2.10.1-2ubuntu0.4.debian.tar.xz: debian/patches), applied in its series order:
+  CVE-2020-15999.patch
+  CVE-2022-27404.patch
+  CVE-2022-27405.patch
+  CVE-2022-27406.patch
+  CVE-2023-2004.patch
+  CVE-2025-27363.patch
+Made by tools/mksecuritypatch.sh from freetype_2.10.1.orig.tar.gz.
+
+diff -ruN a/src/base/ftobjs.c b/src/base/ftobjs.c
+--- a/src/base/ftobjs.c
++++ b/src/base/ftobjs.c
+@@ -2389,6 +2389,15 @@
+ #endif
+ 
+ 
++    /* only use lower 31 bits together with sign bit */
++    if ( face_index > 0 )
++      face_index &= 0x7FFFFFFFL;
++    else
++    {
++      face_index &= 0x7FFFFFFFL;
++      face_index  = -face_index;
++    }
++
+ #ifdef FT_DEBUG_LEVEL_TRACE
+     FT_TRACE3(( "FT_Open_Face: " ));
+     if ( face_index < 0 )
+@@ -3244,6 +3253,9 @@
+     if ( !face )
+       return FT_THROW( Invalid_Face_Handle );
+ 
++    if ( !face->size )
++      return FT_THROW( Invalid_Size_Handle );
++
+     if ( !req || req->width < 0 || req->height < 0 ||
+          req->type >= FT_SIZE_REQUEST_TYPE_MAX )
+       return FT_THROW( Invalid_Argument );
+diff -ruN a/src/sfnt/pngshim.c b/src/sfnt/pngshim.c
+--- a/src/sfnt/pngshim.c
++++ b/src/sfnt/pngshim.c
+@@ -327,6 +327,13 @@
+ 
+     if ( populate_map_and_metrics )
+     {
++      /* reject too large bitmaps similarly to the rasterizer */
++      if ( imgHeight > 0x7FFF || imgWidth > 0x7FFF )
++      {
++        error = FT_THROW( Array_Too_Large );
++        goto DestroyExit;
++      }
++
+       metrics->width  = (FT_UShort)imgWidth;
+       metrics->height = (FT_UShort)imgHeight;
+ 
+@@ -335,13 +342,6 @@
+       map->pixel_mode = FT_PIXEL_MODE_BGRA;
+       map->pitch      = (int)( map->width * 4 );
+       map->num_grays  = 256;
+-
+-      /* reject too large bitmaps similarly to the rasterizer */
+-      if ( map->rows > 0x7FFF || map->width > 0x7FFF )
+-      {
+-        error = FT_THROW( Array_Too_Large );
+-        goto DestroyExit;
+-      }
+     }
+ 
+     /* convert palette/gray image to rgb */
+diff -ruN a/src/sfnt/sfobjs.c b/src/sfnt/sfobjs.c
+--- a/src/sfnt/sfobjs.c
++++ b/src/sfnt/sfobjs.c
+@@ -528,7 +528,7 @@
+     face_index = FT_ABS( face_instance_index ) & 0xFFFF;
+ 
+     /* value -(N+1) requests information on index N */
+-    if ( face_instance_index < 0 )
++    if ( face_instance_index < 0 && face_index > 0 )
+       face_index--;
+ 
+     if ( face_index >= face->ttc_header.count )
+diff -ruN a/src/truetype/ttgload.c b/src/truetype/ttgload.c
+--- a/src/truetype/ttgload.c
++++ b/src/truetype/ttgload.c
+@@ -1920,7 +1920,7 @@
+         short        i, limit;
+         FT_SubGlyph  subglyph;
+ 
+-        FT_Outline  outline;
++        FT_Outline  outline = { 0, 0, NULL, NULL, NULL, 0 };
+         FT_Vector*  points    = NULL;
+         char*       tags      = NULL;
+         short*      contours  = NULL;
+@@ -1929,6 +1929,13 @@
+ 
+         limit = (short)gloader->current.num_subglyphs;
+ 
++        /* make sure this isn't negative as we're going to add 4 later */
++        if ( limit < 0 )
++        {
++          error = FT_THROW( Invalid_Argument );
++          goto Exit;
++        }
++
+         /* construct an outline structure for              */
+         /* communication with `TT_Vary_Apply_Glyph_Deltas' */
+         outline.n_points   = (short)( gloader->current.num_subglyphs + 4 );
+diff -ruN a/src/truetype/ttgxvar.c b/src/truetype/ttgxvar.c
+--- a/src/truetype/ttgxvar.c
++++ b/src/truetype/ttgxvar.c
+@@ -42,6 +42,7 @@
+ #include <ft2build.h>
+ #include FT_INTERNAL_DEBUG_H
+ #include FT_CONFIG_CONFIG_H
++#include <freetype/internal/ftcalc.h>
+ #include FT_INTERNAL_STREAM_H
+ #include FT_INTERNAL_SFNT_H
+ #include FT_TRUETYPE_TAGS_H
+@@ -1065,7 +1066,7 @@
+                 delta == 1 ? "" : "s",
+                 vertical ? "VVAR" : "HVAR" ));
+ 
+-    *avalue += delta;
++    *avalue = ADD_INT( *avalue, delta );
+ 
+   Exit:
+     return error;

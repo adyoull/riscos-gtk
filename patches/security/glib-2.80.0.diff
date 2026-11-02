@@ -1,0 +1,4986 @@
+riscos-gtk: security fixes for glib-2.80.0, from Ubuntu's package 2.80.0-6ubuntu3.10
+(glib2.0_2.80.0-6ubuntu3.10.debian.tar.xz: debian/patches), applied in its series order:
+  CVE-2024-34397-01.patch
+  CVE-2024-34397-02.patch
+  CVE-2024-34397-03.patch
+  CVE-2024-34397-04.patch
+  CVE-2024-34397-05.patch
+  CVE-2024-34397-06.patch
+  CVE-2024-34397-07.patch
+  CVE-2024-34397-08.patch
+  CVE-2024-34397-09.patch
+  CVE-2024-34397-10.patch
+  CVE-2024-34397-11.patch
+  CVE-2024-34397-12.patch
+  CVE-2024-34397-13.patch
+  CVE-2024-34397-14.patch
+  CVE-2024-34397-15.patch
+  CVE-2024-34397-16.patch
+  CVE-2024-34397-regression.patch
+  CVE-2024-52533.patch
+  CVE-2025-4373-1.patch
+  CVE-2025-4373-2.patch
+  CVE-2025-3360-1.patch
+  CVE-2025-3360-2.patch
+  CVE-2025-3360-3.patch
+  CVE-2025-3360-4.patch
+  CVE-2025-3360-5.patch
+  CVE-2025-3360-6.patch
+  CVE-2025-6052.patch
+  CVE-2025-7039.patch
+  CVE-2025-13601.patch
+  CVE-2025-14087-1.patch
+  CVE-2025-14087-2.patch
+  CVE-2025-14087-3.patch
+  CVE-2026-0988.patch
+  CVE-2026-1484-1.patch
+  CVE-2026-1484-2.patch
+  CVE-2026-1485.patch
+  CVE-2026-1489-1.patch
+  CVE-2026-1489-2.patch
+  CVE-2026-1489-3.patch
+  CVE-2026-1489-4.patch
+  CVE-2026-16118.patch
+  CVE-2026-58016.patch
+  CVE-2026-15588.patch
+  CVE-2026-58010.patch
+  CVE-2026-58011.patch
+  CVE-2026-58012.patch
+  CVE-2026-58013.patch
+  CVE-2026-58014.patch
+  CVE-2026-58015.patch
+Made by tools/mksecuritypatch.sh from glib2.0_2.80.0.orig.tar.xz.
+
+diff -ruN a/fuzzing/fuzz_key.c b/fuzzing/fuzz_key.c
+--- a/fuzzing/fuzz_key.c
++++ b/fuzzing/fuzz_key.c
+@@ -26,11 +26,20 @@
+             GKeyFileFlags  flags)
+ {
+   GKeyFile *key = NULL;
++  char *comment = NULL;
++  char **list = NULL;
+ 
+   key = g_key_file_new ();
+   g_key_file_load_from_data (key, (const gchar*) data, size, G_KEY_FILE_NONE,
+                              NULL);
+ 
++  /* Also try some additional parsing and see if it crashes */
++  comment = g_key_file_get_comment (key, "group", "key", NULL);
++  g_free (comment);
++
++  list = g_key_file_get_locale_string_list (key, "group", "key", "de", NULL, NULL);
++  g_strfreev (list);
++
+   g_key_file_free (key);
+ }
+ 
+diff -ruN a/gio/gbufferedinputstream.c b/gio/gbufferedinputstream.c
+--- a/gio/gbufferedinputstream.c
++++ b/gio/gbufferedinputstream.c
+@@ -589,7 +589,7 @@
+ 
+   available = g_buffered_input_stream_get_available (stream);
+ 
+-  if (offset > available)
++  if (offset > available || offset > G_MAXSIZE - count)
+     return 0;
+ 
+   end = MIN (offset + count, available);
+diff -ruN a/gio/gcontenttype.c b/gio/gcontenttype.c
+--- a/gio/gcontenttype.c
++++ b/gio/gcontenttype.c
+@@ -1019,7 +1019,7 @@
+ static TreeMatch *
+ parse_header (gchar *line)
+ {
+-  gint len;
++  size_t len;
+   gchar *s;
+   TreeMatch *match;
+ 
+diff -ruN a/gio/gdbusauth.c b/gio/gdbusauth.c
+--- a/gio/gdbusauth.c
++++ b/gio/gdbusauth.c
+@@ -260,6 +260,21 @@
+   return ret;
+ }
+ 
++static size_t
++get_longest_mechanism_name_length (GDBusAuth *auth)
++{
++  size_t len = 0;
++
++  for (GList *l = auth->priv->available_mechanisms; l != NULL; l = l->next)
++    {
++      Mechanism *m = l->data;
++
++      len = MAX (len, strlen (m->name));
++    }
++
++  return len;
++}
++
+ GDBusAuth  *
+ _g_dbus_auth_new (GIOStream *stream)
+ {
+@@ -268,6 +283,20 @@
+                        NULL);
+ }
+ 
++/* Arbitrarily chosen limit on the length of a DATA command payload, to prevent
++ * unbounded reads from malicious clients.
++ *
++ *  - The ANONYMOUS mechanism doesn’t use DATA.
++ *  - The EXTERNAL mechanism just uses it to transfer a decimal-encoded UID.
++ *  - The DBUS_COOKIE_SHA1 mechanism transfers a challenge and a SHA1 hash. The
++ *    hash is bounded in length, but the challenge is not, so could potentially
++ *    hit this limit. It doesn’t seem unreasonable to bound the challenge to
++ *    ~4KB though. GDBus itself generates a 16 byte challenge.
++ *
++ * See https://dbus.freedesktop.org/doc/dbus-specification.html#auth-command-data
++ */
++#define MAX_DATA_PAYLOAD_LENGTH_BYTES 4096
++
+ /* ---------------------------------------------------------------------------------------------------- */
+ /* like g_data_input_stream_read_line() but sets error if there's no content to read */
+ static gchar *
+@@ -305,6 +334,7 @@
+  */
+ static gchar *
+ _my_g_input_stream_read_line_safe (GInputStream  *i,
++                                   size_t         max_line_length,
+                                    gsize         *out_line_length,
+                                    GCancellable  *cancellable,
+                                    GError       **error)
+@@ -314,11 +344,22 @@
+   gssize num_read;
+   gboolean last_was_cr;
+ 
++  g_assert (max_line_length <= SIZE_MAX - 2);
++
+   str = g_string_new (NULL);
+ 
+   last_was_cr = FALSE;
+   while (TRUE)
+     {
++      if (str->len >= max_line_length + 2  /* allow for \r\n */)
++        {
++          g_set_error_literal (error,
++                               G_IO_ERROR,
++                               G_IO_ERROR_FAILED,
++                               _("Malformed D-Bus authentication line"));
++          goto fail;
++        }
++
+       num_read = g_input_stream_read (i,
+                                       &c,
+                                       1,
+@@ -1071,6 +1112,7 @@
+         case SERVER_STATE_WAITING_FOR_AUTH:
+           debug_print ("SERVER: WaitingForAuth");
+           line = _my_g_input_stream_read_line_safe (g_io_stream_get_input_stream (auth->priv->stream),
++                                                    strlen ("AUTH ") + get_longest_mechanism_name_length (auth) + strlen (" ") + MAX_DATA_PAYLOAD_LENGTH_BYTES,
+                                                     &line_length,
+                                                     cancellable,
+                                                     error);
+@@ -1292,6 +1334,7 @@
+         case SERVER_STATE_WAITING_FOR_DATA:
+           debug_print ("SERVER: WaitingForData");
+           line = _my_g_input_stream_read_line_safe (g_io_stream_get_input_stream (auth->priv->stream),
++                                                    strlen ("DATA ") + MAX_DATA_PAYLOAD_LENGTH_BYTES,
+                                                     &line_length,
+                                                     cancellable,
+                                                     error);
+@@ -1334,6 +1377,7 @@
+         case SERVER_STATE_WAITING_FOR_BEGIN:
+           debug_print ("SERVER: WaitingForBegin");
+           line = _my_g_input_stream_read_line_safe (g_io_stream_get_input_stream (auth->priv->stream),
++                                                    MAX (strlen ("BEGIN"), strlen ("NEGOTIATE_UNIX_FD")),
+                                                     &line_length,
+                                                     cancellable,
+                                                     error);
+diff -ruN a/gio/gdbusauthmechanism.c b/gio/gdbusauthmechanism.c
+--- a/gio/gdbusauthmechanism.c
++++ b/gio/gdbusauthmechanism.c
+@@ -324,6 +324,13 @@
+   return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_data_send (mechanism, out_data_len);
+ }
+ 
++gchar *
++_g_dbus_auth_mechanism_client_get_reject_reason (GDBusAuthMechanism *mechanism)
++{
++  g_return_val_if_fail (G_IS_DBUS_AUTH_MECHANISM (mechanism), NULL);
++  return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_get_reject_reason (mechanism);
++}
++
+ void
+ _g_dbus_auth_mechanism_client_shutdown (GDBusAuthMechanism *mechanism)
+ {
+diff -ruN a/gio/gdbusauthmechanism.h b/gio/gdbusauthmechanism.h
+--- a/gio/gdbusauthmechanism.h
++++ b/gio/gdbusauthmechanism.h
+@@ -100,6 +100,7 @@
+                                                          gsize                 data_len);
+   gchar                    *(*client_data_send)         (GDBusAuthMechanism   *mechanism,
+                                                          gsize                *out_data_len);
++  gchar                    *(*client_get_reject_reason) (GDBusAuthMechanism   *mechanism);
+   void                      (*client_shutdown)          (GDBusAuthMechanism   *mechanism);
+ };
+ 
+@@ -148,6 +149,7 @@
+                                                                            gsize                 data_len);
+ gchar                    *_g_dbus_auth_mechanism_client_data_send         (GDBusAuthMechanism   *mechanism,
+                                                                           gsize                *out_data_len);
++gchar                    *_g_dbus_auth_mechanism_client_get_reject_reason (GDBusAuthMechanism   *mechanism);
+ void                      _g_dbus_auth_mechanism_client_shutdown          (GDBusAuthMechanism   *mechanism);
+ 
+ 
+diff -ruN a/gio/gdbusauthmechanismanon.c b/gio/gdbusauthmechanismanon.c
+--- a/gio/gdbusauthmechanismanon.c
++++ b/gio/gdbusauthmechanismanon.c
+@@ -56,7 +56,7 @@
+                                                                      gsize                 data_len);
+ static gchar                   *mechanism_server_data_send          (GDBusAuthMechanism   *mechanism,
+                                                                      gsize                *out_data_len);
+-static gchar                   *mechanism_server_get_reject_reason  (GDBusAuthMechanism   *mechanism);
++static gchar                   *mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism   *mechanism);
+ static void                     mechanism_server_shutdown           (GDBusAuthMechanism   *mechanism);
+ static GDBusAuthMechanismState  mechanism_client_get_state          (GDBusAuthMechanism   *mechanism);
+ static gchar                   *mechanism_client_initiate           (GDBusAuthMechanism   *mechanism,
+@@ -103,12 +103,13 @@
+   mechanism_class->server_initiate           = mechanism_server_initiate;
+   mechanism_class->server_data_receive       = mechanism_server_data_receive;
+   mechanism_class->server_data_send          = mechanism_server_data_send;
+-  mechanism_class->server_get_reject_reason  = mechanism_server_get_reject_reason;
++  mechanism_class->server_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->server_shutdown           = mechanism_server_shutdown;
+   mechanism_class->client_get_state          = mechanism_client_get_state;
+   mechanism_class->client_initiate           = mechanism_client_initiate;
+   mechanism_class->client_data_receive       = mechanism_client_data_receive;
+   mechanism_class->client_data_send          = mechanism_client_data_send;
++  mechanism_class->client_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->client_shutdown           = mechanism_client_shutdown;
+ }
+ 
+@@ -222,12 +223,11 @@
+ }
+ 
+ static gchar *
+-mechanism_server_get_reject_reason (GDBusAuthMechanism   *mechanism)
++mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism   *mechanism)
+ {
+   GDBusAuthMechanismAnon *m = G_DBUS_AUTH_MECHANISM_ANON (mechanism);
+ 
+   g_return_val_if_fail (G_IS_DBUS_AUTH_MECHANISM_ANON (mechanism), NULL);
+-  g_return_val_if_fail (m->priv->is_server && !m->priv->is_client, NULL);
+   g_return_val_if_fail (m->priv->state == G_DBUS_AUTH_MECHANISM_STATE_REJECTED, NULL);
+ 
+   /* can never end up here because we are never in the REJECTED state */
+diff -ruN a/gio/gdbusauthmechanismexternal.c b/gio/gdbusauthmechanismexternal.c
+--- a/gio/gdbusauthmechanismexternal.c
++++ b/gio/gdbusauthmechanismexternal.c
+@@ -64,7 +64,7 @@
+                                                                      gsize                 data_len);
+ static gchar                   *mechanism_server_data_send          (GDBusAuthMechanism   *mechanism,
+                                                                      gsize                *out_data_len);
+-static gchar                   *mechanism_server_get_reject_reason  (GDBusAuthMechanism   *mechanism);
++static gchar                   *mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism   *mechanism);
+ static void                     mechanism_server_shutdown           (GDBusAuthMechanism   *mechanism);
+ static GDBusAuthMechanismState  mechanism_client_get_state          (GDBusAuthMechanism   *mechanism);
+ static gchar                   *mechanism_client_initiate           (GDBusAuthMechanism   *mechanism,
+@@ -111,12 +111,13 @@
+   mechanism_class->server_initiate           = mechanism_server_initiate;
+   mechanism_class->server_data_receive       = mechanism_server_data_receive;
+   mechanism_class->server_data_send          = mechanism_server_data_send;
+-  mechanism_class->server_get_reject_reason  = mechanism_server_get_reject_reason;
++  mechanism_class->server_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->server_shutdown           = mechanism_server_shutdown;
+   mechanism_class->client_get_state          = mechanism_client_get_state;
+   mechanism_class->client_initiate           = mechanism_client_initiate;
+   mechanism_class->client_data_receive       = mechanism_client_data_receive;
+   mechanism_class->client_data_send          = mechanism_client_data_send;
++  mechanism_class->client_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->client_shutdown           = mechanism_client_shutdown;
+ }
+ 
+@@ -321,12 +322,11 @@
+ }
+ 
+ static gchar *
+-mechanism_server_get_reject_reason (GDBusAuthMechanism   *mechanism)
++mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism   *mechanism)
+ {
+   GDBusAuthMechanismExternal *m = G_DBUS_AUTH_MECHANISM_EXTERNAL (mechanism);
+ 
+   g_return_val_if_fail (G_IS_DBUS_AUTH_MECHANISM_EXTERNAL (mechanism), NULL);
+-  g_return_val_if_fail (m->priv->is_server && !m->priv->is_client, NULL);
+   g_return_val_if_fail (m->priv->state == G_DBUS_AUTH_MECHANISM_STATE_REJECTED, NULL);
+ 
+   /* can never end up here because we are never in the REJECTED state */
+diff -ruN a/gio/gdbusauthmechanismsha1.c b/gio/gdbusauthmechanismsha1.c
+--- a/gio/gdbusauthmechanismsha1.c
++++ b/gio/gdbusauthmechanismsha1.c
+@@ -119,7 +119,7 @@
+                                                                      gsize                 data_len);
+ static gchar                   *mechanism_server_data_send          (GDBusAuthMechanism   *mechanism,
+                                                                      gsize                *out_data_len);
+-static gchar                   *mechanism_server_get_reject_reason  (GDBusAuthMechanism   *mechanism);
++static gchar                   *mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism   *mechanism);
+ static void                     mechanism_server_shutdown           (GDBusAuthMechanism   *mechanism);
+ static GDBusAuthMechanismState  mechanism_client_get_state          (GDBusAuthMechanism   *mechanism);
+ static gchar                   *mechanism_client_initiate           (GDBusAuthMechanism   *mechanism,
+@@ -172,12 +172,13 @@
+   mechanism_class->server_initiate           = mechanism_server_initiate;
+   mechanism_class->server_data_receive       = mechanism_server_data_receive;
+   mechanism_class->server_data_send          = mechanism_server_data_send;
+-  mechanism_class->server_get_reject_reason  = mechanism_server_get_reject_reason;
++  mechanism_class->server_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->server_shutdown           = mechanism_server_shutdown;
+   mechanism_class->client_get_state          = mechanism_client_get_state;
+   mechanism_class->client_initiate           = mechanism_client_initiate;
+   mechanism_class->client_data_receive       = mechanism_client_data_receive;
+   mechanism_class->client_data_send          = mechanism_client_data_send;
++  mechanism_class->client_get_reject_reason  = mechanism_server_or_client_get_reject_reason;
+   mechanism_class->client_shutdown           = mechanism_client_shutdown;
+ }
+ 
+@@ -1128,12 +1129,11 @@
+ }
+ 
+ static gchar *
+-mechanism_server_get_reject_reason (GDBusAuthMechanism   *mechanism)
++mechanism_server_or_client_get_reject_reason (GDBusAuthMechanism *mechanism)
+ {
+   GDBusAuthMechanismSha1 *m = G_DBUS_AUTH_MECHANISM_SHA1 (mechanism);
+ 
+   g_return_val_if_fail (G_IS_DBUS_AUTH_MECHANISM_SHA1 (mechanism), NULL);
+-  g_return_val_if_fail (m->priv->is_server && !m->priv->is_client, NULL);
+   g_return_val_if_fail (m->priv->state == G_DBUS_AUTH_MECHANISM_STATE_REJECTED, NULL);
+ 
+   return g_strdup (m->priv->reject_reason);
+@@ -1198,6 +1198,34 @@
+   return initial_response;
+ }
+ 
++/* Context names must be valid ASCII, nonzero length, and may not contain the
++ * characters slash ("/"), backslash ("\"), space (" "), newline ("\n"),
++ * carriage return ("\r"), tab ("\t"), or period (".").
++ *
++ * See https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms-sha */
++static gboolean
++validate_cookie_context (const char *cookie_context)
++{
++  size_t i = 0;
++
++  g_return_val_if_fail (cookie_context != NULL, FALSE);
++
++  for (i = 0; cookie_context[i] != '\0'; i++)
++    {
++      if ((guchar) cookie_context[i] >= 128 ||
++          cookie_context[i] == '/' ||
++          cookie_context[i] == '\\' ||
++          cookie_context[i] == ' ' ||
++          cookie_context[i] == '\n' ||
++          cookie_context[i] == '\r' ||
++          cookie_context[i] == '\t' ||
++          cookie_context[i] == '.')
++        return FALSE;
++    }
++
++  return (i > 0);
++}
++
+ static void
+ mechanism_client_data_receive (GDBusAuthMechanism   *mechanism,
+                                const gchar          *data,
+@@ -1206,7 +1234,7 @@
+   GDBusAuthMechanismSha1 *m = G_DBUS_AUTH_MECHANISM_SHA1 (mechanism);
+   gchar **tokens;
+   const gchar *cookie_context;
+-  guint cookie_id;
++  int64_t cookie_id;
+   const gchar *server_challenge;
+   gchar *client_challenge;
+   gchar *endp;
+@@ -1232,8 +1260,16 @@
+     }
+ 
+   cookie_context = tokens[0];
++  if (!validate_cookie_context (tokens[0]))
++    {
++      g_free (m->priv->reject_reason);
++      m->priv->reject_reason = g_strdup_printf ("Malformed cookie_context '%s'", tokens[0]);
++      m->priv->state = G_DBUS_AUTH_MECHANISM_STATE_REJECTED;
++      goto out;
++    }
++
+   cookie_id = g_ascii_strtoll (tokens[1], &endp, 10);
+-  if (*endp != '\0')
++  if (*endp != '\0' || endp == tokens[1] || cookie_id < 0 || cookie_id > G_MAXUINT)
+     {
+       g_free (m->priv->reject_reason);
+       m->priv->reject_reason = g_strdup_printf ("Malformed cookie_id '%s'", tokens[1]);
+@@ -1243,7 +1279,7 @@
+   server_challenge = tokens[2];
+ 
+   error = NULL;
+-  cookie = keyring_lookup_entry (cookie_context, cookie_id, &error);
++  cookie = keyring_lookup_entry (cookie_context, (unsigned int) cookie_id, &error);
+   if (cookie == NULL)
+     {
+       g_free (m->priv->reject_reason);
+diff -ruN a/gio/gdbusconnection.c b/gio/gdbusconnection.c
+--- a/gio/gdbusconnection.c
++++ b/gio/gdbusconnection.c
+@@ -287,6 +287,153 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++typedef struct
++{
++  /* All fields are immutable after construction. */
++  gatomicrefcount ref_count;
++  GDBusSignalCallback callback;
++  gpointer user_data;
++  GDestroyNotify user_data_free_func;
++  guint id;
++  GMainContext *context;
++} SignalSubscriber;
++
++static SignalSubscriber *
++signal_subscriber_ref (SignalSubscriber *subscriber)
++{
++  g_atomic_ref_count_inc (&subscriber->ref_count);
++  return subscriber;
++}
++
++static void
++signal_subscriber_unref (SignalSubscriber *subscriber)
++{
++  if (g_atomic_ref_count_dec (&subscriber->ref_count))
++    {
++      /* Destroy the user data. It doesn’t matter which thread
++       * signal_subscriber_unref() is called in (or whether it’s called with a
++       * lock held), as call_destroy_notify() always defers to the next
++       * #GMainContext iteration. */
++      call_destroy_notify (subscriber->context,
++                           subscriber->user_data_free_func,
++                           subscriber->user_data);
++
++      g_main_context_unref (subscriber->context);
++      g_free (subscriber);
++    }
++}
++
++typedef struct
++{
++  /*
++   * 1 reference while waiting for GetNameOwner() to finish
++   * 1 reference for each SignalData that points to this one as its
++   *   shared_name_watcher
++   */
++  grefcount ref_count;
++
++  gchar *owner;
++  guint32 get_name_owner_serial;
++} WatchedName;
++
++static WatchedName *
++watched_name_new (void)
++{
++  WatchedName *watched_name = g_new0 (WatchedName, 1);
++
++  g_ref_count_init (&watched_name->ref_count);
++  watched_name->owner = NULL;
++  return g_steal_pointer (&watched_name);
++}
++
++typedef struct SignalData SignalData;
++
++struct SignalData
++{
++  gchar *rule;
++  gchar *sender;
++  gchar *interface_name;
++  gchar *member;
++  gchar *object_path;
++  gchar *arg0;
++  GDBusSignalFlags flags;
++  GPtrArray *subscribers;  /* (owned) (element-type SignalSubscriber) */
++
++  /*
++   * If the sender is a well-known name, this is an unowned SignalData
++   * representing the NameOwnerChanged signal that tracks its owner.
++   * NULL if sender is NULL.
++   * NULL if sender is its own owner (a unique name or DBUS_SERVICE_DBUS).
++   *
++   * Invariants: if not NULL, then
++   * shared_name_watcher->sender == DBUS_SERVICE_DBUS
++   * shared_name_watcher->interface_name == DBUS_INTERFACE_DBUS
++   * shared_name_watcher->member == "NameOwnerChanged"
++   * shared_name_watcher->object_path == DBUS_PATH_DBUS
++   * shared_name_watcher->arg0 == sender
++   * shared_name_watcher->flags == NONE
++   * shared_name_watcher->watched_name == NULL
++   */
++  SignalData *shared_name_watcher;
++
++  /*
++   * Non-NULL if this SignalData is another SignalData's shared_name_watcher.
++   * One reference for each SignalData that has this one as its
++   * shared_name_watcher.
++   * Otherwise NULL.
++   */
++  WatchedName *watched_name;
++};
++
++static SignalData *
++signal_data_new_take (gchar *rule,
++                      gchar *sender,
++                      gchar *interface_name,
++                      gchar *member,
++                      gchar *object_path,
++                      gchar *arg0,
++                      GDBusSignalFlags flags)
++{
++  SignalData *signal_data = g_new0 (SignalData, 1);
++
++  signal_data->rule = rule;
++  signal_data->sender = sender;
++  signal_data->interface_name = interface_name;
++  signal_data->member = member;
++  signal_data->object_path = object_path;
++  signal_data->arg0 = arg0;
++  signal_data->flags = flags;
++  signal_data->subscribers = g_ptr_array_new_with_free_func ((GDestroyNotify) signal_subscriber_unref);
++  return g_steal_pointer (&signal_data);
++}
++
++static void
++signal_data_free (SignalData *signal_data)
++{
++  /* The SignalData should not be freed while it still has subscribers */
++  g_assert (signal_data->subscribers->len == 0);
++
++  /* The SignalData should not be freed while it is watching for
++   * NameOwnerChanged on behalf of another SignalData */
++  g_assert (signal_data->watched_name == NULL);
++
++  /* The SignalData should be detached from its name watcher, if any,
++   * before it is freed */
++  g_assert (signal_data->shared_name_watcher == NULL);
++
++  g_free (signal_data->rule);
++  g_free (signal_data->sender);
++  g_free (signal_data->interface_name);
++  g_free (signal_data->member);
++  g_free (signal_data->object_path);
++  g_free (signal_data->arg0);
++  g_ptr_array_unref (signal_data->subscribers);
++
++  g_free (signal_data);
++}
++
++/* ---------------------------------------------------------------------------------------------------- */
++
+ #ifdef G_OS_WIN32
+ #define CONNECTION_ENSURE_LOCK(obj) do { ; } while (FALSE)
+ #else
+@@ -405,6 +552,7 @@
+ 
+   /* Map used for managing method replies, protected by @lock */
+   GHashTable *map_method_serial_to_task;  /* guint32 -> owned GTask* */
++  GHashTable *map_method_serial_to_name_watcher;  /* guint32 -> unowned SignalData* */
+ 
+   /* Maps used for managing signal subscription, protected by @lock */
+   GHashTable *map_rule_to_signal_data;                      /* match rule (gchar*)    -> SignalData */
+@@ -653,6 +801,7 @@
+     g_error_free (connection->initialization_error);
+ 
+   g_hash_table_unref (connection->map_method_serial_to_task);
++  g_hash_table_unref (connection->map_method_serial_to_name_watcher);
+ 
+   g_hash_table_unref (connection->map_rule_to_signal_data);
+   g_hash_table_unref (connection->map_id_to_signal_data);
+@@ -1039,6 +1188,7 @@
+   g_mutex_init (&connection->init_lock);
+ 
+   connection->map_method_serial_to_task = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, g_object_unref);
++  connection->map_method_serial_to_name_watcher = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, NULL);
+ 
+   connection->map_rule_to_signal_data = g_hash_table_new (g_str_hash,
+                                                           g_str_equal);
+@@ -2166,6 +2316,197 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++/*
++ * Called in any thread.
++ * Must hold the connection lock when calling this, unless
++ * connection->finalizing is TRUE.
++ */
++static void
++name_watcher_unref_watched_name (GDBusConnection *connection,
++                                 SignalData *name_watcher)
++{
++  WatchedName *watched_name = name_watcher->watched_name;
++
++  g_assert (watched_name != NULL);
++
++  if (!g_ref_count_dec (&watched_name->ref_count))
++    return;
++
++  /* Removing watched_name from the name_watcher may result in
++   * name_watcher being freed, so we must make sure name_watcher is no
++   * longer in map_method_serial_to_name_watcher.
++   *
++   * If we stop watching the name while our GetNameOwner call was still
++   * in-flight, then when the reply eventually arrives, we will not find
++   * its serial number in the map and harmlessly ignore it as a result. */
++  if (watched_name->get_name_owner_serial != 0)
++    g_hash_table_remove (connection->map_method_serial_to_name_watcher,
++                         GUINT_TO_POINTER (watched_name->get_name_owner_serial));
++
++  name_watcher->watched_name = NULL;
++  g_free (watched_name->owner);
++  g_free (watched_name);
++}
++
++/* called in GDBusWorker thread with lock held */
++static void
++name_watcher_set_name_owner_unlocked (SignalData *name_watcher,
++                                      const char *new_owner)
++{
++  if (new_owner != NULL && new_owner[0] == '\0')
++    new_owner = NULL;
++
++  g_assert (name_watcher->watched_name != NULL);
++  g_set_str (&name_watcher->watched_name->owner, new_owner);
++}
++
++/* called in GDBusWorker thread with lock held */
++static void
++name_watcher_deliver_name_owner_changed_unlocked (SignalData *name_watcher,
++                                                  GDBusMessage *message)
++{
++  GVariant *body;
++
++  body = g_dbus_message_get_body (message);
++
++  if (G_LIKELY (body != NULL && g_variant_is_of_type (body, G_VARIANT_TYPE ("(sss)"))))
++    {
++      const char *name;
++      const char *new_owner;
++
++      g_variant_get (body, "(&s&s&s)", &name, NULL, &new_owner);
++
++      /* Our caller already checked this */
++      g_assert (g_strcmp0 (name_watcher->arg0, name) == 0);
++
++      /* FIXME: This should be validating that `new_owner` is a unique name,
++       * but IBus’ implementation of a message bus is not compliant with the spec.
++       * See https://gitlab.gnome.org/GNOME/glib/-/issues/3353 */
++      if (G_LIKELY (new_owner[0] == '\0' || g_dbus_is_name (new_owner)))
++        name_watcher_set_name_owner_unlocked (name_watcher, new_owner);
++      else
++        g_warning ("Received NameOwnerChanged signal with invalid owner \"%s\" for \"%s\"",
++                   new_owner, name);
++    }
++  else
++    {
++      g_warning ("Received NameOwnerChanged signal with unexpected "
++                 "signature %s",
++                 body == NULL ? "()" : g_variant_get_type_string (body));
++
++    }
++}
++
++/* called in GDBusWorker thread with lock held */
++static void
++name_watcher_deliver_get_name_owner_reply_unlocked (SignalData *name_watcher,
++                                                    GDBusConnection *connection,
++                                                    GDBusMessage *message)
++{
++  GDBusMessageType type;
++  GVariant *body;
++  WatchedName *watched_name;
++
++  watched_name = name_watcher->watched_name;
++  g_assert (watched_name != NULL);
++  g_assert (watched_name->get_name_owner_serial != 0);
++
++  type = g_dbus_message_get_message_type (message);
++  body = g_dbus_message_get_body (message);
++
++  if (type == G_DBUS_MESSAGE_TYPE_ERROR)
++    {
++      if (g_strcmp0 (g_dbus_message_get_error_name (message),
++                     "org.freedesktop.DBus.Error.NameHasNoOwner"))
++        name_watcher_set_name_owner_unlocked (name_watcher, NULL);
++      /* else it's something like NoReply or AccessDenied, which tells
++       * us nothing - leave the owner set to whatever we most recently
++       * learned from NameOwnerChanged, or NULL */
++    }
++  else if (type != G_DBUS_MESSAGE_TYPE_METHOD_RETURN)
++    {
++      g_warning ("Received GetNameOwner reply with unexpected type %d",
++                 type);
++    }
++  else if (G_LIKELY (body != NULL && g_variant_is_of_type (body, G_VARIANT_TYPE ("(s)"))))
++    {
++      const char *new_owner;
++
++      g_variant_get (body, "(&s)", &new_owner);
++
++      /* FIXME: This should be validating that `new_owner` is a unique name,
++       * but IBus’ implementation of a message bus is not compliant with the spec.
++       * See https://gitlab.gnome.org/GNOME/glib/-/issues/3353 */
++      if (G_LIKELY (g_dbus_is_name (new_owner)))
++        name_watcher_set_name_owner_unlocked (name_watcher, new_owner);
++      else
++        g_warning ("Received GetNameOwner reply with invalid owner \"%s\" for \"%s\"",
++                   new_owner, name_watcher->arg0);
++    }
++  else
++    {
++      g_warning ("Received GetNameOwner reply with unexpected signature %s",
++                 body == NULL ? "()" : g_variant_get_type_string (body));
++    }
++
++  g_hash_table_remove (connection->map_method_serial_to_name_watcher,
++                       GUINT_TO_POINTER (watched_name->get_name_owner_serial));
++  watched_name->get_name_owner_serial = 0;
++}
++
++/* Called in a user thread, lock is held */
++static void
++name_watcher_call_get_name_owner_unlocked (GDBusConnection *connection,
++                                           SignalData *name_watcher)
++{
++  GDBusMessage *message;
++  GError *local_error = NULL;
++  WatchedName *watched_name;
++
++  g_assert (g_strcmp0 (name_watcher->sender, DBUS_SERVICE_DBUS) == 0);
++  g_assert (g_strcmp0 (name_watcher->interface_name, DBUS_INTERFACE_DBUS) == 0);
++  g_assert (g_strcmp0 (name_watcher->member, "NameOwnerChanged") == 0);
++  g_assert (g_strcmp0 (name_watcher->object_path, DBUS_PATH_DBUS) == 0);
++  /* arg0 of the NameOwnerChanged message is the well-known name whose owner
++   * we are interested in */
++  g_assert (g_dbus_is_name (name_watcher->arg0));
++  g_assert (name_watcher->flags == G_DBUS_SIGNAL_FLAGS_NONE);
++
++  watched_name = name_watcher->watched_name;
++  g_assert (watched_name != NULL);
++  g_assert (watched_name->owner == NULL);
++  g_assert (watched_name->get_name_owner_serial == 0);
++  g_assert (name_watcher->shared_name_watcher == NULL);
++
++  message = g_dbus_message_new_method_call (DBUS_SERVICE_DBUS,
++                                            DBUS_PATH_DBUS,
++                                            DBUS_INTERFACE_DBUS,
++                                            "GetNameOwner");
++  g_dbus_message_set_body (message, g_variant_new ("(s)", name_watcher->arg0));
++
++  if (g_dbus_connection_send_message_unlocked (connection, message,
++                                               G_DBUS_SEND_MESSAGE_FLAGS_NONE,
++                                               &watched_name->get_name_owner_serial,
++                                               &local_error))
++    {
++      g_assert (watched_name->get_name_owner_serial != 0);
++      g_hash_table_insert (connection->map_method_serial_to_name_watcher,
++                           GUINT_TO_POINTER (watched_name->get_name_owner_serial),
++                           name_watcher);
++    }
++  else
++    {
++      g_critical ("Error while sending GetNameOwner() message: %s",
++                  local_error->message);
++      g_clear_error (&local_error);
++      g_assert (watched_name->get_name_owner_serial == 0);
++    }
++
++  g_object_unref (message);
++}
++
++/* ---------------------------------------------------------------------------------------------------- */
++
+ typedef struct
+ {
+   guint                       id;
+@@ -2289,6 +2630,7 @@
+         {
+           guint32 reply_serial;
+           GTask *task;
++          SignalData *name_watcher;
+ 
+           reply_serial = g_dbus_message_get_reply_serial (message);
+           CONNECTION_LOCK (connection);
+@@ -2304,6 +2646,19 @@
+             {
+               //g_debug ("message reply/error for serial %d but no SendMessageData found for %p", reply_serial, connection);
+             }
++
++          name_watcher = g_hash_table_lookup (connection->map_method_serial_to_name_watcher,
++                                              GUINT_TO_POINTER (reply_serial));
++
++          if (name_watcher != NULL)
++            {
++              g_assert (name_watcher->watched_name != NULL);
++              g_assert (name_watcher->watched_name->get_name_owner_serial == reply_serial);
++              name_watcher_deliver_get_name_owner_reply_unlocked (name_watcher,
++                                                                  connection,
++                                                                  message);
++            }
++
+           CONNECTION_UNLOCK (connection);
+         }
+       else if (message_type == G_DBUS_MESSAGE_TYPE_SIGNAL)
+@@ -3247,69 +3602,6 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
+-typedef struct
+-{
+-  gchar *rule;
+-  gchar *sender;
+-  gchar *sender_unique_name; /* if sender is unique or org.freedesktop.DBus, then that name... otherwise blank */
+-  gchar *interface_name;
+-  gchar *member;
+-  gchar *object_path;
+-  gchar *arg0;
+-  GDBusSignalFlags flags;
+-  GPtrArray *subscribers;  /* (owned) (element-type SignalSubscriber) */
+-} SignalData;
+-
+-static void
+-signal_data_free (SignalData *signal_data)
+-{
+-  g_free (signal_data->rule);
+-  g_free (signal_data->sender);
+-  g_free (signal_data->sender_unique_name);
+-  g_free (signal_data->interface_name);
+-  g_free (signal_data->member);
+-  g_free (signal_data->object_path);
+-  g_free (signal_data->arg0);
+-  g_ptr_array_unref (signal_data->subscribers);
+-  g_free (signal_data);
+-}
+-
+-typedef struct
+-{
+-  /* All fields are immutable after construction. */
+-  gatomicrefcount ref_count;
+-  GDBusSignalCallback callback;
+-  gpointer user_data;
+-  GDestroyNotify user_data_free_func;
+-  guint id;
+-  GMainContext *context;
+-} SignalSubscriber;
+-
+-static SignalSubscriber *
+-signal_subscriber_ref (SignalSubscriber *subscriber)
+-{
+-  g_atomic_ref_count_inc (&subscriber->ref_count);
+-  return subscriber;
+-}
+-
+-static void
+-signal_subscriber_unref (SignalSubscriber *subscriber)
+-{
+-  if (g_atomic_ref_count_dec (&subscriber->ref_count))
+-    {
+-      /* Destroy the user data. It doesn’t matter which thread
+-       * signal_subscriber_unref() is called in (or whether it’s called with a
+-       * lock held), as call_destroy_notify() always defers to the next
+-       * #GMainContext iteration. */
+-      call_destroy_notify (subscriber->context,
+-                           subscriber->user_data_free_func,
+-                           subscriber->user_data);
+-
+-      g_main_context_unref (subscriber->context);
+-      g_free (subscriber);
+-    }
+-}
+-
+ static gchar *
+ args_to_rule (const gchar      *sender,
+               const gchar      *interface_name,
+@@ -3421,7 +3713,7 @@
+ static gboolean
+ is_signal_data_for_name_lost_or_acquired (SignalData *signal_data)
+ {
+-  return g_strcmp0 (signal_data->sender_unique_name, "org.freedesktop.DBus") == 0 &&
++  return g_strcmp0 (signal_data->sender, "org.freedesktop.DBus") == 0 &&
+          g_strcmp0 (signal_data->interface_name, "org.freedesktop.DBus") == 0 &&
+          g_strcmp0 (signal_data->object_path, "/org/freedesktop/DBus") == 0 &&
+          (g_strcmp0 (signal_data->member, "NameLost") == 0 ||
+@@ -3430,6 +3722,43 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++/* called in any thread, connection lock is held */
++static void
++add_signal_data (GDBusConnection *connection,
++                 SignalData      *signal_data,
++                 const char      *sender_unique_name)
++{
++  GPtrArray *signal_data_array;
++
++  g_hash_table_insert (connection->map_rule_to_signal_data,
++                       signal_data->rule,
++                       signal_data);
++
++  /* Add the match rule to the bus...
++   *
++   * Avoid adding match rules for NameLost and NameAcquired messages - the bus will
++   * always send such messages to us.
++   */
++  if (connection->flags & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION)
++    {
++      if (!is_signal_data_for_name_lost_or_acquired (signal_data))
++        add_match_rule (connection, signal_data->rule);
++    }
++
++  signal_data_array = g_hash_table_lookup (connection->map_sender_unique_name_to_signal_data_array,
++                                           sender_unique_name);
++  if (signal_data_array == NULL)
++    {
++      signal_data_array = g_ptr_array_new ();
++      g_hash_table_insert (connection->map_sender_unique_name_to_signal_data_array,
++                           g_strdup (sender_unique_name),
++                           signal_data_array);
++    }
++  g_ptr_array_add (signal_data_array, signal_data);
++}
++
++/* ---------------------------------------------------------------------------------------------------- */
++
+ /**
+  * g_dbus_connection_signal_subscribe:
+  * @connection: a #GDBusConnection
+@@ -3518,8 +3847,9 @@
+ {
+   gchar *rule;
+   SignalData *signal_data;
++  SignalData *name_watcher = NULL;
+   SignalSubscriber *subscriber;
+-  GPtrArray *signal_data_array;
++  gboolean sender_is_its_own_owner;
+   const gchar *sender_unique_name;
+ 
+   /* Right now we abort if AddMatch() fails since it can only fail with the bus being in
+@@ -3555,6 +3885,11 @@
+   rule = args_to_rule (sender, interface_name, member, object_path, arg0, flags);
+ 
+   if (sender != NULL && (g_dbus_is_unique_name (sender) || g_strcmp0 (sender, "org.freedesktop.DBus") == 0))
++    sender_is_its_own_owner = TRUE;
++  else
++    sender_is_its_own_owner = FALSE;
++
++  if (sender_is_its_own_owner)
+     sender_unique_name = sender;
+   else
+     sender_unique_name = "";
+@@ -3576,43 +3911,62 @@
+       goto out;
+     }
+ 
+-  signal_data = g_new0 (SignalData, 1);
+-  signal_data->rule                  = rule;
+-  signal_data->sender                = g_strdup (sender);
+-  signal_data->sender_unique_name    = g_strdup (sender_unique_name);
+-  signal_data->interface_name        = g_strdup (interface_name);
+-  signal_data->member                = g_strdup (member);
+-  signal_data->object_path           = g_strdup (object_path);
+-  signal_data->arg0                  = g_strdup (arg0);
+-  signal_data->flags                 = flags;
+-  signal_data->subscribers           = g_ptr_array_new_with_free_func ((GDestroyNotify) signal_subscriber_unref);
++  signal_data = signal_data_new_take (g_steal_pointer (&rule),
++                                      g_strdup (sender),
++                                      g_strdup (interface_name),
++                                      g_strdup (member),
++                                      g_strdup (object_path),
++                                      g_strdup (arg0),
++                                      flags);
+   g_ptr_array_add (signal_data->subscribers, subscriber);
+ 
+-  g_hash_table_insert (connection->map_rule_to_signal_data,
+-                       signal_data->rule,
+-                       signal_data);
++  /* If subscribing to a signal from a specific sender with a well-known
++   * name, we must first subscribe to NameOwnerChanged signals for that
++   * well-known name, so that we can match the current owner of the name
++   * against the sender of each signal. */
++  if (sender != NULL && !sender_is_its_own_owner)
++    {
++      gchar *name_owner_rule = NULL;
++
++      /* We already checked that sender != NULL implies MESSAGE_BUS_CONNECTION */
++      g_assert (connection->flags & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION);
++
++      name_owner_rule = args_to_rule (DBUS_SERVICE_DBUS,
++                                      DBUS_INTERFACE_DBUS,
++                                      "NameOwnerChanged",
++                                      DBUS_PATH_DBUS,
++                                      sender,
++                                      G_DBUS_SIGNAL_FLAGS_NONE);
++      name_watcher = g_hash_table_lookup (connection->map_rule_to_signal_data, name_owner_rule);
+ 
+-  /* Add the match rule to the bus...
+-   *
+-   * Avoid adding match rules for NameLost and NameAcquired messages - the bus will
+-   * always send such messages to us.
+-   */
+-  if (connection->flags & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION)
+-    {
+-      if (!is_signal_data_for_name_lost_or_acquired (signal_data))
+-        add_match_rule (connection, signal_data->rule);
+-    }
++      if (name_watcher == NULL)
++        {
++          name_watcher = signal_data_new_take (g_steal_pointer (&name_owner_rule),
++                                               g_strdup (DBUS_SERVICE_DBUS),
++                                               g_strdup (DBUS_INTERFACE_DBUS),
++                                               g_strdup ("NameOwnerChanged"),
++                                               g_strdup (DBUS_PATH_DBUS),
++                                               g_strdup (sender),
++                                               G_DBUS_SIGNAL_FLAGS_NONE);
++          add_signal_data (connection, name_watcher, DBUS_SERVICE_DBUS);
++        }
+ 
+-  signal_data_array = g_hash_table_lookup (connection->map_sender_unique_name_to_signal_data_array,
+-                                           signal_data->sender_unique_name);
+-  if (signal_data_array == NULL)
+-    {
+-      signal_data_array = g_ptr_array_new ();
+-      g_hash_table_insert (connection->map_sender_unique_name_to_signal_data_array,
+-                           g_strdup (signal_data->sender_unique_name),
+-                           signal_data_array);
++      if (name_watcher->watched_name == NULL)
++        {
++          name_watcher->watched_name = watched_name_new ();
++          name_watcher_call_get_name_owner_unlocked (connection, name_watcher);
++        }
++      else
++        {
++          g_ref_count_inc (&name_watcher->watched_name->ref_count);
++        }
++
++      signal_data->shared_name_watcher = name_watcher;
++
++      g_clear_pointer (&name_owner_rule, g_free);
+     }
+-  g_ptr_array_add (signal_data_array, signal_data);
++
++  add_signal_data (connection, signal_data, sender_unique_name);
+ 
+  out:
+   g_hash_table_insert (connection->map_id_to_signal_data,
+@@ -3626,6 +3980,75 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++/*
++ * Called in any thread.
++ * Must hold the connection lock when calling this, unless
++ * connection->finalizing is TRUE.
++ * May free signal_data, so do not dereference it after this.
++ */
++static void
++remove_signal_data_if_unused (GDBusConnection *connection,
++                              SignalData *signal_data)
++{
++  const gchar *sender_unique_name;
++  GPtrArray *signal_data_array;
++
++  /* Cannot remove while there are still subscribers */
++  if (signal_data->subscribers->len != 0)
++    return;
++
++  /* Cannot remove while another SignalData is still using this one
++   * as its shared_name_watcher, which holds watched_name->ref_count > 0 */
++  if (signal_data->watched_name != NULL)
++    return;
++
++  /* Point of no return: we have committed to removing it */
++
++  if (signal_data->sender != NULL && signal_data->shared_name_watcher == NULL)
++    sender_unique_name = signal_data->sender;
++  else
++    sender_unique_name = "";
++
++  g_warn_if_fail (g_hash_table_remove (connection->map_rule_to_signal_data, signal_data->rule));
++
++  signal_data_array = g_hash_table_lookup (connection->map_sender_unique_name_to_signal_data_array,
++                                           sender_unique_name);
++  g_warn_if_fail (signal_data_array != NULL);
++  g_warn_if_fail (g_ptr_array_remove (signal_data_array, signal_data));
++
++  if (signal_data_array->len == 0)
++    {
++      g_warn_if_fail (g_hash_table_remove (connection->map_sender_unique_name_to_signal_data_array,
++                                           sender_unique_name));
++    }
++
++  /* remove the match rule from the bus unless NameLost or NameAcquired (see subscribe()) */
++  if ((connection->flags & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION) &&
++      !is_signal_data_for_name_lost_or_acquired (signal_data) &&
++      !g_dbus_connection_is_closed (connection) &&
++      !connection->finalizing)
++    {
++      /* The check for g_dbus_connection_is_closed() means that
++       * sending the RemoveMatch message can't fail with
++       * G_IO_ERROR_CLOSED, because we're holding the lock,
++       * so on_worker_closed() can't happen between the check we just
++       * did, and releasing the lock later.
++       */
++      remove_match_rule (connection, signal_data->rule);
++    }
++
++  if (signal_data->shared_name_watcher != NULL)
++    {
++      SignalData *name_watcher = g_steal_pointer (&signal_data->shared_name_watcher);
++
++      name_watcher_unref_watched_name (connection, name_watcher);
++      /* May free signal_data */
++      remove_signal_data_if_unused (connection, name_watcher);
++    }
++
++  signal_data_free (signal_data);
++}
++
+ /* called in any thread */
+ /* must hold lock when calling this (except if connection->finalizing is TRUE)
+  * returns the number of removed subscribers */
+@@ -3634,7 +4057,6 @@
+                          guint            subscription_id)
+ {
+   SignalData *signal_data;
+-  GPtrArray *signal_data_array;
+   guint n;
+   guint n_removed = 0;
+ 
+@@ -3661,40 +4083,8 @@
+                                            GUINT_TO_POINTER (subscription_id)));
+       n_removed++;
+       g_ptr_array_remove_index_fast (signal_data->subscribers, n);
+-
+-      if (signal_data->subscribers->len == 0)
+-        {
+-          g_warn_if_fail (g_hash_table_remove (connection->map_rule_to_signal_data, signal_data->rule));
+-
+-          signal_data_array = g_hash_table_lookup (connection->map_sender_unique_name_to_signal_data_array,
+-                                                   signal_data->sender_unique_name);
+-          g_warn_if_fail (signal_data_array != NULL);
+-          g_warn_if_fail (g_ptr_array_remove (signal_data_array, signal_data));
+-
+-          if (signal_data_array->len == 0)
+-            {
+-              g_warn_if_fail (g_hash_table_remove (connection->map_sender_unique_name_to_signal_data_array,
+-                                                   signal_data->sender_unique_name));
+-            }
+-
+-          /* remove the match rule from the bus unless NameLost or NameAcquired (see subscribe()) */
+-          if ((connection->flags & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION) &&
+-              !is_signal_data_for_name_lost_or_acquired (signal_data) &&
+-              !g_dbus_connection_is_closed (connection) &&
+-              !connection->finalizing)
+-            {
+-              /* The check for g_dbus_connection_is_closed() means that
+-               * sending the RemoveMatch message can't fail with
+-               * G_IO_ERROR_CLOSED, because we're holding the lock,
+-               * so on_worker_closed() can't happen between the check we just
+-               * did, and releasing the lock later.
+-               */
+-              remove_match_rule (connection, signal_data->rule);
+-            }
+-
+-          signal_data_free (signal_data);
+-        }
+-
++      /* May free signal_data */
++      remove_signal_data_if_unused (connection, signal_data);
+       goto out;
+     }
+ 
+@@ -3915,6 +4305,46 @@
+       if (signal_data->object_path != NULL && g_strcmp0 (signal_data->object_path, path) != 0)
+         continue;
+ 
++      if (signal_data->shared_name_watcher != NULL)
++        {
++          /* We want signals from a specified well-known name, which means
++           * the signal's sender needs to be the unique name that currently
++           * owns that well-known name, and we will have found this
++           * SignalData in
++           * connection->map_sender_unique_name_to_signal_data_array[""]. */
++          const WatchedName *watched_name;
++          const char *current_owner;
++
++          g_assert (signal_data->sender != NULL);
++          /* Invariant: We never need to watch for the owner of a unique
++           * name, or for the owner of DBUS_SERVICE_DBUS, either of which
++           * is always its own owner */
++          g_assert (!g_dbus_is_unique_name (signal_data->sender));
++          g_assert (g_strcmp0 (signal_data->sender, DBUS_SERVICE_DBUS) != 0);
++
++          watched_name = signal_data->shared_name_watcher->watched_name;
++          g_assert (watched_name != NULL);
++          current_owner = watched_name->owner;
++
++          /* Skip the signal if the actual sender is not known to own
++           * the required name */
++          if (current_owner == NULL || g_strcmp0 (current_owner, sender) != 0)
++            continue;
++        }
++      else if (signal_data->sender != NULL)
++        {
++          /* We want signals from a unique name or o.fd.DBus... */
++          g_assert (g_dbus_is_unique_name (signal_data->sender)
++                    || g_str_equal (signal_data->sender, DBUS_SERVICE_DBUS));
++
++          /* ... which means we must have found this SignalData in
++           * connection->map_sender_unique_name_to_signal_data_array[signal_data->sender],
++           * therefore we would only have found it if the signal's
++           * actual sender matches the required signal_data->sender */
++          g_assert (g_strcmp0 (signal_data->sender, sender) == 0);
++        }
++      /* else the sender is unspecified and we will accept anything */
++
+       if (signal_data->arg0 != NULL)
+         {
+           if (signal_data->flags & G_DBUS_SIGNAL_FLAGS_MATCH_ARG0_NAMESPACE)
+@@ -3932,6 +4362,17 @@
+             continue;
+         }
+ 
++      if (signal_data->watched_name != NULL)
++        {
++          /* Invariant: SignalData should only have a watched_name if it
++           * represents the NameOwnerChanged signal */
++          g_assert (g_strcmp0 (sender, DBUS_SERVICE_DBUS) == 0);
++          g_assert (g_strcmp0 (interface, DBUS_INTERFACE_DBUS) == 0);
++          g_assert (g_strcmp0 (path, DBUS_PATH_DBUS) == 0);
++          g_assert (g_strcmp0 (member, "NameOwnerChanged") == 0);
++          name_watcher_deliver_name_owner_changed_unlocked (signal_data, message);
++        }
++
+       for (m = 0; m < signal_data->subscribers->len; m++)
+         {
+           SignalSubscriber *subscriber = signal_data->subscribers->pdata[m];
+@@ -4003,7 +4444,7 @@
+         schedule_callbacks (connection, signal_data_array, message, sender);
+     }
+ 
+-  /* collect subscribers not matching on sender */
++  /* collect subscribers not matching on sender, or matching a well-known name */
+   signal_data_array = g_hash_table_lookup (connection->map_sender_unique_name_to_signal_data_array, "");
+   if (signal_data_array != NULL)
+     schedule_callbacks (connection, signal_data_array, message, sender);
+diff -ruN a/gio/gdbusintrospection.c b/gio/gdbusintrospection.c
+--- a/gio/gdbusintrospection.c
++++ b/gio/gdbusintrospection.c
+@@ -1096,6 +1096,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->annotations, g_new0 (GDBusAnnotationInfo, 1));
++  g_assert (data->annotations->len > 0);
+   return data->annotations->pdata[data->annotations->len - 1];
+ }
+ 
+@@ -1105,6 +1106,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->args, g_new0 (GDBusArgInfo, 1));
++  g_assert (data->args->len > 0);
+   return data->args->pdata[data->args->len - 1];
+ }
+ 
+@@ -1114,6 +1116,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->out_args, g_new0 (GDBusArgInfo, 1));
++  g_assert (data->out_args->len > 0);
+   return data->out_args->pdata[data->out_args->len - 1];
+ }
+ 
+@@ -1123,6 +1126,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->methods, g_new0 (GDBusMethodInfo, 1));
++  g_assert (data->methods->len > 0);
+   return data->methods->pdata[data->methods->len - 1];
+ }
+ 
+@@ -1132,6 +1136,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->signals, g_new0 (GDBusSignalInfo, 1));
++  g_assert (data->signals->len > 0);
+   return data->signals->pdata[data->signals->len - 1];
+ }
+ 
+@@ -1141,6 +1146,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->properties, g_new0 (GDBusPropertyInfo, 1));
++  g_assert (data->properties->len > 0);
+   return data->properties->pdata[data->properties->len - 1];
+ }
+ 
+@@ -1150,6 +1156,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->interfaces, g_new0 (GDBusInterfaceInfo, 1));
++  g_assert (data->interfaces->len > 0);
+   return data->interfaces->pdata[data->interfaces->len - 1];
+ }
+ 
+@@ -1159,6 +1166,7 @@
+ {
+   if (create_new)
+     g_ptr_array_add (data->nodes, g_new0 (GDBusNodeInfo, 1));
++  g_assert (data->nodes->len > 0);
+   return data->nodes->pdata[data->nodes->len - 1];
+ }
+ 
+@@ -1258,7 +1266,7 @@
+   /* ---------------------------------------------------------------------------------------------------- */
+   if (strcmp (element_name, "node") == 0)
+     {
+-      if (!(g_slist_length (stack) >= 1 || strcmp (stack->next->data, "node") != 0))
++      if (stack->next != NULL && strcmp (stack->next->data, "node") != 0)
+         {
+           g_set_error_literal (error,
+                                G_MARKUP_ERROR,
+diff -ruN a/gio/gdbusprivate.h b/gio/gdbusprivate.h
+--- a/gio/gdbusprivate.h
++++ b/gio/gdbusprivate.h
+@@ -27,6 +27,11 @@
+ 
+ G_BEGIN_DECLS
+ 
++/* Bus name, interface and object path of the message bus itself */
++#define DBUS_SERVICE_DBUS "org.freedesktop.DBus"
++#define DBUS_INTERFACE_DBUS DBUS_SERVICE_DBUS
++#define DBUS_PATH_DBUS "/org/freedesktop/DBus"
++
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
+ typedef struct GDBusWorker GDBusWorker;
+diff -ruN a/gio/gsocks4aproxy.c b/gio/gsocks4aproxy.c
+--- a/gio/gsocks4aproxy.c
++++ b/gio/gsocks4aproxy.c
+@@ -79,9 +79,9 @@
+  * +----+----+----+----+----+----+----+----+----+----+....+----+------+....+------+
+  * | VN | CD | DSTPORT |      DSTIP        | USERID       |NULL| HOST |    | NULL |
+  * +----+----+----+----+----+----+----+----+----+----+....+----+------+....+------+
+- *    1    1      2              4           variable       1    variable
++ *    1    1      2              4           variable       1    variable    1
+  */
+-#define SOCKS4_CONN_MSG_LEN	    (9 + SOCKS4_MAX_LEN * 2)
++#define SOCKS4_CONN_MSG_LEN	    (10 + SOCKS4_MAX_LEN * 2)
+ static gint
+ set_connect_msg (guint8      *msg,
+ 		 const gchar *hostname,
+diff -ruN a/gio/tests/buffered-input-stream.c b/gio/tests/buffered-input-stream.c
+--- a/gio/tests/buffered-input-stream.c
++++ b/gio/tests/buffered-input-stream.c
+@@ -60,6 +60,16 @@
+   g_assert_cmpint (npeek, ==, 0);
+   g_free (buffer);
+ 
++  buffer = g_new0 (char, 64);
++  npeek = g_buffered_input_stream_peek (G_BUFFERED_INPUT_STREAM (in), buffer, 8, 0);
++  g_assert_cmpint (npeek, ==, 0);
++  g_free (buffer);
++
++  buffer = g_new0 (char, 64);
++  npeek = g_buffered_input_stream_peek (G_BUFFERED_INPUT_STREAM (in), buffer, 5, G_MAXSIZE);
++  g_assert_cmpint (npeek, ==, 0);
++  g_free (buffer);
++
+   g_object_unref (in);
+   g_object_unref (base);
+ }
+diff -ruN a/gio/tests/gdbus-auth-mechanism-sha1.c b/gio/tests/gdbus-auth-mechanism-sha1.c
+--- a/gio/tests/gdbus-auth-mechanism-sha1.c
++++ b/gio/tests/gdbus-auth-mechanism-sha1.c
+@@ -0,0 +1,177 @@
++/* GLib testing framework examples and tests
++ *
++ * Copyright (C) 2026 Philip Withnall
++ *
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General
++ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
++ *
++ * Author: Philip Withnall <pwithnall@gnome.org>
++ */
++
++#include <locale.h>
++#include <gio/gio.h>
++
++#include <string.h>
++#include <unistd.h>
++
++#include "gdbus-tests.h"
++
++#ifdef G_OS_UNIX
++#include <gio/gunixconnection.h>
++#include <gio/gnetworkingprivate.h>
++#include <gio/gunixsocketaddress.h>
++#include <gio/gunixfdlist.h>
++#endif
++
++#define GIO_COMPILATION 1
++#include "gdbusauthmechanism.h"
++#include "gdbusauthmechanismsha1.h"
++
++/* Vfunc wrappers copied from gdbusauthmechanism.c as they are not public. */
++static gboolean
++dbus_auth_mechanism_is_supported (GDBusAuthMechanism *mechanism)
++{
++  return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->is_supported (mechanism);
++}
++
++static GDBusAuthMechanismState
++dbus_auth_mechanism_client_get_state (GDBusAuthMechanism *mechanism)
++{
++  return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_get_state (mechanism);
++}
++
++static gchar *
++dbus_auth_mechanism_client_initiate (GDBusAuthMechanism   *mechanism,
++                                     GDBusConnectionFlags  conn_flags,
++                                     size_t               *out_initial_response_len)
++{
++  return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_initiate (mechanism,
++                                                                       conn_flags,
++                                                                       out_initial_response_len);
++}
++
++static void
++dbus_auth_mechanism_client_data_receive (GDBusAuthMechanism *mechanism,
++                                         const char         *data,
++                                         size_t              data_len)
++{
++  G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_data_receive (mechanism, data, data_len);
++}
++
++static char *
++dbus_auth_mechanism_client_get_reject_reason (GDBusAuthMechanism *mechanism)
++{
++  return G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_get_reject_reason (mechanism);
++}
++
++static void
++dbus_auth_mechanism_client_shutdown (GDBusAuthMechanism *mechanism)
++{
++  G_DBUS_AUTH_MECHANISM_GET_CLASS (mechanism)->client_shutdown (mechanism);
++}
++
++static void
++test_server_challenge_validation (void)
++{
++  const struct
++    {
++      const char *server_challenge;
++      const char *expected_reject_reason_prefix;
++    }
++  vectors[] = {
++    { "valid_context 123 456", "Problems looking up entry in keyring" },
++    { "invalid/context 123 456", "Malformed cookie_context" },
++    { "invalid.context 123 456", "Malformed cookie_context" },
++    { " 123 456", "Malformed cookie_context" },
++    { "😀 123 456", "Malformed cookie_context" },
++    { "invalid\ncontext 123 456", "Malformed cookie_context" },
++    { "invalid\rcontext 123 456", "Malformed cookie_context" },
++    { "invalid\tcontext 123 456", "Malformed cookie_context" },
++    { "invalid\\context 123 456", "Malformed cookie_context" },
++    { "valid_context  456", "Malformed cookie_id" },
++    { "valid_context 123notanumber 456", "Malformed cookie_id" },
++    { "valid_context -1 456", "Malformed cookie_id" },
++    { "valid_context 4294967296 456", "Malformed cookie_id" },
++    { "valid_context 123  ", "Malformed data" },
++    { "valid_context ", "Malformed data" },
++  };
++  GType mechanism_type;
++  GDBusConnection *connection = NULL;
++
++  g_test_summary ("Test that GDBusAuthMechanismSha1 rejects various malformed server data lines");
++
++  /* Briefly connect to the actual bus to ensure the GDBusAuth mechanisms are
++   * all registered. */
++  session_bus_up ();
++
++  connection = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
++  g_assert_nonnull (connection);
++  g_clear_object (&connection);
++
++  session_bus_down ();
++
++  /* Check that we now have the type ID for GDBusAuthMechanismSha1 */
++  mechanism_type = g_type_from_name ("GDBusAuthMechanismSha1");
++  g_assert_cmpint (mechanism_type,  !=, 0);
++
++  for (size_t i = 0; i < G_N_ELEMENTS (vectors); i++)
++    {
++      GDBusAuthMechanism *mechanism = NULL;
++      char *data = NULL;
++      size_t data_len = 0;
++      char *reject_reason = NULL;
++
++      mechanism = g_object_new (mechanism_type, NULL);
++
++      if (!dbus_auth_mechanism_is_supported (mechanism))
++        {
++          g_test_skip ("Mechanism not supported");
++          g_clear_object (&mechanism);
++          return;
++        }
++
++      data = dbus_auth_mechanism_client_initiate (mechanism,
++                                                  G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT,
++                                                  &data_len);
++      g_free (data);
++
++      dbus_auth_mechanism_client_data_receive (mechanism, vectors[i].server_challenge, strlen (vectors[i].server_challenge));
++
++      g_assert_cmpint (dbus_auth_mechanism_client_get_state (mechanism), ==, G_DBUS_AUTH_MECHANISM_STATE_REJECTED);
++
++      reject_reason = dbus_auth_mechanism_client_get_reject_reason (mechanism);
++      g_assert_true (g_str_has_prefix (reject_reason, vectors[i].expected_reject_reason_prefix));
++      g_free (reject_reason);
++
++      dbus_auth_mechanism_client_shutdown (mechanism);
++
++      g_clear_object (&mechanism);
++    }
++}
++
++int
++main (int   argc,
++      char *argv[])
++{
++  setlocale (LC_ALL, "C");
++
++  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
++
++  g_test_dbus_unset ();
++
++  g_test_add_func ("/gdbus/auth-mechanism-sha1/server-challenge-validation", test_server_challenge_validation);
++
++  return g_test_run ();
++}
+diff -ruN a/gio/tests/gdbus-auth.c b/gio/tests/gdbus-auth.c
+--- a/gio/tests/gdbus-auth.c
++++ b/gio/tests/gdbus-auth.c
+@@ -263,6 +263,124 @@
+   g_unsetenv ("G_DBUS_COOKIE_SHA1_KEYRING_DIR_IGNORE_PERMISSION");
+ }
+ 
++static void
++async_result_cb (GObject      *obj,
++                 GAsyncResult *result,
++                 void         *user_data)
++{
++  GAsyncResult **result_out = user_data;
++
++  g_assert (result_out != NULL);
++  g_assert (*result_out == NULL);
++
++  *result_out = g_object_ref (result);
++  g_main_context_wakeup (g_main_context_get_thread_default ());
++}
++
++static gboolean
++server_new_connection_unexpected_cb (GDBusServer     *server,
++                                     GDBusConnection *connection,
++                                     void            *user_data)
++{
++  g_assert_not_reached ();
++  return FALSE;
++}
++
++static void
++test_auth_server_read_limit (void)
++{
++  GDBusServer *server = NULL;
++  unsigned long new_connection_id = 0;
++  const char *server_address;
++  GIOStream *client_stream = NULL;
++  GOutputStream *client_output_stream;
++  GInputStream *client_input_stream;
++  GAsyncResult *result = NULL;
++  char *write_buffer = NULL;
++  char read_buffer[100];
++  ssize_t read_len;
++  size_t bytes_written;
++  GError *local_error = NULL;
++
++  g_test_summary ("Test that GDBusServer limits the lengths of reads it does during auth from a client");
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/issues/3985");
++
++  server = server_new_for_mechanism (NULL);
++
++  new_connection_id = g_signal_connect (server,
++                                        "new-connection",
++                                        G_CALLBACK (server_new_connection_unexpected_cb),
++                                        NULL);
++  server_address = g_dbus_server_get_client_address (server);
++  g_dbus_server_start (server);
++
++  /* Start connecting as a client */
++  g_dbus_address_get_stream (server_address, NULL, async_result_cb, &result);
++
++  while (result == NULL)
++    g_main_context_iteration (NULL, TRUE);
++
++  client_stream = g_dbus_address_get_stream_finish (result, NULL, &local_error);
++  g_assert_no_error (local_error);
++  g_clear_object (&result);
++
++  /* Send an over-long AUTH line, maliciously */
++  client_output_stream = g_io_stream_get_output_stream (client_stream);
++  client_input_stream = g_io_stream_get_input_stream (client_stream);
++
++  write_buffer = g_strdup_printf ("AUTH DBUS_COOKIE_SHA1 context%0*d 123 456\r\n", 5000, 0);
++
++  g_output_stream_write_all_async (client_output_stream,
++                                   write_buffer,
++                                   strlen (write_buffer),
++                                   G_PRIORITY_DEFAULT,
++                                   NULL,
++                                   async_result_cb,
++                                   &result);
++
++  while (result == NULL)
++    g_main_context_iteration (NULL, TRUE);
++
++  g_output_stream_write_all_finish (client_output_stream, result, &bytes_written, &local_error);
++  g_assert_no_error (local_error);
++  g_assert_cmpuint (bytes_written, ==, strlen (write_buffer));
++  g_clear_object (&result);
++
++  g_clear_pointer (&write_buffer, g_free);
++
++  /* Authentication should have been rejected, so reading or writing the stream
++   * should now fail. */
++  read_len = g_input_stream_read (client_input_stream,
++                                  read_buffer,
++                                  sizeof (read_buffer),
++                                  NULL,
++                                  &local_error);
++  g_assert_error (local_error, G_IO_ERROR, G_IO_ERROR_CONNECTION_CLOSED);
++  g_assert_cmpint (read_len, <, 0);
++  g_clear_error (&local_error);
++
++  write_buffer = g_strdup_printf ("AUTH\r\n");
++
++  g_output_stream_write_all (client_output_stream,
++                             write_buffer,
++                             strlen (write_buffer),
++                             &bytes_written,
++                             NULL,
++                             &local_error);
++  g_assert_error (local_error, G_IO_ERROR, G_IO_ERROR_CONNECTION_CLOSED);
++  g_assert_cmpuint (bytes_written, ==, 0);
++  g_clear_error (&local_error);
++
++  g_clear_pointer (&write_buffer, g_free);
++
++  /* Cleanup */
++  g_clear_object (&client_stream);
++  g_dbus_server_stop (server);
++
++  g_clear_signal_handler (&new_connection_id, server);
++  g_clear_object (&server);
++}
++
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
+ int
+@@ -282,6 +400,7 @@
+   g_test_add_func ("/gdbus/auth/server/ANONYMOUS",        auth_server_anonymous);
+   g_test_add_func ("/gdbus/auth/server/EXTERNAL",         auth_server_external);
+   g_test_add_func ("/gdbus/auth/server/DBUS_COOKIE_SHA1", auth_server_dbus_cookie_sha1);
++  g_test_add_func ("/gdbus/auth/server/read-limit", test_auth_server_read_limit);
+ 
+   /* TODO: we currently don't have tests for
+    *
+diff -ruN a/gio/tests/gdbus-proxy.c b/gio/tests/gdbus-proxy.c
+--- a/gio/tests/gdbus-proxy.c
++++ b/gio/tests/gdbus-proxy.c
+@@ -780,6 +780,12 @@
+   while (!name_disappeared)
+     g_main_context_iteration (NULL, TRUE);
+ 
++  /* GDBusConnection doesn't guarantee that different subscriptions to the
++   * same signal will get their callbacks scheduled in any particular order,
++   * so make sure they have all happened */
++  while (g_main_context_iteration (NULL, FALSE))
++    continue;
++
+   g_bus_unwatch_name (watch_id);
+ #else
+   g_warning ("Can't kill com.example.TestService");
+diff -ruN a/gio/tests/gdbus-subscribe.c b/gio/tests/gdbus-subscribe.c
+--- a/gio/tests/gdbus-subscribe.c
++++ b/gio/tests/gdbus-subscribe.c
+@@ -0,0 +1,1342 @@
++/*
++ * Copyright 2024 Collabora Ltd.
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ */
++
++#include <gio/gio.h>
++
++#include "gdbus-tests.h"
++
++/* From the D-Bus Specification */
++#define DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER 1
++
++#define DBUS_SERVICE_DBUS "org.freedesktop.DBus"
++#define DBUS_PATH_DBUS "/org/freedesktop/DBus"
++#define DBUS_INTERFACE_DBUS DBUS_SERVICE_DBUS
++#define NAME_OWNER_CHANGED "NameOwnerChanged"
++
++/* A signal that each connection emits to indicate that it has finished
++ * emitting other signals */
++#define FINISHED_PATH "/org/gtk/Test/Finished"
++#define FINISHED_INTERFACE "org.gtk.Test.Finished"
++#define FINISHED_SIGNAL "Finished"
++
++/* A signal emitted during testing */
++#define EXAMPLE_PATH "/org/gtk/GDBus/ExampleInterface"
++#define EXAMPLE_INTERFACE "org.gtk.GDBus.ExampleInterface"
++#define FOO_SIGNAL "Foo"
++
++#define ALREADY_OWNED_NAME "org.gtk.Test.AlreadyOwned"
++#define OWNED_LATER_NAME "org.gtk.Test.OwnedLater"
++
++/* Log @s in a debug message. */
++static inline const char *
++nonnull (const char *s,
++         const char *if_null)
++{
++  return (s == NULL) ? if_null : s;
++}
++
++typedef enum
++{
++  TEST_CONN_NONE,
++  TEST_CONN_FIRST,
++  /* A connection that subscribes to signals */
++  TEST_CONN_SUBSCRIBER = TEST_CONN_FIRST,
++  /* A mockup of a legitimate service */
++  TEST_CONN_SERVICE,
++  /* A mockup of a second legitimate service */
++  TEST_CONN_SERVICE2,
++  /* A connection that tries to trick @subscriber into processing its signals
++   * as if they came from @service */
++  TEST_CONN_ATTACKER,
++  NUM_TEST_CONNS
++} TestConn;
++
++static const char * const test_conn_descriptions[NUM_TEST_CONNS] =
++{
++  "(unused)",
++  "subscriber",
++  "service",
++  "service 2",
++  "attacker"
++};
++
++typedef enum
++{
++  SUBSCRIPTION_MODE_CONN,
++  SUBSCRIPTION_MODE_PROXY,
++  SUBSCRIPTION_MODE_PARALLEL
++} SubscriptionMode;
++
++typedef struct
++{
++  GDBusProxy *received_by_proxy;
++  TestConn sender;
++  char *path;
++  char *iface;
++  char *member;
++  GVariant *parameters;
++  char *arg0;
++  guint32 step;
++} ReceivedMessage;
++
++static void
++received_message_free (ReceivedMessage *self)
++{
++
++  g_clear_object (&self->received_by_proxy);
++  g_free (self->path);
++  g_free (self->iface);
++  g_free (self->member);
++  g_clear_pointer (&self->parameters, g_variant_unref);
++  g_free (self->arg0);
++  g_free (self);
++}
++
++typedef struct
++{
++  TestConn sender;
++  TestConn unicast_to;
++  const char *path;
++  const char *iface;
++  const char *member;
++  const char *arg0;
++  const char *args;
++  guint received_by_conn;
++  guint received_by_proxy;
++} TestEmitSignal;
++
++typedef struct
++{
++  const char *string_sender;
++  TestConn unique_sender;
++  const char *path;
++  const char *iface;
++  const char *member;
++  const char *arg0;
++  GDBusSignalFlags flags;
++  gboolean unsubscribe_immediately;
++} TestSubscribe;
++
++typedef struct
++{
++  const char *name;
++  TestConn owner;
++  guint received_by_conn;
++  guint received_by_proxy;
++} TestOwnName;
++
++typedef enum
++{
++  TEST_ACTION_NONE = 0,
++  TEST_ACTION_SUBSCRIBE,
++  TEST_ACTION_EMIT_SIGNAL,
++  TEST_ACTION_OWN_NAME,
++} TestAction;
++
++typedef struct
++{
++  TestAction action;
++  union {
++    TestEmitSignal signal;
++    TestSubscribe subscribe;
++    TestOwnName own_name;
++    guint unsubscribe_undo_step;
++  } u;
++} TestStep;
++
++/* Arbitrary, extend as necessary to accommodate the longest test */
++#define MAX_TEST_STEPS 10
++
++typedef struct
++{
++  const char *description;
++  TestStep steps[MAX_TEST_STEPS];
++} TestPlan;
++
++static const TestPlan plan_simple =
++{
++  .description = "A broadcast is only received after subscribing to it",
++  .steps = {
++    {
++      /* We don't receive a signal if we haven't subscribed yet */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* Now it works */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        /* The proxy can't be used in this case, because it needs
++         * a bus name to subscribe to */
++        .received_by_proxy = 0
++      },
++    },
++  },
++};
++
++static const TestPlan plan_broadcast_from_anyone =
++{
++  .description = "A subscription with NULL sender accepts broadcast and unicast",
++  .steps = {
++    {
++      /* Subscriber wants to receive signals from anyone */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* First service sends a broadcast */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Second service also sends a broadcast */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE2,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* First service sends a unicast signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Second service also sends a unicast signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE2,
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 0
++      },
++    },
++  },
++};
++
++static const TestPlan plan_match_twice =
++{
++  .description = "A message matching more than one subscription is received "
++                 "once per subscription",
++  .steps = {
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .unique_sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .path = EXAMPLE_PATH,
++      },
++    },
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .unique_sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 4,
++        /* Only the first and last work with GDBusProxy */
++        .received_by_proxy = 2
++      },
++    },
++  },
++};
++
++static const TestPlan plan_limit_by_unique_name =
++{
++  .description = "A subscription via a unique name only accepts messages "
++                 "sent by that same unique name",
++  .steps = {
++    {
++      /* Subscriber wants to receive signals from service */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .unique_sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* Attacker wants to trick subscriber into thinking that service
++       * sent a signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Attacker tries harder, by sending a signal unicast directly to
++       * the subscriber */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* When the real service sends a signal, it should still get through */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 1
++      },
++    },
++  },
++};
++
++static const TestPlan plan_nonexistent_unique_name =
++{
++  .description = "A subscription via a unique name that doesn't exist "
++                 "accepts no messages",
++  .steps = {
++    {
++      /* Subscriber wants to receive signals from service */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        /* This relies on the implementation detail that the dbus-daemon
++         * (and presumably other bus implementations) never actually generates
++         * a unique name in this format */
++        .string_sender = ":0.this.had.better.not.exist",
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* Attacker wants to trick subscriber into thinking that service
++       * sent a signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Attacker tries harder, by sending a signal unicast directly to
++       * the subscriber */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++  },
++};
++
++static const TestPlan plan_limit_by_well_known_name =
++{
++  .description = "A subscription via a well-known name only accepts messages "
++                 "sent by the owner of that well-known name",
++  .steps = {
++    {
++      /* Service already owns one name */
++      .action = TEST_ACTION_OWN_NAME,
++      .u.own_name = {
++        .name = ALREADY_OWNED_NAME,
++        .owner = TEST_CONN_SERVICE
++      },
++    },
++    {
++      /* Subscriber wants to receive signals from service */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .string_sender = ALREADY_OWNED_NAME,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* Subscriber wants to receive signals from service by another name */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .string_sender = OWNED_LATER_NAME,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++      },
++    },
++    {
++      /* Attacker wants to trick subscriber into thinking that service
++       * sent a signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Attacker tries harder, by sending a signal unicast directly to
++       * the subscriber */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* When the service sends a signal with the name it already owns,
++       * it should get through */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 1,
++        .received_by_proxy = 1
++      },
++    },
++    {
++      /* Service claims another name */
++      .action = TEST_ACTION_OWN_NAME,
++      .u.own_name = {
++        .name = OWNED_LATER_NAME,
++        .owner = TEST_CONN_SERVICE
++      },
++    },
++    {
++      /* Now the subscriber gets this signal twice, once for each
++       * subscription; and similarly each of the two proxies gets this
++       * signal twice */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 2,
++        .received_by_proxy = 2
++      },
++    },
++  },
++};
++
++static const TestPlan plan_unsubscribe_immediately =
++{
++  .description = "Unsubscribing before GetNameOwner can return doesn't result in a crash",
++  .steps = {
++    {
++      /* Service already owns one name */
++      .action = TEST_ACTION_OWN_NAME,
++      .u.own_name = {
++        .name = ALREADY_OWNED_NAME,
++        .owner = TEST_CONN_SERVICE
++      },
++    },
++    {
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .string_sender = ALREADY_OWNED_NAME,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .unsubscribe_immediately = TRUE
++      },
++    },
++    {
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_SERVICE,
++        .path = EXAMPLE_PATH,
++        .iface = EXAMPLE_INTERFACE,
++        .member = FOO_SIGNAL,
++        .received_by_conn = 0,
++        /* The proxy can't unsubscribe, except by destroying the proxy
++         * completely, which we don't currently implement in this test */
++        .received_by_proxy = 1
++      },
++    },
++  },
++};
++
++static const TestPlan plan_limit_to_message_bus =
++{
++  .description = "A subscription to the message bus only accepts messages "
++                 "from the message bus",
++  .steps = {
++    {
++      /* Subscriber wants to receive signals from the message bus itself */
++      .action = TEST_ACTION_SUBSCRIBE,
++      .u.subscribe = {
++        .string_sender = DBUS_SERVICE_DBUS,
++        .path = DBUS_PATH_DBUS,
++        .iface = DBUS_INTERFACE_DBUS,
++      },
++    },
++    {
++      /* Attacker wants to trick subscriber into thinking that the message
++       * bus sent a signal */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .sender = TEST_CONN_ATTACKER,
++        .path = DBUS_PATH_DBUS,
++        .iface = DBUS_INTERFACE_DBUS,
++        .member = NAME_OWNER_CHANGED,
++        .arg0 = "would I lie to you?",
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* Attacker tries harder, by sending a signal unicast directly to
++       * the subscriber, and using more realistic arguments */
++      .action = TEST_ACTION_EMIT_SIGNAL,
++      .u.signal = {
++        .unicast_to = TEST_CONN_SUBSCRIBER,
++        .sender = TEST_CONN_ATTACKER,
++        .path = DBUS_PATH_DBUS,
++        .iface = DBUS_INTERFACE_DBUS,
++        .member = NAME_OWNER_CHANGED,
++        .args = "('com.example.Name', '', ':1.12')",
++        .received_by_conn = 0,
++        .received_by_proxy = 0
++      },
++    },
++    {
++      /* When the message bus sends a signal (in this case triggered by
++       * owning a name), it should still get through */
++      .action = TEST_ACTION_OWN_NAME,
++      .u.own_name = {
++        .name = OWNED_LATER_NAME,
++        .owner = TEST_CONN_SERVICE,
++        .received_by_conn = 1,
++        .received_by_proxy = 1
++      },
++    },
++  },
++};
++
++typedef struct
++{
++  const TestPlan *plan;
++  SubscriptionMode mode;
++  GError *error;
++  /* (element-type ReceivedMessage) */
++  GPtrArray *received;
++  /* conns[TEST_CONN_NONE] is unused and remains NULL */
++  GDBusConnection *conns[NUM_TEST_CONNS];
++  /* Proxies on conns[TEST_CONN_SUBSCRIBER] */
++  GPtrArray *proxies;
++  /* unique_names[TEST_CONN_NONE] is unused and remains NULL */
++  const char *unique_names[NUM_TEST_CONNS];
++  /* finished[TEST_CONN_NONE] is unused and remains FALSE */
++  gboolean finished[NUM_TEST_CONNS];
++  /* Remains 0 for any step that is not a subscription */
++  guint subscriptions[MAX_TEST_STEPS];
++  /* Number of times the signal from step n was received */
++  guint received_by_conn[MAX_TEST_STEPS];
++  /* Number of times the signal from step n was received */
++  guint received_by_proxy[MAX_TEST_STEPS];
++  guint finished_subscription;
++} Fixture;
++
++/* Wait for asynchronous messages from @conn to have been processed
++ * by the message bus, as a sequence point so that we can make
++ * "happens before" and "happens after" assertions relative to this.
++ * The easiest way to achieve this is to call a message bus method that has
++ * no arguments and wait for it to return: because the message bus processes
++ * messages in-order, anything we sent before this must have been processed
++ * by the time this call arrives. */
++static void
++connection_wait_for_bus (GDBusConnection *conn)
++{
++  GError *error = NULL;
++  GVariant *call_result;
++
++  call_result = g_dbus_connection_call_sync (conn,
++                                             DBUS_SERVICE_DBUS,
++                                             DBUS_PATH_DBUS,
++                                             DBUS_INTERFACE_DBUS,
++                                             "GetId",
++                                             NULL,   /* arguments */
++                                             NULL,   /* result type */
++                                             G_DBUS_CALL_FLAGS_NONE,
++                                             -1,
++                                             NULL,
++                                             &error);
++  g_assert_no_error (error);
++  g_assert_nonnull (call_result);
++  g_variant_unref (call_result);
++}
++
++/*
++ * Called when the subscriber receives a message from any connection
++ * announcing that it has emitted all the signals that it plans to emit.
++ */
++static void
++subscriber_finished_cb (GDBusConnection *conn,
++                        const char      *sender_name,
++                        const char      *path,
++                        const char      *iface,
++                        const char      *member,
++                        GVariant        *parameters,
++                        void            *user_data)
++{
++  Fixture *f = user_data;
++  GDBusConnection *subscriber = f->conns[TEST_CONN_SUBSCRIBER];
++  guint i;
++
++  g_assert_true (conn == subscriber);
++
++  for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++    {
++      if (g_str_equal (sender_name, f->unique_names[i]))
++        {
++          g_assert_false (f->finished[i]);
++          f->finished[i] = TRUE;
++
++          g_test_message ("Received Finished signal from %s %s",
++                          test_conn_descriptions[i], sender_name);
++          return;
++        }
++    }
++
++  g_error ("Received Finished signal from unknown sender %s", sender_name);
++}
++
++/*
++ * Called when we receive a signal, either via the GDBusProxy (proxy != NULL)
++ * or via the GDBusConnection (proxy == NULL).
++ */
++static void
++fixture_received_signal (Fixture    *f,
++                         GDBusProxy *proxy,
++                         const char *sender_name,
++                         const char *path,
++                         const char *iface,
++                         const char *member,
++                         GVariant   *parameters)
++{
++  guint i;
++  ReceivedMessage *received;
++
++  /* Ignore the Finished signal if it matches a wildcard subscription */
++  if (g_str_equal (member, FINISHED_SIGNAL))
++    return;
++
++  received = g_new0 (ReceivedMessage, 1);
++
++  if (proxy != NULL)
++    received->received_by_proxy = g_object_ref (proxy);
++  else
++    received->received_by_proxy = NULL;
++
++  received->path = g_strdup (path);
++  received->iface = g_strdup (iface);
++  received->member = g_strdup (member);
++  received->parameters = g_variant_ref (parameters);
++
++  for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++    {
++      if (g_str_equal (sender_name, f->unique_names[i]))
++        {
++          received->sender = i;
++          g_assert_false (f->finished[i]);
++          break;
++        }
++    }
++
++  if (g_str_equal (sender_name, DBUS_SERVICE_DBUS))
++    {
++      g_test_message ("Signal received from message bus %s",
++                      sender_name);
++    }
++  else
++    {
++      g_test_message ("Signal received from %s %s",
++                      test_conn_descriptions[received->sender],
++                      sender_name);
++      g_assert_cmpint (received->sender, !=, TEST_CONN_NONE);
++    }
++
++  g_test_message ("Signal received from %s %s via %s",
++                  test_conn_descriptions[received->sender],
++                  sender_name,
++                  proxy != NULL ? "proxy" : "connection");
++  g_test_message ("\tPath: %s", path);
++  g_test_message ("\tInterface: %s", iface);
++  g_test_message ("\tMember: %s", member);
++
++  if (g_variant_is_of_type (parameters, G_VARIANT_TYPE ("(su)")))
++    {
++      g_variant_get (parameters, "(su)", &received->arg0, &received->step);
++      g_test_message ("\tString argument 0: %s", received->arg0);
++      g_test_message ("\tSent in step: %u", received->step);
++    }
++  else if (g_variant_is_of_type (parameters, G_VARIANT_TYPE ("(uu)")))
++    {
++      g_variant_get (parameters, "(uu)", NULL, &received->step);
++      g_test_message ("\tArgument 0: (not a string)");
++      g_test_message ("\tSent in step: %u", received->step);
++    }
++  else if (g_variant_is_of_type (parameters, G_VARIANT_TYPE ("(sss)")))
++    {
++      const char *name;
++      const char *old_owner;
++      const char *new_owner;
++
++      /* The only signal of this signature that we legitimately receive
++       * during this test is NameOwnerChanged, so just assert that it
++       * is from the message bus and can be matched to a plausible step.
++       * (This is less thorough than the above, and will not work if we
++       * add a test scenario where a name's ownership is repeatedly
++       * changed while watching NameOwnerChanged - so don't do that.) */
++      g_assert_cmpstr (sender_name, ==, DBUS_SERVICE_DBUS);
++      g_assert_cmpstr (path, ==, DBUS_PATH_DBUS);
++      g_assert_cmpstr (iface, ==, DBUS_INTERFACE_DBUS);
++      g_assert_cmpstr (member, ==, NAME_OWNER_CHANGED);
++
++      g_variant_get (parameters, "(&s&s&s)", &name, &old_owner, &new_owner);
++
++      for (i = 0; i < G_N_ELEMENTS (f->plan->steps); i++)
++        {
++          const TestStep *step = &f->plan->steps[i];
++
++          if (step->action == TEST_ACTION_OWN_NAME)
++            {
++              const TestOwnName *own_name = &step->u.own_name;
++
++              if (g_str_equal (name, own_name->name)
++                  && g_str_equal (new_owner, f->unique_names[own_name->owner])
++                  && own_name->received_by_conn > 0)
++                {
++                  received->step = i;
++                  break;
++                }
++            }
++
++          if (i >= G_N_ELEMENTS (f->plan->steps))
++            g_error ("Could not match message to a test step");
++        }
++    }
++  else
++    {
++      g_error ("Unexpected message received");
++    }
++
++  g_ptr_array_add (f->received, g_steal_pointer (&received));
++}
++
++static void
++proxy_signal_cb (GDBusProxy *proxy,
++                 const char *sender_name,
++                 const char *member,
++                 GVariant   *parameters,
++                 void       *user_data)
++{
++  Fixture *f = user_data;
++
++  fixture_received_signal (f, proxy, sender_name,
++                           g_dbus_proxy_get_object_path (proxy),
++                           g_dbus_proxy_get_interface_name (proxy),
++                           member, parameters);
++}
++
++static void
++subscribed_signal_cb (GDBusConnection *conn,
++                      const char      *sender_name,
++                      const char      *path,
++                      const char      *iface,
++                      const char      *member,
++                      GVariant        *parameters,
++                      void            *user_data)
++{
++  Fixture *f = user_data;
++  GDBusConnection *subscriber = f->conns[TEST_CONN_SUBSCRIBER];
++
++  g_assert_true (conn == subscriber);
++
++  fixture_received_signal (f, NULL, sender_name, path, iface, member, parameters);
++}
++
++static void
++fixture_subscribe (Fixture             *f,
++                   const TestSubscribe *subscribe,
++                   guint                step_number)
++{
++  GDBusConnection *subscriber = f->conns[TEST_CONN_SUBSCRIBER];
++  const char *sender;
++
++  if (subscribe->string_sender != NULL)
++    {
++      sender = subscribe->string_sender;
++      g_test_message ("\tSender: %s", sender);
++    }
++  else if (subscribe->unique_sender != TEST_CONN_NONE)
++    {
++      sender = f->unique_names[subscribe->unique_sender];
++      g_test_message ("\tSender: %s %s",
++                      test_conn_descriptions[subscribe->unique_sender],
++                      sender);
++    }
++  else
++    {
++      sender = NULL;
++      g_test_message ("\tSender: (any)");
++    }
++
++  g_test_message ("\tPath: %s", nonnull (subscribe->path, "(any)"));
++  g_test_message ("\tInterface: %s",
++                  nonnull (subscribe->iface, "(any)"));
++  g_test_message ("\tMember: %s",
++                  nonnull (subscribe->member, "(any)"));
++  g_test_message ("\tString argument 0: %s",
++                  nonnull (subscribe->arg0, "(any)"));
++  g_test_message ("\tFlags: %x", subscribe->flags);
++
++  if (f->mode != SUBSCRIPTION_MODE_PROXY)
++    {
++      /* CONN or PARALLEL */
++      guint id;
++
++      g_test_message ("\tSubscribing via connection");
++      id = g_dbus_connection_signal_subscribe (subscriber,
++                                               sender,
++                                               subscribe->iface,
++                                               subscribe->member,
++                                               subscribe->path,
++                                               subscribe->arg0,
++                                               subscribe->flags,
++                                               subscribed_signal_cb,
++                                               f, NULL);
++
++      g_assert_cmpuint (id, !=, 0);
++
++      if (subscribe->unsubscribe_immediately)
++        {
++          g_test_message ("\tImmediately unsubscribing");
++          g_dbus_connection_signal_unsubscribe (subscriber, id);
++        }
++      else
++        {
++          f->subscriptions[step_number] = id;
++        }
++    }
++
++  if (f->mode != SUBSCRIPTION_MODE_CONN)
++    {
++      /* PROXY or PARALLEL */
++
++      if (sender == NULL)
++        {
++          g_test_message ("\tCannot subscribe via proxy: no bus name");
++        }
++      else if (subscribe->path == NULL)
++        {
++          g_test_message ("\tCannot subscribe via proxy: no path");
++        }
++      else if (subscribe->iface == NULL)
++        {
++          g_test_message ("\tCannot subscribe via proxy: no interface");
++        }
++      else
++        {
++          GDBusProxy *proxy;
++
++          g_test_message ("\tSubscribing via proxy");
++          proxy = g_dbus_proxy_new_sync (subscriber,
++                                         (G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES
++                                          | G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START),
++                                         NULL,    /* GDBusInterfaceInfo */
++                                         sender,
++                                         subscribe->path,
++                                         subscribe->iface,
++                                         NULL,    /* GCancellable */
++                                         &f->error);
++          g_assert_no_error (f->error);
++          g_assert_nonnull (proxy);
++          g_signal_connect (proxy, "g-signal", G_CALLBACK (proxy_signal_cb), f);
++          g_ptr_array_add (f->proxies, g_steal_pointer (&proxy));
++        }
++    }
++
++  /* As in setup(), we need to wait for AddMatch to happen. */
++  g_test_message ("Waiting for AddMatch to be processed");
++  connection_wait_for_bus (subscriber);
++}
++
++static void
++fixture_emit_signal (Fixture              *f,
++                     const TestEmitSignal *signal,
++                     guint                 step_number)
++{
++  GVariant *body;
++  const char *destination;
++  gboolean ok;
++
++  g_test_message ("\tSender: %s",
++                  test_conn_descriptions[signal->sender]);
++
++  if (signal->unicast_to != TEST_CONN_NONE)
++    {
++      destination = f->unique_names[signal->unicast_to];
++      g_test_message ("\tDestination: %s %s",
++                      test_conn_descriptions[signal->unicast_to],
++                      destination);
++    }
++  else
++    {
++      destination = NULL;
++      g_test_message ("\tDestination: (broadcast)");
++    }
++
++  g_assert_nonnull (signal->path);
++  g_test_message ("\tPath: %s", signal->path);
++  g_assert_nonnull (signal->iface);
++  g_test_message ("\tInterface: %s", signal->iface);
++  g_assert_nonnull (signal->member);
++  g_test_message ("\tMember: %s", signal->member);
++
++  /* If arg0 is non-NULL, put it in the message's argument 0.
++   * Otherwise put something that will not match any arg0.
++   * Either way, put the sequence number in argument 1 so we can
++   * correlate sent messages with received messages later. */
++  if (signal->args != NULL)
++    {
++      /* floating */
++      body = g_variant_new_parsed (signal->args);
++      g_assert_nonnull (body);
++    }
++  else if (signal->arg0 != NULL)
++    {
++      g_test_message ("\tString argument 0: %s", signal->arg0);
++      body = g_variant_new ("(su)", signal->arg0, (guint32) step_number);
++    }
++  else
++    {
++      g_test_message ("\tArgument 0: (not a string)");
++      body = g_variant_new ("(uu)", (guint32) 0, (guint32) step_number);
++    }
++
++  ok = g_dbus_connection_emit_signal (f->conns[signal->sender],
++                                      destination,
++                                      signal->path,
++                                      signal->iface,
++                                      signal->member,
++                                      /* steals floating reference */
++                                      g_steal_pointer (&body),
++                                      &f->error);
++  g_assert_no_error (f->error);
++  g_assert_true (ok);
++
++  /* Emitting the signal is asynchronous, so if we want subsequent steps
++   * to be guaranteed to happen after the signal from the message bus's
++   * perspective, we have to do a round-trip to the message bus to sync up. */
++  g_test_message ("Waiting for signal to reach message bus");
++  connection_wait_for_bus (f->conns[signal->sender]);
++}
++
++static void
++fixture_own_name (Fixture *f,
++                  const TestOwnName *own_name)
++{
++  GVariant *call_result;
++  guint32 flags;
++  guint32 result_code;
++
++  g_test_message ("\tName: %s", own_name->name);
++  g_test_message ("\tOwner: %s",
++                  test_conn_descriptions[own_name->owner]);
++
++  /* For simplicity, we do this via a direct bus call rather than
++   * using g_bus_own_name_on_connection(). The flags in
++   * GBusNameOwnerFlags are numerically equal to those in the
++   * D-Bus wire protocol. */
++  flags = G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE;
++  call_result = g_dbus_connection_call_sync (f->conns[own_name->owner],
++                                             DBUS_SERVICE_DBUS,
++                                             DBUS_PATH_DBUS,
++                                             DBUS_INTERFACE_DBUS,
++                                             "RequestName",
++                                             g_variant_new ("(su)",
++                                                           own_name->name,
++                                                           flags),
++                                             G_VARIANT_TYPE ("(u)"),
++                                             G_DBUS_CALL_FLAGS_NONE,
++                                             -1,
++                                             NULL,
++                                             &f->error);
++  g_assert_no_error (f->error);
++  g_assert_nonnull (call_result);
++  g_variant_get (call_result, "(u)", &result_code);
++  g_assert_cmpuint (result_code, ==, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER);
++  g_variant_unref (call_result);
++}
++
++static void
++fixture_run_plan (Fixture          *f,
++                  const TestPlan   *plan,
++                  SubscriptionMode  mode)
++{
++  guint i;
++
++  G_STATIC_ASSERT (G_N_ELEMENTS (plan->steps) == G_N_ELEMENTS (f->subscriptions));
++  G_STATIC_ASSERT (G_N_ELEMENTS (plan->steps) == G_N_ELEMENTS (f->received_by_conn));
++  G_STATIC_ASSERT (G_N_ELEMENTS (plan->steps) == G_N_ELEMENTS (f->received_by_proxy));
++
++  f->mode = mode;
++  f->plan = plan;
++
++  g_test_summary (plan->description);
++
++  for (i = 0; i < G_N_ELEMENTS (plan->steps); i++)
++    {
++      const TestStep *step = &plan->steps[i];
++
++      switch (step->action)
++        {
++          case TEST_ACTION_SUBSCRIBE:
++            g_test_message ("Step %u: adding subscription", i);
++            fixture_subscribe (f, &step->u.subscribe, i);
++            break;
++
++          case TEST_ACTION_EMIT_SIGNAL:
++            g_test_message ("Step %u: emitting signal", i);
++            fixture_emit_signal (f, &step->u.signal, i);
++            break;
++
++          case TEST_ACTION_OWN_NAME:
++            g_test_message ("Step %u: claiming bus name", i);
++            fixture_own_name (f, &step->u.own_name);
++            break;
++
++          case TEST_ACTION_NONE:
++            /* Padding to fill the rest of the array, do nothing */
++            break;
++
++          default:
++            g_return_if_reached ();
++        }
++    }
++
++  /* Now that we have done everything we wanted to do, emit Finished
++   * from each connection. */
++  for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++    {
++      gboolean ok;
++
++      ok = g_dbus_connection_emit_signal (f->conns[i],
++                                          NULL,
++                                          FINISHED_PATH,
++                                          FINISHED_INTERFACE,
++                                          FINISHED_SIGNAL,
++                                          NULL,
++                                          &f->error);
++      g_assert_no_error (f->error);
++      g_assert_true (ok);
++    }
++
++  /* Wait until we have seen the Finished signal from each sender */
++  while (TRUE)
++    {
++      gboolean all_finished = TRUE;
++
++      for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++        all_finished = all_finished && f->finished[i];
++
++      if (all_finished)
++        break;
++
++      g_main_context_iteration (NULL, TRUE);
++    }
++
++  /* Assert that the correct things happened before each Finished signal */
++  for (i = 0; i < f->received->len; i++)
++    {
++      const ReceivedMessage *received = g_ptr_array_index (f->received, i);
++
++      g_assert_cmpuint (received->step, <, G_N_ELEMENTS (f->received_by_conn));
++      g_assert_cmpuint (received->step, <, G_N_ELEMENTS (f->received_by_proxy));
++
++      if (received->received_by_proxy != NULL)
++        f->received_by_proxy[received->step] += 1;
++      else
++        f->received_by_conn[received->step] += 1;
++    }
++
++  for (i = 0; i < G_N_ELEMENTS (plan->steps); i++)
++    {
++      const TestStep *step = &plan->steps[i];
++
++      if (step->action == TEST_ACTION_EMIT_SIGNAL)
++        {
++          const TestEmitSignal *signal = &plan->steps[i].u.signal;
++
++          if (mode != SUBSCRIPTION_MODE_PROXY)
++            {
++              g_test_message ("Signal from step %u was received %u times by "
++                              "GDBusConnection, expected %u",
++                              i, f->received_by_conn[i], signal->received_by_conn);
++              g_assert_cmpuint (f->received_by_conn[i], ==, signal->received_by_conn);
++            }
++          else
++            {
++              g_assert_cmpuint (f->received_by_conn[i], ==, 0);
++            }
++
++          if (mode != SUBSCRIPTION_MODE_CONN)
++            {
++              g_test_message ("Signal from step %u was received %u times by "
++                              "GDBusProxy, expected %u",
++                              i, f->received_by_proxy[i], signal->received_by_proxy);
++              g_assert_cmpuint (f->received_by_proxy[i], ==, signal->received_by_proxy);
++            }
++          else
++            {
++              g_assert_cmpuint (f->received_by_proxy[i], ==, 0);
++            }
++        }
++      else if (step->action == TEST_ACTION_OWN_NAME)
++        {
++          const TestOwnName *own_name = &plan->steps[i].u.own_name;
++
++          if (mode != SUBSCRIPTION_MODE_PROXY)
++            {
++              g_test_message ("NameOwnerChanged from step %u was received %u "
++                              "times by GDBusConnection, expected %u",
++                              i, f->received_by_conn[i], own_name->received_by_conn);
++              g_assert_cmpuint (f->received_by_conn[i], ==, own_name->received_by_conn);
++            }
++          else
++            {
++              g_assert_cmpuint (f->received_by_conn[i], ==, 0);
++            }
++
++          if (mode != SUBSCRIPTION_MODE_CONN)
++            {
++              g_test_message ("NameOwnerChanged from step %u was received %u "
++                              "times by GDBusProxy, expected %u",
++                              i, f->received_by_proxy[i], own_name->received_by_proxy);
++              g_assert_cmpuint (f->received_by_proxy[i], ==, own_name->received_by_proxy);
++            }
++          else
++            {
++              g_assert_cmpuint (f->received_by_proxy[i], ==, 0);
++            }
++        }
++    }
++}
++
++static void
++setup (Fixture *f,
++       G_GNUC_UNUSED const void *context)
++{
++  GDBusConnection *subscriber;
++  guint i;
++
++  session_bus_up ();
++
++  f->proxies = g_ptr_array_new_full (MAX_TEST_STEPS, g_object_unref);
++  f->received = g_ptr_array_new_full (MAX_TEST_STEPS,
++                                      (GDestroyNotify) received_message_free);
++
++  for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++    {
++      f->conns[i] = _g_bus_get_priv (G_BUS_TYPE_SESSION, NULL, &f->error);
++      g_assert_no_error (f->error);
++      g_assert_nonnull (f->conns[i]);
++
++      f->unique_names[i] = g_dbus_connection_get_unique_name (f->conns[i]);
++      g_assert_nonnull (f->unique_names[i]);
++      g_test_message ("%s is %s",
++                      test_conn_descriptions[i],
++                      f->unique_names[i]);
++    }
++
++  subscriber = f->conns[TEST_CONN_SUBSCRIBER];
++
++  /* Used to wait for all connections to finish sending whatever they
++   * wanted to send */
++  f->finished_subscription = g_dbus_connection_signal_subscribe (subscriber,
++                                                                 NULL,
++                                                                 FINISHED_INTERFACE,
++                                                                 FINISHED_SIGNAL,
++                                                                 FINISHED_PATH,
++                                                                 NULL,
++                                                                 G_DBUS_SIGNAL_FLAGS_NONE,
++                                                                 subscriber_finished_cb,
++                                                                 f, NULL);
++  /* AddMatch is sent asynchronously, so we don't know how
++   * soon it will be processed. Before emitting signals, we
++   * need to wait for the message bus to get as far as processing
++   * AddMatch. */
++  g_test_message ("Waiting for AddMatch to be processed");
++  connection_wait_for_bus (subscriber);
++}
++
++static void
++test_conn_subscribe (Fixture *f,
++                     const void *context)
++{
++  fixture_run_plan (f, context, SUBSCRIPTION_MODE_CONN);
++}
++
++static void
++test_proxy_subscribe (Fixture *f,
++                      const void *context)
++{
++  fixture_run_plan (f, context, SUBSCRIPTION_MODE_PROXY);
++}
++
++static void
++test_parallel_subscribe (Fixture *f,
++                         const void *context)
++{
++  fixture_run_plan (f, context, SUBSCRIPTION_MODE_PARALLEL);
++}
++
++static void
++teardown (Fixture *f,
++          G_GNUC_UNUSED const void *context)
++{
++  GDBusConnection *subscriber = f->conns[TEST_CONN_SUBSCRIBER];
++  guint i;
++
++  g_ptr_array_unref (f->proxies);
++
++  if (f->finished_subscription != 0)
++    g_dbus_connection_signal_unsubscribe (subscriber, f->finished_subscription);
++
++  for (i = 0; i < G_N_ELEMENTS (f->subscriptions); i++)
++    {
++      if (f->subscriptions[i] != 0)
++        g_dbus_connection_signal_unsubscribe (subscriber, f->subscriptions[i]);
++    }
++
++  g_ptr_array_unref (f->received);
++
++  for (i = TEST_CONN_FIRST; i < G_N_ELEMENTS (f->conns); i++)
++    g_clear_object (&f->conns[i]);
++
++  g_clear_error (&f->error);
++
++  session_bus_down ();
++}
++
++int
++main (int   argc,
++      char *argv[])
++{
++  g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
++
++  g_test_dbus_unset ();
++
++#define ADD_SUBSCRIBE_TEST(name) \
++  do { \
++    g_test_add ("/gdbus/subscribe/conn/" #name, \
++                Fixture, &plan_ ## name, \
++                setup, test_conn_subscribe, teardown); \
++    g_test_add ("/gdbus/subscribe/proxy/" #name, \
++                Fixture, &plan_ ## name, \
++                setup, test_proxy_subscribe, teardown); \
++    g_test_add ("/gdbus/subscribe/parallel/" #name, \
++                Fixture, &plan_ ## name, \
++                setup, test_parallel_subscribe, teardown); \
++  } while (0)
++
++  ADD_SUBSCRIBE_TEST (simple);
++  ADD_SUBSCRIBE_TEST (broadcast_from_anyone);
++  ADD_SUBSCRIBE_TEST (match_twice);
++  ADD_SUBSCRIBE_TEST (limit_by_unique_name);
++  ADD_SUBSCRIBE_TEST (nonexistent_unique_name);
++  ADD_SUBSCRIBE_TEST (limit_by_well_known_name);
++  ADD_SUBSCRIBE_TEST (limit_to_message_bus);
++  ADD_SUBSCRIBE_TEST (unsubscribe_immediately);
++
++  return g_test_run();
++}
+diff -ruN a/gio/tests/meson.build b/gio/tests/meson.build
+--- a/gio/tests/meson.build
++++ b/gio/tests/meson.build
+@@ -444,6 +444,7 @@
+       },
+       'fdo-notification-backend': {},
+       'gdbus-auth' : {'extra_sources' : extra_sources},
++      'gdbus-auth-mechanism-sha1': {'extra_sources' : extra_sources},
+       'gdbus-bz627724' : {'extra_sources' : extra_sources},
+       'gdbus-close-pending' : {'extra_sources' : extra_sources},
+       'gdbus-connection' : {
+@@ -491,6 +492,10 @@
+         'extra_sources' : extra_sources,
+         'extra_programs': extra_programs,
+       },
++      'gdbus-subscribe' : {
++        'extra_sources' : extra_sources,
++        'extra_programs': extra_programs,
++      },
+       'gdbus-test-codegen' : {
+         'extra_sources' : [extra_sources, gdbus_test_codegen_generated, gdbus_test_codegen_generated_interface_info],
+         'c_args' : ['-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_32'],
+diff -ruN a/gio/tests/org.gtk.test.gschema.override.orig b/gio/tests/org.gtk.test.gschema.override.orig
+--- a/gio/tests/org.gtk.test.gschema.override.orig
++++ b/gio/tests/org.gtk.test.gschema.override.orig
+@@ -1,2 +0,0 @@
+-[org.gtk.test.per-desktop:GNOME-Classic]
+-desktop = "GNOME Classic"
+diff -ruN a/gio/tests/org.gtk.test.gschema.xml.orig b/gio/tests/org.gtk.test.gschema.xml.orig
+--- a/gio/tests/org.gtk.test.gschema.xml.orig
++++ b/gio/tests/org.gtk.test.gschema.xml.orig
+@@ -1,225 +0,0 @@
+-<schemalist>
+-
+-  <schema id="org.gtk.test" path="/tests/" gettext-domain="test">
+-    <key name="greeting" type="s">
+-      <default l10n="messages">"Hello, earthlings"</default>
+-      <summary>A greeting</summary>
+-      <description>
+-         Greeting of the invading martians
+-      </description>
+-    </key>
+-    <key name="farewell" type="s">
+-      <default l10n="messages">"So long"</default>
+-    </key>
+-
+-    <child name='basic-types' schema='org.gtk.test.basic-types'/>
+-    <child name='complex-types' schema='org.gtk.test.complex-types'/>
+-    <child name='localized' schema='org.gtk.test.localized'/>
+-  </schema>
+-
+-  <schema id="org.gtk.test.no-path">
+-    <key name="test-boolean" type="b">
+-      <default>true</default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.basic-types" path="/tests/basic-types/">
+-    <key name="test-boolean" type="b">
+-      <default>true</default>
+-    </key>
+-    <key name="test-byte" type="y">
+-      <default>25</default>
+-    </key>
+-    <key name="test-int16" type="n">
+-      <default>-1234</default>
+-    </key>
+-    <key name="test-uint16" type="q">
+-      <default>1234</default>
+-    </key>
+-    <key name="test-int32" type="i">
+-      <default>-123456</default>
+-    </key>
+-    <key name="test-uint32" type="u">
+-      <default>123456</default>
+-    </key>
+-    <key name="test-int64" type="x">
+-      <default>-123456789</default>
+-    </key>
+-    <key name="test-uint64" type="t">
+-      <default>123456789</default>
+-    </key>
+-    <key name="test-double" type="d">
+-      <default>123.456</default>
+-    </key>
+-    <key name="test-string" type="s">
+-      <default>"a string, it seems"</default>
+-    </key>
+-    <key name="test-objectpath" type="o">
+-      <default>"/a/object/path"</default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.complex-types" path="/tests/complex-types/">
+-    <key name="test-tuple" type="(s(ii))">
+-      <default>("one",(2,3))</default>
+-    </key>
+-    <key name="test-array" type="ai">
+-      <default>[0,1,2,3,4,5]</default>
+-    </key>
+-    <key name="test-dict" type="a{sau}">
+-      <default>
+-      {
+-        "AC": [0,0, 0,0,0,0,0,0],
+-        "IV": [0,0, 0,0,0,0,0,0]
+-      }
+-      </default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.localized" path="/tests/localized/" gettext-domain="test">
+-    <key name="error-message" type="s">
+-      <default l10n="messages">"Unnamed"</default>
+-    </key>
+-    <key name="backspace" type="s">
+-      <default l10n="messages" context="keyboard label">"BackSpace"</default>
+-    </key>
+-    <key name="midnight" type="s">
+-      <default l10n="time">"12:00 AM"</default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.binding" path="/tests/binding/">
+-    <key name="bool" type="b">
+-      <default>false</default>
+-    </key>
+-    <key name="anti-bool" type="b">
+-      <default>false</default>
+-    </key>
+-    <key name="byte" type="y">
+-      <default>0</default>
+-    </key>
+-    <key name="int16" type="n">
+-      <default>0</default>
+-    </key>
+-    <key name="uint16" type="q">
+-      <default>0</default>
+-    </key>
+-    <key name="int" type="i">
+-      <default>0</default>
+-    </key>
+-    <key name="uint" type="u">
+-      <default>0</default>
+-    </key>
+-    <key name="int64" type="x">
+-      <default>0</default>
+-    </key>
+-    <key name="uint64" type="t">
+-      <default>0</default>
+-    </key>
+-    <key name="double" type="d">
+-      <default>0</default>
+-    </key>
+-    <key name="string" type="s">
+-      <default>""</default>
+-    </key>
+-    <key name="chararray" type="ay">
+-      <default>[48, 49]</default>
+-    </key>
+-    <key name="strv" type="as">
+-      <default>[]</default>
+-    </key>
+-    <key name="enum" enum="org.gtk.test.TestEnum">
+-      <default>'foo'</default>
+-    </key>
+-    <key name="flags" flags="org.gtk.test.TestFlags">
+-      <default>['mourning', 'laughing']</default>
+-    </key>
+-    <key name="range" type='u'>
+-      <default>33</default>
+-      <range min="2" max="44"/>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.enums' path='/tests/enums/'>
+-    <key name='test' enum='org.gtk.test.TestEnum'>
+-      <default>'bar'</default>
+-      <aliases>
+-        <alias value='qux' target='quux'/>
+-      </aliases>
+-    </key>
+-    <key name='f-test' flags='org.gtk.test.TestFlags'>
+-      <default>[]</default>
+-      <aliases>
+-        <alias value='speaking' target='talking'/>
+-      </aliases>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.enums.direct' path='/tests/enums/'>
+-    <key name='f-test' type='as'>
+-      <default>[]</default>
+-    </key>
+-    <key name='test' type='s'>
+-      <default>'bar'</default>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.range' path='/tests/range/'>
+-    <key name='val' type='i'>
+-      <default>33</default>
+-      <range min='2' max='44'/>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.range.direct' path='/tests/range/'>
+-    <key name='val' type='i'>
+-      <default>33</default>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.mapped' path='/tests/mapped/'>
+-    <key name='val' type='i'>
+-      <default>0</default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.descriptions" path="/a/">
+-    <key name='a' type='i'>
+-      <summary>
+-        a paragraph.
+-
+-        with some whitespace.
+-         
+-        because not everyone has a great editor.
+-
+-       	  
+-
+-
+-        lots of space is            as one.    
+-      </summary>
+-      <default>0</default>
+-    </key>
+-  </schema>
+-
+-  <schema id='org.gtk.test.extends.base'>
+-    <key name='int32' type='i'>
+-      <default>0</default>
+-    </key>
+-    <key name='string' type='s'>
+-      <default>''</default>
+-    </key>
+-  </schema>
+-  <schema id='org.gtk.test.extends.extended' extends='org.gtk.test.extends.base'>
+-    <override name="int32">42</override>
+-    <key name='another-int32' type='i'>
+-      <default>0</default>
+-    </key>
+-  </schema>
+-
+-  <schema id="org.gtk.test.per-desktop" path="/tests/per-desktop/">
+-    <key name="desktop" type="s">
+-      <default>"GNOME"</default>
+-    </key>
+-  </schema>
+-
+-</schemalist>
+diff -ruN a/gio/xdgmime/xdgmimemagic.c b/gio/xdgmime/xdgmimemagic.c
+--- a/gio/xdgmime/xdgmimemagic.c
++++ b/gio/xdgmime/xdgmimemagic.c
+@@ -483,15 +483,15 @@
+ 	  for (i = 0; i < matchlet->value_length; i = i + matchlet->word_size)
+ 	    {
+ 	      if (matchlet->word_size == 2)
+-		*((xdg_uint16_t *) matchlet->value + i) = SWAP_BE16_TO_LE16 (*((xdg_uint16_t *) (matchlet->value + i)));
++		  *((xdg_uint16_t *) (matchlet->value + i)) = SWAP_BE16_TO_LE16 (*((xdg_uint16_t *) (matchlet->value + i)));
+ 	      else if (matchlet->word_size == 4)
+-		*((xdg_uint32_t *) matchlet->value + i) = SWAP_BE32_TO_LE32 (*((xdg_uint32_t *) (matchlet->value + i)));
++		  *((xdg_uint32_t *) (matchlet->value + i)) = SWAP_BE32_TO_LE32 (*((xdg_uint32_t *) (matchlet->value + i)));
+ 	      if (matchlet->mask)
+ 		{
+ 		  if (matchlet->word_size == 2)
+-		    *((xdg_uint16_t *) matchlet->mask + i) = SWAP_BE16_TO_LE16 (*((xdg_uint16_t *) (matchlet->mask + i)));
++		      *((xdg_uint16_t *) (matchlet->mask + i)) = SWAP_BE16_TO_LE16 (*((xdg_uint16_t *) (matchlet->mask + i)));
+ 		  else if (matchlet->word_size == 4)
+-		    *((xdg_uint32_t *) matchlet->mask + i) = SWAP_BE32_TO_LE32 (*((xdg_uint32_t *) (matchlet->mask + i)));
++		      *((xdg_uint32_t *) (matchlet->mask + i)) = SWAP_BE32_TO_LE32 (*((xdg_uint32_t *) (matchlet->mask + i)));
+ 
+ 		}
+ 	    }
+diff -ruN a/glib/gbase64.c b/glib/gbase64.c
+--- a/glib/gbase64.c
++++ b/glib/gbase64.c
+@@ -240,8 +240,10 @@
+                  gsize         len)
+ {
+   gchar *out;
+-  gint state = 0, outlen;
++  gint state = 0;
+   gint save = 0;
++  gsize outlen;
++  gsize allocsize;
+ 
+   g_return_val_if_fail (data != NULL || len == 0, NULL);
+ 
+@@ -249,10 +251,15 @@
+      +1 is needed for trailing \0, also check for unlikely integer overflow */
+   g_return_val_if_fail (len < ((G_MAXSIZE - 1) / 4 - 1) * 3, NULL);
+ 
+-  out = g_malloc ((len / 3 + 1) * 4 + 1);
++  allocsize = (len / 3 + 1) * 4 + 1;
++  out = g_malloc (allocsize);
+ 
+   outlen = g_base64_encode_step (data, len, FALSE, out, &state, &save);
++  g_assert (outlen <= allocsize);
++
+   outlen += g_base64_encode_close (FALSE, out + outlen, &state, &save);
++  g_assert (outlen <= allocsize);
++
+   out[outlen] = '\0';
+ 
+   return (gchar *) out;
+diff -ruN a/glib/gconvert.c b/glib/gconvert.c
+--- a/glib/gconvert.c
++++ b/glib/gconvert.c
+@@ -1338,8 +1338,9 @@
+ /* Note: This escape function works on file: URIs, but if you want to
+  * escape something else, please read RFC-2396 */
+ static gchar *
+-g_escape_uri_string (const gchar *string, 
+-		     UnsafeCharacterSet mask)
++g_escape_uri_string (const gchar         *string,
++                     UnsafeCharacterSet   mask,
++                     GError             **error)
+ {
+ #define ACCEPTABLE(a) ((a)>=32 && (a)<128 && (acceptable[(a)-32] & use_mask))
+ 
+@@ -1347,7 +1348,7 @@
+   gchar *q;
+   gchar *result;
+   int c;
+-  gint unacceptable;
++  size_t unacceptable;
+   UnsafeCharacterSet use_mask;
+   
+   g_return_val_if_fail (mask == UNSAFE_ALL
+@@ -1364,7 +1365,14 @@
+       if (!ACCEPTABLE (c)) 
+ 	unacceptable++;
+     }
+-  
++
++  if (unacceptable >= (G_MAXSIZE - (p - string)) / 2)
++    {
++      g_set_error_literal (error, G_CONVERT_ERROR, G_CONVERT_ERROR_BAD_URI,
++                           _("Invalid hostname"));
++      return NULL;
++    }
++
+   result = g_malloc (p - string + unacceptable * 2 + 1);
+   
+   use_mask = mask;
+@@ -1389,12 +1397,13 @@
+ 
+ 
+ static gchar *
+-g_escape_file_uri (const gchar *hostname,
+-		   const gchar *pathname)
++g_escape_file_uri (const gchar  *hostname,
++                   const gchar  *pathname,
++                   GError      **error)
+ {
+   char *escaped_hostname = NULL;
+-  char *escaped_path;
+-  char *res;
++  char *escaped_path = NULL;
++  char *res = NULL;
+ 
+ #ifdef G_OS_WIN32
+   char *p, *backslash;
+@@ -1415,10 +1424,14 @@
+ 
+   if (hostname && *hostname != '\0')
+     {
+-      escaped_hostname = g_escape_uri_string (hostname, UNSAFE_HOST);
++      escaped_hostname = g_escape_uri_string (hostname, UNSAFE_HOST, error);
++      if (escaped_hostname == NULL)
++        goto out;
+     }
+ 
+-  escaped_path = g_escape_uri_string (pathname, UNSAFE_PATH);
++  escaped_path = g_escape_uri_string (pathname, UNSAFE_PATH, error);
++  if (escaped_path == NULL)
++    goto out;
+ 
+   res = g_strconcat ("file://",
+ 		     (escaped_hostname) ? escaped_hostname : "",
+@@ -1426,6 +1439,7 @@
+ 		     escaped_path,
+ 		     NULL);
+ 
++out:
+ #ifdef G_OS_WIN32
+   g_free ((char *) pathname);
+ #endif
+@@ -1759,7 +1773,7 @@
+     hostname = NULL;
+ #endif
+ 
+-  escaped_uri = g_escape_file_uri (hostname, filename);
++  escaped_uri = g_escape_file_uri (hostname, filename, error);
+ 
+   return escaped_uri;
+ }
+diff -ruN a/glib/gdatetime.c b/glib/gdatetime.c
+--- a/glib/gdatetime.c
++++ b/glib/gdatetime.c
+@@ -103,7 +103,7 @@
+   gint interval;
+ 
+   /* 1 is 0001-01-01 in Proleptic Gregorian */
+-  gint32 days;
++  gint32 days;  /* in range [MIN_DAYS, MAX_DAYS] */
+ 
+   gint ref_count;  /* (atomic) */
+ };
+@@ -145,6 +145,9 @@
+ #define JULIAN_YEAR(d)       ((d)->julian / 365.25)
+ #define DAYS_PER_PERIOD      (G_GINT64_CONSTANT (2914695))
+ 
++#define MIN_DAYS 1  /* the days count for 0001-01-01 in Proleptic Gregorian */
++#define MAX_DAYS 3652059  /* the days count for 9999-12-31 in Proleptic Gregorian */
++
+ static const guint16 days_in_months[2][13] =
+ {
+   { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 },
+@@ -779,7 +782,7 @@
+   datetime->days = instant / USEC_PER_DAY;
+   datetime->usec = instant % USEC_PER_DAY;
+ 
+-  if (datetime->days < 1 || 3652059 < datetime->days)
++  if (datetime->days < MIN_DAYS || datetime->days > MAX_DAYS)
+     {
+       g_date_time_unref (datetime);
+       datetime = NULL;
+@@ -815,7 +818,7 @@
+   gint64 full_time;
+   gint64 usec;
+ 
+-  if (datetime->days < 1 || datetime->days > 3652059)
++  if (datetime->days < MIN_DAYS || datetime->days > MAX_DAYS)
+     return FALSE;
+ 
+   was_dst = g_time_zone_is_dst (datetime->tz, datetime->interval);
+@@ -1393,12 +1396,16 @@
+     return FALSE;
+ }
+ 
++/* Value returned in tz_offset is valid if and only if the function return value
++ * is non-NULL. */
+ static GTimeZone *
+-parse_iso8601_timezone (const gchar *text, gsize length, gssize *tz_offset)
++parse_iso8601_timezone (const gchar *text, gsize length, size_t *tz_offset)
+ {
+-  gint i, tz_length, offset_hours, offset_minutes;
++  size_t tz_length;
++  gint offset_hours, offset_minutes;
+   gint offset_sign = 1;
+   GTimeZone *tz;
++  const char *tz_start;
+ 
+   /* UTC uses Z suffix  */
+   if (length > 0 && text[length - 1] == 'Z')
+@@ -1408,42 +1415,42 @@
+     }
+ 
+   /* Look for '+' or '-' of offset */
+-  for (i = length - 1; i >= 0; i--)
+-    if (text[i] == '+' || text[i] == '-')
++  for (tz_length = 1; tz_length <= length; tz_length++)
++    if (text[length - tz_length] == '+' || text[length - tz_length] == '-')
+       {
+-        offset_sign = text[i] == '-' ? -1 : 1;
++        offset_sign = text[length - tz_length] == '-' ? -1 : 1;
+         break;
+       }
+-  if (i < 0)
++  if (tz_length > length)
+     return NULL;
+-  tz_length = length - i;
++  tz_start = text + length - tz_length;
+ 
+   /* +hh:mm or -hh:mm */
+-  if (tz_length == 6 && text[i+3] == ':')
++  if (tz_length == 6 && tz_start[3] == ':')
+     {
+-      if (!get_iso8601_int (text + i + 1, 2, &offset_hours) ||
+-          !get_iso8601_int (text + i + 4, 2, &offset_minutes))
++      if (!get_iso8601_int (tz_start + 1, 2, &offset_hours) ||
++          !get_iso8601_int (tz_start + 4, 2, &offset_minutes))
+         return NULL;
+     }
+   /* +hhmm or -hhmm */
+   else if (tz_length == 5)
+     {
+-      if (!get_iso8601_int (text + i + 1, 2, &offset_hours) ||
+-          !get_iso8601_int (text + i + 3, 2, &offset_minutes))
++      if (!get_iso8601_int (tz_start + 1, 2, &offset_hours) ||
++          !get_iso8601_int (tz_start + 3, 2, &offset_minutes))
+         return NULL;
+     }
+   /* +hh or -hh */
+   else if (tz_length == 3)
+     {
+-      if (!get_iso8601_int (text + i + 1, 2, &offset_hours))
++      if (!get_iso8601_int (tz_start + 1, 2, &offset_hours))
+         return NULL;
+       offset_minutes = 0;
+     }
+   else
+     return NULL;
+ 
+-  *tz_offset = i;
+-  tz = g_time_zone_new_identifier (text + i);
++  *tz_offset = tz_start - text;
++  tz = g_time_zone_new_identifier (tz_start);
+ 
+   /* Double-check that the GTimeZone matches our interpretation of the timezone.
+    * This can fail because our interpretation is less strict than (for example)
+@@ -1462,11 +1469,11 @@
+ parse_iso8601_time (const gchar *text, gsize length,
+                     gint *hour, gint *minute, gdouble *seconds, GTimeZone **tz)
+ {
+-  gssize tz_offset = -1;
++  size_t tz_offset = 0;
+ 
+   /* Check for timezone suffix */
+   *tz = parse_iso8601_timezone (text, length, &tz_offset);
+-  if (tz_offset >= 0)
++  if (*tz != NULL)
+     length = tz_offset;
+ 
+   /* hh:mm:ss(.sss) */
+@@ -1544,7 +1551,8 @@
+ GDateTime *
+ g_date_time_new_from_iso8601 (const gchar *text, GTimeZone *default_tz)
+ {
+-  gint length, date_length = -1;
++  size_t length, date_length = 0;
++  gboolean date_length_set = FALSE;
+   gint hour = 0, minute = 0;
+   gdouble seconds = 0.0;
+   GTimeZone *tz = NULL;
+@@ -1555,11 +1563,14 @@
+   /* Count length of string and find date / time separator ('T', 't', or ' ') */
+   for (length = 0; text[length] != '\0'; length++)
+     {
+-      if (date_length < 0 && (text[length] == 'T' || text[length] == 't' || text[length] == ' '))
+-        date_length = length;
++      if (!date_length_set && (text[length] == 'T' || text[length] == 't' || text[length] == ' '))
++        {
++          date_length = length;
++          date_length_set = TRUE;
++        }
+     }
+ 
+-  if (date_length < 0)
++  if (!date_length_set)
+     return NULL;
+ 
+   if (!parse_iso8601_time (text + date_length + 1, length - (date_length + 1),
+@@ -2071,7 +2082,9 @@
+   new->days = full_time / USEC_PER_DAY;
+   new->usec = full_time % USEC_PER_DAY;
+ 
+-  /* XXX validate */
++  /* Validate it’s still in the range 0001-01-01 to 9999-12-31 */
++  if (new->days < MIN_DAYS || new->days > MAX_DAYS)
++    g_clear_pointer (&new, g_date_time_unref);
+ 
+   return new;
+ }
+diff -ruN a/glib/gfileutils.c b/glib/gfileutils.c
+--- a/glib/gfileutils.c
++++ b/glib/gfileutils.c
+@@ -1517,9 +1517,9 @@
+   static const char letters[] =
+     "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+   static const int NLETTERS = sizeof (letters) - 1;
+-  gint64 value;
+-  gint64 now_us;
+-  static int counter = 0;
++  guint64 value;
++  guint64 now_us;
++  static guint counter = 0;
+ 
+   g_return_val_if_fail (tmpl != NULL, -1);
+ 
+@@ -1538,7 +1538,7 @@
+ 
+   for (count = 0; count < 100; value += 7777, ++count)
+     {
+-      gint64 v = value;
++      guint64 v = value;
+ 
+       /* Fill in the random bits.  */
+       XXXXXX[0] = letters[v % NLETTERS];
+diff -ruN a/glib/giochannel.c b/glib/giochannel.c
+--- a/glib/giochannel.c
++++ b/glib/giochannel.c
+@@ -1822,7 +1822,8 @@
+         {
+           if (channel->line_term)
+             {
+-              if (memcmp (channel->line_term, nextchar, line_term_len) == 0)
++              if ((size_t) (lastchar - nextchar) >= line_term_len &&
++                  memcmp (channel->line_term, nextchar, line_term_len) == 0)
+                 {
+                   line_length = nextchar - use_buf->str;
+                   got_term_len = line_term_len;
+diff -ruN a/glib/gkeyfile.c b/glib/gkeyfile.c
+--- a/glib/gkeyfile.c
++++ b/glib/gkeyfile.c
+@@ -2410,7 +2410,7 @@
+     }
+ 
+   len = strlen (value);
+-  if (value[len - 1] == key_file->list_separator)
++  if (len > 0 && value[len - 1] == key_file->list_separator)
+     value[len - 1] = '\0';
+ 
+   list_separator[0] = key_file->list_separator;
+diff -ruN a/glib/gregex.c b/glib/gregex.c
+--- a/glib/gregex.c
++++ b/glib/gregex.c
+@@ -208,10 +208,10 @@
+ 
+ /* if the string is in UTF-8 use g_utf8_ functions, else use
+  * use just +/- 1. */
+-#define NEXT_CHAR(re, s) (((re)->compile_opts & G_REGEX_RAW) ? \
++#define NEXT_CHAR(re, s) (((re)->orig_compile_opts & G_REGEX_RAW) ? \
+                                 ((s) + 1) : \
+                                 g_utf8_next_char (s))
+-#define PREV_CHAR(re, s) (((re)->compile_opts & G_REGEX_RAW) ? \
++#define PREV_CHAR(re, s) (((re)->orig_compile_opts & G_REGEX_RAW) ? \
+                                 ((s) - 1) : \
+                                 g_utf8_prev_char (s))
+ 
+@@ -3146,19 +3146,25 @@
+   return g_list_reverse (list);
+ }
+ 
+-/* Change the case of c based on change_case. */
+-#define CHANGE_CASE(c, change_case) \
++/* Change the case of c based on change_case.
++ * g_ascii_to*() will happily pass through non-ASCII bytes unchanged. */
++#define UTF8_CHANGE_CASE(c, change_case) \
+         (((change_case) & CHANGE_CASE_LOWER_MASK) ? \
+                 g_unichar_tolower (c) : \
+                 g_unichar_toupper (c))
++#define RAW_CHANGE_CASE(c, change_case) \
++        (((change_case) & CHANGE_CASE_LOWER_MASK) ? \
++                g_ascii_tolower (c) : \
++                g_ascii_toupper (c))
+ 
++/* If @text_is_raw is set, @text might not be valid UTF-8 (but will be
++ * nul-terminated). */
+ static void
+ string_append (GString     *string,
+                const gchar *text,
++               gboolean     text_is_raw,
+                ChangeCase  *change_case)
+ {
+-  gunichar c;
+-
+   if (text[0] == '\0')
+     return;
+ 
+@@ -3168,22 +3174,44 @@
+     }
+   else if (*change_case & CHANGE_CASE_SINGLE_MASK)
+     {
+-      c = g_utf8_get_char (text);
+-      g_string_append_unichar (string, CHANGE_CASE (c, *change_case));
+-      g_string_append (string, g_utf8_next_char (text));
++      if (!text_is_raw)
++        {
++          gunichar c = g_utf8_get_char (text);
++          g_string_append_unichar (string, UTF8_CHANGE_CASE (c, *change_case));
++          g_string_append (string, g_utf8_next_char (text));
++        }
++      else
++        {
++          g_string_append_c (string, RAW_CHANGE_CASE (text[0], *change_case));
++          g_string_append (string, text + 1);
++        }
++
+       *change_case = CHANGE_CASE_NONE;
+     }
+   else
+     {
+-      while (*text != '\0')
++      if (!text_is_raw)
+         {
+-          c = g_utf8_get_char (text);
+-          g_string_append_unichar (string, CHANGE_CASE (c, *change_case));
+-          text = g_utf8_next_char (text);
++          while (*text != '\0')
++            {
++              gunichar c = g_utf8_get_char (text);
++              g_string_append_unichar (string, UTF8_CHANGE_CASE (c, *change_case));
++              text = g_utf8_next_char (text);
++            }
++        }
++      else
++        {
++          while (*text != '\0')
++            {
++              char c = *text;
++              g_string_append_c (string, RAW_CHANGE_CASE (c, *change_case));
++              text++;
++            }
+         }
+     }
+ }
+ 
++/* @match_info is (nullable) */
+ static gboolean
+ interpolate_replacement (const GMatchInfo *match_info,
+                          GString          *result,
+@@ -3193,6 +3221,7 @@
+   InterpolationData *idata;
+   gchar *match;
+   ChangeCase change_case = CHANGE_CASE_NONE;
++  gboolean is_raw = (match_info != NULL && (match_info->regex->orig_compile_opts & G_REGEX_RAW));
+ 
+   for (list = data; list; list = list->next)
+     {
+@@ -3200,10 +3229,10 @@
+       switch (idata->type)
+         {
+         case REPL_TYPE_STRING:
+-          string_append (result, idata->text, &change_case);
++          string_append (result, idata->text, is_raw, &change_case);
+           break;
+         case REPL_TYPE_CHARACTER:
+-          g_string_append_c (result, CHANGE_CASE (idata->c, change_case));
++          g_string_append_c (result, UTF8_CHANGE_CASE (idata->c, change_case));
+           if (change_case & CHANGE_CASE_SINGLE_MASK)
+             change_case = CHANGE_CASE_NONE;
+           break;
+@@ -3211,7 +3240,7 @@
+           match = g_match_info_fetch (match_info, idata->num);
+           if (match)
+             {
+-              string_append (result, match, &change_case);
++              string_append (result, match, is_raw, &change_case);
+               g_free (match);
+             }
+           break;
+@@ -3219,7 +3248,7 @@
+           match = g_match_info_fetch_named (match_info, idata->text);
+           if (match)
+             {
+-              string_append (result, match, &change_case);
++              string_append (result, match, is_raw, &change_case);
+               g_free (match);
+             }
+           break;
+diff -ruN a/glib/gstring.c b/glib/gstring.c
+--- a/glib/gstring.c
++++ b/glib/gstring.c
+@@ -68,10 +68,6 @@
+ g_string_expand (GString *string,
+                  gsize    len)
+ {
+-  /* Detect potential overflow */
+-  if G_UNLIKELY ((G_MAXSIZE - string->len - 1) < len)
+-    g_error ("adding %" G_GSIZE_FORMAT " to string would overflow", len);
+-
+   string->allocated_len = g_nearest_pow (string->len + len + 1);
+   /* If the new size is bigger than G_MAXSIZE / 2, only allocate enough
+    * memory for this string and don't over-allocate.
+@@ -86,6 +82,10 @@
+ g_string_maybe_expand (GString *string,
+                        gsize    len)
+ {
++  /* Detect potential overflow */
++  if G_UNLIKELY ((G_MAXSIZE - string->len - 1) < len)
++    g_error ("adding %" G_GSIZE_FORMAT " to string would overflow", len);
++
+   if (G_UNLIKELY (string->len + len >= string->allocated_len))
+     g_string_expand (string, len);
+ }
+@@ -480,8 +480,9 @@
+     return string;
+ 
+   if (len < 0)
+-    len = strlen (val);
+-  len_unsigned = len;
++    len_unsigned = strlen (val);
++  else
++    len_unsigned = len;
+ 
+   if (pos < 0)
+     pos_unsigned = string->len;
+@@ -778,10 +779,12 @@
+   g_string_maybe_expand (string, 1);
+ 
+   if (pos < 0)
+-    pos = string->len;
++    pos_unsigned = string->len;
+   else
+-    g_return_val_if_fail ((gsize) pos <= string->len, string);
+-  pos_unsigned = pos;
++    {
++      pos_unsigned = pos;
++      g_return_val_if_fail (pos_unsigned <= string->len, string);
++    }
+ 
+   /* If not just an append, move the old stuff */
+   if (pos_unsigned < string->len)
+@@ -814,6 +817,7 @@
+                          gssize    pos,
+                          gunichar  wc)
+ {
++  gsize pos_unsigned;
+   gint charlen, first, i;
+   gchar *dest;
+ 
+@@ -855,15 +859,18 @@
+   g_string_maybe_expand (string, charlen);
+ 
+   if (pos < 0)
+-    pos = string->len;
++    pos_unsigned = string->len;
+   else
+-    g_return_val_if_fail ((gsize) pos <= string->len, string);
++    {
++      pos_unsigned = pos;
++      g_return_val_if_fail (pos_unsigned <= string->len, string);
++    }
+ 
+   /* If not just an append, move the old stuff */
+-  if ((gsize) pos < string->len)
+-    memmove (string->str + pos + charlen, string->str + pos, string->len - pos);
++  if (pos_unsigned < string->len)
++    memmove (string->str + pos_unsigned + charlen, string->str + pos_unsigned, string->len - pos_unsigned);
+ 
+-  dest = string->str + pos;
++  dest = string->str + pos_unsigned;
+   /* Code copied from g_unichar_to_utf() */
+   for (i = charlen - 1; i > 0; --i)
+     {
+@@ -921,6 +928,7 @@
+                         const gchar *val,
+                         gssize       len)
+ {
++  gsize len_unsigned;
+   gsize end;
+ 
+   g_return_val_if_fail (string != NULL, NULL);
+@@ -932,14 +940,16 @@
+   g_return_val_if_fail (pos <= string->len, string);
+ 
+   if (len < 0)
+-    len = strlen (val);
++    len_unsigned = strlen (val);
++  else
++    len_unsigned = len;
+ 
+-  end = pos + len;
++  end = pos + len_unsigned;
+ 
+   if (end > string->len)
+     g_string_maybe_expand (string, end - string->len);
+ 
+-  memcpy (string->str + pos, val, len);
++  memcpy (string->str + pos, val, len_unsigned);
+ 
+   if (end > string->len)
+     {
+diff -ruN a/glib/guniprop.c b/glib/guniprop.c
+--- a/glib/guniprop.c
++++ b/glib/guniprop.c
+@@ -772,14 +772,36 @@
+   return LOCALE_NORMAL;
+ }
+ 
+-static gint
+-output_marks (const char **p_inout,
+-	      char        *out_buffer,
+-	      gboolean     remove_dot)
++G_ALWAYS_INLINE static inline void
++increase_size (size_t *sizeptr, size_t add)
++{
++  g_assert (G_MAXSIZE - *(sizeptr) >= add);
++  *(sizeptr) += add;
++}
++
++G_ALWAYS_INLINE static inline void
++append_utf8_char_to_buffer (gunichar  c,
++                            char     *out_buffer,
++                            size_t   *in_out_len)
++{
++  gint utf8_len;
++  char *buffer;
++
++  buffer = out_buffer ? out_buffer + *(in_out_len) : NULL;
++  utf8_len = g_unichar_to_utf8 (c, buffer);
++
++  g_assert (utf8_len >= 0);
++  increase_size (in_out_len, utf8_len);
++}
++
++static void
++append_mark (const char **p_inout,
++             char        *out_buffer,
++             size_t      *in_out_len,
++             gboolean     remove_dot)
+ {
+   const char *p = *p_inout;
+-  gint len = 0;
+-  
++
+   while (*p)
+     {
+       gunichar c = g_utf8_get_char (p);
+@@ -787,7 +809,7 @@
+       if (ISMARK (TYPE (c)))
+ 	{
+ 	  if (!remove_dot || c != 0x307 /* COMBINING DOT ABOVE */)
+-	    len += g_unichar_to_utf8 (c, out_buffer ? out_buffer + len : NULL);
++            append_utf8_char_to_buffer (c, out_buffer, in_out_len);
+ 	  p = g_utf8_next_char (p);
+ 	}
+       else
+@@ -795,17 +817,17 @@
+     }
+ 
+   *p_inout = p;
+-  return len;
+ }
+ 
+-static gint
+-output_special_case (gchar *out_buffer,
+-		     int    offset,
+-		     int    type,
+-		     int    which)
++static void
++append_special_case (char   *out_buffer,
++                     size_t *in_out_len,
++                     int     offset,
++                     int     type,
++                     int     which)
+ {
+   const gchar *p = special_case_table + offset;
+-  gint len;
++  size_t len;
+ 
+   if (type != G_UNICODE_TITLECASE_LETTER)
+     p = g_utf8_next_char (p);
+@@ -814,10 +836,12 @@
+     p += strlen (p) + 1;
+ 
+   len = strlen (p);
++  g_assert (len < G_MAXSIZE - *in_out_len);
++
+   if (out_buffer)
+-    memcpy (out_buffer, p, len);
++    memcpy (out_buffer + *in_out_len, p, len);
+ 
+-  return len;
++  increase_size (in_out_len, len);
+ }
+ 
+ static gsize
+@@ -858,11 +882,13 @@
+ 		  decomp_len = g_unichar_fully_decompose (c, FALSE, decomp, G_N_ELEMENTS (decomp));
+ 		  for (i=0; i < decomp_len; i++)
+ 		    {
++
+ 		      if (decomp[i] != 0x307 /* COMBINING DOT ABOVE */)
+-			len += g_unichar_to_utf8 (g_unichar_toupper (decomp[i]), out_buffer ? out_buffer + len : NULL);
++                        append_utf8_char_to_buffer (g_unichar_toupper (decomp[i]),
++                                                    out_buffer, &len);
+ 		    }
+-		  
+-		  len += output_marks (&p, out_buffer ? out_buffer + len : NULL, TRUE);
++
++                  append_mark (&p, out_buffer, &len, TRUE);
+ 
+ 		  continue;
+ 		}
+@@ -875,17 +901,17 @@
+       if (locale_type == LOCALE_TURKIC && c == 'i')
+ 	{
+ 	  /* i => LATIN CAPITAL LETTER I WITH DOT ABOVE */
+-	  len += g_unichar_to_utf8 (0x130, out_buffer ? out_buffer + len : NULL); 
++          append_utf8_char_to_buffer (0x130, out_buffer, &len);
+ 	}
+       else if (c == 0x0345)	/* COMBINING GREEK YPOGEGRAMMENI */
+ 	{
+ 	  /* Nasty, need to move it after other combining marks .. this would go away if
+ 	   * we normalized first.
+ 	   */
+-	  len += output_marks (&p, out_buffer ? out_buffer + len : NULL, FALSE);
++          append_mark (&p, out_buffer, &len, TRUE);
+ 
+ 	  /* And output as GREEK CAPITAL LETTER IOTA */
+-	  len += g_unichar_to_utf8 (0x399, out_buffer ? out_buffer + len : NULL); 	  
++          append_utf8_char_to_buffer (0x399, out_buffer, &len);
+ 	}
+       else if (IS (t,
+ 		   OR (G_UNICODE_LOWERCASE_LETTER,
+@@ -896,8 +922,8 @@
+ 
+ 	  if (val >= 0x1000000)
+ 	    {
+-	      len += output_special_case (out_buffer ? out_buffer + len : NULL, val - 0x1000000, t,
+-					  t == G_UNICODE_LOWERCASE_LETTER ? 0 : 1);
++              append_special_case (out_buffer, &len, val - 0x1000000, t,
++                                   t == G_UNICODE_LOWERCASE_LETTER ? 0 : 1);
+ 	    }
+ 	  else
+ 	    {
+@@ -917,7 +943,7 @@
+ 	      /* Some lowercase letters, e.g., U+000AA, FEMININE ORDINAL INDICATOR,
+ 	       * do not have an uppercase equivalent, in which case val will be
+ 	       * zero. */
+-	      len += g_unichar_to_utf8 (val ? val : c, out_buffer ? out_buffer + len : NULL);
++              append_utf8_char_to_buffer (val ? val : c, out_buffer, &len);
+ 	    }
+ 	}
+       else
+@@ -927,7 +953,7 @@
+ 	  if (out_buffer)
+ 	    memcpy (out_buffer + len, last, char_len);
+ 
+-	  len += char_len;
++          increase_size (&len, char_len);
+ 	}
+ 
+     }
+@@ -965,6 +991,8 @@
+    * We use a two pass approach to keep memory management simple
+    */
+   result_len = real_toupper (str, len, NULL, locale_type);
++  g_assert (result_len < G_MAXSIZE);
++
+   result = g_malloc (result_len + 1);
+   real_toupper (str, len, result, locale_type);
+   result[result_len] = '\0';
+@@ -1022,14 +1050,15 @@
+             {
+               /* I + COMBINING DOT ABOVE => i (U+0069)
+                * LATIN CAPITAL LETTER I WITH DOT ABOVE => i (U+0069) */
+-              len += g_unichar_to_utf8 (0x0069, out_buffer ? out_buffer + len : NULL);
++              append_utf8_char_to_buffer (0x0069, out_buffer, &len);
++
+               if (combining_dot)
+                 p = g_utf8_next_char (p);
+             }
+           else
+             {
+               /* I => LATIN SMALL LETTER DOTLESS I */
+-              len += g_unichar_to_utf8 (0x131, out_buffer ? out_buffer + len : NULL); 
++              append_utf8_char_to_buffer (0x131, out_buffer, &len);
+             }
+         }
+       /* Introduce an explicit dot above when lowercasing capital I's and J's
+@@ -1037,19 +1066,19 @@
+       else if (locale_type == LOCALE_LITHUANIAN && 
+                (c == 0x00cc || c == 0x00cd || c == 0x0128))
+         {
+-          len += g_unichar_to_utf8 (0x0069, out_buffer ? out_buffer + len : NULL); 
+-          len += g_unichar_to_utf8 (0x0307, out_buffer ? out_buffer + len : NULL); 
++          append_utf8_char_to_buffer (0x0069, out_buffer, &len);
++          append_utf8_char_to_buffer (0x0307, out_buffer, &len);
+ 
+           switch (c)
+             {
+             case 0x00cc: 
+-              len += g_unichar_to_utf8 (0x0300, out_buffer ? out_buffer + len : NULL); 
++              append_utf8_char_to_buffer (0x0300, out_buffer, &len);
+               break;
+             case 0x00cd: 
+-              len += g_unichar_to_utf8 (0x0301, out_buffer ? out_buffer + len : NULL); 
++              append_utf8_char_to_buffer (0x0301, out_buffer, &len);
+               break;
+             case 0x0128: 
+-              len += g_unichar_to_utf8 (0x0303, out_buffer ? out_buffer + len : NULL); 
++              append_utf8_char_to_buffer (0x0303, out_buffer, &len);
+               break;
+             }
+         }
+@@ -1058,8 +1087,8 @@
+                 c == 'J' || c == G_UNICHAR_FULLWIDTH_J || c == 0x012e) &&
+                has_more_above (p))
+         {
+-          len += g_unichar_to_utf8 (g_unichar_tolower (c), out_buffer ? out_buffer + len : NULL); 
+-          len += g_unichar_to_utf8 (0x0307, out_buffer ? out_buffer + len : NULL); 
++          append_utf8_char_to_buffer (g_unichar_tolower (c), out_buffer, &len);
++          append_utf8_char_to_buffer (0x0307, out_buffer, &len);
+         }
+       else if (c == 0x03A3)	/* GREEK CAPITAL LETTER SIGMA */
+ 	{
+@@ -1082,7 +1111,7 @@
+ 	  else
+ 	    val = 0x3c2;	/* GREEK SMALL FINAL SIGMA */
+ 
+-	  len += g_unichar_to_utf8 (val, out_buffer ? out_buffer + len : NULL);
++          append_utf8_char_to_buffer (val, out_buffer, &len);
+ 	}
+       else if (IS (t,
+ 		   OR (G_UNICODE_UPPERCASE_LETTER,
+@@ -1093,7 +1122,7 @@
+ 
+ 	  if (val >= 0x1000000)
+ 	    {
+-	      len += output_special_case (out_buffer ? out_buffer + len : NULL, val - 0x1000000, t, 0);
++              append_special_case (out_buffer, &len, val - 0x1000000, t, 0);
+ 	    }
+ 	  else
+ 	    {
+@@ -1112,7 +1141,7 @@
+ 
+ 	      /* Not all uppercase letters are guaranteed to have a lowercase
+ 	       * equivalent.  If this is the case, val will be zero. */
+-	      len += g_unichar_to_utf8 (val ? val : c, out_buffer ? out_buffer + len : NULL);
++              append_utf8_char_to_buffer (val ? val : c, out_buffer, &len);
+ 	    }
+ 	}
+       else
+@@ -1122,7 +1151,7 @@
+ 	  if (out_buffer)
+ 	    memcpy (out_buffer + len, last, char_len);
+ 
+-	  len += char_len;
++          increase_size (&len, char_len);
+ 	}
+ 
+     }
+@@ -1159,6 +1188,8 @@
+    * We use a two pass approach to keep memory management simple
+    */
+   result_len = real_tolower (str, len, NULL, locale_type);
++  g_assert (result_len < G_MAXSIZE);
++
+   result = g_malloc (result_len + 1);
+   real_tolower (str, len, result, locale_type);
+   result[result_len] = '\0';
+diff -ruN a/glib/gvariant-parser.c b/glib/gvariant-parser.c
+--- a/glib/gvariant-parser.c
++++ b/glib/gvariant-parser.c
+@@ -91,7 +91,9 @@
+ 
+ typedef struct
+ {
+-  gint start, end;
++  /* Offsets from the start of the input, in bytes. Can be equal when referring
++   * to a point rather than a range. The invariant `end >= start` always holds. */
++  size_t start, end;
+ } SourceRef;
+ 
+ G_GNUC_PRINTF(5, 0)
+@@ -106,14 +108,16 @@
+   GString *msg = g_string_new (NULL);
+ 
+   if (location->start == location->end)
+-    g_string_append_printf (msg, "%d", location->start);
++    g_string_append_printf (msg, "%" G_GSIZE_FORMAT, location->start);
+   else
+-    g_string_append_printf (msg, "%d-%d", location->start, location->end);
++    g_string_append_printf (msg, "%" G_GSIZE_FORMAT "-%" G_GSIZE_FORMAT,
++                            location->start, location->end);
+ 
+   if (other != NULL)
+     {
+       g_assert (other->start != other->end);
+-      g_string_append_printf (msg, ",%d-%d", other->start, other->end);
++      g_string_append_printf (msg, ",%" G_GSIZE_FORMAT "-%" G_GSIZE_FORMAT,
++                              other->start, other->end);
+     }
+   g_string_append_c (msg, ':');
+ 
+@@ -140,11 +144,15 @@
+ 
+ typedef struct
+ {
++  /* We should always have the following ordering constraint:
++   *   start <= this <= stream <= end
++   * Additionally, unless in an error or EOF state, `this < stream`.
++   */
+   const gchar *start;
+   const gchar *stream;
+   const gchar *end;
+ 
+-  const gchar *this;
++  const gchar *this;  /* (nullable) */
+ } TokenStream;
+ 
+ 
+@@ -175,7 +183,7 @@
+ static gboolean
+ token_stream_prepare (TokenStream *stream)
+ {
+-  gint brackets = 0;
++  gssize brackets = 0;
+   const gchar *end;
+ 
+   if (stream->this != NULL)
+@@ -405,7 +413,7 @@
+ pattern_copy (gchar       **out,
+               const gchar **in)
+ {
+-  gint brackets = 0;
++  gssize brackets = 0;
+ 
+   while (**in == 'a' || **in == 'm' || **in == 'M')
+     *(*out)++ = *(*in)++;
+@@ -597,7 +605,7 @@
+ {
+   GVariant *value;
+   gchar *pattern;
+-  gint i, j = 0;
++  size_t i, j = 0;
+ 
+   pattern = ast_get_pattern (ast, error);
+ 
+@@ -650,9 +658,9 @@
+                    GError      **error);
+ 
+ static void
+-ast_array_append (AST  ***array,
+-                  gint   *n_items,
+-                  AST    *ast)
++ast_array_append (AST    ***array,
++                  size_t   *n_items,
++                  AST      *ast)
+ {
+   if ((*n_items & (*n_items - 1)) == 0)
+     *array = g_renew (AST *, *array, *n_items ? 2 ** n_items : 1);
+@@ -661,10 +669,10 @@
+ }
+ 
+ static void
+-ast_array_free (AST  **array,
+-                gint   n_items)
++ast_array_free (AST    **array,
++                size_t   n_items)
+ {
+-  gint i;
++  size_t i;
+ 
+   for (i = 0; i < n_items; i++)
+     ast_free (array[i]);
+@@ -673,11 +681,11 @@
+ 
+ static gchar *
+ ast_array_get_pattern (AST    **array,
+-                       gint     n_items,
++                       size_t   n_items,
+                        GError **error)
+ {
+   gchar *pattern;
+-  gint i;
++  size_t i;
+ 
+   /* Find the pattern which applies to all children in the array, by l-folding a
+    * coalesce operation.
+@@ -709,7 +717,7 @@
+          * pair of values.
+          */
+         {
+-          int j = 0;
++          size_t j = 0;
+ 
+           while (TRUE)
+             {
+@@ -957,7 +965,7 @@
+   AST ast;
+ 
+   AST **children;
+-  gint n_children;
++  size_t n_children;
+ } Array;
+ 
+ static gchar *
+@@ -990,7 +998,7 @@
+   Array *array = (Array *) ast;
+   const GVariantType *childtype;
+   GVariantBuilder builder;
+-  gint i;
++  size_t i;
+ 
+   if (!g_variant_type_is_array (type))
+     return ast_type_error (ast, type, error);
+@@ -1076,7 +1084,7 @@
+   AST ast;
+ 
+   AST **children;
+-  gint n_children;
++  size_t n_children;
+ } Tuple;
+ 
+ static gchar *
+@@ -1086,7 +1094,7 @@
+   Tuple *tuple = (Tuple *) ast;
+   gchar *result = NULL;
+   gchar **parts;
+-  gint i;
++  size_t i;
+ 
+   parts = g_new (gchar *, tuple->n_children + 4);
+   parts[tuple->n_children + 1] = (gchar *) ")";
+@@ -1116,7 +1124,7 @@
+   Tuple *tuple = (Tuple *) ast;
+   const GVariantType *childtype;
+   GVariantBuilder builder;
+-  gint i;
++  size_t i;
+ 
+   if (!g_variant_type_is_tuple (type))
+     return ast_type_error (ast, type, error);
+@@ -1308,9 +1316,16 @@
+ 
+   AST **keys;
+   AST **values;
+-  gint n_children;
++
++  /* Iff this is DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY then this struct
++   * represents a single freestanding dict entry (`{1, "one"}`) rather than a
++   * full dict. In the freestanding case, @keys and @values have exactly one
++   * member each. */
++  size_t n_children;
+ } Dictionary;
+ 
++#define DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY ((size_t) -1)
++
+ static gchar *
+ dictionary_get_pattern (AST     *ast,
+                         GError **error)
+@@ -1325,7 +1340,7 @@
+     return g_strdup ("Ma{**}");
+ 
+   key_pattern = ast_array_get_pattern (dict->keys,
+-                                       abs (dict->n_children),
++                                       (dict->n_children == DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY) ? 1 : dict->n_children,
+                                        error);
+ 
+   if (key_pattern == NULL)
+@@ -1356,7 +1371,7 @@
+     return NULL;
+ 
+   result = g_strdup_printf ("M%s{%c%s}",
+-                            dict->n_children > 0 ? "a" : "",
++                            (dict->n_children > 0 && dict->n_children != DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY) ? "a" : "",
+                             key_char, value_pattern);
+   g_free (value_pattern);
+ 
+@@ -1370,7 +1385,7 @@
+ {
+   Dictionary *dict = (Dictionary *) ast;
+ 
+-  if (dict->n_children == -1)
++  if (dict->n_children == DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY)
+     {
+       const GVariantType *subtype;
+       GVariantBuilder builder;
+@@ -1403,7 +1418,7 @@
+     {
+       const GVariantType *entry, *key, *val;
+       GVariantBuilder builder;
+-      gint i;
++      size_t i;
+ 
+       if (!g_variant_type_is_subtype_of (type, G_VARIANT_TYPE_DICTIONARY))
+         return ast_type_error (ast, type, error);
+@@ -1444,12 +1459,12 @@
+ dictionary_free (AST *ast)
+ {
+   Dictionary *dict = (Dictionary *) ast;
+-  gint n_children;
++  size_t n_children;
+ 
+-  if (dict->n_children > -1)
+-    n_children = dict->n_children;
+-  else
++  if (dict->n_children == DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY)
+     n_children = 1;
++  else
++    n_children = dict->n_children;
+ 
+   ast_array_free (dict->keys, n_children);
+   ast_array_free (dict->values, n_children);
+@@ -1467,7 +1482,7 @@
+     maybe_wrapper, dictionary_get_value,
+     dictionary_free
+   };
+-  gint n_keys, n_values;
++  size_t n_keys, n_values;
+   gboolean only_one;
+   Dictionary *dict;
+   AST *first;
+@@ -1510,7 +1525,7 @@
+         goto error;
+ 
+       g_assert (n_keys == 1 && n_values == 1);
+-      dict->n_children = -1;
++      dict->n_children = DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY;
+ 
+       return (AST *) dict;
+     }
+@@ -1543,6 +1558,7 @@
+     }
+ 
+   g_assert (n_keys == n_values);
++  g_assert (n_keys != DICTIONARY_N_CHILDREN_FREESTANDING_ENTRY);
+   dict->n_children = n_keys;
+ 
+   return (AST *) dict;
+@@ -1621,9 +1637,9 @@
+  * No leading/trailing space allowed. */
+ static gboolean
+ unicode_unescape (const gchar  *src,
+-                  gint         *src_ofs,
++                  size_t       *src_ofs,
+                   gchar        *dest,
+-                  gint         *dest_ofs,
++                  size_t       *dest_ofs,
+                   gsize         length,
+                   SourceRef    *ref,
+                   GError      **error)
+@@ -1684,7 +1700,7 @@
+   gsize length;
+   gchar quote;
+   gchar *str;
+-  gint i, j;
++  size_t i, j;
+ 
+   token_stream_start_ref (stream, &ref);
+   token = token_stream_get (stream);
+@@ -1814,7 +1830,7 @@
+   gsize length;
+   gchar quote;
+   gchar *str;
+-  gint i, j;
++  size_t i, j;
+ 
+   token_stream_start_ref (stream, &ref);
+   token = token_stream_get (stream);
+@@ -2735,7 +2751,7 @@
+ static gboolean
+ parse_num (const gchar *num,
+            const gchar *limit,
+-           guint       *result)
++           size_t      *result)
+ {
+   gchar *endptr;
+   gint64 bignum;
+@@ -2745,10 +2761,12 @@
+   if (endptr != limit)
+     return FALSE;
+ 
++  /* The upper bound here is more restrictive than it technically needs to be,
++   * but should be enough for any practical situation: */
+   if (bignum < 0 || bignum > G_MAXINT)
+     return FALSE;
+ 
+-  *result = (guint) bignum;
++  *result = (size_t) bignum;
+ 
+   return TRUE;
+ }
+@@ -2759,7 +2777,7 @@
+ {
+   const gchar *last_nl;
+   gchar *chomped;
+-  gint i;
++  size_t i;
+ 
+   /* This is an error at the end of input.  If we have a file
+    * with newlines, that's probably the empty string after the
+@@ -2904,7 +2922,7 @@
+ 
+   if (dash == NULL || colon < dash)
+     {
+-      guint point;
++      size_t point;
+ 
+       /* we have a single point */
+       if (!parse_num (error->message, colon, &point))
+@@ -2922,7 +2940,7 @@
+       /* We have one or two ranges... */
+       if (comma && comma < colon)
+         {
+-          guint start1, end1, start2, end2;
++          size_t start1, end1, start2, end2;
+           const gchar *dash2;
+ 
+           /* Two ranges */
+@@ -2938,7 +2956,7 @@
+         }
+       else
+         {
+-          guint start, end;
++          size_t start, end;
+ 
+           /* One range */
+           if (!parse_num (error->message, dash, &start) || !parse_num (dash + 1, colon, &end))
+diff -ruN a/glib/gvariant-serialiser.c b/glib/gvariant-serialiser.c
+--- a/glib/gvariant-serialiser.c
++++ b/glib/gvariant-serialiser.c
+@@ -1247,7 +1247,7 @@
+ 
+       while (offset & alignment)
+         {
+-          if (offset > value.size || value.data[offset] != '\0')
++          if (offset >= value.size || value.data[offset] != '\0')
+             return FALSE;
+           offset++;
+         }
+diff -ruN a/glib/tests/gdatetime.c b/glib/tests/gdatetime.c
+--- a/glib/tests/gdatetime.c
++++ b/glib/tests/gdatetime.c
+@@ -866,6 +866,23 @@
+    * NaN */
+   dt = g_date_time_new_from_iso8601 ("0005306 000001,666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666600080000-00", NULL);
+   g_assert_null (dt);
++
++  /* Various invalid timezone offsets which look like they could be in
++   * `+hh:mm`, `-hh:mm`, `+hhmm`, `-hhmm`, `+hh` or `-hh` format */
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+01:xx", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+xx:00", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+xx:xx", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+01xx", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+xx00", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+xxxx", NULL);
++  g_assert_null (dt);
++  dt = g_date_time_new_from_iso8601 ("2025-02-18T18:14:00+xx", NULL);
++  g_assert_null (dt);
+ }
+ 
+ typedef struct {
+@@ -1124,6 +1141,24 @@
+   TEST_ADD_FULL (2010,  8, 25, 22, 45, 0,
+                     0,  1,  6,  1, 25, 0,
+                  2010, 10,  2,  0, 10, 0);
++
++#define TEST_ADD_FULL_ERROR(y,m,d,h,mi,s,ay,am,ad,ah,ami,as) G_STMT_START { \
++  GDateTime *dt; \
++  dt = g_date_time_new_utc (y, m, d, h, mi, s); \
++  g_assert_null (g_date_time_add_full (dt, ay, am, ad, ah, ami, as)); \
++  g_date_time_unref (dt); \
++} G_STMT_END
++
++  TEST_ADD_FULL_ERROR (     1, 12,  1,  0,  0, 0,
++                           -1,  0,  0,  0,  0, 0);
++  TEST_ADD_FULL_ERROR (     1, 12,  1,  0,  0, 0,
++                        10000,  0,  0,  0,  0, 0);
++  TEST_ADD_FULL_ERROR (  9999, 12,  1,  0,  0, 0,
++                       -10000,  0,  0,  0,  0, 0);
++  TEST_ADD_FULL_ERROR (     1, 12,  1,  0,  0, 0,
++                            0,  0, 3660001,  0,  0, 0);
++  TEST_ADD_FULL_ERROR (  9999, 12,  1,  0,  0, 0,
++                            0,  0, -3660001,  0,  0, 0);
+ }
+ 
+ static void
+diff -ruN a/glib/tests/gvariant.c b/glib/tests/gvariant.c
+--- a/glib/tests/gvariant.c
++++ b/glib/tests/gvariant.c
+@@ -5646,6 +5646,52 @@
+   g_variant_unref (variant);
+ }
+ 
++/* This is a regression test that looping over the padding bytes in a short
++ * (non-normal) tuple doesn’t overflow the input data.
++ *
++ * See https://gitlab.gnome.org/GNOME/glib/-/issues/3915 */
++static void
++test_normal_checking_tuple_offsets6 (void)
++{
++  /*
++   * Type: (ynqiuxthdsog) — 12 members, first member 'y' (byte) has
++   * alignment 0, second 'n' (int16) has alignment 1.
++   * With 1 byte of data (0x28), after reading the first byte member,
++   * offset=1, alignment check for 'n' requires offset to be even,
++   * so the while loop checks value.data[1] — but size is only 1.
++   *
++   * Use heap allocation via GBytes so ASan reports heap-buffer-overflow.
++   */
++  guint8 *heap_data = NULL;
++  GBytes *bytes = NULL;
++  const GVariantType *data_type = G_VARIANT_TYPE ("(ynqiuxthdsog)");
++  GVariant *variant = NULL;
++  GVariant *normal_variant = NULL;
++  GVariant *expected = NULL;
++
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/issues/3915");
++
++  heap_data = g_malloc (1);
++  heap_data[0] = 0x28;
++  bytes = g_bytes_new_take (heap_data, 1);
++
++  variant = g_variant_new_from_bytes (data_type, bytes, FALSE);
++  g_assert_nonnull (variant);
++
++  g_assert_false (g_variant_is_normal_form (variant));
++
++  normal_variant = g_variant_get_normal_form (variant);
++  g_assert_nonnull (normal_variant);
++
++  expected = g_variant_new_parsed ("(byte 0x28, int16 0, uint16 0, 0, uint32 0, int64 0, uint64 0, handle 0, 0.0, '', objectpath '/', signature '')");
++  g_assert_cmpvariant (expected, variant);
++  g_assert_cmpvariant (expected, normal_variant);
++
++  g_variant_unref (expected);
++  g_variant_unref (normal_variant);
++  g_variant_unref (variant);
++}
++
+ /* Test that an otherwise-valid serialised GVariant is considered non-normal if
+  * its offset table entries are too wide.
+  *
+@@ -5899,6 +5945,8 @@
+                    test_normal_checking_tuple_offsets4);
+   g_test_add_func ("/gvariant/normal-checking/tuple-offsets5",
+                    test_normal_checking_tuple_offsets5);
++  g_test_add_func ("/gvariant/normal-checking/tuple-offsets6",
++                   test_normal_checking_tuple_offsets6);
+   g_test_add_func ("/gvariant/normal-checking/tuple-offsets/minimal-sized",
+                    test_normal_checking_tuple_offsets_minimal_sized);
+   g_test_add_func ("/gvariant/normal-checking/empty-object-path",
+diff -ruN a/glib/tests/io-channel.c b/glib/tests/io-channel.c
+--- a/glib/tests/io-channel.c
++++ b/glib/tests/io-channel.c
+@@ -216,6 +216,65 @@
+   g_free (filename);
+ }
+ 
++static void
++test_read_line_long_terminator (void)
++{
++  guint8 *test_data = NULL;
++  size_t test_data_len = 0;
++  int fd;
++  char *filename = NULL;
++  GIOChannel *channel = NULL;
++  GError *local_error = NULL;
++  char *line = NULL;
++  size_t line_length, terminator_pos;
++  const char *line_term;
++  int line_term_length;
++  GIOStatus status;
++
++  g_test_summary ("Test that reading a line when using a long terminator doesn’t over-read the buffer.");
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/work_items/3925");
++
++  /* Write out a temporary file containing 2047 bytes. This is enough to make it
++   * near the length of the GString buffer when read back in. */
++  fd = g_file_open_tmp ("glib-test-io-channel-XXXXXX", &filename, &local_error);
++  g_assert_no_error (local_error);
++  g_close (g_steal_fd (&fd), NULL);
++
++  test_data_len = 2047;
++  test_data = g_malloc (test_data_len);
++  memset (test_data, 'M', test_data_len);
++  g_file_set_contents (filename, (const gchar *) test_data, test_data_len, &local_error);
++  g_assert_no_error (local_error);
++
++  /* Create the channel. */
++  channel = g_io_channel_new_file (filename, "r", &local_error);
++  g_assert_no_error (local_error);
++
++  /* Use a long line terminator so it could potentially over-read the end of the buffer. */
++  g_io_channel_set_line_term (channel, "DEADBEEF", 8);
++
++  line_term = g_io_channel_get_line_term (channel, &line_term_length);
++  g_assert_cmpstr (line_term, ==, "DEADBEEF");
++  g_assert_cmpint (line_term_length, ==, 8);
++
++  g_io_channel_set_encoding (channel, "UTF-8", &local_error);
++  g_assert_no_error (local_error);
++
++  status = g_io_channel_read_line (channel, &line, &line_length,
++                                   &terminator_pos, &local_error);
++  g_assert_no_error (local_error);
++  g_assert_cmpint (status, ==, G_IO_STATUS_NORMAL);
++  g_assert_cmpuint (line_length, ==, 2047);
++  g_assert_cmpuint (terminator_pos, ==, 2047);
++  g_assert_cmpmem (line, line_length, test_data, test_data_len);
++
++  g_free (line);
++  g_io_channel_unref (channel);
++  g_free (test_data);
++  g_unlink (filename);
++  g_free (filename);
++}
++
+ int
+ main (int   argc,
+       char *argv[])
+@@ -224,6 +283,7 @@
+ 
+   g_test_add_func ("/io-channel/read-write", test_read_write);
+   g_test_add_func ("/io-channel/read-line/embedded-nuls", test_read_line_embedded_nuls);
++  g_test_add_func ("/io-channel/read-line/long-terminator", test_read_line_long_terminator);
+ 
+   return g_test_run ();
+ }
+diff -ruN a/glib/tests/keyfile.c b/glib/tests/keyfile.c
+--- a/glib/tests/keyfile.c
++++ b/glib/tests/keyfile.c
+@@ -856,6 +856,28 @@
+ }
+ 
+ static void
++test_locale_string_empty (void)
++{
++  GKeyFile *keyfile = NULL;
++  GError *local_error = NULL;
++  const char *data =
++    "[valid]\n"
++    "key1=\n";
++
++  g_test_summary ("Check that loading an empty translatable string works");
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/issues/3930");
++
++  keyfile = g_key_file_new ();
++
++  g_key_file_load_from_data (keyfile, data, -1, G_KEY_FILE_NONE, &local_error);
++  g_assert_no_error (local_error);
++
++  check_locale_string_list_value (keyfile, "valid", "key1", NULL, NULL);
++
++  g_key_file_free (keyfile);
++}
++
++static void
+ test_lists (void)
+ {
+   GKeyFile *keyfile;
+@@ -1944,6 +1966,7 @@
+   g_test_add_func ("/keyfile/number", test_number);
+   g_test_add_func ("/keyfile/locale-string", test_locale_string);
+   g_test_add_func ("/keyfile/locale-string/multiple-loads", test_locale_string_multiple_loads);
++  g_test_add_func ("/keyfile/locale-string/empty", test_locale_string_empty);
+   g_test_add_func ("/keyfile/lists", test_lists);
+   g_test_add_func ("/keyfile/lists-set-get", test_lists_set_get);
+   g_test_add_func ("/keyfile/group-remove", test_group_remove);
+diff -ruN a/glib/tests/regex.c b/glib/tests/regex.c
+--- a/glib/tests/regex.c
++++ b/glib/tests/regex.c
+@@ -2529,6 +2529,89 @@
+   g_regex_unref (regex);
+ }
+ 
++static void
++test_replace_raw_change_case (void)
++{
++  GError *local_error = NULL;
++  GRegex *regex = NULL;
++
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/issues/3918");
++  g_test_summary ("Test that case changes as part of a replacement are handled correctly in G_REGEX_RAW mode");
++
++  /*
++   * Match a multi-byte sequence in RAW mode. The pattern matches
++   * exactly 2 bytes. The subject contains a 4-byte UTF-8 lead (0xF4)
++   * followed by only one continuation byte, then NUL.
++   *
++   * The matched substring will be "\xf4\x80" (2 bytes, heap-allocated
++   * as 3-byte buffer with NUL). If the code regresses and tries to handle
++   * the replacement as UTF-8 then g_utf8_get_char() would see 0xF4 and try
++   * to read 4 bytes, going 1 byte past the NUL into OOB territory.
++   */
++  regex = g_regex_new ("..", G_REGEX_RAW, 0, &local_error);
++  g_assert_no_error (local_error);
++
++  /*
++   * Build a subject string with truncated UTF-8.
++   * \xF4 = 4-byte UTF-8 lead byte
++   * \x80 = continuation byte
++   * No 3rd/4th continuation bytes — the match is only 2 bytes.
++   *
++   * \U\0 = uppercase the entire match → triggers string_append()
++   * with case change on the 2-byte non-UTF-8 match.
++   */
++  char subject[] = "\xf4\x80";
++  char *result = g_regex_replace (regex, subject, -1, 0, "\\U\\0", 0, &local_error);
++  g_assert_no_error (local_error);
++
++  g_clear_pointer (&result, g_free);
++  g_clear_pointer (&regex, g_regex_unref);
++
++  /*
++   * Second variant: single-char case change \u with \0 backreference.
++   */
++  regex = g_regex_new (".", G_REGEX_RAW, 0, &local_error);
++  g_assert_no_error (local_error);
++
++  char subject2[] = "\xe6\xb0";  /* 3-byte UTF-8 lead, only 2 bytes */
++  result = g_regex_replace (regex, subject2, -1, 0, "\\u\\0", 0, &local_error);
++  g_assert_no_error (local_error);
++
++  g_clear_pointer (&result, g_free);
++  g_clear_pointer (&regex, g_regex_unref);
++}
++
++static void
++test_split_raw (void)
++{
++  GError *local_error = NULL;
++  GRegex *regex = NULL;
++  char *subject = NULL;
++  char **tokens = NULL;
++
++  g_test_bug ("https://gitlab.gnome.org/GNOME/glib/-/issues/3919");
++  g_test_summary ("Test splitting a string in G_REGEX_RAW mode");
++
++  /* Empty pattern in RAW mode — matches at every position */
++  regex = g_regex_new ("", G_REGEX_RAW, 0, &local_error);
++  g_assert_no_error (local_error);
++
++  /*
++   * Subject: single continuation byte 0x80, heap-allocated.
++   * When split encounters empty match at position 0, if the code were to
++   * regress then PREV_CHAR would call g_utf8_prev_char(&string[0]), which
++   * would scan backwards past the allocation start.
++   */
++  subject = g_strdup ("\x80");
++
++  tokens = g_regex_split_full (regex, subject, -1, 0, 0, 0, &local_error);
++  g_assert_no_error (local_error);
++
++  g_strfreev (tokens);
++  g_free (subject);
++  g_regex_unref (regex);
++}
++
+ int
+ main (int argc, char *argv[])
+ {
+@@ -2550,6 +2633,8 @@
+   g_test_add_func ("/regex/jit-unsupported-matching", test_jit_unsupported_matching_options);
+   g_test_add_func ("/regex/unmatched-named-subpattern", test_unmatched_named_subpattern);
+   g_test_add_func ("/regex/compiled-regex-after-jit-failure", test_compiled_regex_after_jit_failure);
++  g_test_add_func ("/regex/replace-raw-change-case", test_replace_raw_change_case);
++  g_test_add_func ("/regex/split-raw", test_split_raw);
+ 
+   /* TEST_NEW(pattern, compile_opts, match_opts) */
+   TEST_NEW("[A-Z]+", G_REGEX_CASELESS | G_REGEX_EXTENDED | G_REGEX_OPTIMIZE, G_REGEX_MATCH_NOTBOL | G_REGEX_MATCH_PARTIAL);
+diff -ruN a/glib/tests/unicode.c b/glib/tests/unicode.c
+--- a/glib/tests/unicode.c
++++ b/glib/tests/unicode.c
+@@ -605,6 +605,7 @@
+   const char *locale;
+   const char *test;
+   const char *expected;
++  size_t line = 0;
+   char *convert;
+   char *current_locale = setlocale (LC_CTYPE, NULL);
+   char *old_lc_all, *old_lc_messages, *old_lang;
+@@ -625,6 +626,7 @@
+ 
+   while (fgets (buffer, sizeof (buffer), infile))
+     {
++      line++;
+       if (buffer[0] == '#')
+         continue;
+ 
+@@ -667,6 +669,9 @@
+ 
+       convert = g_utf8_strup (test, -1);
+       expected = strings[4][0] ? strings[4] : test;
++      g_test_message ("Converting '%s' => '%s' (line %" G_GSIZE_FORMAT ")",
++                      test, expected, line);
++
+       g_assert_cmpstr (convert, ==, expected);
+       g_free (convert);
+ 
+@@ -686,9 +691,11 @@
+ 
+   infile = fopen (filename, "r");
+   g_assert (infile != NULL);
++  line = 0;
+ 
+   while (fgets (buffer, sizeof (buffer), infile))
+     {
++      line++;
+       if (buffer[0] == '#')
+         continue;
+ 
+@@ -698,6 +705,9 @@
+       test = strings[0];
+ 
+       convert = g_utf8_casefold (test, -1);
++      g_test_message ("Converting '%s' => '%s' (line %" G_GSIZE_FORMAT ")",
++                      test, strings[1], line);
++
+       g_assert_cmpstr (convert, ==, strings[1]);
+       g_free (convert);
+ 

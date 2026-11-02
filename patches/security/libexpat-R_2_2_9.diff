@@ -1,0 +1,1237 @@
+riscos-gtk: security fixes for libexpat-R_2_2_9, from Ubuntu's package 2.2.9-1ubuntu0.8
+(expat_2.2.9-1ubuntu0.8.debian.tar.xz: debian/patches), applied in its series order:
+  CVE-2021-45960.patch
+  CVE-2021-46143.patch
+  CVE-2022-22822-to-CVE-2022-22827.patch
+  CVE-2022-23852-1.patch
+  CVE-2022-23852-2.patch
+  CVE-2022-23990.patch
+  CVE-2022-25235-1.patch
+  CVE-2022-25235-2.patch
+  CVE-2022-25236-1.patch
+  CVE-2022-25236-2.patch
+  CVE-2022-25313.patch
+  CVE-2022-25314.patch
+  CVE-2022-25315.patch
+  CVE-2022-25236-3.patch
+  CVE-2022-25236-4.patch
+  CVE-2022-25236-5.patch
+  CVE-2022-25236-6.patch
+  CVE-2022-40674.patch
+  CVE-2022-43680-1.patch
+  CVE-2022-43680-2.patch
+  CVE-2024-45490-1.patch
+  CVE-2024-45490-2.patch
+  CVE-2024-45491.patch
+  CVE-2024-45492.patch
+  CVE-2024-50602-1.patch
+  CVE-2024-50602-2.patch
+  CVE-2024-50602-3.patch
+Made by tools/mksecuritypatch.sh from expat_2.2.9.orig.tar.gz.
+
+diff -ruN a/expat/doc/reference.html b/expat/doc/reference.html
+--- a/expat/doc/reference.html
++++ b/expat/doc/reference.html
+@@ -936,6 +936,14 @@
+ to support RDF processors. It is a programming error to use the null separator
+ with <a href= "#XML_SetReturnNSTriplet">namespace triplets</a>.</div>
+ 
++<p><strong>Note:</strong>
++Expat does not validate namespace URIs (beyond encoding)
++against RFC 3986 today (and is not required to do so with regard to
++the XML 1.0 namespaces specification) but it may start doing that
++in future releases.  Before that, an application using Expat must
++be ready to receive namespace URIs containing non-URI characters.
++</p>
++
+ <pre class="fcndec" id="XML_ParserCreate_MM">
+ XML_Parser XMLCALL
+ XML_ParserCreate_MM(const XML_Char *encoding,
+@@ -1041,7 +1049,9 @@
+ that are part of the document is indicated by <code>len</code>. This means
+ that <code>s</code> doesn't have to be null terminated. It also means that
+ if <code>len</code> is larger than the number of bytes in the block of
+-memory that <code>s</code> points at, then a memory fault is likely. The
++memory that <code>s</code> points at, then a memory fault is likely.
++Negative values for <code>len</code> are rejected since Expat 2.2.1.
++The
+ <code>isFinal</code> parameter informs the parser that this is the last
+ piece of the document. Frequently, the last piece is empty (i.e.
+ <code>len</code> is zero.)
+@@ -1056,11 +1066,17 @@
+                 int isFinal);
+ </pre>
+ <div class="fcndef">
++<p>
+ This is just like <code><a href= "#XML_Parse" >XML_Parse</a></code>,
+ except in this case Expat provides the buffer.  By obtaining the
+ buffer from Expat with the <code><a href= "#XML_GetBuffer"
+ >XML_GetBuffer</a></code> function, the application can avoid double
+ copying of the input.
++</p>
++
++<p>
++Negative values for <code>len</code> are rejected since Expat 2.6.3.
++</p>
+ </div>
+ 
+ <pre class="fcndec" id="XML_GetBuffer">
+diff -ruN a/expat/lib/expat.h b/expat/lib/expat.h
+--- a/expat/lib/expat.h
++++ b/expat/lib/expat.h
+@@ -115,7 +115,9 @@
+   XML_ERROR_RESERVED_PREFIX_XMLNS,
+   XML_ERROR_RESERVED_NAMESPACE_URI,
+   /* Added in 2.2.1. */
+-  XML_ERROR_INVALID_ARGUMENT
++  XML_ERROR_INVALID_ARGUMENT,
++  /* Added in 2.6.4. */
++  XML_ERROR_NOT_STARTED
+ };
+ 
+ enum XML_Content_Type {
+@@ -226,6 +228,18 @@
+    and the local part will be concatenated without any separator.
+    It is a programming error to use the separator '\0' with namespace
+    triplets (see XML_SetReturnNSTriplet).
++
++   If a namespace separator is chosen that can be part of a URI or
++   part of an XML name, splitting an expanded name back into its
++   1, 2 or 3 original parts on application level in the element handler
++   may end up vulnerable, so these are advised against;  sane choices for
++   a namespace separator are e.g. '\n' (line feed) and '|' (pipe).
++
++   Note that Expat does not validate namespace URIs (beyond encoding)
++   against RFC 3986 today (and is not required to do so with regard to
++   the XML 1.0 namespaces specification) but it may start doing that
++   in future releases.  Before that, an application using Expat must
++   be ready to receive namespace URIs containing non-URI characters.
+ */
+ XMLPARSEAPI(XML_Parser)
+ XML_ParserCreateNS(const XML_Char *encoding, XML_Char namespaceSeparator);
+diff -ruN a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
+--- a/expat/lib/xmlparse.c
++++ b/expat/lib/xmlparse.c
+@@ -970,6 +970,14 @@
+   parserInit(parser, encodingName);
+ 
+   if (encodingName && ! parser->m_protocolEncodingName) {
++    if (dtd) {
++      // We need to stop the upcoming call to XML_ParserFree from happily
++      // destroying parser->m_dtd because the DTD is shared with the parent
++      // parser and the only guard that keeps XML_ParserFree from destroying
++      // parser->m_dtd is parser->m_isParamEntity but it will be set to
++      // XML_TRUE only later in XML_ExternalEntityParserCreate (or not at all).
++      parser->m_dtd = NULL;
++    }
+     XML_ParserFree(parser);
+     return NULL;
+   }
+@@ -1866,6 +1874,12 @@
+ 
+   if (parser == NULL)
+     return XML_STATUS_ERROR;
++
++  if (len < 0) {
++    parser->m_errorCode = XML_ERROR_INVALID_ARGUMENT;
++    return XML_STATUS_ERROR;
++  }
++
+   switch (parser->m_parsingStatus.parsing) {
+   case XML_SUSPENDED:
+     parser->m_errorCode = XML_ERROR_SUSPENDED;
+@@ -1952,6 +1966,11 @@
+     keep = (int)EXPAT_SAFE_PTR_DIFF(parser->m_bufferPtr, parser->m_buffer);
+     if (keep > XML_CONTEXT_BYTES)
+       keep = XML_CONTEXT_BYTES;
++    /* Detect and prevent integer overflow */
++    if (keep > INT_MAX - neededSize) {
++      parser->m_errorCode = XML_ERROR_NO_MEMORY;
++      return NULL;
++    }
+     neededSize += keep;
+ #endif /* defined XML_CONTEXT_BYTES */
+     if (neededSize
+@@ -2041,6 +2060,9 @@
+   if (parser == NULL)
+     return XML_STATUS_ERROR;
+   switch (parser->m_parsingStatus.parsing) {
++  case XML_INITIALIZED:
++    parser->m_errorCode = XML_ERROR_NOT_STARTED;
++    return XML_STATUS_ERROR;
+   case XML_SUSPENDED:
+     if (resumable) {
+       parser->m_errorCode = XML_ERROR_SUSPENDED;
+@@ -2051,7 +2073,7 @@
+   case XML_FINISHED:
+     parser->m_errorCode = XML_ERROR_FINISHED;
+     return XML_STATUS_ERROR;
+-  default:
++  case XML_PARSING:
+     if (resumable) {
+ #ifdef XML_DTD
+       if (parser->m_isParamEntity) {
+@@ -2062,6 +2084,9 @@
+       parser->m_parsingStatus.parsing = XML_SUSPENDED;
+     } else
+       parser->m_parsingStatus.parsing = XML_FINISHED;
++    break;
++  default:
++    assert(0);
+   }
+   return XML_STATUS_OK;
+ }
+@@ -2318,6 +2343,9 @@
+   /* Added in 2.2.5. */
+   case XML_ERROR_INVALID_ARGUMENT: /* Constant added in 2.2.1, already */
+     return XML_L("invalid argument");
++  /* Added in 2.6.4. */
++  case XML_ERROR_NOT_STARTED:
++    return XML_L("parser not started");
+   }
+   return NULL;
+ }
+@@ -2400,6 +2428,7 @@
+   while (tag) {
+     int bufSize;
+     int nameLen = sizeof(XML_Char) * (tag->name.strLen + 1);
++    size_t rawNameLen;
+     char *rawNameBuf = tag->buf + nameLen;
+     /* Stop if already stored.  Since m_tagStack is a stack, we can stop
+        at the first entry that has already been copied; everything
+@@ -2411,7 +2440,11 @@
+     /* For re-use purposes we need to ensure that the
+        size of tag->buf is a multiple of sizeof(XML_Char).
+     */
+-    bufSize = nameLen + ROUND_UP(tag->rawNameLength, sizeof(XML_Char));
++    rawNameLen = ROUND_UP(tag->rawNameLength, sizeof(XML_Char));
++    /* Detect and prevent integer overflow. */
++    if (rawNameLen > (size_t)INT_MAX - nameLen)
++      return XML_FALSE;
++    bufSize = nameLen + (int)rawNameLen;
+     if (bufSize > tag->bufEnd - tag->buf) {
+       char *temp = (char *)REALLOC(parser, tag->buf, bufSize);
+       if (temp == NULL)
+@@ -3068,13 +3101,38 @@
+ 
+   /* get the attributes from the tokenizer */
+   n = XmlGetAttributes(enc, attStr, parser->m_attsSize, parser->m_atts);
++
++  /* Detect and prevent integer overflow */
++  if (n > INT_MAX - nDefaultAtts) {
++    return XML_ERROR_NO_MEMORY;
++  }
++
+   if (n + nDefaultAtts > parser->m_attsSize) {
+     int oldAttsSize = parser->m_attsSize;
+     ATTRIBUTE *temp;
+ #ifdef XML_ATTR_INFO
+     XML_AttrInfo *temp2;
+ #endif
++
++    /* Detect and prevent integer overflow */
++    if ((nDefaultAtts > INT_MAX - INIT_ATTS_SIZE)
++        || (n > INT_MAX - (nDefaultAtts + INIT_ATTS_SIZE))) {
++      return XML_ERROR_NO_MEMORY;
++    }
++
+     parser->m_attsSize = n + nDefaultAtts + INIT_ATTS_SIZE;
++
++    /* Detect and prevent integer overflow.
++     * The preprocessor guard addresses the "always false" warning
++     * from -Wtype-limits on platforms where
++     * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++    if ((unsigned)parser->m_attsSize > (size_t)(-1) / sizeof(ATTRIBUTE)) {
++      parser->m_attsSize = oldAttsSize;
++      return XML_ERROR_NO_MEMORY;
++    }
++#endif
++
+     temp = (ATTRIBUTE *)REALLOC(parser, (void *)parser->m_atts,
+                                 parser->m_attsSize * sizeof(ATTRIBUTE));
+     if (temp == NULL) {
+@@ -3083,6 +3141,17 @@
+     }
+     parser->m_atts = temp;
+ #ifdef XML_ATTR_INFO
++    /* Detect and prevent integer overflow.
++     * The preprocessor guard addresses the "always false" warning
++     * from -Wtype-limits on platforms where
++     * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#  if UINT_MAX >= SIZE_MAX
++    if ((unsigned)parser->m_attsSize > (size_t)(-1) / sizeof(XML_AttrInfo)) {
++      parser->m_attsSize = oldAttsSize;
++      return XML_ERROR_NO_MEMORY;
++    }
++#  endif
++
+     temp2 = (XML_AttrInfo *)REALLOC(parser, (void *)parser->m_attInfo,
+                                     parser->m_attsSize * sizeof(XML_AttrInfo));
+     if (temp2 == NULL) {
+@@ -3221,7 +3290,13 @@
+   if (nPrefixes) {
+     int j; /* hash table index */
+     unsigned long version = parser->m_nsAttsVersion;
+-    int nsAttsSize = (int)1 << parser->m_nsAttsPower;
++
++    /* Detect and prevent invalid shift */
++    if (parser->m_nsAttsPower >= sizeof(unsigned int) * 8 /* bits per byte */) {
++      return XML_ERROR_NO_MEMORY;
++    }
++
++    unsigned int nsAttsSize = 1u << parser->m_nsAttsPower;
+     unsigned char oldNsAttsPower = parser->m_nsAttsPower;
+     /* size of hash table must be at least 2 * (# of prefixed attributes) */
+     if ((nPrefixes << 1)
+@@ -3232,7 +3307,28 @@
+         ;
+       if (parser->m_nsAttsPower < 3)
+         parser->m_nsAttsPower = 3;
+-      nsAttsSize = (int)1 << parser->m_nsAttsPower;
++
++      /* Detect and prevent invalid shift */
++      if (parser->m_nsAttsPower >= sizeof(nsAttsSize) * 8 /* bits per byte */) {
++        /* Restore actual size of memory in m_nsAtts */
++        parser->m_nsAttsPower = oldNsAttsPower;
++        return XML_ERROR_NO_MEMORY;
++      }
++
++      nsAttsSize = 1u << parser->m_nsAttsPower;
++
++      /* Detect and prevent integer overflow.
++       * The preprocessor guard addresses the "always false" warning
++       * from -Wtype-limits on platforms where
++       * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++      if (nsAttsSize > (size_t)(-1) / sizeof(NS_ATT)) {
++        /* Restore actual size of memory in m_nsAtts */
++        parser->m_nsAttsPower = oldNsAttsPower;
++        return XML_ERROR_NO_MEMORY;
++      }
++#endif
++
+       temp = (NS_ATT *)REALLOC(parser, parser->m_nsAtts,
+                                nsAttsSize * sizeof(NS_ATT));
+       if (! temp) {
+@@ -3390,9 +3486,31 @@
+   tagNamePtr->prefixLen = prefixLen;
+   for (i = 0; localPart[i++];)
+     ; /* i includes null terminator */
++
++  /* Detect and prevent integer overflow */
++  if (binding->uriLen > INT_MAX - prefixLen
++      || i > INT_MAX - (binding->uriLen + prefixLen)) {
++    return XML_ERROR_NO_MEMORY;
++  }
++
+   n = i + binding->uriLen + prefixLen;
+   if (n > binding->uriAlloc) {
+     TAG *p;
++
++    /* Detect and prevent integer overflow */
++    if (n > INT_MAX - EXPAND_SPARE) {
++      return XML_ERROR_NO_MEMORY;
++    }
++    /* Detect and prevent integer overflow.
++     * The preprocessor guard addresses the "always false" warning
++     * from -Wtype-limits on platforms where
++     * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++    if ((unsigned)(n + EXPAND_SPARE) > (size_t)(-1) / sizeof(XML_Char)) {
++      return XML_ERROR_NO_MEMORY;
++    }
++#endif
++
+     uri = (XML_Char *)MALLOC(parser, (n + EXPAND_SPARE) * sizeof(XML_Char));
+     if (! uri)
+       return XML_ERROR_NO_MEMORY;
+@@ -3417,6 +3535,117 @@
+   return XML_ERROR_NONE;
+ }
+ 
++static XML_Bool
++is_rfc3986_uri_char(XML_Char candidate) {
++  // For the RFC 3986 ANBF grammar see
++  // https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
++
++  switch (candidate) {
++  // From rule "ALPHA" (uppercase half)
++  case 'A':
++  case 'B':
++  case 'C':
++  case 'D':
++  case 'E':
++  case 'F':
++  case 'G':
++  case 'H':
++  case 'I':
++  case 'J':
++  case 'K':
++  case 'L':
++  case 'M':
++  case 'N':
++  case 'O':
++  case 'P':
++  case 'Q':
++  case 'R':
++  case 'S':
++  case 'T':
++  case 'U':
++  case 'V':
++  case 'W':
++  case 'X':
++  case 'Y':
++  case 'Z':
++
++  // From rule "ALPHA" (lowercase half)
++  case 'a':
++  case 'b':
++  case 'c':
++  case 'd':
++  case 'e':
++  case 'f':
++  case 'g':
++  case 'h':
++  case 'i':
++  case 'j':
++  case 'k':
++  case 'l':
++  case 'm':
++  case 'n':
++  case 'o':
++  case 'p':
++  case 'q':
++  case 'r':
++  case 's':
++  case 't':
++  case 'u':
++  case 'v':
++  case 'w':
++  case 'x':
++  case 'y':
++  case 'z':
++
++  // From rule "DIGIT"
++  case '0':
++  case '1':
++  case '2':
++  case '3':
++  case '4':
++  case '5':
++  case '6':
++  case '7':
++  case '8':
++  case '9':
++
++  // From rule "pct-encoded"
++  case '%':
++
++  // From rule "unreserved"
++  case '-':
++  case '.':
++  case '_':
++  case '~':
++
++  // From rule "gen-delims"
++  case ':':
++  case '/':
++  case '?':
++  case '#':
++  case '[':
++  case ']':
++  case '@':
++
++  // From rule "sub-delims"
++  case '!':
++  case '$':
++  case '&':
++  case '\'':
++  case '(':
++  case ')':
++  case '*':
++  case '+':
++  case ',':
++  case ';':
++  case '=':
++    return XML_TRUE;
++
++  default:
++    return XML_FALSE;
++  }
++}
++
+ /* addBinding() overwrites the value of prefix->binding without checking.
+    Therefore one must keep track of the old value outside of addBinding().
+ */
+@@ -3472,6 +3701,29 @@
+     if (! mustBeXML && isXMLNS
+         && (len > xmlnsLen || uri[len] != xmlnsNamespace[len]))
+       isXMLNS = XML_FALSE;
++
++    // NOTE: While Expat does not validate namespace URIs against RFC 3986
++    //       today (and is not REQUIRED to do so with regard to the XML 1.0
++    //       namespaces specification) we have to at least make sure, that
++    //       the application on top of Expat (that is likely splitting expanded
++    //       element names ("qualified names") of form
++    //       "[uri sep] local [sep prefix] '\0'" back into 1, 2 or 3 pieces
++    //       in its element handler code) cannot be confused by an attacker
++    //       putting additional namespace separator characters into namespace
++    //       declarations.  That would be ambiguous and not to be expected.
++    //
++    //       While the HTML API docs of function XML_ParserCreateNS have been
++    //       advising against use of a namespace separator character that can
++    //       appear in a URI for >20 years now, some widespread applications
++    //       are using URI characters (':' (colon) in particular) for a
++    //       namespace separator, in practice.  To keep these applications
++    //       functional, we only reject namespaces URIs containing the
++    //       application-chosen namespace separator if the chosen separator
++    //       is a non-URI character with regard to RFC 3986.
++    if (parser->m_ns && (uri[len] == parser->m_namespaceSeparator)
++        && ! is_rfc3986_uri_char(uri[len])) {
++      return XML_ERROR_SYNTAX;
++    }
+   }
+   isXML = isXML && len == xmlLen;
+   isXMLNS = isXMLNS && len == xmlnsLen;
+@@ -3488,6 +3740,21 @@
+   if (parser->m_freeBindingList) {
+     b = parser->m_freeBindingList;
+     if (len > b->uriAlloc) {
++      /* Detect and prevent integer overflow */
++      if (len > INT_MAX - EXPAND_SPARE) {
++        return XML_ERROR_NO_MEMORY;
++      }
++
++      /* Detect and prevent integer overflow.
++       * The preprocessor guard addresses the "always false" warning
++       * from -Wtype-limits on platforms where
++       * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++      if ((unsigned)(len + EXPAND_SPARE) > (size_t)(-1) / sizeof(XML_Char)) {
++        return XML_ERROR_NO_MEMORY;
++      }
++#endif
++
+       XML_Char *temp = (XML_Char *)REALLOC(
+           parser, b->uri, sizeof(XML_Char) * (len + EXPAND_SPARE));
+       if (temp == NULL)
+@@ -3500,6 +3767,21 @@
+     b = (BINDING *)MALLOC(parser, sizeof(BINDING));
+     if (! b)
+       return XML_ERROR_NO_MEMORY;
++
++    /* Detect and prevent integer overflow */
++    if (len > INT_MAX - EXPAND_SPARE) {
++      return XML_ERROR_NO_MEMORY;
++    }
++    /* Detect and prevent integer overflow.
++     * The preprocessor guard addresses the "always false" warning
++     * from -Wtype-limits on platforms where
++     * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++    if ((unsigned)(len + EXPAND_SPARE) > (size_t)(-1) / sizeof(XML_Char)) {
++      return XML_ERROR_NO_MEMORY;
++    }
++#endif
++
+     b->uri
+         = (XML_Char *)MALLOC(parser, sizeof(XML_Char) * (len + EXPAND_SPARE));
+     if (! b->uri) {
+@@ -4757,6 +5039,11 @@
+       if (parser->m_prologState.level >= parser->m_groupSize) {
+         if (parser->m_groupSize) {
+           {
++            /* Detect and prevent integer overflow */
++            if (parser->m_groupSize > (unsigned int)(-1) / 2u) {
++              return XML_ERROR_NO_MEMORY;
++            }
++
+             char *const new_connector = (char *)REALLOC(
+                 parser, parser->m_groupConnector, parser->m_groupSize *= 2);
+             if (new_connector == NULL) {
+@@ -4767,6 +5054,16 @@
+           }
+ 
+           if (dtd->scaffIndex) {
++            /* Detect and prevent integer overflow.
++             * The preprocessor guard addresses the "always false" warning
++             * from -Wtype-limits on platforms where
++             * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++            if (parser->m_groupSize > (size_t)(-1) / sizeof(int)) {
++              return XML_ERROR_NO_MEMORY;
++            }
++#endif
++
+             int *const new_scaff_index = (int *)REALLOC(
+                 parser, dtd->scaffIndex, parser->m_groupSize * sizeof(int));
+             if (new_scaff_index == NULL)
+@@ -4972,7 +5269,7 @@
+       if (dtd->in_eldecl) {
+         ELEMENT_TYPE *el;
+         const XML_Char *name;
+-        int nameLen;
++        size_t nameLen;
+         const char *nxt
+             = (quant == XML_CQUANT_NONE ? next : next - enc->minBytesPerChar);
+         int myindex = nextScaffoldPart(parser);
+@@ -4988,7 +5285,13 @@
+         nameLen = 0;
+         for (; name[nameLen++];)
+           ;
+-        dtd->contentStringLen += nameLen;
++
++        /* Detect and prevent integer overflow */
++        if (nameLen > UINT_MAX - dtd->contentStringLen) {
++          return XML_ERROR_NO_MEMORY;
++        }
++
++        dtd->contentStringLen += (unsigned)nameLen;
+         if (parser->m_elementDeclHandler)
+           handleDefault = XML_FALSE;
+       }
+@@ -5258,9 +5561,14 @@
+   {
+     parser->m_processor = contentProcessor;
+     /* see externalEntityContentProcessor vs contentProcessor */
+-    return doContent(parser, parser->m_parentParser ? 1 : 0, parser->m_encoding,
+-                     s, end, nextPtr,
+-                     (XML_Bool)! parser->m_parsingStatus.finalBuffer);
++    result = doContent(parser, parser->m_parentParser ? 1 : 0,
++                       parser->m_encoding, s, end, nextPtr,
++                       (XML_Bool)! parser->m_parsingStatus.finalBuffer);
++    if (result == XML_ERROR_NONE) {
++      if (! storeRawNames(parser))
++        return XML_ERROR_NO_MEMORY;
++    }
++    return result;
+   }
+ }
+ 
+@@ -5765,7 +6073,24 @@
+       }
+     } else {
+       DEFAULT_ATTRIBUTE *temp;
++
++      /* Detect and prevent integer overflow */
++      if (type->allocDefaultAtts > INT_MAX / 2) {
++        return 0;
++      }
++
+       int count = type->allocDefaultAtts * 2;
++
++      /* Detect and prevent integer overflow.
++       * The preprocessor guard addresses the "always false" warning
++       * from -Wtype-limits on platforms where
++       * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++      if ((unsigned)count > (size_t)(-1) / sizeof(DEFAULT_ATTRIBUTE)) {
++        return 0;
++      }
++#endif
++
+       temp = (DEFAULT_ATTRIBUTE *)REALLOC(parser, type->defaultAtts,
+                                           (count * sizeof(DEFAULT_ATTRIBUTE)));
+       if (temp == NULL)
+@@ -6228,6 +6553,16 @@
+     if (! newE)
+       return 0;
+     if (oldE->nDefaultAtts) {
++      /* Detect and prevent integer overflow.
++       * The preprocessor guard addresses the "always false" warning
++       * from -Wtype-limits on platforms where
++       * sizeof(int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++      if ((size_t)oldE->nDefaultAtts
++          > ((size_t)(-1) / sizeof(DEFAULT_ATTRIBUTE))) {
++        return 0;
++      }
++#endif
+       newE->defaultAtts = (DEFAULT_ATTRIBUTE *)ms->malloc_fcn(
+           oldE->nDefaultAtts * sizeof(DEFAULT_ATTRIBUTE));
+       if (! newE->defaultAtts) {
+@@ -6416,8 +6751,20 @@
+     /* check for overflow (table is half full) */
+     if (table->used >> (table->power - 1)) {
+       unsigned char newPower = table->power + 1;
++
++      /* Detect and prevent invalid shift */
++      if (newPower >= sizeof(unsigned long) * 8 /* bits per byte */) {
++        return NULL;
++      }
++
+       size_t newSize = (size_t)1 << newPower;
+       unsigned long newMask = (unsigned long)newSize - 1;
++
++      /* Detect and prevent integer overflow */
++      if (newSize > (size_t)(-1) / sizeof(NAMED *)) {
++        return NULL;
++      }
++
+       size_t tsize = newSize * sizeof(NAMED *);
+       NAMED **newV = (NAMED **)table->mem->malloc_fcn(tsize);
+       if (! newV)
+@@ -6758,6 +7105,15 @@
+   int next;
+ 
+   if (! dtd->scaffIndex) {
++    /* Detect and prevent integer overflow.
++     * The preprocessor guard addresses the "always false" warning
++     * from -Wtype-limits on platforms where
++     * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++    if (parser->m_groupSize > ((size_t)(-1) / sizeof(int))) {
++      return -1;
++    }
++#endif
+     dtd->scaffIndex = (int *)MALLOC(parser, parser->m_groupSize * sizeof(int));
+     if (! dtd->scaffIndex)
+       return -1;
+@@ -6767,6 +7123,20 @@
+   if (dtd->scaffCount >= dtd->scaffSize) {
+     CONTENT_SCAFFOLD *temp;
+     if (dtd->scaffold) {
++      /* Detect and prevent integer overflow */
++      if (dtd->scaffSize > UINT_MAX / 2u) {
++        return -1;
++      }
++      /* Detect and prevent integer overflow.
++       * The preprocessor guard addresses the "always false" warning
++       * from -Wtype-limits on platforms where
++       * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++      if (dtd->scaffSize > (size_t)(-1) / 2u / sizeof(CONTENT_SCAFFOLD)) {
++        return -1;
++      }
++#endif
++
+       temp = (CONTENT_SCAFFOLD *)REALLOC(
+           parser, dtd->scaffold, dtd->scaffSize * 2 * sizeof(CONTENT_SCAFFOLD));
+       if (temp == NULL)
+@@ -6798,55 +7168,115 @@
+   return next;
+ }
+ 
+-static void
+-build_node(XML_Parser parser, int src_node, XML_Content *dest,
+-           XML_Content **contpos, XML_Char **strpos) {
+-  DTD *const dtd = parser->m_dtd; /* save one level of indirection */
+-  dest->type = dtd->scaffold[src_node].type;
+-  dest->quant = dtd->scaffold[src_node].quant;
+-  if (dest->type == XML_CTYPE_NAME) {
+-    const XML_Char *src;
+-    dest->name = *strpos;
+-    src = dtd->scaffold[src_node].name;
+-    for (;;) {
+-      *(*strpos)++ = *src;
+-      if (! *src)
+-        break;
+-      src++;
+-    }
+-    dest->numchildren = 0;
+-    dest->children = NULL;
+-  } else {
+-    unsigned int i;
+-    int cn;
+-    dest->numchildren = dtd->scaffold[src_node].childcnt;
+-    dest->children = *contpos;
+-    *contpos += dest->numchildren;
+-    for (i = 0, cn = dtd->scaffold[src_node].firstchild; i < dest->numchildren;
+-         i++, cn = dtd->scaffold[cn].nextsib) {
+-      build_node(parser, cn, &(dest->children[i]), contpos, strpos);
+-    }
+-    dest->name = NULL;
+-  }
+-}
+-
+ static XML_Content *
+ build_model(XML_Parser parser) {
++  /* Function build_model transforms the existing parser->m_dtd->scaffold
++   * array of CONTENT_SCAFFOLD tree nodes into a new array of
++   * XML_Content tree nodes followed by a gapless list of zero-terminated
++   * strings. */
+   DTD *const dtd = parser->m_dtd; /* save one level of indirection */
+   XML_Content *ret;
+-  XML_Content *cpos;
+-  XML_Char *str;
+-  int allocsize = (dtd->scaffCount * sizeof(XML_Content)
+-                   + (dtd->contentStringLen * sizeof(XML_Char)));
++  XML_Char *str; /* the current string writing location */
++
++  /* Detect and prevent integer overflow.
++   * The preprocessor guard addresses the "always false" warning
++   * from -Wtype-limits on platforms where
++   * sizeof(unsigned int) < sizeof(size_t), e.g. on x86_64. */
++#if UINT_MAX >= SIZE_MAX
++  if (dtd->scaffCount > (size_t)(-1) / sizeof(XML_Content)) {
++    return NULL;
++  }
++  if (dtd->contentStringLen > (size_t)(-1) / sizeof(XML_Char)) {
++    return NULL;
++  }
++#endif
++  if (dtd->scaffCount * sizeof(XML_Content)
++      > (size_t)(-1) - dtd->contentStringLen * sizeof(XML_Char)) {
++    return NULL;
++  }
++
++  const size_t allocsize = (dtd->scaffCount * sizeof(XML_Content)
++                            + (dtd->contentStringLen * sizeof(XML_Char)));
+ 
+   ret = (XML_Content *)MALLOC(parser, allocsize);
+   if (! ret)
+     return NULL;
+ 
+-  str = (XML_Char *)(&ret[dtd->scaffCount]);
+-  cpos = &ret[1];
++  /* What follows is an iterative implementation (of what was previously done
++   * recursively in a dedicated function called "build_node".  The old recursive
++   * build_node could be forced into stack exhaustion from input as small as a
++   * few megabyte, and so that was a security issue.  Hence, a function call
++   * stack is avoided now by resolving recursion.)
++   *
++   * The iterative approach works as follows:
++   *
++   * - We use space in the target array for building a temporary stack structure
++   *   while that space is still unused.
++   *   The stack grows from the array's end downwards and the "actual data"
++   *   grows from the start upwards, sequentially.
++   *   (Because stack grows downwards, pushing onto the stack is a decrement
++   *   while popping off the stack is an increment.)
++   *
++   * - A stack element appears as a regular XML_Content node on the outside,
++   *   but only uses a single field -- numchildren -- to store the source
++   *   tree node array index.  These are the breadcrumbs leading the way back
++   *   during pre-order (node first) depth-first traversal.
++   *
++   * - The reason we know the stack will never grow into (or overlap with)
++   *   the area with data of value at the start of the array is because
++   *   the overall number of elements to process matches the size of the array,
++   *   and the sum of fully processed nodes and yet-to-be processed nodes
++   *   on the stack, cannot be more than the total number of nodes.
++   *   It is possible for the top of the stack and the about-to-write node
++   *   to meet, but that is safe because we get the source index out
++   *   before doing any writes on that node.
++   */
++  XML_Content *dest = ret; /* tree node writing location, moves upwards */
++  XML_Content *const destLimit = &ret[dtd->scaffCount];
++  XML_Content *const stackBottom = &ret[dtd->scaffCount];
++  XML_Content *stackTop = stackBottom; /* i.e. stack is initially empty */
++  str = (XML_Char *)&ret[dtd->scaffCount];
++
++  /* Push source tree root node index onto the stack */
++  (--stackTop)->numchildren = 0;
++
++  for (; dest < destLimit; dest++) {
++    /* Pop source tree node index off the stack */
++    const int src_node = (int)(stackTop++)->numchildren;
++
++    /* Convert item */
++    dest->type = dtd->scaffold[src_node].type;
++    dest->quant = dtd->scaffold[src_node].quant;
++    if (dest->type == XML_CTYPE_NAME) {
++      const XML_Char *src;
++      dest->name = str;
++      src = dtd->scaffold[src_node].name;
++      for (;;) {
++        *str++ = *src;
++        if (! *src)
++          break;
++        src++;
++      }
++      dest->numchildren = 0;
++      dest->children = NULL;
++    } else {
++      unsigned int i;
++      int cn;
++      dest->name = NULL;
++      dest->numchildren = dtd->scaffold[src_node].childcnt;
++      dest->children = &dest[1];
++
++      /* Push children to the stack
++       * in a way where the first child ends up at the top of the
++       * (downwards growing) stack, in order to be processed first. */
++      stackTop -= dest->numchildren;
++      for (i = 0, cn = dtd->scaffold[src_node].firstchild;
++           i < dest->numchildren; i++, cn = dtd->scaffold[cn].nextsib) {
++        (stackTop + i)->numchildren = (unsigned int)cn;
++      }
++    }
++  }
+ 
+-  build_node(parser, 0, ret, &cpos, &str);
+   return ret;
+ }
+ 
+@@ -6875,7 +7305,7 @@
+ 
+ static XML_Char *
+ copyString(const XML_Char *s, const XML_Memory_Handling_Suite *memsuite) {
+-  int charsRequired = 0;
++  size_t charsRequired = 0;
+   XML_Char *result;
+ 
+   /* First determine how long the string is */
+diff -ruN a/expat/lib/xmltok_impl.c b/expat/lib/xmltok_impl.c
+--- a/expat/lib/xmltok_impl.c
++++ b/expat/lib/xmltok_impl.c
+@@ -61,7 +61,7 @@
+   case BT_LEAD##n:                                                             \
+     if (end - ptr < n)                                                         \
+       return XML_TOK_PARTIAL_CHAR;                                             \
+-    if (! IS_NAME_CHAR(enc, ptr, n)) {                                         \
++    if (IS_INVALID_CHAR(enc, ptr, n) || ! IS_NAME_CHAR(enc, ptr, n)) {         \
+       *nextTokPtr = ptr;                                                       \
+       return XML_TOK_INVALID;                                                  \
+     }                                                                          \
+@@ -90,7 +90,7 @@
+   case BT_LEAD##n:                                                             \
+     if (end - ptr < n)                                                         \
+       return XML_TOK_PARTIAL_CHAR;                                             \
+-    if (! IS_NMSTRT_CHAR(enc, ptr, n)) {                                       \
++    if (IS_INVALID_CHAR(enc, ptr, n) || ! IS_NMSTRT_CHAR(enc, ptr, n)) {       \
+       *nextTokPtr = ptr;                                                       \
+       return XML_TOK_INVALID;                                                  \
+     }                                                                          \
+@@ -1134,6 +1134,10 @@
+   case BT_LEAD##n:                                                             \
+     if (end - ptr < n)                                                         \
+       return XML_TOK_PARTIAL_CHAR;                                             \
++    if (IS_INVALID_CHAR(enc, ptr, n)) {                                        \
++      *nextTokPtr = ptr;                                                       \
++      return XML_TOK_INVALID;                                                  \
++    }                                                                          \
+     if (IS_NMSTRT_CHAR(enc, ptr, n)) {                                         \
+       ptr += n;                                                                \
+       tok = XML_TOK_NAME;                                                      \
+diff -ruN a/expat/tests/runtests.c b/expat/tests/runtests.c
+--- a/expat/tests/runtests.c
++++ b/expat/tests/runtests.c
+@@ -3846,6 +3846,30 @@
+ }
+ END_TEST
+ 
++/* Test for signed integer overflow CVE-2022-23852 */
++#if defined(XML_CONTEXT_BYTES)
++START_TEST(test_get_buffer_3_overflow) {
++  XML_Parser parser = XML_ParserCreate(NULL);
++  assert(parser != NULL);
++
++  const char *const text = "\n";
++  const int expectedKeepValue = (int)strlen(text);
++
++  // After this call, variable "keep" in XML_GetBuffer will
++  // have value expectedKeepValue
++  if (XML_Parse(parser, text, (int)strlen(text), XML_FALSE /* isFinal */)
++      == XML_STATUS_ERROR)
++    xml_failure(parser);
++
++  assert(expectedKeepValue > 0);
++  if (XML_GetBuffer(parser, INT_MAX - expectedKeepValue + 1) != NULL)
++    fail("enlarging buffer not failed");
++
++  XML_ParserFree(parser);
++}
++END_TEST
++#endif // defined(XML_CONTEXT_BYTES)
++
+ /* Test position information macros */
+ START_TEST(test_byte_info_at_end) {
+   const char *text = "<doc></doc>";
+@@ -5973,6 +5997,105 @@
+ }
+ END_TEST
+ 
++START_TEST(test_utf8_in_start_tags) {
++  struct test_case {
++    bool goodName;
++    bool goodNameStart;
++    const char *tagName;
++  };
++
++  // The idea with the tests below is this:
++  // We want to cover 1-, 2- and 3-byte sequences, 4-byte sequences
++  // go to isNever and are hence not a concern.
++  //
++  // We start with a character that is a valid name character
++  // (or even name-start character, see XML 1.0r4 spec) and then we flip
++  // single bits at places where (1) the result leaves the UTF-8 encoding space
++  // and (2) we stay in the same n-byte sequence family.
++  //
++  // The flipped bits are highlighted in angle brackets in comments,
++  // e.g. "[<1>011 1001]" means we had [0011 1001] but we now flipped
++  // the most significant bit to 1 to leave UTF-8 encoding space.
++  struct test_case cases[] = {
++      // 1-byte UTF-8: [0xxx xxxx]
++      {true, true, "\x3A"},   // [0011 1010] = ASCII colon ':'
++      {false, false, "\xBA"}, // [<1>011 1010]
++      {true, false, "\x39"},  // [0011 1001] = ASCII nine '9'
++      {false, false, "\xB9"}, // [<1>011 1001]
++
++      // 2-byte UTF-8: [110x xxxx] [10xx xxxx]
++      {true, true, "\xDB\xA5"},   // [1101 1011] [1010 0101] =
++                                  // Arabic small waw U+06E5
++      {false, false, "\x9B\xA5"}, // [1<0>01 1011] [1010 0101]
++      {false, false, "\xDB\x25"}, // [1101 1011] [<0>010 0101]
++      {false, false, "\xDB\xE5"}, // [1101 1011] [1<1>10 0101]
++      {true, false, "\xCC\x81"},  // [1100 1100] [1000 0001] =
++                                  // combining char U+0301
++      {false, false, "\x8C\x81"}, // [1<0>00 1100] [1000 0001]
++      {false, false, "\xCC\x01"}, // [1100 1100] [<0>000 0001]
++      {false, false, "\xCC\xC1"}, // [1100 1100] [1<1>00 0001]
++
++      // 3-byte UTF-8: [1110 xxxx] [10xx xxxx] [10xxxxxx]
++      {true, true, "\xE0\xA4\x85"},   // [1110 0000] [1010 0100] [1000 0101] =
++                                      // Devanagari Letter A U+0905
++      {false, false, "\xA0\xA4\x85"}, // [1<0>10 0000] [1010 0100] [1000 0101]
++      {false, false, "\xE0\x24\x85"}, // [1110 0000] [<0>010 0100] [1000 0101]
++      {false, false, "\xE0\xE4\x85"}, // [1110 0000] [1<1>10 0100] [1000 0101]
++      {false, false, "\xE0\xA4\x05"}, // [1110 0000] [1010 0100] [<0>000 0101]
++      {false, false, "\xE0\xA4\xC5"}, // [1110 0000] [1010 0100] [1<1>00 0101]
++      {true, false, "\xE0\xA4\x81"},  // [1110 0000] [1010 0100] [1000 0001] =
++                                      // combining char U+0901
++      {false, false, "\xA0\xA4\x81"}, // [1<0>10 0000] [1010 0100] [1000 0001]
++      {false, false, "\xE0\x24\x81"}, // [1110 0000] [<0>010 0100] [1000 0001]
++      {false, false, "\xE0\xE4\x81"}, // [1110 0000] [1<1>10 0100] [1000 0001]
++      {false, false, "\xE0\xA4\x01"}, // [1110 0000] [1010 0100] [<0>000 0001]
++      {false, false, "\xE0\xA4\xC1"}, // [1110 0000] [1010 0100] [1<1>00 0001]
++  };
++  const bool atNameStart[] = {true, false};
++
++  size_t i = 0;
++  char doc[1024];
++  size_t failCount = 0;
++
++  for (; i < sizeof(cases) / sizeof(cases[0]); i++) {
++    size_t j = 0;
++    for (; j < sizeof(atNameStart) / sizeof(atNameStart[0]); j++) {
++      const bool expectedSuccess
++          = atNameStart[j] ? cases[i].goodNameStart : cases[i].goodName;
++      sprintf(doc, "<%s%s><!--", atNameStart[j] ? "" : "a", cases[i].tagName);
++      XML_Parser parser = XML_ParserCreate(NULL);
++
++      const enum XML_Status status
++          = XML_Parse(parser, doc, (int)strlen(doc), /*isFinal=*/XML_FALSE);
++
++      bool success = true;
++      if ((status == XML_STATUS_OK) != expectedSuccess) {
++        success = false;
++      }
++      if ((status == XML_STATUS_ERROR)
++          && (XML_GetErrorCode(parser) != XML_ERROR_INVALID_TOKEN)) {
++        success = false;
++      }
++
++      if (! success) {
++        fprintf(
++            stderr,
++            "FAIL case %2u (%sat name start, %u-byte sequence, error code %d)\n",
++            (unsigned)i + 1u, atNameStart[j] ? "    " : "not ",
++            (unsigned)strlen(cases[i].tagName), XML_GetErrorCode(parser));
++        failCount++;
++      }
++
++      XML_ParserFree(parser);
++    }
++  }
++
++  if (failCount > 0) {
++    fail("UTF-8 regression detected");
++  }
++}
++END_TEST
++
+ /* Test trailing spaces in elements are accepted */
+ static void XMLCALL
+ record_element_end_handler(void *userData, const XML_Char *name) {
+@@ -6150,6 +6273,14 @@
+ }
+ END_TEST
+ 
++START_TEST(test_bad_doctype_utf8) {
++  const char *text = "<!DOCTYPE \xDB\x25"
++                     "doc><doc/>"; // [1101 1011] [<0>010 0101]
++  expect_failure(text, XML_ERROR_INVALID_TOKEN,
++                 "Invalid UTF-8 in DOCTYPE not faulted");
++}
++END_TEST
++
+ START_TEST(test_bad_doctype_utf16) {
+   const char text[] =
+       /* <!DOCTYPE doc [ \x06f2 ]><doc/>
+@@ -7173,6 +7304,37 @@
+ }
+ END_TEST
+ 
++START_TEST(test_ns_separator_in_uri) {
++  struct test_case {
++    enum XML_Status expectedStatus;
++    const char *doc;
++    XML_Char namesep;
++  };
++  struct test_case cases[] = {
++      {XML_STATUS_OK, "<doc xmlns='one_two' />", XCS('\n')},
++      {XML_STATUS_ERROR, "<doc xmlns='one&#x0A;two' />", XCS('\n')},
++      {XML_STATUS_OK, "<doc xmlns='one:two' />", XCS(':')},
++  };
++
++  size_t i = 0;
++  size_t failCount = 0;
++  for (; i < sizeof(cases) / sizeof(cases[0]); i++) {
++    XML_Parser parser = XML_ParserCreateNS(NULL, cases[i].namesep);
++    XML_SetElementHandler(parser, dummy_start_element, dummy_end_element);
++    if (XML_Parse(parser, cases[i].doc, (int)strlen(cases[i].doc),
++                  /*isFinal*/ XML_TRUE)
++        != cases[i].expectedStatus) {
++      failCount++;
++    }
++    XML_ParserFree(parser);
++  }
++
++  if (failCount) {
++    fail("Namespace separator handling is broken");
++  }
++}
++END_TEST
++
+ /* Control variable; the number of times duff_allocator() will successfully
+  * allocate */
+ #define ALLOC_ALWAYS_SUCCEED (-1)
+@@ -9760,6 +9922,53 @@
+ }
+ END_TEST
+ 
++static int XMLCALL
++external_entity_parser_create_alloc_fail_handler(XML_Parser parser,
++                                                 const XML_Char *context,
++                                                 const XML_Char *base,
++                                                 const XML_Char *systemId,
++                                                 const XML_Char *publicId) {
++  UNUSED_P(base);
++  UNUSED_P(systemId);
++  UNUSED_P(publicId);
++
++  if (context != NULL)
++    fail("Unexpected non-NULL context");
++
++  // The following number intends to fail the upcoming allocation in line
++  // "parser->m_protocolEncodingName = copyString(encodingName,
++  // &(parser->m_mem));" in function parserInit.
++  allocation_count = 3;
++
++  const XML_Char *const encodingName = XCS("UTF-8"); // needs something non-NULL
++  const XML_Parser ext_parser
++      = XML_ExternalEntityParserCreate(parser, context, encodingName);
++  if (ext_parser != NULL)
++    fail(
++        "Call to XML_ExternalEntityParserCreate was expected to fail out-of-memory");
++
++  allocation_count = ALLOC_ALWAYS_SUCCEED;
++  return XML_STATUS_ERROR;
++}
++
++START_TEST(test_alloc_reset_after_external_entity_parser_create_fail) {
++  const char *const text = "<!DOCTYPE doc SYSTEM 'foo'><doc/>";
++
++  XML_SetExternalEntityRefHandler(
++      g_parser, external_entity_parser_create_alloc_fail_handler);
++  XML_SetParamEntityParsing(g_parser, XML_PARAM_ENTITY_PARSING_ALWAYS);
++
++  if (XML_Parse(g_parser, text, (int)strlen(text), XML_TRUE)
++      != XML_STATUS_ERROR)
++    fail("Call to parse was expected to fail");
++
++  if (XML_GetErrorCode(g_parser) != XML_ERROR_EXTERNAL_ENTITY_HANDLING)
++    fail("Call to parse was expected to fail from the external entity handler");
++
++  XML_ParserReset(g_parser, NULL);
++}
++END_TEST
++
+ static void
+ nsalloc_setup(void) {
+   XML_Memory_Handling_Suite memsuite = {duff_allocator, duff_reallocator, free};
+@@ -11197,6 +11406,28 @@
+ }
+ END_TEST
+ 
++START_TEST(test_misc_resumeparser_not_crashing) {
++  XML_Parser parser = XML_ParserCreate(NULL);
++  XML_GetBuffer(parser, 1);
++  XML_StopParser(parser, /*resumable=*/XML_TRUE);
++  XML_ResumeParser(parser); // could crash here, previously
++  XML_ParserFree(parser);
++}
++END_TEST
++
++START_TEST(test_misc_stopparser_rejects_unstarted_parser) {
++  const XML_Bool cases[] = {XML_TRUE, XML_FALSE};
++  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
++    const XML_Bool resumable = cases[i];
++    XML_Parser parser = XML_ParserCreate(NULL);
++    assert(XML_GetErrorCode(parser) == XML_ERROR_NONE);
++    assert(XML_StopParser(parser, resumable) == XML_STATUS_ERROR);
++    assert(XML_GetErrorCode(parser) == XML_ERROR_NOT_STARTED);
++    XML_ParserFree(parser);
++  }
++}
++END_TEST
++
+ static Suite *
+ make_suite(void) {
+   Suite *s = suite_create("basic");
+@@ -11317,6 +11548,9 @@
+   tcase_add_test(tc_basic, test_empty_parse);
+   tcase_add_test(tc_basic, test_get_buffer_1);
+   tcase_add_test(tc_basic, test_get_buffer_2);
++#if defined(XML_CONTEXT_BYTES)
++  tcase_add_test(tc_basic, test_get_buffer_3_overflow);
++#endif
+   tcase_add_test(tc_basic, test_byte_info_at_end);
+   tcase_add_test(tc_basic, test_byte_info_at_error);
+   tcase_add_test(tc_basic, test_byte_info_at_cdata);
+@@ -11399,6 +11633,7 @@
+   tcase_add_test(tc_basic, test_ext_entity_utf8_non_bom);
+   tcase_add_test(tc_basic, test_utf8_in_cdata_section);
+   tcase_add_test(tc_basic, test_utf8_in_cdata_section_2);
++  tcase_add_test(tc_basic, test_utf8_in_start_tags);
+   tcase_add_test(tc_basic, test_trailing_spaces_in_elements);
+   tcase_add_test(tc_basic, test_utf16_attribute);
+   tcase_add_test(tc_basic, test_utf16_second_attr);
+@@ -11407,6 +11642,7 @@
+   tcase_add_test(tc_basic, test_bad_attr_desc_keyword);
+   tcase_add_test(tc_basic, test_bad_attr_desc_keyword_utf16);
+   tcase_add_test(tc_basic, test_bad_doctype);
++  tcase_add_test(tc_basic, test_bad_doctype_utf8);
+   tcase_add_test(tc_basic, test_bad_doctype_utf16);
+   tcase_add_test(tc_basic, test_bad_doctype_plus);
+   tcase_add_test(tc_basic, test_bad_doctype_star);
+@@ -11462,6 +11698,7 @@
+   tcase_add_test(tc_namespace, test_ns_utf16_doctype);
+   tcase_add_test(tc_namespace, test_ns_invalid_doctype);
+   tcase_add_test(tc_namespace, test_ns_double_colon_doctype);
++  tcase_add_test(tc_namespace, test_ns_separator_in_uri);
+ 
+   suite_add_tcase(s, tc_misc);
+   tcase_add_checked_fixture(tc_misc, NULL, basic_teardown);
+@@ -11479,6 +11716,8 @@
+   tcase_add_test(tc_misc,
+                  test_misc_deny_internal_entity_closing_doctype_issue_317);
+ #endif
++  tcase_add_test(tc_misc, test_misc_resumeparser_not_crashing);
++  tcase_add_test(tc_misc, test_misc_stopparser_rejects_unstarted_parser);
+ 
+   suite_add_tcase(s, tc_alloc);
+   tcase_add_checked_fixture(tc_alloc, alloc_setup, alloc_teardown);
+@@ -11533,6 +11772,10 @@
+   tcase_add_test(tc_alloc, test_alloc_long_public_id);
+   tcase_add_test(tc_alloc, test_alloc_long_entity_value);
+   tcase_add_test(tc_alloc, test_alloc_long_notation);
++#ifdef XML_DTD
++  tcase_add_test(
++      tc_alloc, test_alloc_reset_after_external_entity_parser_create_fail);
++#endif
+ 
+   suite_add_tcase(s, tc_nsalloc);
+   tcase_add_checked_fixture(tc_nsalloc, nsalloc_setup, nsalloc_teardown);

@@ -29,13 +29,18 @@ if [ ! -f "$STAGE/lib/libxml2.a" ]; then
   log libxml2
   X=$SRC/libxml2-2.9.14
   rm -rf "$X"; tar -xf "$DL/libxml2_2.9.14+dfsg.orig.tar.xz" -C "$SRC"
+  security_patches "$X"
   (cd "$X" && CFLAGS="$RO_CFLAGS" ./configure --host=$HOST --build=$BUILD --prefix=$PREFIX \
      --libdir=$PREFIX/lib --disable-shared --enable-static --without-python --without-lzma \
      --without-ftp --without-debug --without-modules --with-zlib \
      > ../libxml2.log 2>&1 &&
    make -j$JOBS libxml2.la >> ../libxml2.log 2>&1 &&
    make install-libLTLIBRARIES install-data-am install-pkgconfigDATA -C . DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1 &&
-   make -C include install DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1) || fail "$SRC/libxml2.log"
+   make -C include install DESTDIR="$SYSROOT" >> ../libxml2.log 2>&1 &&
+   # (its .la names $SRC/la-fix's libm.la, which leads libtool to
+   # crossdev's own: a later libtool link, ClawsMail's, then fails; the
+   # other libraries' .la files are removed the same way)
+   rm -f "$STAGE/lib/libxml2.la") || fail "$SRC/libxml2.log"
 fi
 # (no build-machine paths in its .pc: configure put zlib's -L in it)
 sed -i "s| -L$STAGE/lib||g" "$STAGE/lib/pkgconfig/libxml-2.0.pc"
@@ -45,6 +50,7 @@ if [ ! -f "$STAGE/lib/libcroco-0.6.a" ]; then
   log libcroco
   C=$SRC/libcroco-0.6.13
   rm -rf "$C"; tar -xf "$DL/libcroco_0.6.13.orig.tar.xz" -C "$SRC"
+  security_patches "$C"
   (cd "$C" && CFLAGS="$RO_CFLAGS" PKG_CONFIG="pkg-config --static" ./configure --host=$HOST --build=$BUILD \
      --prefix=$PREFIX --libdir=$PREFIX/lib --disable-shared --enable-static --disable-gtk-doc \
      > ../libcroco.log 2>&1 &&
