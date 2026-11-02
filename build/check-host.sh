@@ -17,6 +17,7 @@ need 'test -f /usr/share/aclocal/ax_check_compile_flag.m4' autoconf-archive
 need 'command -v libtoolize' libtool
 need 'command -v cmake' cmake
 need 'command -v gperf' gperf
+need 'command -v flex' flex
 need 'command -v curl' curl
 need 'command -v unzip' unzip
 need 'command -v xz' xz-utils

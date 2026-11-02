@@ -52,13 +52,17 @@
 - build-svg.sh removes libxml2's .la file after installing it, as the
   other libraries' are: on a clean build it led libtool to crossdev's
   libm.la, and ClawsMail's link failed.
+- ClawsMail: `--subscribe URI` works (patch, main.c). Upstream 4.4.0
+  took the URI but then read it again as an option ("Unknown option") and
+  exited.
+- check-host.sh and BUILDING.md list flex (AbiWord's itex2MML needs it).
 - **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos34, ClawsMail
   4.4.0-riscos25, Geany 2.1-riscos13, mtPaint 3.50.14-riscos13, Gnumeric
   1.12.62-riscos18, AbiWord 3.0.8-riscos4 (GOffice 0.10.62),
   GTKThemeTest and GTKGLTest 3.24.52-riscos1.0-rc15.
 - tools/mkgnumerichelp.py copies folders in the manual's figures (1.12.62
   has figures/icons).
-- Tested: the Linux suite, 576 ok (Geany and mtPaint fakes not built);
+- Tested (clean build, with the security fixes): the Linux suite, 576 ok (Geany and mtPaint fakes not built);
   every program on RISC OS 5.31-6 in the ROL test bed.
 
 ## 3.24.41-riscos1.0-rc14 (2026-10-29)
