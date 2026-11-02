@@ -1,6 +1,6 @@
 diff -ruN a/src/build.c b/src/build.c
 --- a/src/build.c	2025-07-04 10:31:37.000000000 +0100
-+++ b/src/build.c	2026-10-11 17:16:13.320475876 +0100
++++ b/src/build.c	2026-11-02 10:08:02.183025675 +0000
 @@ -50,6 +50,10 @@
  #include "vte.h"
  #include "win32.h"
@@ -65,9 +65,65 @@ diff -ruN a/src/build.c b/src/build.c
  static gchar *build_create_shellscript(const gchar *working_dir, const gchar *cmd, gboolean autoclose, GError **error)
  {
  	gint fd;
+diff -ruN a/src/filetypes.c b/src/filetypes.c
+--- a/src/filetypes.c	2025-07-04 10:31:37.000000000 +0100
++++ b/src/filetypes.c	2026-11-02 10:21:43.316331143 +0000
+@@ -556,6 +556,37 @@
+ }
+ 
+ 
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++/* riscos-gtk: RISC OS keeps C sources as c.hello as well as hello/c. GTK
++ * turns UnixLib's suffix swapping off, so a file in a folder named after
++ * a suffix (UnixLib's list: c cc f h i ii l o p s y) reaches Geany as
++ * .../c/hello. Returns the name it stands for ("hello.c"), and the
++ * folder above in *dir if dir isn't NULL, or NULL for any other file. */
++static gchar *riscos_suffix_name(const gchar *file_name, gchar **dir)
++{
++	static const gchar *const sfx[] = { "c", "cc", "f", "h", "i", "ii", "l", "o", "p", "s", "y", NULL };
++	gchar *parent = g_path_get_dirname(file_name);
++	gchar *suffix = g_path_get_basename(parent);
++	gchar *leaf = g_path_get_basename(file_name);
++	gchar *name = NULL;
++	guint i;
++
++	if (strchr(leaf, '.') == NULL)
++		for (i = 0; sfx[i]; i++)
++			if (g_ascii_strcasecmp(suffix, sfx[i]) == 0)
++			{
++				name = g_strconcat(leaf, ".", sfx[i], NULL);
++				if (dir)
++					*dir = g_path_get_dirname(parent);
++				break;
++			}
++	g_free(parent);
++	g_free(suffix);
++	g_free(leaf);
++	return name;
++}
++#endif
++
+ /* Detect filetype only based on the filename extension.
+  * utf8_filename can include the full path.
+  * Returns: non-NULL */
+@@ -571,6 +602,14 @@
+ 
+ 	/* to match against the basename of the file (because of Makefile*) */
+ 	base_filename = g_path_get_basename(utf8_filename);
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++	{
++		/* c.hello is C, as hello/c is */
++		gchar *name = riscos_suffix_name(utf8_filename, NULL);
++		if (name)
++			SETPTR(base_filename, name);
++	}
++#endif
+ #ifdef G_OS_WIN32
+ 	/* use lower case basename */
+ 	SETPTR(base_filename, g_utf8_strdown(base_filename, -1));
 diff -ruN a/src/keyfile.c b/src/keyfile.c
 --- a/src/keyfile.c	2025-07-04 10:31:37.000000000 +0100
-+++ b/src/keyfile.c	2026-10-11 17:15:34.923891290 +0100
++++ b/src/keyfile.c	2026-11-02 10:08:02.185699554 +0000
 @@ -90,6 +90,13 @@
  # define GEANY_DEFAULT_FONT_SYMBOL_LIST	"Helvetica Medium 12"
  # define GEANY_DEFAULT_FONT_MSG_WINDOW	"Menlo Medium 12"
@@ -96,7 +152,7 @@ diff -ruN a/src/keyfile.c b/src/keyfile.c
  	tool_prefs.grep_cmd = utils_get_setting_string(config, "tools", "grep_cmd", GEANY_DEFAULT_TOOLS_GREP);
 diff -ruN a/src/spawn.c b/src/spawn.c
 --- a/src/spawn.c	2025-07-04 10:31:37.000000000 +0100
-+++ b/src/spawn.c	2026-10-11 17:15:34.923403606 +0100
++++ b/src/spawn.c	2026-11-02 10:08:02.187938019 +0000
 @@ -52,6 +52,10 @@
  
  #include "spawn.h"
@@ -124,7 +180,7 @@ diff -ruN a/src/spawn.c b/src/spawn.c
  	{
 diff -ruN a/src/utils.c b/src/utils.c
 --- a/src/utils.c	2025-07-04 10:31:37.000000000 +0100
-+++ b/src/utils.c	2026-10-11 14:51:02.604389282 +0100
++++ b/src/utils.c	2026-11-02 10:21:43.314882159 +0000
 @@ -2351,6 +2351,21 @@
  			g_free(prefix);
  # endif
@@ -155,3 +211,73 @@ diff -ruN a/src/utils.c b/src/utils.c
  	}
  
  	return resdirs[type];
+@@ -2557,6 +2573,37 @@
+ }
+ 
+ 
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++/* riscos-gtk: RISC OS keeps C sources as c.hello as well as hello/c. GTK
++ * turns UnixLib's suffix swapping off, so a file in a folder named after
++ * a suffix (UnixLib's list: c cc f h i ii l o p s y) reaches Geany as
++ * .../c/hello. Returns the name it stands for ("hello.c"), and the
++ * folder above in *dir if dir isn't NULL, or NULL for any other file. */
++static gchar *riscos_suffix_name(const gchar *file_name, gchar **dir)
++{
++	static const gchar *const sfx[] = { "c", "cc", "f", "h", "i", "ii", "l", "o", "p", "s", "y", NULL };
++	gchar *parent = g_path_get_dirname(file_name);
++	gchar *suffix = g_path_get_basename(parent);
++	gchar *leaf = g_path_get_basename(file_name);
++	gchar *name = NULL;
++	guint i;
++
++	if (strchr(leaf, '.') == NULL)
++		for (i = 0; sfx[i]; i++)
++			if (g_ascii_strcasecmp(suffix, sfx[i]) == 0)
++			{
++				name = g_strconcat(leaf, ".", sfx[i], NULL);
++				if (dir)
++					*dir = g_path_get_dirname(parent);
++				break;
++			}
++	g_free(parent);
++	g_free(suffix);
++	g_free(leaf);
++	return name;
++}
++#endif
++
+ static gboolean generate_document_replacements(GString *buffer,
+ 		const gchar placeholder, gpointer data)
+ {
+@@ -2593,6 +2640,19 @@
+ 				ui_set_statusbar(FALSE, _("no project active, %%p is substituted as %%d"));
+ 				/* fall through */
+ 			case 'd':
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++				/* c.hello: built as hello.c in the folder above, which the
++				   compiler (with UnixLib's suffix swapping) finds as c.hello */
++				{
++					gchar *dir = NULL, *name = riscos_suffix_name(doc->file_name, &dir);
++					g_free(name);
++					if (dir)
++					{
++						r = dir;
++						break;
++					}
++				}
++#endif
+ 				r = g_path_get_dirname(doc->file_name);
+ 				break;
+ 			case 'e':
+@@ -2603,6 +2663,11 @@
+ 				break;
+ 			}
+ 			case 'f':
++#if defined __riscos__ || defined GEANY_RISCOS_UI
++				r = riscos_suffix_name(doc->file_name, NULL);
++				if (r)
++					break;
++#endif
+ 				r = g_path_get_basename(doc->file_name);
+ 				break;
+ 			case 'l':

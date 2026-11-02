@@ -46,6 +46,18 @@
 #endif
 #include <sys/types.h>
 
+#ifdef __riscos__
+#include <unixlib/local.h>
+/* UnixLib's file name translation for every GTK program: no suffix
+   swapping either way, so a file opens as it's named on RISC OS.
+   "hello/c" is "hello.c" and back again, and "c.hello" is "c/hello" and
+   back (with UnixLib's default, "hello.c" meant "c.hello", so a file
+   called hello/c couldn't be opened). UnixLib refers to this variable
+   weakly: a program that defines its own can't be linked with GTK.
+   Recommended by riscos-unixlib, 2026-11-02. */
+int __riscosify_control = __RISCOSIFY_NO_SUFFIX | __RISCOSIFY_NO_REVERSE_SUFFIX;
+#endif
+
 static void   gdk_riscos_display_dispose            (GObject            *object);
 static void   gdk_riscos_display_finalize           (GObject            *object);
 

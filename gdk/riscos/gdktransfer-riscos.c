@@ -908,7 +908,8 @@ _gdk_riscos_transfer_drop_done (gboolean success)
  * @riscos_path: a RISC OS file name, e.g. "ADFS::HD4.$.Docs.Report/txt"
  *
  * Returns: (transfer full): the same file as UnixLib names it
- * ("/ADFS::HD4.$/Docs/Report.txt"; "c.hello" is "hello.c"), from
+ * ("/ADFS::HD4.$/Docs/Report.txt"; "c.hello" is "c/hello", as GTK turns
+ * UnixLib's suffix swapping off: gdkdisplay-riscos.c), from
  * UnixLib's own __unixify_std, so names match the ones UnixLib gives
  * (getcwd, realpath) and it maps them back when the program opens them.
  */

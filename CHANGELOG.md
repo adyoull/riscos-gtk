@@ -25,6 +25,20 @@
   - gnumeric-fake closes Gnumeric's own window: since 0.10.62 a combo
     box's pop-up can be the newest window, which the fake Wimp closed by
     default, and that pop-up ignores delete (the test looped).
+- **Files open as they're named on RISC OS.** UnixLib swaps a name's
+  suffix by default: "hello.c" means c.hello, so a file called hello/c
+  (which UnixLib itself calls hello.c) couldn't be opened, in Geany or any
+  other program. GTK now sets `__riscosify_control` to
+  `__RISCOSIFY_NO_SUFFIX | __RISCOSIFY_NO_REVERSE_SUFFIX` for every program
+  (gdk/riscos/gdkdisplay-riscos.c), as riscos-unixlib recommended:
+  hello/c is hello.c and c.hello is c/hello, and both open as
+  themselves. Geany's own filedefs/filetypes.c and templates/files/main.c
+  now load too.
+  - Geany (`patches/geany-2.1-riscos.diff`): a file in a folder named
+    after a suffix (c, h, s, ...) gets its type from the folder, so
+    c.hello is C; and the build commands' %d, %f and %e give it as
+    hello.c in the folder above, which the compiler (with UnixLib's
+    default) finds as c.hello.
 - **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos34, ClawsMail
   4.4.0-riscos25, Geany 2.1-riscos13, mtPaint 3.50.14-riscos13, Gnumeric
   1.12.62-riscos18, AbiWord 3.0.8-riscos4 (GOffice 0.10.62),
