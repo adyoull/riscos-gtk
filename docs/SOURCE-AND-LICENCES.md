@@ -36,7 +36,7 @@ so shared libraries aren't possible today.
 | AbiWord only: Boost 1.83 (headers) | Boost Software License 1.0 | None for the program itself (the licence asks for its notice only with source copies; it is in the source archive) |
 | AbiWord and ClawsMail: the British English dictionary (LibreOffice's, hunspell-en-gb 24.2.1) | LGPL | Its notice: `share.hunspell.LicenceDictionary` in the package |
 | GTKGLTest only: riscos-mesa (Mesa 20.3.5) | MIT | The notice; source: riscos-mesa's release |
-| UnixLib 5.0.3.3, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.3 release, which the source archive and each package's `Source` point to |
+| UnixLib 5.0.3.5, GCC's runtime | UnixLib: mostly BSD-style and public domain, some LGPL parts. GCC's runtime: GPL with the GCC Runtime Library Exception | UnixLib's source is the riscos-unixlib v5.0.3.5 release, which the source archive and each package's `Source` point to |
 
 The package also carries some data and modules:
 

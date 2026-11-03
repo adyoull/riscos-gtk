@@ -354,10 +354,6 @@ release.
 - **Geany's Build of a hello/c file:** Geany opens it, but GCC (with
   UnixLib's usual names) looks for c.hello. Files kept as c.hello build as
   before.
-- **UnixLib:** renaming a file whose RISC OS type doesn't match its
-  name's extension (a Text file called folderlist.xml, say) fails with
-  "No such file or directory" in UnixLib 5.0.3.3. ClawsMail then can't save
-  that file. Fixed in UnixLib 5.0.3.5, which a later release will use.
 - **ClawsMail's RSS and calendar fetches** aren't threaded (Claws Mail is
   built without threads), so the desktop waits while a feed or calendar
   comes in.
@@ -549,8 +545,9 @@ release.
 ## Building
 
 [BUILDING.md](BUILDING.md). In short:
-- **Toolchain:** riscos-crossdev v1.8.2 (`.riscos-deps`): UnixLib
-  5.0.3.3, and its devkit is riscos-mesa 20.3.5-16. RC5 and RC6 used
+- **Toolchain:** riscos-crossdev v1.9 (`.riscos-deps`): UnixLib
+  5.0.3.5, and its devkit is riscos-mesa 20.3.5-17. RC7 to RC14 used
+  crossdev 1.8.x (UnixLib 5.0.3.3); RC5 and RC6 used
   crossdev 1.5; before crossdev 1.4 there was no release with 5.0.3.3,
   so RC1–RC4 used crossdev 1.3 with the 5.0.3.3 library swapped in.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image

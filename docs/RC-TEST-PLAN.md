@@ -236,6 +236,7 @@ provider offers them.
 | 16.5 | L3afpad (or any program): save a file as notes/s, foo/h or prog/c and open it again from the Filer | RISC OS 5.31 on Linux (opening foo/h) | |
 | 16.6 | ClawsMail: Subscribe to a feed and to a webcal calendar (Menu on My Feeds or vCalendar); with `--subscribe` from a command line, the window opens on the new folder; feeds and calendars fetched as in RC14 | RISC OS 5.31 on Linux (both, through --subscribe) | |
 | 16.7 | ClawsMail: receive, read and send mail over POP, IMAP and SMTP with TLS, as in RC14 (libetpan's and GLib's fixes) | RISC OS 5.31 on Linux (POP without TLS) | |
+| 16.8 | UnixLib 5.0.3.5: set a ClawsMail folder file's type to Text (`<ClawsMail$Choices>.claws-mail.folderlist/xml`, SetType Text), start ClawsMail, add a folder, Quit: no "rename: No such file or directory" in the Log, and the folder is there next time | RISC OS 5.31 on Linux | |
 
 ## 14. Packaging and licences
 

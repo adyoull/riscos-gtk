@@ -65,28 +65,36 @@ esac
 if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnueabihf/include/limits.h" ||
    [ -e "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.so" ]; then
   echo "env.sh: $GCCSDK_ENV is older than riscos-crossdev 1.3 (UnixLib 5.0.3.2," >&2
-  echo "  static only): use riscos-crossdev v1.8.2 (make prebuilt there)" >&2
+  echo "  static only): use riscos-crossdev v1.9 (make prebuilt there)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
-# Which UnixLib the programs link: riscos-crossdev 1.4 and later have
-# UnixLib 5.0.3.3 (built from its release's unixlib-riscos.diff), which
-# the releases need; 1.3 has 5.0.3.2. 5.0.3.3 is the one with
-# __pthread_held_wait.
-if "$GCCSDK_ENV/bin/arm-riscos-gnueabihf-nm" "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" 2>/dev/null |
-     grep -q ' T __pthread_held_wait$'; then
-  UNIXLIB_VERSION=5.0.3.3
-else
-  UNIXLIB_VERSION=5.0.3.2
-fi
+# Which UnixLib the programs link. riscos-crossdev 1.9 and later have
+# UnixLib 5.0.3.5, which the releases need (rename() of a file whose type
+# isn't its extension's MimeMap type; strnlen without _GNU_SOURCE). It's
+# known by the library's sha256: crossdev 1.9's, or riscos-unixlib
+# v5.0.3.5's own release asset (the same code). 1.4 to 1.8.x have 5.0.3.3,
+# the first with __pthread_held_wait; 1.3 has 5.0.3.2.
+case "$(sha256sum < "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" | cut -d' ' -f1)" in
+  977e88ca3b93d3eb673fab8d9b74d2f5a273d4bab3832485862ad95ab3874f87|\
+  30272fb8e7af90ddc0cae267fed56cb2051ce6a01b66413febe6091b0a3df6d2)
+    UNIXLIB_VERSION=5.0.3.5;;
+  *)
+    if "$GCCSDK_ENV/bin/arm-riscos-gnueabihf-nm" "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" 2>/dev/null |
+         grep -q ' T __pthread_held_wait$'; then
+      UNIXLIB_VERSION=5.0.3.3-or-later
+    else
+      UNIXLIB_VERSION=5.0.3.2
+    fi;;
+esac
 export UNIXLIB_VERSION
 # The fonts every package carries: DejaVu Sans, GTK's default face. Other
 # fonts (serif, monospace, the user's) come from the system, through
 # PackMan's FontConfig (UnixFC): gdk/riscos/gdkfontconfig-riscos.c
 export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
-if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.3 ]; then
-  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.3:" >&2
-  echo "  use riscos-crossdev v1.8.2 (or v1.4 and later), make prebuilt there" >&2
+if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.5 ]; then
+  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.5:" >&2
+  echo "  use riscos-crossdev v1.9 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1
 fi
 

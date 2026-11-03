@@ -116,7 +116,7 @@ Not yet
 - News (NNTP) is built in but untested; other plug-ins; address books
   other than Claws Mail's own.
 
-Built with riscos-crossdev 1.3 and UnixLib 5.0.3.3.
+Built with riscos-crossdev 1.9 and UnixLib 5.0.3.5.
 
 Licences: Claws Mail and its manual GPL v3 (Licence); GTK, GLib and
 friends LGPL v2.1 (LicenceLGPL); Nettle LGPL v3 / GPL v2; libetpan BSD-

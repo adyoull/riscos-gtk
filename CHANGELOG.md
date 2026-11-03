@@ -1,6 +1,21 @@
 # Changelog
 
 ## 3.24.52-riscos1.0-rc15 (2026-11-03)
+- **Toolchain: riscos-crossdev 1.9** (`.riscos-deps`; was 1.8.2), with
+  **UnixLib 5.0.3.5** (was 5.0.3.3) and riscos-mesa's devkit 20.3.5-17.
+  Every program is relinked with it. For riscos-gtk this brings:
+  - `rename()` of a file whose RISC OS type isn't the one MimeMap gives
+    its extension (a Text `folderlist.xml`, say). It said "No such file or
+    directory", so ClawsMail couldn't save its folder list there, and
+    GLib's `g_file_set_contents` and other saves through a temporary file
+    could fail the same way;
+  - strnlen and the other POSIX 2008 string functions declared without
+    `_GNU_SOURCE`;
+  - `file:///` names, POSIX group and password lookups, repeating
+    sub-second timers, pthread scheduling attributes.
+  - `build/env.sh` knows 5.0.3.5 by its sha256 (crossdev 1.9's, or
+    riscos-unixlib's own release asset) and stops a RISC OS build without
+    it.
 - **GTK 3.24.52** (from 3.24.41): eleven bug-fix releases. The RISC OS
   patch applies unchanged (`patches/gtk+3.0-3.24.52-riscos.diff`, with new
   offsets). GTK 3.24.52 asks each backend whether a GL context is still
@@ -12,8 +27,8 @@
   TEXTAFTER, TEXTSPLIT and more). Their sources come from the release tags
   on GitHub (see docs/BUILDING.md). Patch changes:
   - five file-format plug-ins (Applix, Lotus 1-2-3, Quattro Pro, SYLK)
-    now use strnlen, which UnixLib's string.h declares only under
-    _GNU_SOURCE: they define it on RISC OS;
+    now use strnlen, which UnixLib 5.0.3.3's string.h declared only under
+    _GNU_SOURCE; UnixLib 5.0.3.5 declares it by default (see Toolchain);
   - Applix's boot.c still calls applix_write, whose source upstream
     removed: the unused save function is left out, as it stopped the
     static link.

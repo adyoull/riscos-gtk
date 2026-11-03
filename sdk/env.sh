@@ -4,8 +4,8 @@
 #   export RCD_DIR=/path/to/riscos-crossdev
 #   . /path/to/riscos-gtk-sdk/env.sh
 #
-# RCD_DIR is riscos-crossdev v1.8.2 (or v1.4 and later), whose toolchain has UnixLib
-# 5.0.3.3: the devkit's libraries are built against it (docs/README.md).
+# RCD_DIR is riscos-crossdev v1.9 (or v1.4 and later), whose toolchain has UnixLib
+# 5.0.3.5 (5.0.3.3 or later: the devkit's libraries need it; docs/README.md).
 # Afterwards:
 #   $CC $RISCOS_GTK_CFLAGS app.c -o app $RISCOS_GTK_LIBS
 #   pkg-config --cflags --libs gtk+-3.0       (the devkit's, not the host's)
@@ -13,7 +13,7 @@
 #                                              PKG_CONFIG_* are set)
 #   meson setup build --cross-file "$(riscos-gtk-meson-cross)"
 #   cmake -DCMAKE_TOOLCHAIN_FILE=$RISCOS_GTK_SDK/share/riscos-gtk/riscos-gtk.cmake
-# OpenGL (GtkGLArea) needs riscos-mesa's devkit (20.3.5-15 or later; crossdev 1.8.2 has 20.3.5-16) in
+# OpenGL (GtkGLArea) needs riscos-mesa's devkit (20.3.5-15 or later; crossdev 1.9 has 20.3.5-17) in
 # RISCOS_MESA_DEVKIT (default: crossdev's RISCOS_DEVKIT, where its
 # devkit/install.sh puts it). Then RISCOS_GTK_GL_LIBS, and pkg-config's
 # riscos-gtk-gl, add it to a program's link (docs/API.md, "OpenGL").
@@ -24,21 +24,21 @@ case $RISCOS_GTK_SDK in *" "*)
   return 1 2>/dev/null || exit 1;;
 esac
 [ -n "${RCD_DIR:-}" ] && [ -f "$RCD_DIR/env.sh" ] || {
-  echo "riscos-gtk env.sh: set RCD_DIR to riscos-crossdev v1.8.2 first" >&2
+  echo "riscos-gtk env.sh: set RCD_DIR to riscos-crossdev v1.9 first" >&2
   return 1 2>/dev/null || exit 1; }
 . "$RCD_DIR/env.sh"
 [ -x "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-gcc" ] || {
   echo "riscos-gtk env.sh: no toolchain in $RISCOS_TOOLCHAIN: run 'make prebuilt' in $RCD_DIR" >&2
   return 1 2>/dev/null || exit 1; }
 
-# UnixLib 5.0.3.3 (crossdev 1.4 and later) is the one with __pthread_held_wait
+# UnixLib 5.0.3.3 and later (crossdev 1.4 and later) have __pthread_held_wait
 if "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-nm" "$RISCOS_TOOLCHAIN/arm-riscos-gnueabihf/lib/libunixlib.a" 2>/dev/null |
      grep -q ' T __pthread_held_wait$'; then
   RISCOS_GTK_UNIXLIB=5.0.3.3
 else
   RISCOS_GTK_UNIXLIB=other
-  echo "riscos-gtk env.sh: warning: this toolchain's UnixLib isn't 5.0.3.3, which the devkit's" >&2
-  echo "  libraries need: use riscos-crossdev v1.8.2 (or v1.4 and later)" >&2
+  echo "riscos-gtk env.sh: warning: this toolchain's UnixLib is older than 5.0.3.3, which the" >&2
+  echo "  devkit's libraries need: use riscos-crossdev v1.9 (or v1.4 and later)" >&2
 fi
 
 # The toolchain's .la files name the machine crossdev was built on

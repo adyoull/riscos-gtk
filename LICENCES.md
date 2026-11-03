@@ -97,11 +97,11 @@ checksum. A RISC OS program built here links them statically.
 | fribidi 1.0.13 | LGPL version 2.1 or later |
 | harfbuzz 8.3.0 | MIT ("Old MIT") |
 | cairo 1.18.0 | LGPL version 2.1 or MPL 1.1 |
-| pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.41 | LGPL version 2.1 or later |
+| pango 1.52.1, gdk-pixbuf 2.42.10, ATK 2.36.0, GTK 3.24.52 | LGPL version 2.1 or later |
 | DejaVu fonts 2.37 | Bitstream Vera / Arev licence (free, redistributable) |
 | Noto Color Emoji 2.051, only in the optional `TTF-Noto-Color-Emoji` package (build/build-emoji.sh; the font file from the noto-emoji repository's v2.051 tag) | SIL Open Font Licence 1.1 (in the package's `RiscPkg/Copyright` and `!UnixFont.doc.noto-color-emoji.LICENSE`) |
 | riscos-mesa (Mesa 20.3.5's OSMesa and riscos-mesa's EGL; its devkit), only in programs that link it for OpenGL (!GTKGLTest) | MIT-style: riscos-mesa's LICENCES.txt, shipped in the program as LicenceMesa |
-| UnixLib 5.0.3.3 (riscos-crossdev 1.4/1.5, built from the riscos-unixlib v5.0.3.3 release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
+| UnixLib 5.0.3.5 (riscos-crossdev 1.9, built from the riscos-unixlib v5.0.3.5 release) and GCC's runtime (from riscos-crossdev) | see riscos-crossdev's LICENCES.md |
 
 **Static linking and the LGPL.** GLib, pango, GTK, ATK, gdk-pixbuf,
 fribidi and cairo are LGPL and are linked statically (UnixLib has no
