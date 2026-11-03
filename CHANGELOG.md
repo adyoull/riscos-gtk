@@ -55,8 +55,13 @@
 - ClawsMail: `--subscribe URI` works.
   - Upstream 4.4.0 took the URI but then read it again as an option
     ("Unknown option") and exited (patch, main.c).
-  - The main window opens after subscribing, so the new folder is in view
-    (it otherwise starts on the icon bar, as before).
+  - The main window opens after subscribing, with the new feed's or
+    calendar's folder selected (as --select does, once the window is laid
+    out), so its items or its week are shown (it otherwise starts on the
+    icon bar, as before).
+  - vCalendar's week view scrolls to about 8 o'clock once the view has
+    its size (patch, day-view.c): on RISC OS the 100 ms upstream waits
+    could come before the layout, and the view stayed at midnight.
   - A webcal:// calendar goes to vCalendar, not RSS: the libcurl stand-in
     (apps/claws/curl) no longer takes webcal:// URLs itself, as libcurl
     doesn't; vCalendar turns them into http:// as it always did. Before,
