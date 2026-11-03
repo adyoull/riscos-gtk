@@ -116,7 +116,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.41-riscos1.0-rc14    # out/release/3.24.41-riscos1.0-rc14/
+make release RELEASE=3.24.52-riscos1.0-rc15    # out/release/3.24.52-riscos1.0-rc15/
 ```
 
 `make emoji` makes `out/TTF-Noto-Color-Emoji-<version>.zip`, the optional
@@ -193,4 +193,4 @@ release of riscos-crossdev. When there is one, it builds with it and opens
 a pull request saying whether that passed. Nothing is merged or released
 by itself: merge, test on a Pi, release (riscos-crossdev `docs/CI.md`).
 GTK programs built on riscos-gtk can pin it the same way (`riscos-gtk
-v3.24.41-riscos1.0`) once its devkit is published with each release.
+v3.24.52-riscos1.0`) once its devkit is published with each release.

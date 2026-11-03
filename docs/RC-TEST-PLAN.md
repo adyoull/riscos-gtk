@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.41-riscos1.0-rc14 (public beta) — Pi sign-off
+# riscos-gtk 3.24.52-riscos1.0-rc15 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.41-riscos1.0-rc14 (the backend and theme)
+## 2. GTKThemeTest 3.24.52-riscos1.0-rc15 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -224,6 +224,18 @@ provider offers them.
 | 15.16 | ClawsMail: menu on vCalendar > Subscribe to Webcal... with a public calendar (webcal:// or https://): its events in the week and month views; a mail with a meeting invitation (text/calendar) shows Accept/Decline; Tools > Create meeting from message | the fake desktop (webcal over http, the week view); RISC OS on Linux (a calendar from the host in the week view) | |
 | 15.18 | ClawsMail: Write a message saying "the file is attached" with nothing attached, Send: the attachment warning asks (Cancel keeps it; Send sends it); the recipient is then in the address book's Personal addresses. With riscos24-test1 or -test2 used before, Configuration > Plugins lists AttachWarner and Address Keeper too | the fake desktop (the warning, Cancel, the address kept); RISC OS on Linux (the warning, the address kept, the plug-ins added to an older list) | |
 | 15.17 | AbiWord: Insert > Equation > From LaTeX (`x^2 + \frac{1}{2}`): the equation is drawn and printed; Insert > Equation > From File with a MathML file; save as .abw and .odt and open again | the fake desktop (itex2MML, an equation inserted and saved as .abw); RISC OS on Linux (an .abw with an equation shown) | |
+
+## 16. New in RC15: GTK 3.24.52, Gnumeric 1.12.62, security fixes, names as on RISC OS
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 16.1 | Every program starts, opens its usual files (text, .odt, .docx, .xlsx, PNG and JPEG pictures, SVG) and saves them, as in RC14 (GTK 3.24.52, and the libraries' security fixes) | RISC OS 5.31 on Linux (every program); the automatic tests | |
+| 16.2 | GTKGLTest: the triangle spins (GTK 3.24.52's new GL check) | RISC OS 5.31 on Linux | |
+| 16.3 | Gnumeric: `=XLOOKUP(2,A1:A3,B1:B3)` and `=TEXTSPLIT("a,b,c",",")` work; open Applix, Lotus 1-2-3, Quattro Pro and SYLK files | the automatic tests (43 plug-ins built in) | |
+| 16.4 | Geany: double-click a hello/c and a c.hello: both open, highlighted as C; Build > Compile on the c.hello compiles it | RISC OS 5.31 on Linux (opening, not Build: no GCC there) | |
+| 16.5 | L3afpad (or any program): save a file as notes/s, foo/h or prog/c and open it again from the Filer | RISC OS 5.31 on Linux (opening foo/h) | |
+| 16.6 | ClawsMail: Subscribe to a feed and to a webcal calendar (Menu on My Feeds or vCalendar); with `--subscribe` from a command line, the window opens on the new folder; feeds and calendars fetched as in RC14 | RISC OS 5.31 on Linux (both, through --subscribe) | |
+| 16.7 | ClawsMail: receive, read and send mail over POP, IMAP and SMTP with TLS, as in RC14 (libetpan's and GLib's fixes) | RISC OS 5.31 on Linux (POP without TLS) | |
 
 ## 14. Packaging and licences
 

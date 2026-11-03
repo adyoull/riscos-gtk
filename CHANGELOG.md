@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (after RC14)
+## 3.24.52-riscos1.0-rc15 (2026-11-03)
 - **GTK 3.24.52** (from 3.24.41): eleven bug-fix releases. The RISC OS
   patch applies unchanged (`patches/gtk+3.0-3.24.52-riscos.diff`, with new
   offsets). GTK 3.24.52 asks each backend whether a GL context is still

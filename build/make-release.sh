@@ -71,6 +71,9 @@ S=$(mktemp -d); trap 'rm -rf "$S"' EXIT
 git archive --format=tar --prefix="riscos-gtk-$RELEASE/" "$COMMIT" > "$S/repo.tar"
 mkdir -p "$S/riscos-gtk-$RELEASE/dl"
 for f in $(awk '{print $2}' build/SHA256SUMS.txt); do cp "$DL/$f" "$S/riscos-gtk-$RELEASE/dl/"; done
+# and the tarballs fetch-sources.sh makes from release tags (no sha256 in
+# SHA256SUMS.txt: their generated files depend on the build machine)
+for f in $(awk '$1 == "gittag" {print $2}' build/fetch-sources.sh); do cp "$DL/$f" "$S/riscos-gtk-$RELEASE/dl/"; done
 cp "$S/repo.tar" "$R/riscos-gtk-$RELEASE-src.tar"
 tar -rf "$R/riscos-gtk-$RELEASE-src.tar" -C "$S" "riscos-gtk-$RELEASE/dl"
 

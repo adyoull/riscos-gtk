@@ -34,6 +34,13 @@ From the feasibility study (2026-09-24) and the choices made since.
 - Library versions follow Ubuntu 24.04 (GLib 2.80.0, GTK 3.24.41, which
   the theme was made with), using Ubuntu's orig tarballs, which the cloud
   build machine can download.
+  - RC15 moved GTK itself to 3.24.52 (Ubuntu's newer orig tarball; the
+    RISC OS patch applied unchanged), and GOffice and Gnumeric to
+    0.10.62 and 1.12.62 (their GitHub release tags, as they aren't in
+    Ubuntu yet). The libraries under GTK stay at Ubuntu 24.04's versions.
+  - Ubuntu's security fixes for those libraries are carried in
+    `patches/security/` (made by `tools/mksecuritypatch.sh` from Ubuntu's
+    debian/patches), since the orig tarballs don't have them.
 - Libraries are configured with prefix `/riscos-gtk` and installed into
   `sysroot/riscos-gtk`, so no build-machine path is compiled in. !Run
   files point GLib and GTK at their data with environment variables.

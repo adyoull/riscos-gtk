@@ -3,7 +3,7 @@
 The riscos-gtk devkit is everything you need to build your own GTK 3
 programs for RISC OS, without building riscos-gtk itself. It includes:
 
-- GTK 3.24.41 with riscos-gtk's RISC OS backend;
+- GTK 3.24.52 with riscos-gtk's RISC OS backend;
 - GLib, pango, cairo, gdk-pixbuf, ATK and their libraries, as static
   libraries, with headers and pkg-config files;
 - a script that packages your program as a RISC OS application;
