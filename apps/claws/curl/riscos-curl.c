@@ -195,13 +195,10 @@ curl_easy_perform (CURL *curl)
   reply_free (e);
   e->reply_headers = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 
-  /* webcal:// is http:// */
-  if (!g_ascii_strncasecmp (e->url, "webcal://", 9))
-    url = g_strconcat ("http://", e->url + 9, NULL);
-  else if (!g_ascii_strncasecmp (e->url, "webcals://", 10))
-    url = g_strconcat ("https://", e->url + 10, NULL);
-  else
-    url = g_strdup (e->url);
+  /* (webcal:// isn't taken, as libcurl doesn't take it: vCalendar makes
+     it http:// itself, and RSS's subscribe, which Claws Mail offers a
+     URI first, must fail on it so that vCalendar gets it) */
+  url = g_strdup (e->url);
 
   memset (&rq, 0, sizeof rq);
   rq.url = url;

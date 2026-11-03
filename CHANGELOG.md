@@ -52,9 +52,16 @@
 - build-svg.sh removes libxml2's .la file after installing it, as the
   other libraries' are: on a clean build it led libtool to crossdev's
   libm.la, and ClawsMail's link failed.
-- ClawsMail: `--subscribe URI` works (patch, main.c). Upstream 4.4.0
-  took the URI but then read it again as an option ("Unknown option") and
-  exited.
+- ClawsMail: `--subscribe URI` works.
+  - Upstream 4.4.0 took the URI but then read it again as an option
+    ("Unknown option") and exited (patch, main.c).
+  - The main window opens after subscribing, so the new folder is in view
+    (it otherwise starts on the icon bar, as before).
+  - A webcal:// calendar goes to vCalendar, not RSS: the libcurl stand-in
+    (apps/claws/curl) no longer takes webcal:// URLs itself, as libcurl
+    doesn't; vCalendar turns them into http:// as it always did. Before,
+    RSS's subscribe, which is offered a URI first, took the calendar as an
+    "Untitled feed".
 - check-host.sh and BUILDING.md list flex (AbiWord's itex2MML needs it).
 - **Every program rebuilt:** L3afpad 0.8.18.1.11-riscos34, ClawsMail
   4.4.0-riscos25, Geany 2.1-riscos13, mtPaint 3.50.14-riscos13, Gnumeric
