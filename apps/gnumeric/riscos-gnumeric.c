@@ -121,7 +121,7 @@ is_riscos_name (const char *name)
 int
 main (int argc, char **argv)
 {
-  static const int types[] = { 0xDFE };       /* CSV */
+  static const int types[] = { 0xDFE, 0xA7F, 0xA82, 0xBA6, 0xF0D, 0xDB0 }; /* CSV, ExcelX, ODS, Excel, TSV, Lotus123: app/FileTypes */
   int fd, i;
 
   riscos_register_static_modules ();

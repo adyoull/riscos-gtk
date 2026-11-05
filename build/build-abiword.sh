@@ -250,7 +250,7 @@ AB_CFLAGS="-DHAVE_CONFIG_H -I$AB -I$AB/src $(make -s -C "$AB/src" -f Makefile -f
 AB_LDLIBS="$(pkg-config --libs --static riscos-gtk-svg libgoffice-0.10 gtk+-3.0 libgsf-1 wv-1.0 libxslt fribidi librsvg-2.0 enchant-2 aiksaurus-1.0 libwpd-0.10 libwps-0.4 librevenge-0.0 mathview-frontend-libxml2) -ljpeg -lstdc++ -lm"
 
 # ---- !AbiWord ----
-VERSION=${VERSION:-3.0.8-riscos4}
+VERSION=${VERSION:-3.0.8-riscos5}
 APP=$SRC/abiword-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/abiword/app" "$APP"
 # AbiWord's data: dialogue .ui files, templates, the XSLT for MathML and

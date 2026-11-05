@@ -41,8 +41,53 @@ sed "s/@SLOT@/$slot/g" "$FILES/!Run,feb" > "$A/!Run,feb"
 sed "s/@VERSION@/$VERSION/g" "$FILES/!Help,fff" > "$A/!Help,fff"
 # anything else the application has (!Boot, !Sprites, ...)
 for f in "$FILES"/*; do
-  case "$(basename "$f")" in '!Run,feb'|'!Help,fff') ;; *) cp -r "$f" "$A/" ;; esac
+  case "$(basename "$f")" in '!Run,feb'|'!Help,fff'|FileTypes) ;; *) cp -r "$f" "$A/" ;; esac
 done
+# The file types the program opens (FILES/FileTypes: TYPE NAME ICON per
+# line, ICON KIND:LABEL:COLOUR for tools/mkfiletypesprites.py or - where
+# the desktop's themes have one): !Boot and !Run give each its name, its
+# icon and its double-click action, each only where nothing on the
+# desktop has set it already. !Boot runs when the Filer first sees the
+# application (PackMan's LookAt runs it at every start-up).
+if [ -f "$FILES/FileTypes" ]; then
+  ft=$(mktemp) ftd=$(mktemp -d)
+  {
+    echo "| The file types !$NAME opens: their names, icons and double-click"
+    echo "| action, where nothing on the desktop has set them already"
+  } > "$ft"
+  specs=()
+  while read -r typ tname icon; do
+    case "$typ" in ''|'#'*) continue ;; esac
+    typ=$(echo "$typ" | tr a-f A-F)
+    if [ "$icon" != - ]; then
+      specs+=("$typ:$icon")
+      echo "If \"<File\$Type_$typ>\"=\"\" Then IconSprites <$NAME\$Dir>.Types.$typ" >> "$ft"
+    fi
+    echo "If \"<File\$Type_$typ>\"=\"\" Then Set File\$Type_$typ $tname" >> "$ft"
+    echo "If \"<Alias\$@RunType_$typ>\"=\"\" Then Set Alias\$@RunType_$typ Run <$NAME\$Dir>.!Run %%*0" >> "$ft"
+  done < "$FILES/FileTypes"
+  if [ ${#specs[@]} -gt 0 ]; then
+    unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/DejaVuSansCondensed-Bold.ttf' -d "$ftd"
+    python3 -B "$REPO_DIR/tools/mkfiletypesprites.py" "$ftd" "$ftd" "${specs[@]}"
+    mkdir -p "$A/Types"
+    for s in "${specs[@]}"; do
+      typ=${s%%:*}; t=$(echo "$typ" | tr A-F a-f)
+      python3 "$REPO_DIR/tools/png2sprite.py" "$A/Types/$typ,ff9" \
+        "file_$t=$ftd/$t/file.png" "small_$t=$ftd/$t/small.png"
+      python3 "$REPO_DIR/tools/png2sprite.py" --dpi 180 "$A/Types/${typ}11,ff9" \
+        "file_$t=$ftd/$t/file11.png" "small_$t=$ftd/$t/small11.png"
+    done
+  fi
+  # after the line that sets NAME$Dir, in both
+  for f in '!Boot,feb' '!Run,feb'; do
+    [ -f "$A/$f" ] || continue
+    grep -q "^Set $NAME\\\$Dir " "$A/$f" || { echo "build-app.sh: no 'Set $NAME\$Dir' in $f" >&2; exit 1; }
+    awk -v ins="$ft" -v pat="^Set $NAME[$]Dir " '
+      { print } $0 ~ pat && !done { while ((getline l < ins) > 0) print l; close(ins); done = 1 }' \
+      "$A/$f" > "$A/$f.new" && mv "$A/$f.new" "$A/$f"
+  done
+  rm -rf "$ft" "$ftd"
+fi
 # Every package: the LGPL (GTK, GLib and the libraries are linked into
 # it) and where its complete source is (docs/SOURCE-AND-LICENCES.md)
 cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$A/LicenceLGPL,fff"

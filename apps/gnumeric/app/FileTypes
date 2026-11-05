@@ -1,0 +1,9 @@
+# The file types Gnumeric opens (build/build-app.sh): TYPE NAME ICON.
+# NAME as MimeMap names the type; ICON: tools/mkfiletypesprites.py's
+# KIND:LABEL:COLOUR where the desktop's themes have none, or -.
+A7F ExcelX   sheet:XLSX:green
+A82 ODS      sheet:ODS:teal
+BA6 Excel    -
+DFE CSV      -
+F0D TSV      sheet:TSV:grey
+DB0 Lotus123 -

@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+- **File types the programs open are named, given icons and open on a
+  double-click.** A saved .xlsx was typed &A7F (MimeMap's ExcelX), but the
+  desktop has no name or icon for it, so the Filer showed "?" and "&A7F"
+  and it looked untyped (a user's report); a double-click
+  didn't open Gnumeric either. Now a program's `app/FileTypes` lists the
+  types it opens, and `build/build-app.sh` puts into its !Boot and !Run,
+  for each, its name (`File$Type_xxx`, MimeMap's), its icon and its
+  double-click action (`Alias$@RunType_xxx`), each only where nothing on
+  the desktop has set it already. Icons are drawn for the types the
+  desktop's themes have none for (`tools/mkfiletypesprites.py`, in
+  `!App.Types`; loaded only when the type has no name yet).
+  - Gnumeric 1.12.62-riscos19: ExcelX (icon), ODS (icon), Excel, CSV, TSV
+    (icon), Lotus 1-2-3; it now also takes all of them from a double-click
+    while it's running (it took CSV only).
+  - AbiWord 3.0.8-riscos5: MSWordX (icon), ODT (icon), MSWord, RTF; also
+    taken while running (it took MSWord only).
+  - mtPaint 3.50.14-riscos14: PNG, JPEG, GIF and BMP (the desktop names
+    them and has their icons): a double-click runs mtPaint when no other
+    program is set for the type.
+  - !Boot runs when the Filer first sees the application; PackMan's
+    install (LookAt) runs it at every start-up. The !Help files say so.
+
 ## 3.24.52-riscos1.0-rc15 (2026-11-03)
 - **Toolchain: riscos-crossdev 1.9** (`.riscos-deps`; was 1.8.2), with
   **UnixLib 5.0.3.5** (was 5.0.3.3) and riscos-mesa's devkit 20.3.5-17.

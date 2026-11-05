@@ -13,8 +13,15 @@ Using it
   bar. Or drop a spreadsheet on !Gnumeric in a Filer window.
 - The icon bar icon: Select brings Gnumeric's window to the front; Menu
   gives Info, Choices... (Gnumeric's Preferences) and Quit.
-- Files dropped on the icon bar icon, or CSV files double-clicked in the
-  Filer while Gnumeric is loaded, open in a window of their own.
+- Files dropped on the icon bar icon, or spreadsheets double-clicked in
+  the Filer while Gnumeric is loaded, open in a window of their own.
+- File types: once the Filer has seen !Gnumeric (or it has run), .xlsx
+  (ExcelX), .ods (ODS), .xls (Excel), .csv, .tsv and Lotus 1-2-3 files
+  have their names and icons, and a double-click opens them in Gnumeric,
+  unless another program has claimed them already. PackMan's install
+  does this at every start-up; for a copy installed by hand, add
+  !Gnumeric to Configure > Boot > Look at. A saved file gets its type
+  from its extension (MimeMap).
 - Click Menu over a window for Gnumeric's menus.
 - File > Save As: a RISC OS Save box (the format is chosen from the name,
   e.g. .xlsx, .ods, .csv, .gnumeric); File > Open: an Open box.

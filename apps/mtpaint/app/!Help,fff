@@ -12,6 +12,8 @@ Using it
 - PNG, JPEG, GIF and BMP files double-clicked in the Filer while mtPaint
   is loaded, dropped on its icon, or saved to it from another program are
   loaded (it asks first if the picture has unsaved changes).
+- Once the Filer has seen !mtPaint, a double-click on a PNG, JPEG, GIF or
+  BMP file runs mtPaint if no other program is set to open that type.
 - Menu anywhere in mtPaint's windows (the picture, the toolbars, the
   palette) gives its menu.
 - Small windows such as the Pan Window and the Pattern Chooser have a

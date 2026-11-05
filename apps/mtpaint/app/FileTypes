@@ -1,0 +1,7 @@
+# The file types mtPaint opens (build/build-app.sh): TYPE NAME ICON.
+# The desktop names these and has their icons; mtPaint only becomes the
+# program a double-click runs, where none is set.
+B60 PNG      -
+C85 JPEG     -
+695 GIF      -
+69C BMP      -

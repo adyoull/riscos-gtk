@@ -175,7 +175,7 @@ extern "C" void riscos_register_static_modules (void);
 int
 RISCOS_MAIN (int argc, char **argv)
 {
-  static const int types[] = { 0xAE6 };       /* Microsoft Word */
+  static const int types[] = { 0xAE6, 0xA7E, 0xA81, 0xC32 }; /* MSWord, MSWordX, ODT, RTF: app/FileTypes */
   int fd, i;
 
   (void) abi_get_resource ();

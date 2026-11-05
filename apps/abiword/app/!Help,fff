@@ -14,9 +14,16 @@ Using it
   Or drop a document on !AbiWord in a Filer window.
 - The icon bar icon: Select brings AbiWord's window to the front; Menu
   gives Info, Choices... (AbiWord's Preferences) and Quit.
-- Files dropped on the icon bar icon, or Word files double-clicked in the
+- Files dropped on the icon bar icon, or documents double-clicked in the
   Filer while AbiWord is loaded, open in a window of their own (or in the
   new, empty document if nothing has been typed in it).
+- File types: once the Filer has seen !AbiWord (or it has run), .docx
+  (MSWordX), .odt (ODT), .doc (MSWord) and .rtf files have their names
+  and icons, and a double-click opens them in AbiWord, unless another
+  program has claimed them already. PackMan's install does this at every
+  start-up; for a copy installed by hand, add !AbiWord to Configure >
+  Boot > Look at. A saved file gets its type from its extension
+  (MimeMap).
 - Click Menu over a window for AbiWord's menus.
 - File > Save As: a RISC OS Save box (the format is chosen from the name,
   e.g. .odt, .docx, .rtf, .abw); File > Open: an Open box.

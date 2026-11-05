@@ -1,0 +1,7 @@
+# The file types AbiWord opens (build/build-app.sh): TYPE NAME ICON.
+# NAME as MimeMap names the type; ICON: tools/mkfiletypesprites.py's
+# KIND:LABEL:COLOUR where the desktop's themes have none, or -.
+A7E MSWordX  doc:DOCX:blue
+A81 ODT      doc:ODT:sky
+AE6 MSWord   -
+C32 RTF      -
