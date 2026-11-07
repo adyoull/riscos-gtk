@@ -38,6 +38,19 @@ fi
 size=$(stat -c %s "$A/$PROG,ff8")
 slot=$(( (size + 4 * 1024 * 1024 + 1023) / 1024 ))
 sed "s/@SLOT@/$slot/g" "$FILES/!Run,feb" > "$A/!Run,feb"
+# The hourglass from before the program loads (a big file, off an SD
+# card): GDK takes it away once the program has started
+# (gdkriscos-server.c). *X: no error where *HOn isn't known.
+grep -q "^Run <$NAME\\\$Dir>\." "$A/!Run,feb" || { echo "build-app.sh: no 'Run <$NAME\$Dir>.' in !Run" >&2; exit 1; }
+# (above the comment lines that go with the Run line)
+awk -v pat="^Run <$NAME[$]Dir>[.]" '
+  { line[NR] = $0 } $0 ~ pat && !at { at = NR }
+  END { start = at; while (start > 1 && line[start - 1] ~ /^\|/) start--
+        for (i = 1; i <= NR; i++) {
+          if (i == start) { print "| The hourglass while the program loads (riscos-gtk takes it away once"
+                            print "| the program has started)"; print "X HOn" }
+          print line[i] } }' \
+  "$A/!Run,feb" > "$A/!Run,feb.new" && mv "$A/!Run,feb.new" "$A/!Run,feb"
 sed "s/@VERSION@/$VERSION/g" "$FILES/!Help,fff" > "$A/!Help,fff"
 # anything else the application has (!Boot, !Sprites, ...)
 for f in "$FILES"/*; do

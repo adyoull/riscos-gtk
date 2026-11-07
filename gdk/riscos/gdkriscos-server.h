@@ -136,6 +136,10 @@ gboolean           _gdk_riscos_iconbar_message                 (int             
                                                                  int                *block);
 void               _gdk_riscos_iconbar_startup                 (int                 task,
                                                                  const char         *task_name);
+gboolean           _gdk_riscos_iconbar_early                   (void);
+/* the Wimp task's server, once Wimp_Initialise is done (before the display
+   has it) */
+GdkRiscosServer   *_gdk_riscos_server_current                  (void);
 
 /* gdkprint-riscos.c: the printing messages (and our PrintSave bouncing) */
 /* gdkspawn-riscos.c: g_spawn_async*() as RISC OS tasks */

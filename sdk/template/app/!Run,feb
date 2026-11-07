@@ -18,5 +18,8 @@ CDir <Wimp$ScrapDir>.@NAME@.fontcache
 | The WimpSlot holds the program; the C heap grows it as needed (no
 | dynamic area, so no logical address space is reserved).
 WimpSlot -min @SLOT@K -max @SLOT@K
+| The hourglass while the program loads (riscos-gtk takes it away once
+| the program has started; *X: no error where *HOn isn't known)
+X HOn
 | %*0: a file double-clicked in the Filer (riscos_gtk_app_init converts it)
 Run <@NAME@$Dir>.@PROGRAM@ %*0

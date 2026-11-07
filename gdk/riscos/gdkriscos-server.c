@@ -210,6 +210,47 @@ monotonic_cs (void)
   return (guint32) r.r[0];
 }
 
+/* ---- starting up: the hourglass ----------------------------------------
+   The program shows the hourglass from its first code until GTK's main
+   loop is first idle (the program's window drawn, or it waiting on the
+   icon bar); !Run turns it on before the program loads (*X HOn, from
+   build-app.sh). Hourglass_Smash, not Off, at the end: !Run's and ours
+   are two Ons, and a program started some other way has only ours
+   (PRMs: Hourglass_On counts, Hourglass_Smash clears whatever the count).
+   The Log says how long the start took. */
+#define Hourglass_On    0x406C0
+#define Hourglass_Smash 0x406C3
+
+static gboolean starting;
+static guint32 started_cs, icon_cs;
+
+__attribute__ ((constructor)) static void
+start_hourglass (void)
+{
+  _kernel_swi_regs r;
+
+  starting = TRUE;
+  started_cs = monotonic_cs ();
+  _kernel_swi (Hourglass_On, &r, &r);
+}
+
+static void
+end_hourglass (gboolean ready)
+{
+  _kernel_swi_regs r;
+
+  if (!starting)
+    return;
+  starting = FALSE;
+  _kernel_swi (Hourglass_Smash, &r, &r);
+  if (ready && icon_cs)
+    g_printerr ("riscos-gtk: started: the icon bar icon after %.1f s, ready after %.1f s\n",
+                (icon_cs - started_cs) / 100.0, (monotonic_cs () - started_cs) / 100.0);
+  else if (ready)
+    g_printerr ("riscos-gtk: started: ready after %.1f s\n",
+                (monotonic_cs () - started_cs) / 100.0);
+}
+
 static guint32
 now_ms (GdkRiscosServer *server)
 {
@@ -1289,6 +1330,31 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
     }
 }
 
+/* The early icon (_gdk_riscos_server_new): poll the Wimp once or twice,
+   without waiting, so the icon bar is redrawn with the icon. GDK can't
+   take events yet (there's no display), so everything but redraws is
+   masked: pointer, clicks, keys, menus and messages (the program has no
+   windows yet, and nothing it needs is sent this early). */
+static void
+early_poll (GdkRiscosServer *server)
+{
+  int block[64], i;
+  _kernel_swi_regs r;
+
+  for (i = 0; i < 4; i++)
+    {
+      r.r[0] = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 8) | (1 << 9) | (1 << 13) |
+               (1 << 17) | (1 << 18) | (1 << 19);
+      r.r[1] = (int) block;
+      r.r[2] = (int) monotonic_cs ();
+      r.r[3] = 0;
+      if (swi (Wimp_PollIdle, &r) != NULL || r.r[0] == NULL_REASON)
+        return;
+      if (r.r[0] == REDRAW_WINDOW_REQUEST)
+        handle_redraw (server, block);
+    }
+}
+
 /* GLib's main loop poll function for the default context (see the top of
    the file). timeout is in ms, -1 = for ever. */
 static gint
@@ -1298,6 +1364,10 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
   guint32 start = monotonic_cs ();
   guint32 deadline = start + (timeout < 0 ? 0x10000000u : (guint32) (timeout + 9) / 10);
   gint n;
+
+  /* GLib has nothing to do for a while: the program has started */
+  if (starting && server && (timeout < 0 || timeout >= 50))
+    end_hourglass (TRUE);
 
   if (server && server->menu_hold > 0)
     {
@@ -1340,10 +1410,18 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
     }
 }
 
-/* At exit: give the normal pointer back if ours is showing */
+GdkRiscosServer *
+_gdk_riscos_server_current (void)
+{
+  return the_server;
+}
+
+/* At exit: give the normal pointer back if ours is showing, and no
+   hourglass if the program ends while starting */
 static void
 restore_pointer (void)
 {
+  end_hourglass (FALSE);
   if (the_server && the_server->shown_shape != RISCOS_POINTER_DEFAULT)
     _gdk_riscos_pointer_show (RISCOS_POINTER_DEFAULT);
 }
@@ -1408,6 +1486,15 @@ _gdk_riscos_server_new (const char *display, GError **error)
   the_server = server;
   atexit (restore_pointer);
   g_main_context_set_poll_func (NULL, riscos_poll);
+
+  /* The icon on the icon bar now, before the rest of the start (fonts,
+     the theme, the program's own set-up), and the Wimp polled once or
+     twice so the icon bar is redrawn with it: something to see at once */
+  if (_gdk_riscos_iconbar_early ())
+    {
+      icon_cs = monotonic_cs ();
+      early_poll (server);
+    }
   return server;
 }
 

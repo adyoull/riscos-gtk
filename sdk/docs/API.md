@@ -138,6 +138,18 @@ Call these before `gtk_init()` or `g_application_run()`.
   by another program is opened.
 - **Message_PreQuit:** at desktop shutdown, asks about unsaved work.
 - **A second copy:** hands its file to the first copy and quits.
+- **Starting:** the icon goes on the icon bar as soon as the Wimp task
+  starts, before the fonts, the theme and the program's own set-up, so
+  the user sees the program has started. Clicks on it before the program
+  is ready are kept until it is.
+
+**The hourglass:** every riscos-gtk program shows the hourglass from its
+first instruction until GTK's main loop first goes idle (its window
+drawn, or it waiting on the icon bar), then clears it with
+Hourglass_Smash. Put `X HOn` in !Run just before the program is loaded,
+as the template does, to cover the load itself. The Log's
+`riscos-gtk: started:` line says when the icon went up and when the
+program was ready.
 
 **Handlers:** each handler you set replaces the default for that action;
 leave the others NULL. With no handlers set at all, riscos-gtk uses, in

@@ -107,11 +107,6 @@ _gdk_riscos_display_open (const gchar *display_name)
      chooser stops it): gdkschemas-riscos.c */
   _gdk_riscos_schemas_init ();
 
-  /* fontconfig: the system's set-up (PackMan's UnixFC) if installed, with
-     the program's own fonts on top; else the program's own
-     (gdkfontconfig-riscos.c). Before pango's first font. */
-  _gdk_riscos_fontconfig_init ();
-
   display = g_object_new (GDK_TYPE_RISCOS_DISPLAY, NULL);
   riscos_display = GDK_RISCOS_DISPLAY (display);
 
@@ -160,6 +155,14 @@ _gdk_riscos_display_open (const gchar *display_name)
     _gdk_window_update_size (root);
     _gdk_riscos_screen_size_changed (riscos_display->screens[0], &msg);
   }
+
+  /* fontconfig: the system's set-up (PackMan's UnixFC) if installed, with
+     the program's own fonts on top; else the program's own
+     (gdkfontconfig-riscos.c). Before pango's first font, and after the
+     Wimp task (the server) has started, so the icon bar icon is already
+     up while the desktop's fonts are made ready (a few seconds the first
+     time). */
+  _gdk_riscos_fontconfig_init ();
 
   g_signal_emit_by_name (display, "opened");
 

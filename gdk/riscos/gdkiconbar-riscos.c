@@ -86,6 +86,7 @@ static struct {
   char *sprite_wanted;
   GdkRiscosIconbarFunc func;
   gpointer func_data;
+  GPtrArray *pending;          /* events before GTK took the icon (early) */
   GdkRiscosIconbarHandlers handlers;
   gboolean have_handlers;
   gpointer handlers_data;
@@ -106,7 +107,11 @@ static GdkRiscosServer *
 server (void)
 {
   GdkDisplay *display = gdk_display_get_default ();
-  return display ? GDK_RISCOS_DISPLAY (display)->server : NULL;
+
+  if (display && GDK_RISCOS_DISPLAY (display)->server)
+    return GDK_RISCOS_DISPLAY (display)->server;
+  /* while the display is still opening (the early icon) */
+  return _gdk_riscos_server_current ();
 }
 
 static int
@@ -296,6 +301,20 @@ _gdk_riscos_iconbar_startup (int task, const char *task_name)
 
 /* ---- the icon ---------------------------------------------------------- */
 
+static gboolean sprite_exists (const char *name);
+static void choose_sprite (void);
+static void deliver_pending (void);
+
+/* Just after Wimp_Initialise (gdkriscos-server.c): the icon at once, so
+   the program shows it has started; GTK takes it over later
+   (gdk_riscos_iconbar_create from gtk/riscos/gtkiconbar-riscos.c). TRUE
+   if it's there. */
+gboolean
+_gdk_riscos_iconbar_early (void)
+{
+  return gdk_riscos_iconbar_create (NULL, NULL, NULL);
+}
+
 static gboolean
 sprite_exists (const char *name)
 {
@@ -332,7 +351,16 @@ gdk_riscos_iconbar_create (GdkDisplay *display, GdkRiscosIconbarFunc func, gpoin
   _kernel_swi_regs r;
 
   if (bar.icon >= 0)
-    return TRUE;
+    {
+      /* made early (_gdk_riscos_iconbar_early): GTK takes it now */
+      if (func)
+        {
+          bar.func = func;
+          bar.func_data = data;
+          deliver_pending ();
+        }
+      return TRUE;
+    }
   if (!wanted () || server () == NULL)
     return FALSE;
   choose_sprite ();
@@ -462,8 +490,40 @@ gdk_riscos_iconbar_info_window (void)
 static void
 deliver (GdkRiscosIconbarEvent *ev)
 {
+  GdkRiscosIconbarEvent *copy;
+
   if (bar.func)
-    bar.func (ev, bar.func_data);
+    {
+      bar.func (ev, bar.func_data);
+      return;
+    }
+  /* the icon is up but GTK hasn't taken it yet (still starting): keep
+     the event until it does */
+  if (bar.pending == NULL)
+    bar.pending = g_ptr_array_new ();
+  copy = g_new (GdkRiscosIconbarEvent, 1);
+  *copy = *ev;
+  copy->path = g_strdup (ev->path);
+  g_ptr_array_add (bar.pending, copy);
+}
+
+static void
+deliver_pending (void)
+{
+  guint i;
+
+  if (bar.pending == NULL || bar.func == NULL)
+    return;
+  for (i = 0; i < bar.pending->len; i++)
+    {
+      GdkRiscosIconbarEvent *ev = g_ptr_array_index (bar.pending, i);
+
+      bar.func (ev, bar.func_data);
+      g_free (ev->path);
+      g_free (ev);
+    }
+  g_ptr_array_free (bar.pending, TRUE);
+  bar.pending = NULL;
 }
 
 gboolean

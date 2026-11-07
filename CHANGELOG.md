@@ -22,6 +22,27 @@
     program is set for the type.
   - !Boot runs when the Filer first sees the application; PackMan's
     install (LookAt) runs it at every start-up. The !Help files say so.
+- **Starting feels quicker: the hourglass at once, and the icon on the
+  icon bar first.** A program used to show nothing for a few seconds
+  after a double-click (Gnumeric about 4 s on RISC OS 5.31), then its
+  icon and window together.
+  - The hourglass: each !Run turns it on (`X HOn`) just before the
+    program loads, and the program also turns it on with its first
+    instruction (a constructor in `gdkriscos-server.c`); GDK clears it
+    (Hourglass_Smash) when GTK's main loop first goes idle, or if the
+    program ends while starting.
+  - The icon: put up just after Wimp_Initialise, and the Wimp polled once
+    (redraws only; everything else masked, as GDK can't take events yet)
+    so it's drawn. The desktop's fonts and fontconfig are now set up
+    after that, not before the task starts. Clicks and files for the icon
+    before GTK takes it over are kept and delivered then. On RISC OS 5.31
+    the icon is up 0.1-0.3 s after the program starts.
+  - The Log says it: `riscos-gtk: started: the icon bar icon after 0.1 s,
+    ready after 4.4 s`.
+  - The devkit's template !Run has `X HOn` too.
+  - Every program changes: L3afpad 0.8.18.1.11-riscos35, ClawsMail
+    4.4.0-riscos26, Geany 2.1-riscos14 (Gnumeric riscos19, AbiWord
+    riscos5 and mtPaint riscos14, as above).
 
 ## 3.24.52-riscos1.0-rc15 (2026-11-03)
 - **Toolchain: riscos-crossdev 1.9** (`.riscos-deps`; was 1.8.2), with
