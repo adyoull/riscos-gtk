@@ -143,10 +143,11 @@ Call these before `gtk_init()` or `g_application_run()`.
   the user sees the program has started. Clicks on it before the program
   is ready are kept until it is.
 
-**The hourglass:** every riscos-gtk program shows the hourglass from its
-first instruction until GTK's main loop first goes idle (its window
-drawn, or it waiting on the icon bar), then clears it with
-Hourglass_Smash. Put `X HOn` in !Run just before the program is loaded,
+**The hourglass:** every riscos-gtk program shows the hourglass from the
+moment it starts its Wimp task until GTK's main loop first goes idle
+(its window drawn, or it waiting on the icon bar), or until it ends,
+then clears it with Hourglass_Smash. A process that never opens a
+display (a helper) doesn't touch it. Put `X HOn` in !Run just before the program is loaded,
 as the template does, to cover the load itself. The Log's
 `riscos-gtk: started:` line says when the icon went up and when the
 program was ready.

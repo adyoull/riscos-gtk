@@ -211,13 +211,17 @@ monotonic_cs (void)
 }
 
 /* ---- starting up: the hourglass ----------------------------------------
-   The program shows the hourglass from its first code until GTK's main
-   loop is first idle (the program's window drawn, or it waiting on the
-   icon bar); !Run turns it on before the program loads (*X HOn, from
-   build-app.sh). Hourglass_Smash, not Off, at the end: !Run's and ours
-   are two Ons, and a program started some other way has only ours
-   (PRMs: Hourglass_On counts, Hourglass_Smash clears whatever the count).
-   The Log says how long the start took. */
+   !Run turns the hourglass on before the program loads (*X HOn, from
+   build-app.sh); the program turns it on too when it starts its Wimp
+   task, and clears it when GTK's main loop is first idle (the program's
+   window drawn, or it waiting on the icon bar), or when it ends while
+   starting (a second copy handing its file over, say). Hourglass_Smash,
+   not Off: !Run's and ours are two Ons, and a program started some other
+   way has only ours (PRMs: Hourglass_On counts, Hourglass_Smash clears
+   whatever the count). Only a program that starts a Wimp task does any
+   of this: a helper process that links GDK and never opens a display
+   (a web engine's, say) leaves the hourglass alone. The Log says how
+   long the start took, from the program's first instruction. */
 #define Hourglass_On    0x406C0
 #define Hourglass_Smash 0x406C3
 
@@ -225,12 +229,20 @@ static gboolean starting;
 static guint32 started_cs, icon_cs;
 
 __attribute__ ((constructor)) static void
+note_start (void)
+{
+  started_cs = monotonic_cs ();
+}
+
+static void restore_pointer (void);
+
+static void
 start_hourglass (void)
 {
   _kernel_swi_regs r;
 
   starting = TRUE;
-  started_cs = monotonic_cs ();
+  atexit (restore_pointer);
   _kernel_swi (Hourglass_On, &r, &r);
 }
 
@@ -1455,6 +1467,7 @@ _gdk_riscos_server_new (const char *display, GError **error)
   if (name == NULL)
     name = "GTK application";
 
+  start_hourglass ();
   r.r[0] = 380;
   r.r[1] = 0x4B534154;             /* "TASK" */
   r.r[2] = (int) name;
@@ -1462,6 +1475,7 @@ _gdk_riscos_server_new (const char *display, GError **error)
   e = swi (Wimp_Initialise, &r);
   if (e != NULL)
     {
+      end_hourglass (FALSE);
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                    "Wimp_Initialise failed: %s", e->errmess);
       return NULL;
@@ -1484,7 +1498,6 @@ _gdk_riscos_server_new (const char *display, GError **error)
     g_warning ("riscos-gtk: the desktop is %d bpp; GTK windows need a 16 or 32 bpp mode",
                1 << server->log2bpp);
   the_server = server;
-  atexit (restore_pointer);
   g_main_context_set_poll_func (NULL, riscos_poll);
 
   /* The icon on the icon bar now, before the rest of the start (fonts,

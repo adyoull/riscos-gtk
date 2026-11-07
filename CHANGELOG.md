@@ -27,10 +27,12 @@
   after a double-click (Gnumeric about 4 s on RISC OS 5.31), then its
   icon and window together.
   - The hourglass: each !Run turns it on (`X HOn`) just before the
-    program loads, and the program also turns it on with its first
-    instruction (a constructor in `gdkriscos-server.c`); GDK clears it
-    (Hourglass_Smash) when GTK's main loop first goes idle, or if the
-    program ends while starting.
+    program loads, and the program turns it on too when it starts its
+    Wimp task (`gdkriscos-server.c`); GDK clears it (Hourglass_Smash)
+    when GTK's main loop first goes idle, or when the program ends while
+    starting (a second copy handing its file over). A process that links
+    GDK but never starts a Wimp task (a web engine's helper) leaves the
+    hourglass alone.
   - The icon: put up just after Wimp_Initialise, and the Wimp polled once
     (redraws only; everything else masked, as GDK can't take events yet)
     so it's drawn. The desktop's fonts and fontconfig are now set up
