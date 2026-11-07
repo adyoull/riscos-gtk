@@ -217,6 +217,13 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags 
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# A tool sprite block that runs into memory that isn't there (the scan's
+# page checks, and the fault guard when OS_Memory 24 is wrong).
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+  "$REPO_DIR/tests/gtk/toolfault-fake.c" -o "$REPO_DIR/out/toolfault-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # Printing: the page split into Draw vectors and images (cairo/).
 $CC $RO_CFLAGS -no-pie -Wall $(pkg-config --cflags cairo) \
   "$REPO_DIR/tests/gtk/printvec-fake.c" -o "$REPO_DIR/out/printvec-fake-linuxarm" \
@@ -400,6 +407,7 @@ FCH=$REPO_DIR/out/fontchooser-linuxarm
 rm -rf "$FCH"; mkdir -p "$FCH"
 run fontchooser-fake "$HA" "$FCH" "$FCT/sys/DejaVuSerif.ttf"
 run toolsprites-fake
+run toolfault-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
 python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 $CP5 & mailserver=$!

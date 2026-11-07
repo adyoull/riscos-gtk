@@ -469,6 +469,7 @@ static _kernel_oserror *fake_gbpb12(_kernel_swi_regs *r)
 }
 
 int *fake_tool_area_override;
+int fake_memory_all_readable;
 int *fake_pool_area_override;
 int fake_window_flags[256];          /* Wimp_CreateWindow +28, by handle & 255 */
 int fake_menu_window, fake_menu_windows_opened;
@@ -979,7 +980,8 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     switch (no) {
     case 0x68:      /* OS_Memory: 24 (check memory access) only */
         if (r.r[0] != 24) { e = error("OS_Memory: not faked"); break; }
-        r.r[1] = user_readable((unsigned) in->r[1], (unsigned) in->r[2]) ? (1 | 4) : 0;    /* (completely, partially) readable */
+        r.r[1] = fake_memory_all_readable ||
+                 user_readable((unsigned) in->r[1], (unsigned) in->r[2]) ? (1 | 4) : 0;    /* (completely, partially) readable */
         break;
     case OS_SpriteOp:
         e = sprite_op(&r);

@@ -43,6 +43,24 @@
   - Every program changes: L3afpad 0.8.18.1.11-riscos35, ClawsMail
     4.4.0-riscos26, Geany 2.1-riscos14 (Gnumeric riscos19, AbiWord
     riscos5 and mtPaint riscos14, as above).
+- **The window border (tool) sprites can't stop a program starting.**
+  The web browser port saw a data abort at start-up on RISC OS on Linux
+  under load, in the scan of Wimp_ReadSysInfo 9's block for "uicon": a
+  page within the block's claimed size wasn't there, although OS_Memory
+  24 had passed the whole range (`gdkwimptheme-riscos.c`).
+  - The ways of finding a tool sprite are tried in the order plain area,
+    +16's table of pointers (what a RISC OS 5 Pi has), table after the
+    header, and the scan of the whole block last, so on a Pi the scan
+    doesn't run.
+  - The scan checks each page (OS_Memory 24) as it reaches it.
+  - Every read of that memory is guarded: a fault (SIGEMT, UnixLib's
+    signal for a data abort; or SIGSEGV/SIGBUS) is caught, the program
+    carries on without the window border sprites, and its own handlers
+    are put back.
+  - Every Log has a `riscos-gtk: tool sprites:` line: the block's address,
+    its first word, and how the sprites were found.
+  - New test: toolfault-fake (the fake's OS_Memory 24 can be made to
+    pass memory that isn't there).
 
 ## 3.24.52-riscos1.0-rc15 (2026-11-03)
 - **Toolchain: riscos-crossdev 1.9** (`.riscos-deps`; was 1.8.2), with

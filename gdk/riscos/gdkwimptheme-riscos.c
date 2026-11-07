@@ -32,6 +32,9 @@
 #include "gdkdisplay-riscos.h"
 
 #include <string.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <pthread.h>
 #include <kernel.h>
 #include <swis.h>
 
@@ -532,9 +535,24 @@ block_find (const int *block, int how, const char *name)
     return area_find (block, name);
   if (how == 2)
     {
+      /* every page checked as the scan reaches it (the block's first word
+         may be larger than the memory really there: a fault was seen on
+         RISC OS on Linux when the whole range had been passed as
+         readable) */
+      const char *ok_to = (const char *) block + 16;
+
       for (off = 16; off + 48 <= size; off += 4)
         {
           const int *spr = (const int *) ((const char *) block + off);
+          if ((const char *) spr + 48 > ok_to)
+            {
+              const char *next = (const char *) ((((gsize) spr + 48) + 4095) & ~(gsize) 4095);
+              if (next > (const char *) block + size)
+                next = (const char *) block + size;
+              if (!readable (spr, next - (const char *) spr))
+                return NULL;
+              ok_to = next;
+            }
           if (g_ascii_strncasecmp ((const char *) &spr[1], name, 12) == 0 &&
               (strlen (name) == 12 || ((const char *) &spr[1])[strlen (name)] == 0) &&
               looks_like_sprite (spr) && off + spr[0] <= size)
@@ -577,13 +595,18 @@ block_find (const int *block, int how, const char *name)
 static gboolean
 try_block (const int *block)
 {
-  int how;
+  /* a plain area first, then the tables of pointers (a RISC OS 5 Pi:
+     +16's table), and the scan of the whole block last, as it reads the
+     most memory */
+  static const int order[] = { 1, 4, 3, 2 };
+  int how, k;
 
   if (block == NULL || ((gsize) block & 3) || !readable (block, 16) ||
       block[0] < 16 || block[0] > (16 << 20) || !readable (block, block[0]))
     return FALSE;
-  for (how = 1; how <= 4; how++)
+  for (k = 0; k < 4; k++)
     {
+      how = order[k];
       if (how == 1 && !header_ok (block))
         continue;
       if (block_find (block, how, "uicon") || block_find (block, how, "uicon22"))
@@ -596,11 +619,76 @@ try_block (const int *block)
   return FALSE;
 }
 
+/* Reading the Wimp's memory, guarded: the tool sprites are found by
+   reading memory the Wimp doesn't describe, checked with OS_Memory 24
+   first; but should a read still fault (a data abort: UnixLib raises
+   SIGEMT, or SIGSEGV/SIGBUS), the program carries on without the window
+   border sprites instead of stopping. UnixLib resets a handler when it
+   delivers the signal, so each guard installs its own and puts the
+   program's back after. Only this thread's faults are ours. */
+static sigjmp_buf guard_env;
+static volatile sig_atomic_t guarding;
+static pthread_t guard_thread;
+static const int guard_signals[] = {
+#ifdef SIGEMT
+  SIGEMT,                          /* UnixLib's for a data abort */
+#endif
+  SIGSEGV, SIGBUS };
+static struct sigaction guard_old[G_N_ELEMENTS (guard_signals)];
+static gboolean tool_faulted;
+
+static void
+guard_restore (void)
+{
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (guard_signals); i++)
+    sigaction (guard_signals[i], &guard_old[i], NULL);
+}
+
+static void
+guard_fault (int sig)
+{
+  if (guarding && pthread_equal (pthread_self (), guard_thread))
+    {
+      guarding = 0;
+      siglongjmp (guard_env, sig);
+    }
+  guard_restore ();                /* not ours: as the program had it */
+  raise (sig);
+}
+
+static void
+guard_begin (void)
+{
+  struct sigaction sa;
+  guint i;
+
+  memset (&sa, 0, sizeof sa);
+  sa.sa_handler = guard_fault;
+  sigemptyset (&sa.sa_mask);
+  for (i = 0; i < G_N_ELEMENTS (guard_signals); i++)
+    sigaction (guard_signals[i], &sa, &guard_old[i]);
+  guard_thread = pthread_self ();
+}
+
+static void
+guard_faulted (int sig, const char *doing)
+{
+  tool_faulted = TRUE;
+  tool_block = NULL;
+  tool_how = 0;
+  g_printerr ("riscos-gtk: tool sprites: a fault (signal %d) %s; the window border"
+              " sprites are left out\n", sig, doing);
+}
+
 static gboolean
 tool_area (void)
 {
   static gboolean looked;
   _kernel_swi_regs r;
+  volatile int first_word = 0;
+  int sig;
 
   if (looked)
     return tool_block != NULL;
@@ -609,15 +697,29 @@ tool_area (void)
   r.r[0] = 9;
   if (_kernel_swi (Wimp_ReadSysInfo, &r, &r) != NULL)
     return FALSE;
-  if (!try_block ((const int *) r.r[0]))
-    try_block ((const int *) r.r[1]);
-  if (debugging ())
+  guard_begin ();
+  if ((sig = sigsetjmp (guard_env, 1)) == 0)
     {
-      g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X, &%X: %s\n",
-                  (unsigned int) r.r[0], (unsigned int) r.r[1],
-                  tool_how == 1 ? "a sprite area" : tool_how == 2 ? "sprites found by name in the block" :
-                  tool_how == 3 ? "a table of sprite pointers" :
-                  tool_how == 4 ? "a table of sprite pointers at +16's address" : "not found");
+      guarding = 1;
+      if (r.r[0] && !((gsize) r.r[0] & 3) && readable ((const int *) r.r[0], 4))
+        first_word = *(const int *) r.r[0];
+      if (!try_block ((const int *) r.r[0]))
+        try_block ((const int *) r.r[1]);
+      guarding = 0;
+    }
+  else
+    guard_faulted (sig, "reading Wimp_ReadSysInfo 9's block");
+  guard_restore ();
+  /* one line in every Log: where the Wimp's tool sprites are, and how
+     they were found */
+  g_printerr ("riscos-gtk: tool sprites: Wimp_ReadSysInfo 9 = &%X (first word &%X), &%X: %s\n",
+              (unsigned int) r.r[0], (unsigned int) first_word, (unsigned int) r.r[1],
+              tool_faulted ? "a fault while looking" :
+              tool_how == 1 ? "a sprite area" : tool_how == 2 ? "sprites found by name in the block" :
+              tool_how == 3 ? "a table of sprite pointers" :
+              tool_how == 4 ? "a table of sprite pointers at +16's address" : "not found");
+  if (debugging () && !tool_faulted)
+    {
       if (tool_block == NULL)
         {
           const int *p = (const int *) r.r[0];
@@ -780,15 +882,40 @@ tool_translation (const char *name, guint32 table[256])
  * Returns: (transfer full) (nullable): the sprite at screen pixel size,
  * or %NULL.
  */
+static GdkPixbuf *tool_sprite (const char *name);
+
 GdkPixbuf *
 gdk_riscos_wimp_tool_sprite (const char *name)
+{
+  GdkPixbuf *volatile pb = NULL;
+  int sig;
+
+  if (tool_faulted || !tool_area ())
+    return NULL;
+  guard_begin ();
+  if ((sig = sigsetjmp (guard_env, 1)) == 0)
+    {
+      guarding = 1;
+      pb = tool_sprite (name);
+      guarding = 0;
+    }
+  else
+    {
+      tool_table = NULL;
+      guard_faulted (sig, "reading a window border sprite");
+      pb = NULL;
+    }
+  guard_restore ();
+  return pb;
+}
+
+static GdkPixbuf *
+tool_sprite (const char *name)
 {
   const int *spr = NULL;
   char full[16];
   const char *suffix;
 
-  if (!tool_area ())
-    return NULL;
   /* A Tools file holds a set per resolution, named with the screen's
      sprite suffix: "uicon22" for 90 x 90 dpi (EIG 1 x 1), "uicon11" for
      180 dpi; the plain name is the 90 x 45 dpi set, or the only one. */
