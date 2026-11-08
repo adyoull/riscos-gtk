@@ -160,6 +160,11 @@ gltest_main (int argc, char **argv)
   gl_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (gl_window), "GTK OpenGL test");
   g_signal_connect (gl_window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
+#ifdef __riscos
+  /* RISC OS: the close icon hides the window and the program stays on the
+     icon bar (Select shows it again; Quit on the icon bar ends it) */
+  g_signal_connect (gl_window, "delete-event", G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+#endif
 
   box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (gl_window), box);

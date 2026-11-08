@@ -14,6 +14,9 @@ Using it
   Or drop a document on !AbiWord in a Filer window.
 - The icon bar icon: Select brings AbiWord's window to the front; Menu
   gives Info, Choices... (AbiWord's Preferences) and Quit.
+- Closing the last document's window leaves AbiWord on the icon bar, as
+  RISC OS programs stay; Select on the icon opens a new document, and
+  Quit on the icon's menu (or File > Exit) ends it.
 - Files dropped on the icon bar icon, or documents double-clicked in the
   Filer while AbiWord is loaded, open in a window of their own (or in the
   new, empty document if nothing has been typed in it).

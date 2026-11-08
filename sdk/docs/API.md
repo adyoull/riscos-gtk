@@ -138,6 +138,15 @@ Call these before `gtk_init()` or `g_application_run()`.
   by another program is opened.
 - **Message_PreQuit:** at desktop shutdown, asks about unsaved work.
 - **A second copy:** hands its file to the first copy and quits.
+- **Closing the last window:** the program stays on the icon bar, as
+  RISC OS programs do. A `GtkApplication` is held; for any other program
+  a `gtk_main_quit()` made while a window's close (its close icon) is
+  being handled is ignored, so a program that quits when its last window
+  is destroyed carries on. Make sure Select (the `show` handler, or the
+  default: the windows it hid) can give it a window again: hide the
+  window on "delete-event", or make a new one. Quit on the icon's menu,
+  the program's own Quit and a desktop shutdown end it as before.
+  `*Set RISCOS_GTK_QUIT_ON_CLOSE 1` quits on close, as on other systems.
 - **Starting:** the icon goes on the icon bar as soon as the Wimp task
   starts, before the fonts, the theme and the program's own set-up, so
   the user sees the program has started. Clicks on it before the program

@@ -13,6 +13,9 @@ Using it
   bar. Or drop a spreadsheet on !Gnumeric in a Filer window.
 - The icon bar icon: Select brings Gnumeric's window to the front; Menu
   gives Info, Choices... (Gnumeric's Preferences) and Quit.
+- Closing the last workbook's window leaves Gnumeric on the icon bar, as
+  RISC OS programs stay; Select on the icon opens a new workbook, and
+  Quit on the icon's menu (or File > Quit) ends it.
 - Files dropped on the icon bar icon, or spreadsheets double-clicked in
   the Filer while Gnumeric is loaded, open in a window of their own.
 - File types: once the Filer has seen !Gnumeric (or it has run), .xlsx

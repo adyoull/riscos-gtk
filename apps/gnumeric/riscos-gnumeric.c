@@ -17,7 +17,10 @@
  *   - the icon bar: Select shows Gnumeric's window; Menu gives Info,
  *     Choices... (Gnumeric's Preferences) and Quit; files double-clicked,
  *     dropped on the icon or saved to it open in a window of their own;
- *     PreQuit with unsaved workbooks asks.
+ *     PreQuit with unsaved workbooks asks;
+ *   - closing the last workbook's window leaves Gnumeric on the icon bar
+ *     (gtk_main_quit, riscos-gtk); Select, or a file opened, then makes a
+ *     new workbook window.
  *
  * GPL version 2 or (at your option) version 3, as Gnumeric. Copyright (C)
  * 2026 Andrew Youll.
@@ -64,10 +67,22 @@ current_wbcg (void)
   return found;
 }
 
+/* The workbook window to use: the current one, or (every window having
+   been closed, Gnumeric staying on the icon bar) a new empty workbook */
+static WBCGtk *
+wbcg_or_new (void)
+{
+  WBCGtk *wbcg = current_wbcg ();
+
+  if (wbcg == NULL)
+    wbcg = wbc_gtk_new (NULL, workbook_new_with_sheets (1), NULL, NULL);
+  return wbcg;
+}
+
 static void
 show_window (gpointer d)
 {
-  WBCGtk *wbcg = current_wbcg ();
+  WBCGtk *wbcg = wbcg_or_new ();
 
   if (wbcg)
     gtk_window_present (wbcg_toplevel (wbcg));
@@ -76,7 +91,7 @@ show_window (gpointer d)
 static gboolean
 open_file (const char *unix_path, int filetype, gboolean scrap, gpointer d)
 {
-  WBCGtk *wbcg = current_wbcg ();
+  WBCGtk *wbcg = wbcg_or_new ();
   char *uri = go_filename_to_uri (unix_path);
   gboolean ok = FALSE;
 

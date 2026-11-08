@@ -8,6 +8,9 @@
 G_BEGIN_DECLS
 
 void _gtk_riscos_theme_init (GdkDisplay *display);
+/* gtkiconbar-riscos.c: TRUE if the program should stay on the icon bar
+   when its last window closes (it has an icon there), instead of quitting */
+gboolean _gtk_riscos_iconbar_keep_running (void);
 
 G_END_DECLS
 

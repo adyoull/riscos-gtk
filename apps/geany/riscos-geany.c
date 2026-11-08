@@ -13,7 +13,10 @@
  *     Choices... (Geany's Preferences) and Quit; text, HTML, XML, CSS,
  *     JavaScript, JSON and CSV files double-clicked in the Filer, dropped
  *     on the icon or saved to it open in a tab; Quit and PreQuit with
- *     unsaved documents ask (Cancel / Discard).
+ *     unsaved documents ask (Cancel / Discard);
+ *   - the window's close icon hides it, with its documents, as RISC OS
+ *     programs stay on the icon bar when their window is closed; Select
+ *     on the icon brings it back (Geany would quit, saving its session).
  *
  * GPL version 2 or later, as Geany. Copyright (C) 2026 Andrew Youll.
  */
@@ -111,6 +114,29 @@ static const GdkRiscosIconbarHandlers handlers = {
   show_window, open_file, choices, quit, unsaved
 };
 
+/* The close icon: hide the window (Geany's own handler quits) */
+static gboolean
+hide_on_close (GtkWidget *w, GdkEvent *e, gpointer d)
+{
+  gtk_widget_hide (w);
+  return TRUE;
+}
+
+/* once the window is made (the main loop's first idle): its delete-event
+   handlers replaced by hide_on_close */
+static gboolean
+take_close (gpointer d)
+{
+  if (main_widgets.window)
+    {
+      g_signal_handlers_disconnect_matched (main_widgets.window, G_SIGNAL_MATCH_ID,
+                                            g_signal_lookup ("delete-event", GTK_TYPE_WIDGET),
+                                            0, NULL, NULL, NULL);
+      g_signal_connect (main_widgets.window, "delete-event", G_CALLBACK (hide_on_close), NULL);
+    }
+  return G_SOURCE_REMOVE;
+}
+
 static gboolean
 is_riscos_name (const char *name)
 {
@@ -157,5 +183,6 @@ main (int argc, char **argv)
         gdk_riscos_iconbar_set_start_file (argv[i]);
         argv[i] = gdk_riscos_path_to_unix (argv[i]);
       }
+  g_idle_add (take_close, NULL);
   return main_lib (argc, argv);
 }

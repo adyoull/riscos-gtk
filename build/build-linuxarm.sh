@@ -10,6 +10,10 @@
 #   build/build-linuxarm.sh            # libraries (if not built), then tests
 #   build/build-linuxarm.sh tests      # tests only
 export TARGET=linuxarm
+# The fake Wimp closes a test's window when its script ends, and most
+# tests expect that to end the program, as it does elsewhere. On RISC OS
+# a program stays on the icon bar instead; closelast-fake tests that.
+export RISCOS_GTK_QUIT_ON_CLOSE=1
 HERE=$(cd "$(dirname "$0")" && pwd)
 [ "${1:-}" = tests ] || "$HERE/build-deps.sh"
 [ "${1:-}" = tests ] || "$HERE/build-svg.sh"
@@ -217,6 +221,12 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags 
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# Closing the last window: the program stays on the icon bar.
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+  "$REPO_DIR/tests/gtk/closelast-fake.c" -o "$REPO_DIR/out/closelast-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # A tool sprite block that runs into memory that isn't there (the scan's
 # page checks, and the fault guard when OS_Memory 24 is wrong).
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
@@ -408,6 +418,8 @@ rm -rf "$FCH"; mkdir -p "$FCH"
 run fontchooser-fake "$HA" "$FCH" "$FCT/sys/DejaVuSerif.ttf"
 run toolsprites-fake
 run toolfault-fake
+RISCOS_GTK_QUIT_ON_CLOSE= run closelast-fake
+run closelast-fake quit
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
 python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 $CP5 & mailserver=$!

@@ -648,19 +648,24 @@ diff -ruN a/gtk/gtkicontheme.c b/gtk/gtkicontheme.c
      {
        gchar **names, **nonsymbolic_names;
 diff -ruN a/gtk/gtkmain.c b/gtk/gtkmain.c
---- a/gtk/gtkmain.c	2026-03-23 02:24:49.000000000 +0000
-+++ b/gtk/gtkmain.c	2026-11-02 07:40:47.709786521 +0000
-@@ -118,6 +118,9 @@
+--- a/gtk/gtkmain.c	2026-11-08 08:15:52.954695600 +0000
++++ b/gtk/gtkmain.c	2026-11-08 08:15:52.956746805 +0000
+@@ -118,6 +118,14 @@
  #include "gtkdebug.h"
  #include "gtkdndprivate.h"
  #include "gtkmain.h"
 +#ifdef GDK_WINDOWING_RISCOS
 +#include "gtkriscostheme.h"   /* riscos-gtk */
 +#endif
++#ifdef GDK_WINDOWING_RISCOS
++/* riscos-gtk: the main loop level a window's close (GDK_DELETE) is being
++   handled at, or -1 (gtk_main_do_event, gtk_main_quit) */
++static gint riscos_closing_level = -1;
++#endif
  #include "gtkmenu.h"
  #include "gtkmodules.h"
  #include "gtkmodulesprivate.h"
-@@ -1112,6 +1115,12 @@
+@@ -1112,6 +1120,12 @@
  
    ret = GDK_PRIVATE_CALL (gdk_display_open_default) () != NULL;
  
@@ -673,7 +678,42 @@ diff -ruN a/gtk/gtkmain.c b/gtk/gtkmain.c
    if (gtk_get_debug_flags () & GTK_DEBUG_INTERACTIVE)
      gtk_window_set_interactive_debugging (TRUE);
  
-@@ -2240,6 +2249,15 @@
+@@ -1380,6 +1394,17 @@
+ {
+   g_return_if_fail (main_loops != NULL);
+ 
++#ifdef GDK_WINDOWING_RISCOS
++  /* riscos-gtk: on RISC OS closing a program's last window leaves it on
++     the icon bar; Quit (the icon bar menu, the program's own Quit) ends
++     it. So a quit while a window's close is being handled, at that main
++     loop's level (not a dialogue's nested one), is ignored when the
++     program has its icon on the icon bar (gtkiconbar-riscos.c). */
++  if (riscos_closing_level >= 0 && gtk_main_level () == riscos_closing_level &&
++      _gtk_riscos_iconbar_keep_running ())
++    return;
++#endif
++
+   g_main_loop_quit (main_loops->data);
+ }
+ 
+@@ -1822,9 +1847,16 @@
+ 
+     case GDK_DELETE:
+       g_object_ref (event_widget);
++#ifdef GDK_WINDOWING_RISCOS
++      /* riscos-gtk: a window closed (its close icon): see gtk_main_quit */
++      riscos_closing_level = gtk_main_level ();
++#endif
+       if ((!gtk_window_group_get_current_grab (window_group) || gtk_widget_get_toplevel (gtk_window_group_get_current_grab (window_group)) == event_widget) &&
+           !gtk_widget_event (event_widget, event))
+         gtk_widget_destroy (event_widget);
++#ifdef GDK_WINDOWING_RISCOS
++      riscos_closing_level = -1;
++#endif
+       g_object_unref (event_widget);
+       break;
+ 
+@@ -2240,6 +2272,15 @@
  
    g_return_if_fail (widget != NULL);
  

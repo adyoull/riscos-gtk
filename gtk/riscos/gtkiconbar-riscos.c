@@ -23,8 +23,10 @@
  * open, the "preferences" and "quit" actions), else its own menu items,
  * found by their labels (Preferences/Settings/Choices, Quit).
  *
- * A GtkApplication is held, so that closing its last window leaves the
- * program on the icon bar, as RISC OS programs stay.
+ * Closing a program's last window leaves it on the icon bar, as RISC OS
+ * programs stay: a GtkApplication is held, and any other program's quit
+ * while its window's close is handled is ignored (gtk_main_quit, in
+ * gtkmain.c: _gtk_riscos_iconbar_keep_running).
  *
  * Copyright (C) 2026 Andrew Youll. LGPL-2.1-or-later, as the GTK code it
  * plugs into.
@@ -32,6 +34,7 @@
 #include "config.h"
 
 #include "gtkiconbar-riscos.h"
+#include "gtkriscostheme.h"
 #include "gtkapplication.h"
 #include "gtkcontainer.h"
 #include "gtkmain.h"
@@ -467,6 +470,23 @@ event_func (GdkRiscosIconbarEvent *ev, gpointer data)
   e->path = g_strdup (ev->path);
   e->scrap = ev->scrap;
   g_idle_add_full (G_PRIORITY_HIGH_IDLE, event_idle, e, NULL);
+}
+
+/* gtkmain.c's gtk_main_quit, while a window's close is handled: stay on
+   the icon bar (RISCOS_GTK_QUIT_ON_CLOSE=1: quit, as on other systems) */
+gboolean
+_gtk_riscos_iconbar_keep_running (void)
+{
+  static gboolean said;
+
+  if (ib.display == NULL || !gdk_riscos_iconbar_enabled ())
+    return FALSE;
+  if (g_strcmp0 (g_getenv ("RISCOS_GTK_QUIT_ON_CLOSE"), "1") == 0)
+    return FALSE;
+  if (!said)
+    g_printerr ("riscos-gtk: the last window closed: the program stays on the icon bar\n");
+  said = TRUE;
+  return TRUE;
 }
 
 void

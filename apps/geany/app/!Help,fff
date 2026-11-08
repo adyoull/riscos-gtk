@@ -10,6 +10,9 @@ Using it
   drop a file on !Geany in a Filer window.
 - The icon bar icon: Select brings Geany's window to the front; Menu
   gives Info, Choices... (Geany's Preferences) and Quit.
+- Closing Geany's window leaves it on the icon bar with its documents
+  open; Select on the icon shows the window again, and Quit on the icon's
+  menu (or File > Quit) ends it.
 - Text, HTML, XML, CSS, JavaScript, JSON and CSV files double-clicked in
   the Filer while Geany is loaded, dropped on its icon or window, or saved
   to it from another program, open in a tab of their own.

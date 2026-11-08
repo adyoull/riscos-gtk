@@ -63,6 +63,26 @@
     its first word, and how the sprites were found.
   - New test: toolfault-fake (the fake's OS_Memory 24 can be made to
     pass memory that isn't there).
+- **Closing a program's last window leaves it on the icon bar,** as RISC OS
+  programs do. Gnumeric, AbiWord, Geany, GTKThemeTest and GTKGLTest quit
+  instead (only a GtkApplication was held).
+  - GTK (gtkmain.c, in the patch): a `gtk_main_quit` made while a
+    window's close (GDK_DELETE: the close icon) is handled, at that main
+    loop's level, is ignored when the program has its icon on the icon bar
+    (`_gtk_riscos_iconbar_keep_running`, gtkiconbar-riscos.c). The Log
+    says "the last window closed: the program stays on the icon bar".
+    Quit on the icon bar, the program's own Quit and a desktop shutdown
+    are unchanged. `RISCOS_GTK_QUIT_ON_CLOSE=1` quits on close.
+  - Gnumeric: Select on the icon (or a file opened) with no workbook
+    window makes a new workbook. AbiWord's Select already made a new
+    document.
+  - Geany: its close icon hides its window, with its documents (Geany's own
+    close quits after taking itself apart); Select shows it again.
+  - GTKThemeTest and GTKGLTest hide their window on close; Select shows it.
+  - Tests: closelast-fake (stays; a later quit ends it; and with
+    RISCOS_GTK_QUIT_ON_CLOSE=1, quits). The other tests set
+    RISCOS_GTK_QUIT_ON_CLOSE=1, as the fake Wimp closes their window to
+    end them.
 
 ## 3.24.52-riscos1.0-rc15 (2026-11-03)
 - **Toolchain: riscos-crossdev 1.9** (`.riscos-deps`; was 1.8.2), with

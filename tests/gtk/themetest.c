@@ -890,6 +890,11 @@ themetest_main (int argc, char **argv)
   gtk_window_set_title (GTK_WINDOW (tt_window), "GTK theme test");
   gtk_window_move (GTK_WINDOW (tt_window), 120, 80);
   g_signal_connect (tt_window, "destroy", G_CALLBACK (on_destroy), NULL);
+#ifdef __riscos
+  /* RISC OS: the close icon hides the window and the program stays on the
+     icon bar (Select shows it again; Quit on the icon bar ends it) */
+  g_signal_connect (tt_window, "delete-event", G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+#endif
 
   outer = vbox (0);
   gtk_container_add (GTK_CONTAINER (tt_window), outer);
