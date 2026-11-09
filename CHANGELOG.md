@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+- **The hourglass stayed on until the program ended (RC16).** GDK
+  meant to clear the start-up hourglass with Hourglass_Smash, but called
+  SWI &406C3, which is Hourglass_Start (Smash is &406C2), so once the
+  program was ready the hourglass came back after its usual delay and
+  stayed. Now it calls &406C2, and the pointer is back to normal as
+  soon as the program is ready (checked with OS_Byte 106 on RISC OS
+  5.31). The fake Wimp in the tests answers &406C2 too.
+- **Ready is when the first window is drawn, too.** The hourglass goes
+  at the first of: the main loop waits, a window of the program's is
+  drawn, or 3 s after the main loop first ran (a program kept busy by
+  its own timers would otherwise keep it till it ended).
+
 ## 3.24.52-riscos1.0-rc16 (2026-11-09)
 - **File types the programs open are named, given icons and open on a
   double-click.** A saved .xlsx was typed &A7F (MimeMap's ExcelX), but the

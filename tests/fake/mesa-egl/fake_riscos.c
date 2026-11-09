@@ -1371,7 +1371,7 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
             print_page_done();
         }
         break;
-    case 0x406C0: case 0x406C1: case 0x406C3: break;  /* Hourglass_On / Off / Smash */
+    case 0x406C0: case 0x406C1: case 0x406C2: break;  /* Hourglass_On / Off / Smash (PRMs) */
     case 0x0D:      /* OS_Find: "printer:" only */
         if (r.r[0] == 0 && r.r[1] == 0x77) break;
         if ((r.r[0] & 0xC0) && r.r[1] && !strcmp((const char *) (long) r.r[1], "printer:")) { r.r[0] = 0x77; break; }

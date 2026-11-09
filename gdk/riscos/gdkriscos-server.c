@@ -223,10 +223,10 @@ monotonic_cs (void)
    (a web engine's, say) leaves the hourglass alone. The Log says how
    long the start took, from the program's first instruction. */
 #define Hourglass_On    0x406C0
-#define Hourglass_Smash 0x406C3
+#define Hourglass_Smash 0x406C2   /* PRMs: &406C2 (&406C3 is Hourglass_Start) */
 
-static gboolean starting;
-static guint32 started_cs, icon_cs;
+static gboolean starting, drawn;
+static guint32 started_cs, icon_cs, loop_cs;
 
 __attribute__ ((constructor)) static void
 note_start (void)
@@ -246,8 +246,9 @@ start_hourglass (void)
   _kernel_swi (Hourglass_On, &r, &r);
 }
 
+/* why: NULL at exit, else what showed the program had started */
 static void
-end_hourglass (gboolean ready)
+end_hourglass (const char *why)
 {
   _kernel_swi_regs r;
 
@@ -255,12 +256,12 @@ end_hourglass (gboolean ready)
     return;
   starting = FALSE;
   _kernel_swi (Hourglass_Smash, &r, &r);
-  if (ready && icon_cs)
-    g_printerr ("riscos-gtk: started: the icon bar icon after %.1f s, ready after %.1f s\n",
-                (icon_cs - started_cs) / 100.0, (monotonic_cs () - started_cs) / 100.0);
-  else if (ready)
-    g_printerr ("riscos-gtk: started: ready after %.1f s\n",
-                (monotonic_cs () - started_cs) / 100.0);
+  if (why && icon_cs)
+    g_printerr ("riscos-gtk: started: the icon bar icon after %.1f s, ready after %.1f s (%s)\n",
+                (icon_cs - started_cs) / 100.0, (monotonic_cs () - started_cs) / 100.0, why);
+  else if (why)
+    g_printerr ("riscos-gtk: started: ready after %.1f s (%s)\n",
+                (monotonic_cs () - started_cs) / 100.0, why);
 }
 
 static guint32
@@ -1094,6 +1095,7 @@ handle_redraw (GdkRiscosServer *server, int *block)
     {
       sync_sprite_if_stale (w->surface);
       plot_rectangles (server, w, block, r.r[0]);
+      drawn = TRUE;                /* a window of ours is on the screen */
     }
   else
     while (r.r[0])
@@ -1377,9 +1379,25 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
   guint32 deadline = start + (timeout < 0 ? 0x10000000u : (guint32) (timeout + 9) / 10);
   gint n;
 
-  /* GLib has nothing to do for a while: the program has started */
-  if (starting && server && (timeout < 0 || timeout >= 50))
-    end_hourglass (TRUE);
+  /* The program has started, so the hourglass goes, at the first of:
+     its main loop waits at all (GLib has nothing to do at once: the
+     window is up, or the program waits on the icon bar); its first
+     window has been drawn; or 3 s after its main loop first ran (a
+     program kept busy by its own timers or idles would otherwise keep
+     the hourglass till it ended) */
+  if (starting && server)
+    {
+      guint32 now = monotonic_cs ();
+
+      if (!loop_cs)
+        loop_cs = now ? now : 1;
+      if (timeout != 0)
+        end_hourglass ("its main loop is waiting");
+      else if (drawn)
+        end_hourglass ("its first window is drawn");
+      else if ((gint32) (now - loop_cs) >= 300)
+        end_hourglass ("3 s after its main loop started");
+    }
 
   if (server && server->menu_hold > 0)
     {
@@ -1433,7 +1451,7 @@ _gdk_riscos_server_current (void)
 static void
 restore_pointer (void)
 {
-  end_hourglass (FALSE);
+  end_hourglass (NULL);
   if (the_server && the_server->shown_shape != RISCOS_POINTER_DEFAULT)
     _gdk_riscos_pointer_show (RISCOS_POINTER_DEFAULT);
 }
@@ -1475,7 +1493,7 @@ _gdk_riscos_server_new (const char *display, GError **error)
   e = swi (Wimp_Initialise, &r);
   if (e != NULL)
     {
-      end_hourglass (FALSE);
+      end_hourglass (NULL);
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                    "Wimp_Initialise failed: %s", e->errmess);
       return NULL;
