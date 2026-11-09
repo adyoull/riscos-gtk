@@ -195,7 +195,7 @@ echo "build-claws.sh: built Claws Mail's objects in $C/src ($TARGET)"
 # !ClawsMail: Claws Mail's objects (main.o included) and its libclawsgtk,
 # with riscos-claws.c; the British English dictionary in share/hunspell
 # (hunspell finds it through XDG_DATA_DIRS: /<ClawsMail$Dir>/share)
-VERSION=${VERSION:-4.4.0-riscos26}
+VERSION=${VERSION:-4.4.0-riscos27}
 APP=$SRC/claws-app
 rm -rf "$APP"; cp -r "$REPO_DIR/apps/claws/app" "$APP"
 mkdir -p "$APP/share/hunspell"

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.24.52-riscos1.0-rc17 (2026-11-09)
 - **The hourglass stayed on until the program ended (RC16).** GDK
   meant to clear the start-up hourglass with Hourglass_Smash, but called
   SWI &406C3, which is Hourglass_Start (Smash is &406C2), so once the
@@ -12,6 +12,10 @@
   at the first of: the main loop waits, a window of the program's is
   drawn, or 3 s after the main loop first ran (a program kept busy by
   its own timers would otherwise keep it till it ended).
+- Every program is rebuilt: L3afpad 0.8.18.1.11-riscos36, ClawsMail
+  4.4.0-riscos27, Geany 2.1-riscos15, mtPaint 3.50.14-riscos15, Gnumeric
+  1.12.62-riscos20, AbiWord 3.0.8-riscos6, GTKThemeTest and GTKGLTest
+  3.24.52-riscos1.0-rc17.
 
 ## 3.24.52-riscos1.0-rc16 (2026-11-09)
 - **File types the programs open are named, given icons and open on a
