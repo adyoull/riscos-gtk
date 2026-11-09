@@ -1,15 +1,23 @@
-# riscos-gtk 3.24.52-riscos1.0 — public beta (release candidate 15)
+# riscos-gtk 3.24.52-riscos1.0 — public beta (release candidate 16)
 
-**Status: public beta.** RC15 is the thirteenth public beta build. It
-moves GTK to 3.24.52 (from 3.24.41: two years of upstream bug and crash
-fixes) and Gnumeric to 1.12.62 with GOffice 0.10.62 (upstream's fixes and
-new functions such as XLOOKUP and TEXTSPLIT), and adds Ubuntu's security
-fixes to the libraries, which were built from their original sources
-without them (154 fixes, to GLib, libxml2, libxslt, libpng, FreeType,
-Expat, zlib, gdk-pixbuf, libgsf, libcroco and libetpan). Files now open
-exactly as they're named on RISC OS (hello/c as well as c.hello), and
-ClawsMail's `--subscribe` works. Every program is rebuilt. RC15 was tried
-on RISC OS 5.31 (RISC OS on Linux) and in the automatic tests.
+**Status: public beta.** RC16 is the fourteenth public beta build. It
+makes the programs behave more as RISC OS programs do:
+- **File types:** the types a program opens have their names and icons
+  (ExcelX, ODS, MSWordX, ODT and others), and a double-click opens them in
+  the program, where nothing else has claimed them; a saved .xlsx no
+  longer looks untyped.
+- **Starting:** the hourglass shows from the double-click, and the icon
+  goes on the icon bar at once, before the rest of the start.
+- **Closing the last window** leaves the program on the icon bar; Select
+  on the icon gives it a window again, and Quit ends it.
+- **The window border sprites** can no longer stop a program starting
+  (seen on RISC OS on Linux under load).
+Every program is rebuilt. RC16 was tried on RISC OS 5.31 (RISC OS on
+Linux) and in the automatic tests.
+
+RC15 moved GTK to 3.24.52 and Gnumeric to 1.12.62, added Ubuntu's
+security fixes to the libraries (154), opened files exactly as named
+(hello/c as well as c.hello), and made ClawsMail's `--subscribe` work.
 
 RC14 filled in features the programs had left out: SVG pictures, files
 dragged out to the Filer, files and web addresses opened in the desktop's
@@ -43,21 +51,21 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC15
+## What's in RC16
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos34.zip` | 0.8.18.1.11-riscos34 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos25.zip` | 4.4.0-riscos25 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons; spell checking; attachments opened and dragged to the Filer. RSS feeds, Sieve filters, a calendar, the attachment warner and the address keeper (built-in plug-ins). **New:** `--subscribe` to a feed or calendar opens it. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos13.zip` | 2.1-riscos13 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos13.zip` | 3.50.14-riscos13 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.62-riscos18.zip` | 1.12.62-riscos18 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Its manual (Help > Contents) and SVG pictures. **New:** Gnumeric 1.12.62 (from 1.12.57), with XLOOKUP, XMATCH, TEXTBEFORE, TEXTAFTER, TEXTSPLIT and upstream's fixes. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; CSV files open from the Filer |
-| `AbiWord-3.0.8-riscos4.zip` | 3.0.8-riscos4 | The word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer. Charts, the thesaurus, equations, WordPerfect and Works files, SVG pictures |
-| `GTKThemeTest-3.24.52-riscos1.0-rc15.zip` | 3.24.52-riscos1.0-rc15 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.52-riscos1.0-rc15.zip` | 3.24.52-riscos1.0-rc15 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `L3afpad-0.8.18.1.11-riscos35.zip` | 0.8.18.1.11-riscos35 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos26.zip` | 4.4.0-riscos26 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons; spell checking; attachments opened and dragged to the Filer. RSS feeds, Sieve filters, a calendar, the attachment warner and the address keeper (built-in plug-ins). `--subscribe` to a feed or calendar opens it. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos14.zip` | 2.1-riscos14 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos14.zip` | 3.50.14-riscos14 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
+| `Gnumeric-1.12.62-riscos19.zip` | 1.12.62-riscos19 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Its manual (Help > Contents) and SVG pictures. Gnumeric 1.12.62, with XLOOKUP, XMATCH, TEXTBEFORE, TEXTAFTER, TEXTSPLIT. **New:** .xlsx, .ods, .xls, .csv, .tsv and Lotus files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; spreadsheets open from the Filer |
+| `AbiWord-3.0.8-riscos5.zip` | 3.0.8-riscos5 | The word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer. Charts, the thesaurus, equations, WordPerfect and Works files, SVG pictures. **New:** .docx, .odt, .doc and .rtf files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar |
+| `GTKThemeTest-3.24.52-riscos1.0-rc16.zip` | 3.24.52-riscos1.0-rc16 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.52-riscos1.0-rc16.zip` | 3.24.52-riscos1.0-rc16 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
 | `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **Optional** (unchanged since RC10): a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
-| `riscos-gtk-sdk-3.24.52-riscos1.0-rc15.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.52-riscos1.0-rc15-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-sdk-3.24.52-riscos1.0-rc16.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev: the libraries, headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.52-riscos1.0-rc16-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -345,7 +353,20 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Known issues and limits in RC15
+## Known issues and limits in RC16
+
+- **New in RC16** *[Pi]*: the file types, the hourglass and early icon,
+  and staying on the icon bar. Tried on RISC OS 5.31 (RISC OS on Linux)
+  and in the automatic tests, not yet on the Pi
+  ([RC-TEST-PLAN.md](RC-TEST-PLAN.md) section 17).
+- **Geany and the Task Manager's Quit:** when Geany is ended by Message_Quit
+  (the Task Manager's Quit, or a desktop shutdown), an empty "Press SPACE
+  or click mouse to continue" window appears as it goes. Quit on its icon
+  bar menu, or File > Quit, doesn't do this.
+- **File > Close of the last document** (rather than the window's close
+  icon) still ends Gnumeric and AbiWord, as before.
+- **Programs started before RC16** don't know the new file types until the
+  Filer has seen them again (open the folder they're in once, or restart).
 
 - **New in RC15** *[Pi]*: GTK 3.24.52, Gnumeric 1.12.62 and the
   libraries' security fixes, and names such as hello/c opening as named.
@@ -553,7 +574,7 @@ release.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.52-riscos1.0-rc15` builds the packages, the
+  `make release RELEASE=3.24.52-riscos1.0-rc16` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests

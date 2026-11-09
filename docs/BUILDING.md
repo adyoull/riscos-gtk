@@ -118,7 +118,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.52-riscos1.0-rc15    # out/release/3.24.52-riscos1.0-rc15/
+make release RELEASE=3.24.52-riscos1.0-rc16    # out/release/3.24.52-riscos1.0-rc16/
 ```
 
 `make emoji` makes `out/TTF-Noto-Color-Emoji-<version>.zip`, the optional

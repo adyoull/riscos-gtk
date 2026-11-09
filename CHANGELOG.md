@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.24.52-riscos1.0-rc16 (2026-11-09)
 - **File types the programs open are named, given icons and open on a
   double-click.** A saved .xlsx was typed &A7F (MimeMap's ExcelX), but the
   desktop has no name or icon for it, so the Filer showed "?" and "&A7F"

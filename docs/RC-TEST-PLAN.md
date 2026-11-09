@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.52-riscos1.0-rc15 (public beta) — Pi sign-off
+# riscos-gtk 3.24.52-riscos1.0-rc16 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.52-riscos1.0-rc15 (the backend and theme)
+## 2. GTKThemeTest 3.24.52-riscos1.0-rc16 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -237,6 +237,18 @@ provider offers them.
 | 16.6 | ClawsMail: Subscribe to a feed and to a webcal calendar (Menu on My Feeds or vCalendar); with `--subscribe` from a command line, the window opens on the new folder; feeds and calendars fetched as in RC14 | RISC OS 5.31 on Linux (both, through --subscribe) | |
 | 16.7 | ClawsMail: receive, read and send mail over POP, IMAP and SMTP with TLS, as in RC14 (libetpan's and GLib's fixes) | RISC OS 5.31 on Linux (POP without TLS) | |
 | 16.8 | UnixLib 5.0.3.5: set a ClawsMail folder file's type to Text (`<ClawsMail$Choices>.claws-mail.folderlist/xml`, SetType Text), start ClawsMail, add a folder, Quit: no "rename: No such file or directory" in the Log, and the folder is there next time | RISC OS 5.31 on Linux | |
+
+## 17. New in RC16: file types, the start, staying on the icon bar
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 17.1 | Open a folder holding !Gnumeric and !AbiWord, then one with .xlsx, .ods, .docx and .odt files: in Full info they're named ExcelX, ODS, MSWordX, ODT with riscos-gtk's icons (and .xls, .csv, .doc, .rtf with the theme's) | RISC OS 5.31 on Linux | |
+| 17.2 | Double-click a .xlsx: Gnumeric starts with it; with Gnumeric running, double-click a .ods: it opens in the same Gnumeric (one icon on the icon bar). The same for .docx/.odt in AbiWord | RISC OS 5.31 on Linux | |
+| 17.3 | With another program already set to open .ods (Alias$@RunType_A82), Gnumeric leaves it alone | RISC OS 5.31 on Linux | |
+| 17.4 | Double-click !Gnumeric: the hourglass shows straight away, and its icon is on the icon bar within a second or so, before its window; the Log's `riscos-gtk: started:` line gives the times | RISC OS 5.31 on Linux (the icon; the hourglass can't be seen there) | |
+| 17.5 | The hourglass goes when the program is ready, in every program, and doesn't stay after a second copy hands its file over | — | |
+| 17.6 | Close the last window of Gnumeric, AbiWord, Geany, GTKThemeTest and GTKGLTest with the close icon: each stays on the icon bar; Select brings a window back (a new workbook or document, Geany's window, the test's window); Quit on the icon bar ends it | RISC OS 5.31 on Linux | |
+| 17.7 | The window border sprites (the theme's, e.g. Raspberry) still draw the scroll bars and size icon; the Log's `riscos-gtk: tool sprites:` line says how they were found | — | |
 
 ## 14. Packaging and licences
 
