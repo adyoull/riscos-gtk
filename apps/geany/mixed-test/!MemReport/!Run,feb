@@ -1,0 +1,6 @@
+| MemReport: what each task and dynamic area is using now, written to
+| <Wimp$ScrapDir>.MemReport (overwritten each time) and shown in a
+| TaskWindow-free way: open the file to read it.
+Set MemReport$Dir <Obey$Dir>
+WimpSlot -min 64K -max 64K
+BASIC -quit <MemReport$Dir>.memreport/bas

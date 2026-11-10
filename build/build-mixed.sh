@@ -7,6 +7,7 @@
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh libs
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh geany
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh package
+#   SHAREDLIBS=<a !SharedLibs with ld-riscos/so/2> ... build/build-mixed.sh bundle
 #
 # libs: each static library build-deps.sh made (position-independent, as
 # RISCOS_GTK_MIXED=1 builds them) becomes $STAGE/so/libX.so.N: its whole
@@ -113,7 +114,7 @@ s = s.replace("""| A UnixLib program converted to Absolute (AIF), statically lin
 | under them as shared libraries in <Geany$Dir>.lib, loaded by !SharedLibs
 | (SOManager and ld-riscos/so/2). Needs SharedUnixLibrary 1.16,
 | ARMEABISupport, Iconv, and a !SharedLibs with ld-riscos/so/2 (Iris's).""")
-s = s.replace("| The font cache and the Log", 'If "<SharedLibs$Dir>" = "" Then Error Geany (mixed test) needs !SharedLibs with ld-riscos/so/2: let the Filer see it first\n| The font cache and the Log', 1)
+s = s.replace("| The font cache and the Log", 'If "<SharedLibs$Dir>" = "" Then Error Geany (mixed test) needs !SharedLibs with ld-riscos/so/2: let the Filer see it first\n| An older !SharedLibs (riscos.info 4.0) has only ld-riscos/so/1\nUnset Geany$SO2\nIfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set Geany$SO2 1\nIf "<Geany$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: Geany (mixed test) needs a newer one, such as the one in this zip. Open its folder, then run Geany again.\n| The font cache and the Log', 1)
 import re
 s = re.sub(r"\| The WimpSlot holds the program; the C heap grows it as needed \(no\n\| dynamic area, so no logical address space is reserved\)\.\nWimpSlot -min \d+K -max \d+K",
   "| The WimpSlot holds the program (the shared libraries are loaded by\n| SOManager); the C heap grows it as needed.\nWimpSlot -min 11000K -max 11000K\n"
@@ -127,9 +128,28 @@ PYEOF
   ls -la "$OUTD/Geany-2.1-mixed-test1.zip"
 }
 
+# bundle: out/mixed/GeanyMixed-test1.zip, for trying it on RISC OS 5
+# itself: !Geany (package), the !SharedLibs named by SHAREDLIBS (Iris's:
+# SOManager 3.04, ld-riscos/so/2), apps/geany/mixed-test's ReadMe and
+# !MemReport (each task's slot and each dynamic area's size, to
+# <Wimp$ScrapDir>.MemReport)
+bundle() {
+  local OUTD=$REPO_DIR/out/mixed B=$REPO_DIR/out/mixed/bundle
+  [ -d "${SHAREDLIBS:-}" ] && [ -f "$SHAREDLIBS/lib/ld-riscos.so.2,1c8" ] ||
+    { echo "build-mixed.sh: SHAREDLIBS must name a !SharedLibs with ld-riscos/so/2" >&2; exit 1; }
+  [ -d "$OUTD/!Geany" ] || package
+  rm -rf "$B"; mkdir -p "$B/GeanyMixed"
+  cp -r "$OUTD/!Geany" "$SHAREDLIBS" "$REPO_DIR/apps/geany/mixed-test/!MemReport" \
+    "$REPO_DIR/apps/geany/mixed-test/ReadMe,fff" "$B/GeanyMixed/"
+  rm -f "$OUTD/GeanyMixed-test1.zip"
+  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GeanyMixed-test1.zip" -C "$B" GeanyMixed
+  ls -la "$OUTD/GeanyMixed-test1.zip"
+}
+
 case "${1:-}" in
+  bundle) bundle ;;
   libs) libs ;;
   geany) geany ;;
   package) package ;;
-  *) echo "usage: build-mixed.sh libs|geany|package" >&2; exit 1 ;;
+  *) echo "usage: build-mixed.sh libs|geany|package|bundle" >&2; exit 1 ;;
 esac

@@ -1,0 +1,61 @@
+Geany 2.1, mixed-link test 1 (riscos-gtk + riscos-crossdev 1.11-test1)
+=====================================================================
+
+A TEST, not a release. Geany is linked "mixed": UnixLib is inside the
+program, as usual, but GTK 3.24.52, riscos-gtk's RISC OS backend and the
+libraries under them (GLib, cairo, pango, harfbuzz, FreeType, fontconfig,
+pixman, libpng, libjpeg...) are 26 shared libraries in !Geany.lib, loaded
+by !SharedLibs (SOManager and ld-riscos/so/2) when Geany starts. Once
+other GTK programs are built the same way they can share one copy of
+those libraries instead of each carrying its own.
+
+It has run on RISC OS 5.31 on Linux. This is its first try on RISC OS 5
+running directly on the hardware.
+
+You need
+--------
+- RISC OS 5 on ARMv7 or later (Pi 2 or later), 16 or 32 bpp mode
+- SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv (PackMan),
+  as for the normal GTK programs
+- the !SharedLibs in this zip (from Iris: SOManager 3.04 with
+  ld-riscos/so/2). The older !SharedLibs 4.0 from riscos.info has only
+  ld-riscos/so/1 and can't run it; !Geany's !Run says so if that one is
+  the one booted.
+
+Trying it
+---------
+1. Copy the folder somewhere. If you already have a !SharedLibs in
+   !Boot.Resources, keep a copy of it first: this test doesn't replace
+   it, but whichever the Filer sees first is the one used. The simplest
+   is to restart, then open this folder before anything else that has
+   ELF programs.
+2. Open this folder, so the Filer sees !SharedLibs (and !Geany).
+3. Double-click !Geany. The hourglass shows while the libraries load;
+   its icon goes on the icon bar and the window opens.
+4. Try: open a C file (drag it to the window or the icon bar icon), edit,
+   save, Find, the Symbols list, Build > Compile if you have GCC.
+
+What to report
+--------------
+- Whether it starts. If not, any error box, and the Log:
+  <Wimp$ScrapDir>.Geany.Log
+- The Log's "riscos-gtk: started: ... ready after N s" line, and the
+  same line from the static Geany (Geany-2.1-riscos15 from RC17) run
+  the same way, for the start time.
+- Memory: with Geany open, run !MemReport. It writes
+  <Wimp$ScrapDir>.MemReport (each task's slot and each dynamic area's
+  size) and opens it. Please do it once with this Geany and once with
+  the static one. Where SOManager keeps the libraries didn't show on
+  RISC OS on Linux, so this is the part we most want to see.
+- Machine, RISC OS version, screen mode.
+
+Files
+-----
+!Geany        the mixed-linked Geany (geany,e1f is the ELF program;
+              lib holds the shared libraries)
+!SharedLibs   Iris's !SharedLibs (SOManager 3.04, ld-riscos/so/2)
+!MemReport   writes the memory report described above
+
+Geany is GPL 2. The GTK stack is LGPL 2.1 and MIT-style; see
+!Geany.LicenceLGPL and !Geany.Source. !SharedLibs is GCCSDK's (see its
+docs). Built by riscos-gtk's build/build-mixed.sh, branch mixed-link-test.
