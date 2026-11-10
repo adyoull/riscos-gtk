@@ -162,12 +162,22 @@ checks = (
   "| MIXED-LINK TEST (riscos-crossdev 1.11-test1): %(prog)s,e1f is an ELF program\n"
   "| with UnixLib linked in; GTK and the libraries under it are the shared\n"
   "| libraries in !GTKLibs, loaded by !SharedLibs (SOManager, ld-riscos/so/2)\n"
-  'If "<SharedLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !SharedLibs with ld-riscos/so/2: let the Filer see it first\n'
+  "| !SharedLibs and !GTKLibs, if not booted yet: the ones beside the\n"
+  "| application (as the test zip has them), else in Boot:Resources\n"
+  'If "<SharedLibs$Dir>" = "" Then IfThere <%(name)s$Dir>.^.!SharedLibs.!Boot Then Run <%(name)s$Dir>.^.!SharedLibs.!Boot\n'
+  'If "<SharedLibs$Dir>" = "" Then IfThere Boot:Resources.!SharedLibs.!Boot Then Run Boot:Resources.!SharedLibs.!Boot\n'
+  'If "<GTKLibs$Dir>" = "" Then IfThere <%(name)s$Dir>.^.!GTKLibs.!Boot Then Run <%(name)s$Dir>.^.!GTKLibs.!Boot\n'
+  'If "<GTKLibs$Dir>" = "" Then IfThere Boot:Resources.!GTKLibs.!Boot Then Run Boot:Resources.!GTKLibs.!Boot\n'
+  'If "<SharedLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !SharedLibs with ld-riscos/so/2, beside it or in !Boot.Resources\n'
   "Unset %(name)s$SO2\n"
   "IfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set %(name)s$SO2 1\n"
   'If "<%(name)s$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: %(name)s (mixed test) needs a newer one, such as the one in this zip. Open its folder, then run %(name)s again.\n'
-  'If "<GTKLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !GTKLibs: let the Filer see it first (it is in the same folder)\n'
+  'If "<GTKLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !GTKLibs, beside it or in !Boot.Resources\n'
 ) % {"name": name, "prog": prog}
+s = s.replace("| A UnixLib program converted to Absolute (AIF), statically linked with GTK\n"
+  "| 3.24.52 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,\n"
+  "| ARMEABISupport and Iconv (PackMan). It runs as a normal Wimp task.\n",
+  "| It needs SharedUnixLibrary 1.16, ARMEABISupport and Iconv (PackMan).\n")
 s, n = re.subn(r"(Set %s\$Dir <Obey\$Dir>\n)" % re.escape(name), lambda m: m.group(1) + checks, s, count=1)
 assert n == 1, "Set NAME$Dir"
 s, n = re.subn(r"(\|[^\n]*\n)*WimpSlot -min \d+K -max \d+K\n",
@@ -181,7 +191,7 @@ open(p, "w").write(s)
 PYEOF
 }
 
-# bundle: out/mixed/GTKMixed-test2.zip, for RISC OS 5 itself: !GTKLibs,
+# bundle: out/mixed/GTKMixed-test4.zip, for RISC OS 5 itself: !GTKLibs,
 # !Geany, !L3afpad, the !SharedLibs named by SHAREDLIBS (Iris's: SOManager
 # 3.04, ld-riscos/so/2), apps/geany/mixed-test's ReadMe and !MemReport
 bundle() {
@@ -194,9 +204,9 @@ bundle() {
   rm -rf "$B"; mkdir -p "$B/GTKMixed"
   cp -r "$OUTD/!GTKLibs" "$OUTD/!Geany" "$OUTD/!L3afpad" "$SHAREDLIBS" \
     "$REPO_DIR/apps/geany/mixed-test/!MemReport" "$REPO_DIR/apps/geany/mixed-test/ReadMe,fff" "$B/GTKMixed/"
-  rm -f "$OUTD/GTKMixed-test2.zip"
-  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKMixed-test2.zip" -C "$B" GTKMixed
-  ls -la "$OUTD/GTKMixed-test2.zip"
+  rm -f "$OUTD/GTKMixed-test4.zip"
+  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKMixed-test4.zip" -C "$B" GTKMixed
+  ls -la "$OUTD/GTKMixed-test4.zip"
 }
 
 case "${1:-}" in
