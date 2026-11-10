@@ -227,6 +227,12 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags 
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
+# A native front end: the program's own Wimp window beside a nested GTK one.
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
+  "$REPO_DIR/tests/gtk/frontend-fake.c" -o "$REPO_DIR/out/frontend-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+
 # A tool sprite block that runs into memory that isn't there (the scan's
 # page checks, and the fault guard when OS_Memory 24 is wrong).
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) \
@@ -420,6 +426,7 @@ run toolsprites-fake
 run toolfault-fake
 RISCOS_GTK_QUIT_ON_CLOSE= run closelast-fake
 run closelast-fake quit
+run frontend-fake
 run printvec-fake
 run l3afpad-fake "$HA" "$L3T"
 python3 "$REPO_DIR/tests/claws/mailserver.py" "$CT" $CP1 $CP2 $CP3 $CP4 $CP5 & mailserver=$!

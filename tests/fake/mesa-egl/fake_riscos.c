@@ -31,6 +31,8 @@ int fake_update_rect[4];
 int fake_vsyncs, fake_update_calls, fake_redraw_calls, fake_plots;
 int fake_sprite_creates;
 int fake_force_redraws, fake_force_rect[5], fake_scaled_plots;
+int fake_nested_opens, fake_nested_window, fake_nested_parent, fake_nested_flags;
+int fake_added_messages[16], fake_added_messages_len;
 int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 int fake_pointer[3], fake_wheel, fake_menus_opened, fake_pointer_shape = 1;
 const int *fake_menu;
@@ -1066,6 +1068,12 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         break;
     case 0x400C5:   /* Wimp_OpenWindow */
         block = (int *) (long) r.r[1];
+        if (r.r[2] == 0x4B534154) {      /* extended: nested (R3 parent, -1 top level; R4 flags) */
+            fake_nested_opens++;
+            fake_nested_window = block[0];
+            fake_nested_parent = r.r[3];
+            fake_nested_flags = r.r[4];
+        }
         if (!fake_open_window(block[0], block[1], block[2], block[3], block[4], block[5], block[6]))
             e = error("too many windows");
         break;
@@ -1082,6 +1090,11 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
             if (h == wimp_last_window)
                 wimp_last_window = j ? wimp_created[j - 1] : 0;
         }
+        break;
+    }
+    case 0x400F6: { /* Wimp_AddMessages: 0-terminated list */
+        const int *m = (const int *) (long) r.r[0];
+        while (*m && fake_added_messages_len < 16) fake_added_messages[fake_added_messages_len++] = *m++;
         break;
     }
     case 0x400D2:   /* Wimp_SetCaretPosition */

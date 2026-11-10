@@ -420,6 +420,56 @@ riscos-gtk places the size icon itself:
 
 These functions are for programs that lay out their own scroll bars.
 
+## A native front end: your own Wimp windows beside GTK's
+
+```c
+typedef gboolean (*GdkRiscosWimpFilter) (int reason, int *block, gpointer data);
+void gdk_riscos_set_wimp_filter        (GdkRiscosWimpFilter filter, gpointer data);
+void gdk_riscos_add_messages           (const int *numbers);
+int  gdk_riscos_window_get_wimp_handle (GdkWindow *toplevel);
+void gdk_riscos_window_set_parent      (GdkWindow *toplevel, int parent_handle, guint flags);
+void gdk_riscos_window_parent_moved    (GdkWindow *toplevel);
+```
+
+For a program that draws part of itself with GTK (a WebKitWebView, say)
+inside its own Wimp windows: toolbars of Wimp icons, Templates dialogue
+boxes, interactive help.
+
+- **The filter** sees every Wimp event but null events, from the Wimp
+  poll, before riscos-gtk does. Return `TRUE` for an event you handled
+  (your windows' redraws, open and close requests, clicks, keys, your
+  messages); riscos-gtk then ignores it. Return `FALSE` for the rest:
+  riscos-gtk handles its own windows, and gives keys nobody used back to
+  the Wimp. Do only Wimp work in the filter; queue an idle for anything
+  that touches GTK.
+- **Menus:** open your Wimp menus with `gdk_riscos_display_open_menu()`
+  (`gdkriscosmenu.h`). It calls you back with the choice, or with `NULL`
+  when the menu closes without one. Call `gdk_riscos_display_menu_done()`
+  once you've handled it (after reopening the menu for an Adjust
+  choice). If you open a menu yourself with Wimp_CreateMenu, its
+  Menu_Selection reaches your filter, as long as riscos-gtk hasn't a
+  menu of its own open.
+- **Messages:** `gdk_riscos_add_messages()` adds messages for the task
+  (Wimp_AddMessages, a 0-terminated list), for example
+  Message_HelpRequest (&502). If you call it before `gtk_init()`, they're
+  added when the task starts.
+- **Nesting:** `gdk_riscos_window_set_parent()` opens an undecorated
+  GtkWindow (`gtk_window_set_decorated (w, FALSE)`) as a child of your
+  Wimp window, using RISC OS 5's nested windows (Wimp_OpenWindow with
+  R2 "TASK", R3 the parent, R4 the nesting flags; bit 0 is ignored). Every
+  later open of it stays nested. A parent of 0 makes it a top-level
+  window again.
+  - Call it once the GtkWindow is realized.
+  - The Wimp moves and resizes a child with its parent without telling
+    it. So after you reopen the parent, call
+    `gdk_riscos_window_parent_moved()`, and GTK learns where the child
+    went. riscos-gtk also checks this itself before a click, pointer
+    movement or wheel event over the child.
+  - Popups from the child (menus, `<select>` lists, tooltips) stay
+    top-level windows.
+- `gdk_riscos_window_get_wimp_handle()` gives a toplevel's Wimp handle,
+  or 0 before it is first shown.
+
 ## Running other programs
 
 Once GTK is running, `g_spawn_async()`, `g_spawn_async_with_pipes()`,

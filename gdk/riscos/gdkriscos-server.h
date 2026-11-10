@@ -96,6 +96,15 @@ void               _gdk_riscos_server_window_set_pointer       (GdkRiscosServer 
 #define RISCOS_FURNITURE_ALL    15u
 int                _gdk_riscos_server_window_title_height      (GdkRiscosServer    *server,
                                                                 gint                id);
+/* a native front end (gdkriscoswimp.h) */
+int                _gdk_riscos_server_window_handle            (GdkRiscosServer    *server,
+                                                                gint                id);
+void               _gdk_riscos_server_window_set_parent        (GdkRiscosServer    *server,
+                                                                gint                id,
+                                                                int                 parent,
+                                                                unsigned            flags);
+void               _gdk_riscos_server_window_parent_moved      (GdkRiscosServer    *server,
+                                                                gint                id);
 void               _gdk_riscos_server_window_set_furniture     (GdkRiscosServer    *server,
                                                                 gint                id,
                                                                 unsigned            furniture);

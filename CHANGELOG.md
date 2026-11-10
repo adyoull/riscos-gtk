@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+- **A native front end beside GTK's windows** (asked for by the Web
+  Browser project, for a Style Guide front end around WebKit's view).
+  A program can own Wimp windows, menus and messages of its own in the
+  same task as GTK's windows:
+  - `gdk_riscos_set_wimp_filter()`: every Wimp event but null events goes
+    to the program first, from the Wimp poll; it returns TRUE for the
+    ones it handled (its windows' redraws, opens, closes, clicks, keys;
+    its messages). Menu_Selection goes to it only when the open menu
+    isn't riscos-gtk's.
+  - `gdk_riscos_add_messages()`: Wimp_AddMessages, or after the task
+    starts if called before `gtk_init()`.
+  - `gdk_riscos_window_get_wimp_handle()`.
+  - `gdk_riscos_window_set_parent()`: an undecorated GtkWindow nested in
+    a Wimp window of the program's (RISC OS 5 nested windows: the
+    extended Wimp_OpenWindow, R2 "TASK", R3 parent, R4 nesting flags).
+    Every later open keeps it nested; parent 0 unnests it.
+  - `gdk_riscos_window_parent_moved()`: the Wimp moves a child with its
+    parent without an Open_Window_Request, so after reopening the parent
+    the program says so and GTK learns where the child went. riscos-gtk
+    also reads it before a click, pointer movement or wheel event over
+    the child.
+  - Tested: `tests/gtk/frontend-fake.c` (the fake Wimp: nesting, the
+    filter, messages); `tests/gtk/frontend.c` on RISC OS 5.31 (a GTK
+    window nested under a Wimp-drawn toolbar follows its parent's move
+    and resize). The devkit's docs/API.md describes them.
+
 ## 3.24.52-riscos1.0-rc17 (2026-11-09)
 - **The hourglass stayed on until the program ended (RC16).** GDK
   meant to clear the start-up hourglass with Hourglass_Smash, but called

@@ -65,6 +65,10 @@ extern int fake_watch[4], fake_watch_value, fake_watch_hits;
      FAKE_NULL = a null event
    then Close_Window_Request.
    fake_wimp_hook, if set, is called before each Poll returns (a frame). */
+/* Wimp_OpenWindow's extended (nested) syntax: how many, and the last one's
+   window, parent (R3) and nesting flags (R4); Wimp_AddMessages' messages */
+extern int fake_nested_opens, fake_nested_window, fake_nested_parent, fake_nested_flags;
+extern int fake_added_messages[16], fake_added_messages_len;
 extern int fake_sprite_plot_converts, fake_fills;
 extern int fake_target_window;           /* scripted events go here (0 = newest window) */
 /* Mouse_Click's icon handle (-1); the icon bar icon made (Wimp_CreateIcon):

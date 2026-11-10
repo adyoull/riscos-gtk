@@ -148,6 +148,47 @@ void       gdk_riscos_window_set_size_grip_column (GdkWindow *window, gint x, gi
 /* ... with the grip's top at y (the scroll bar's foot; -1: the window's foot) */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_size_grip_place (GdkWindow *window, gint x, gint y, gint width);
+
+/* ---- A native front end: the program's own Wimp windows, menus and
+ * messages in the same task as GTK's windows (gdkriscos-server.c) ----
+ *
+ * The filter sees every Wimp event (not null events) before riscos-gtk
+ * does, from the Wimp poll: reason and block as Wimp_Poll gives them. It
+ * returns TRUE for an event it has handled (one for a window of the
+ * program's own: its redraw loop, open and close requests, clicks, keys;
+ * its messages), and riscos-gtk then ignores it; FALSE leaves it to
+ * riscos-gtk (keys it didn't use go back to the Wimp, as now). Only Wimp
+ * work is done there: anything that touches GTK goes in an idle.
+ * Menu_Selection reaches it only when the open menu isn't one riscos-gtk
+ * opened; a program's menus can instead be opened with
+ * gdk_riscos_display_open_menu() (gdkriscosmenu.h), which calls back with
+ * the choice and on Message_MenusDeleted. NULL: no filter. */
+typedef gboolean (*GdkRiscosWimpFilter) (int reason, int *block, gpointer data);
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_set_wimp_filter (GdkRiscosWimpFilter filter, gpointer data);
+/* More messages for the task (Wimp_AddMessages; 0-terminated), e.g.
+ * Message_HelpRequest &502. Before gtk_init() they are added once the task
+ * has started. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_add_messages (const int *numbers);
+/* The Wimp window handle of a toplevel (window's toplevel), 0 if it has
+ * none yet (it is made when the window is first shown) */
+GDK_AVAILABLE_IN_ALL
+int        gdk_riscos_window_get_wimp_handle (GdkWindow *toplevel);
+/* Open an undecorated toplevel nested in a Wimp window of the program's
+ * (RISC OS 5's nested windows): Wimp_OpenWindow with R2 "TASK", R3
+ * parent_handle, R4 flags (the nesting flags: which of the parent's edges
+ * each of its edges follows; bit 0 is ignored). Every later open keeps
+ * it nested. parent_handle 0: a top-level window again. Popups from it
+ * (menus, lists, tooltips) stay top-level windows. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_parent (GdkWindow *toplevel, int parent_handle, guint flags);
+/* The program has reopened the parent: riscos-gtk reads where the nested
+ * toplevel went (it moves and resizes with its parent without an
+ * Open_Window_Request) and tells GTK. Clicks, the pointer and the wheel
+ * over it read that too. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_parent_moved (GdkWindow *toplevel);
 /* No scroll bar in the window's corner: show image (an empty vertical
    scroll bar) down its right edge, outside it, with the grip at its foot
    (NULL: none) */

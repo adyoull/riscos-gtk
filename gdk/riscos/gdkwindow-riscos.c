@@ -1975,3 +1975,71 @@ gdk_window_impl_riscos_class_init (GdkWindowImplRiscosClass *klass)
   impl_class->delete_property = _gdk_riscos_window_delete_property;
   impl_class->get_drag_protocol = _gdk_riscos_window_get_drag_protocol;
 }
+
+/* ---- a native front end: GTK windows inside the program's own Wimp
+   windows (gdkriscoswimp.h) ---- */
+
+static GdkRiscosServer *
+toplevel_server (GdkWindow *window, gint *id)
+{
+  GdkWindow *top;
+
+  if (!GDK_IS_WINDOW (window))
+    return NULL;
+  top = gdk_window_get_toplevel (window);
+  if (!GDK_IS_WINDOW_IMPL_RISCOS (top->impl))
+    return NULL;
+  *id = GDK_WINDOW_IMPL_RISCOS (top->impl)->id;
+  return GDK_RISCOS_DISPLAY (gdk_window_get_display (top))->server;
+}
+
+/**
+ * gdk_riscos_window_get_wimp_handle:
+ * @toplevel: a GDK window (its toplevel's is given)
+ *
+ * Returns: the Wimp window handle of @toplevel, or 0 if it has none yet
+ */
+int
+gdk_riscos_window_get_wimp_handle (GdkWindow *toplevel)
+{
+  gint id = 0;
+  GdkRiscosServer *server = toplevel_server (toplevel, &id);
+
+  return server ? _gdk_riscos_server_window_handle (server, id) : 0;
+}
+
+/**
+ * gdk_riscos_window_set_parent:
+ * @toplevel: an undecorated toplevel
+ * @parent_handle: a Wimp window of the program's own, or 0
+ * @flags: the nesting flags (Wimp_OpenWindow's R4)
+ *
+ * Opens @toplevel nested in @parent_handle (0: back to a top-level
+ * window). Every later open of it keeps it nested.
+ */
+void
+gdk_riscos_window_set_parent (GdkWindow *toplevel, int parent_handle, unsigned flags)
+{
+  gint id = 0;
+  GdkRiscosServer *server = toplevel_server (toplevel, &id);
+
+  if (server)
+    _gdk_riscos_server_window_set_parent (server, id, parent_handle, flags);
+}
+
+/**
+ * gdk_riscos_window_parent_moved:
+ * @toplevel: a nested toplevel
+ *
+ * The program has opened @toplevel's parent somewhere new: GDK reads
+ * where @toplevel is now (it moved with its parent) and tells GTK.
+ */
+void
+gdk_riscos_window_parent_moved (GdkWindow *toplevel)
+{
+  gint id = 0;
+  GdkRiscosServer *server = toplevel_server (toplevel, &id);
+
+  if (server)
+    _gdk_riscos_server_window_parent_moved (server, id);
+}

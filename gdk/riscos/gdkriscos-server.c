@@ -76,6 +76,9 @@ enum {
 #ifndef Wimp_CreateMenu
 #define Wimp_CreateMenu 0x400D4
 #endif
+#ifndef Wimp_AddMessages
+#define Wimp_AddMessages 0x400F6   /* PRMs: Wimp_AddMessages, &400F6 */
+#endif
 #ifndef Wimp_TextOp
 #define Wimp_TextOp 0x400F9
 #endif
@@ -121,6 +124,11 @@ typedef struct {
      area), with the grip at its foot; GTK draws it (strip_image) */
   int strip;                  /* its width (0: none) */
   cairo_surface_t *strip_surface;  /* a sprite: GTK's image, the grip */
+  /* nested in a window of the program's own (gdk_riscos_window_set_parent):
+     its handle (0 = a top-level window) and the nesting flags (R4) */
+  int parent;
+  unsigned nest_flags;
+  gboolean unnest;            /* parent just cleared: open it at the top level once */
 } RiscosWindow;
 
 struct _GdkRiscosServer {
@@ -168,6 +176,13 @@ static GType gdk_riscos_server_get_type (void);
 G_DEFINE_TYPE (GdkRiscosServer, gdk_riscos_server, G_TYPE_OBJECT)
 
 static GdkRiscosServer *the_server;   /* for the main loop's poll function */
+
+/* The program's own Wimp windows and menus beside GTK's (a native front
+   end, gdk_riscos_set_wimp_filter): its filter, and the messages it asked
+   for before the task started (Wimp_AddMessages once it has) */
+static GdkRiscosWimpFilter wimp_filter;
+static gpointer wimp_filter_data;
+static GArray *early_messages;
 
 static void
 gdk_riscos_server_init (GdkRiscosServer *server)
@@ -388,6 +403,32 @@ visible_area (GdkRiscosServer *s, int x, int y, int w, int h, int box[4])
 static gboolean create_wimp_window (GdkRiscosServer *server, RiscosWindow *w);
 static void utf8_to_latin1 (const char *utf8, char *out, int size);
 
+static void refresh_nested (GdkRiscosServer *server, RiscosWindow *w);
+
+/* Wimp_OpenWindow for one of our windows: a nested one (a child of a
+   window of the program's) with the extended syntax, R2 "TASK", R3 the
+   parent, R4 the nesting flags (PRMs; bit 0, new window flags at +32, is
+   never set), so every open keeps it nested. Visible areas are screen
+   coordinates either way. */
+static _kernel_oserror *
+wimp_open (RiscosWindow *w, int *block)
+{
+  _kernel_swi_regs r;
+  _kernel_oserror *e;
+
+  r.r[1] = (int) block;
+  if (w && (w->parent || w->unnest))
+    {
+      r.r[2] = 0x4B534154;         /* "TASK" */
+      r.r[3] = w->parent ? w->parent : -1;
+      r.r[4] = w->parent ? (int) (w->nest_flags & ~1u) : 0;
+    }
+  e = swi (Wimp_OpenWindow, &r);
+  if (e == NULL && w)
+    w->unnest = FALSE;
+  return e;
+}
+
 /* TRUE if it was moved to show its title bar (GDK is to be told) */
 static gboolean
 open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
@@ -417,8 +458,7 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
   block[5] = 0;
   block[6] = 0;
   block[7] = behind;
-  r.r[1] = (int) block;
-  if (swi (Wimp_OpenWindow, &r) == NULL)
+  if (wimp_open (w, block) == NULL)
     w->visible = TRUE;
   else
     return FALSE;
@@ -427,7 +467,7 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
      work area: a window the program puts at the top of the screen would
      have its title bar off the top, where it can't be moved or closed.
      It is moved down to show the title bar. */
-  if ((w->furniture & RISCOS_FURNITURE_TITLE) && !w->is_temp && !w->as_menu)
+  if ((w->furniture & RISCOS_FURNITURE_TITLE) && !w->is_temp && !w->as_menu && !w->parent)
     {
       int outline[5], screen_top = s->screen_h << s->yeig;
       outline[0] = w->handle;
@@ -443,8 +483,7 @@ open_window (GdkRiscosServer *s, RiscosWindow *w, int behind)
               block[5] = 0;
               block[6] = 0;
               block[7] = behind;
-              r.r[1] = (int) block;
-              swi (Wimp_OpenWindow, &r);
+              wimp_open (w, block);
               return TRUE;
             }
         }
@@ -604,7 +643,10 @@ track_pointer (GdkRiscosServer *server)
   y = os_to_px_y (server, block[1]);
   w = window_by_handle (server, block[3]);
   if (w)
-    under = w->id;
+    {
+      under = w->id;
+      refresh_nested (server, w);
+    }
 
   /* our shape over our window, the normal pointer elsewhere */
   {
@@ -968,6 +1010,7 @@ handle_click (GdkRiscosServer *server, int *block)
       _gdk_riscos_iconbar_click (block);
       return;
     }
+  refresh_nested (server, w);
   /* Button type 10: click = b << 8, drag = b << 4, double click = b.
      A drag is the same press still held: nothing new to send. */
   pressed = (v >> 8) & 7;
@@ -1106,21 +1149,30 @@ handle_redraw (GdkRiscosServer *server, int *block)
       }
 }
 
+static void window_moved (GdkRiscosServer *server, RiscosWindow *w, const int *block);
+
 static void
 handle_open_request (GdkRiscosServer *server, int *block)
 {
   RiscosWindow *w = window_by_handle (server, block[0]);
-  _kernel_swi_regs r;
-  int x, y, width, height;
 
   block[5] = 0;              /* no scrolling: GTK draws the whole window */
   block[6] = 0;
-  r.r[1] = (int) block;
-  swi (Wimp_OpenWindow, &r);
+  wimp_open (w, block);
   if (w == NULL)
     return;
   w->visible = TRUE;
   /* Wimp_OpenWindow updates the block to where the window really went. */
+  window_moved (server, w, block);
+}
+
+/* A window of ours is where block (a Wimp window state) says: GDK is told
+   if that's a new position or size */
+static void
+window_moved (GdkRiscosServer *server, RiscosWindow *w, const int *block)
+{
+  int x, y, width, height;
+
   x = os_to_px_x (server, block[1]);
   y = server->screen_h - (block[4] >> server->yeig);
   width = ((block[3] - block[1]) >> server->xeig) - w->strip;
@@ -1135,6 +1187,25 @@ handle_open_request (GdkRiscosServer *server, int *block)
       w->height = height;
       send_configure (server, w);
     }
+}
+
+/* A nested window moves and changes size with its parent (as its nesting
+   flags link its edges to the parent's) without an Open_Window_Request:
+   where it is now is read from the Wimp before anything that uses it
+   (a click, the pointer, the wheel), and when the program says it has
+   moved the parent (gdk_riscos_window_parent_moved) */
+static void
+refresh_nested (GdkRiscosServer *server, RiscosWindow *w)
+{
+  int state[9];
+  _kernel_swi_regs r;
+
+  if (w == NULL || !w->parent || !w->visible)
+    return;
+  state[0] = w->handle;
+  r.r[1] = (int) state;
+  if (swi (Wimp_GetWindowState, &r) == NULL)
+    window_moved (server, w, state);
 }
 
 static void
@@ -1214,6 +1285,7 @@ handle_scroll (GdkRiscosServer *server, int *block)
 
   if (w == NULL || ((dx | dy) & 3) != 0)
     return;                        /* not ours, or a scroll bar's (we have none) */
+  refresh_nested (server, w);
   r.r[1] = (int) ptr;
   if (swi (Wimp_GetPointerInfo, &r) != NULL)
     return;
@@ -1264,6 +1336,13 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
   r.r[3] = 0;
   if (swi (Wimp_PollIdle, &r) != NULL)
     return FALSE;
+
+  /* the program's own windows, menus and messages first (a native front
+     end); a menu choice only when the open menu isn't one GDK opened */
+  if (wimp_filter && r.r[0] != NULL_REASON &&
+      !(r.r[0] == MENU_SELECTION && server->menu_block && server->menu_func) &&
+      wimp_filter (r.r[0], block, wimp_filter_data))
+    return TRUE;
 
   switch (r.r[0])
     {
@@ -1497,6 +1576,16 @@ _gdk_riscos_server_new (const char *display, GError **error)
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                    "Wimp_Initialise failed: %s", e->errmess);
       return NULL;
+    }
+  if (early_messages)
+    {
+      /* asked for before the task started (gdk_riscos_add_messages) */
+      _kernel_swi_regs m;
+      g_array_append_val (early_messages, (int) { 0 });
+      m.r[0] = (int) early_messages->data;
+      swi (Wimp_AddMessages, &m);
+      g_array_free (early_messages, TRUE);
+      early_messages = NULL;
     }
 
   /* one copy of a program: a second hands its file to the first, and goes */
@@ -2439,4 +2528,67 @@ _gdk_riscos_server_window_set_pointer (GdkRiscosServer *server, gint id, int sha
       _gdk_riscos_pointer_show (shape);
       server->shown_shape = shape;
     }
+}
+
+/* ---- a native front end (public: gdkriscoswimp.h) -------------------- */
+
+void
+gdk_riscos_set_wimp_filter (GdkRiscosWimpFilter filter, gpointer data)
+{
+  wimp_filter = filter;
+  wimp_filter_data = data;
+}
+
+void
+gdk_riscos_add_messages (const int *numbers)
+{
+  _kernel_swi_regs r;
+  int n;
+
+  if (numbers == NULL || numbers[0] == 0)
+    return;
+  if (the_server == NULL)
+    {
+      if (early_messages == NULL)
+        early_messages = g_array_new (FALSE, FALSE, sizeof (int));
+      for (n = 0; numbers[n]; n++)
+        g_array_append_val (early_messages, numbers[n]);
+      return;
+    }
+  r.r[0] = (int) numbers;
+  swi (Wimp_AddMessages, &r);
+}
+
+int
+_gdk_riscos_server_window_handle (GdkRiscosServer *server, gint id)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  return w ? w->handle : 0;
+}
+
+void
+_gdk_riscos_server_window_set_parent (GdkRiscosServer *server, gint id,
+                                      int parent, unsigned flags)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL)
+    return;
+  if (w->parent && parent == 0)
+    w->unnest = TRUE;
+  w->parent = parent;
+  w->nest_flags = flags;
+  if (w->visible)
+    {
+      if (open_window (server, w, -1))
+        send_configure (server, w);
+      refresh_nested (server, w);
+    }
+}
+
+void
+_gdk_riscos_server_window_parent_moved (GdkRiscosServer *server, gint id)
+{
+  refresh_nested (server, window_by_id (server, id));
 }
