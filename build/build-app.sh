@@ -11,6 +11,11 @@
 [ "$TARGET" = riscos ] || { echo "build-app.sh: RISC OS only" >&2; exit 1; }
 NAME=$1 PROG=$2 VERSION=$3 FILES=$4; shift 4
 OUT=$REPO_DIR/out
+# RISCOS_GTK_MIXED=1: linked mixed (build/mixed-cc), the program kept as
+# ELF (&E1F, run by !SharedLibs) and !Run made to use !GTKLibs
+# (tools/mixedrun.py); packaged in out/mixed
+MIXED=; [ "${RISCOS_GTK_MIXED:-}" = 1 ] && { MIXED=1; OUT=$REPO_DIR/out/mixed; }
+EXE=$PROG,ff8; [ -n "$MIXED" ] && EXE=$PROG,e1f
 A=$OUT/!$NAME
 mkdir -p "$OUT"
 rm -rf "$A"; mkdir -p "$A/fonts" "$A/share/themes/RISCOS"
@@ -29,13 +34,17 @@ else
   "$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags gtk+-3.0) "$@"
 fi
 $STRIP -o "$OUT/$PROG.stripped" "$OUT/$PROG"
-"$GCCSDK_ENV/bin/elf2aif" -e "$OUT/$PROG.stripped" "$A/$PROG,ff8" > /dev/null
-if strings "$A/$PROG,ff8" | grep -q -e "$REPO_DIR" -e "$(cd "$RCD_DIR" && pwd -P)" -e "$SYSROOT" -i -e claude; then
-  echo "build-app.sh: build paths found in $PROG,ff8" >&2; exit 1
+if [ -n "$MIXED" ]; then
+  cp "$OUT/$PROG.stripped" "$A/$EXE"
+else
+  "$GCCSDK_ENV/bin/elf2aif" -e "$OUT/$PROG.stripped" "$A/$EXE" > /dev/null
+fi
+if strings "$A/$EXE" | grep -q -e "$REPO_DIR" -e "$(cd "$RCD_DIR" && pwd -P)" -e "$SYSROOT" -i -e claude; then
+  echo "build-app.sh: build paths found in $EXE" >&2; exit 1
 fi
 
 # WimpSlot: the program plus 4 MB
-size=$(stat -c %s "$A/$PROG,ff8")
+size=$(stat -c %s "$A/$EXE")
 slot=$(( (size + 4 * 1024 * 1024 + 1023) / 1024 ))
 sed "s/@SLOT@/$slot/g" "$FILES/!Run,feb" > "$A/!Run,feb"
 # The hourglass from before the program loads (a big file, off an SD
@@ -51,6 +60,7 @@ awk -v pat="^Run <$NAME[$]Dir>[.]" '
                             print "| the program has started)"; print "X HOn" }
           print line[i] } }' \
   "$A/!Run,feb" > "$A/!Run,feb.new" && mv "$A/!Run,feb.new" "$A/!Run,feb"
+[ -n "$MIXED" ] && python3 -B "$REPO_DIR/tools/mixedrun.py" "$A/!Run,feb" "$NAME" "$PROG" "$slot"
 sed "s/@VERSION@/$VERSION/g" "$FILES/!Help,fff" > "$A/!Help,fff"
 # anything else the application has (!Boot, !Sprites, ...)
 for f in "$FILES"/*; do
@@ -147,5 +157,5 @@ glib-compile-schemas --strict --targetdir="$A/share/glib-2.0/schemas" "$STAGE/sh
 "$REPO_DIR/build/mkmime.sh" "$A/share/mime"
 rm -f "$OUT/$NAME-$VERSION.zip"
 python3 "$RCD_DIR/package/rozip.py" "$OUT/$NAME-$VERSION.zip" -C "$OUT" "!$NAME"
-ls -la "$A/$PROG,ff8"
+ls -la "$A/$EXE"
 sha256sum "$OUT/$NAME-$VERSION.zip"

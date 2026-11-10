@@ -1,0 +1,29 @@
+#!/bin/bash
+# build/mixed-cc gcc|g++ ARGS...: the compiler for RISCOS_GTK_MIXED=1 builds
+# (env.sh makes it CC and CXX). Compiles and configure's test links are
+# passed through. A program's link (-static, no -c/-shared) becomes a mixed
+# link: -rdynamic, with the GTK stack from the shared libraries in
+# $STAGE/so (found before the .a files in $STAGE/lib, as -L$STAGE/so comes
+# first), the program's other libraries still linked in, and libstdc++ for
+# the libraries that need it (harfbuzz). -pthread is dropped (the driver
+# rejects it; UnixLib has threads in its C library). MIT licence.
+tool=$1; shift
+link=0; prog=0
+for a; do
+  case "$a" in
+    -c|-S|-E|-shared|-M|-MM) prog=-1 ;;
+    -static) [ "$prog" = 0 ] && link=1 ;;
+  esac
+done
+[ "$prog" = -1 ] && link=0
+args=()
+[ "$link" = 1 ] && args+=("-L$STAGE/so")
+for a; do
+  case "$a" in
+    -pthread) ;;
+    -static) if [ "$link" = 1 ]; then args+=(-rdynamic); else args+=("$a"); fi ;;
+    *) args+=("$a") ;;
+  esac
+done
+[ "$link" = 1 ] && args+=(-lstdc++ -lm)
+exec "$TCBIN/$HOST-$tool" "${args[@]}"

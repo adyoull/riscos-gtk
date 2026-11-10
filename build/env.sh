@@ -125,6 +125,10 @@ fi
 export CC=$HOST-gcc CXX=$HOST-g++ AR=$HOST-ar RANLIB=$HOST-ranlib STRIP=$HOST-strip
 [ "${RISCOS_GTK_MIXED:-}" = 1 ] && RO_CFLAGS="$RO_CFLAGS -fPIC"
 export CFLAGS="$RO_CFLAGS" CXXFLAGS="$RO_CFLAGS"
+# mixed builds: programs linked against the shared GTK stack (build/mixed-cc)
+if [ "${RISCOS_GTK_MIXED:-}" = 1 ] && [ "$TARGET" = riscos ]; then
+  export CC="$REPO_DIR/build/mixed-cc gcc" CXX="$REPO_DIR/build/mixed-cc g++"
+fi
 export CPPFLAGS="-I$STAGE/include" LDFLAGS="-L$STAGE/lib"
 export PKG_CONFIG_LIBDIR="$STAGE/lib/pkgconfig:$STAGE/share/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR=$SYSROOT

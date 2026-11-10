@@ -141,6 +141,7 @@ if [ "$TARGET" = riscos ]; then
     [ -z "$a" ] || ln -sf "$T/$a" "$LAFIX/$a"
   done
   for l in "$STAGE"/lib/*.la; do
+    [ -f "$l" ] || continue            # none (a sysroot without libtool's .la files)
     sed -i "s|/opt/b14/toolchain/env/arm-riscos-gnueabihf/lib|$LAFIX|g" "$l"
   done
 fi
