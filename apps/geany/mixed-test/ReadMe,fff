@@ -1,4 +1,4 @@
-GTK mixed-link test 2: Geany and L3afpad sharing one GTK
+GTK mixed-link test 5: Geany and L3afpad sharing one GTK
 =======================================================
 
 A TEST, not a release (riscos-gtk + riscos-crossdev 1.11-test1).
@@ -7,33 +7,38 @@ Geany and L3afpad are linked "mixed": UnixLib is inside each program, as
 usual, but GTK 3.24.52, riscos-gtk's RISC OS backend and the libraries
 under them (GLib, cairo, pango, harfbuzz, FreeType, fontconfig, pixman,
 libpng, libjpeg...) are 26 shared libraries in !GTKLibs, loaded by
-!SharedLibs (SOManager and ld-riscos/so/2). Both programs use the same
-!GTKLibs, so with both running there should be one copy of GTK in
-memory, not two.
+!SharedLibs (SOManager and ld-riscos/so/2). Every mixed GTK program uses
+the same !GTKLibs, so with several running there is one copy of GTK in
+memory (test 2 on a Pi: 20 MB with Geany and L3afpad both open).
 
 Sizes of the programs themselves:
   Geany    6.7 MB  (22.6 MB static, RC17)
   L3afpad  0.75 MB (17.2 MB static, RC17)
-  !GTKLibs 20.5 MB, shared by both
+  !GTKLibs 20.5 MB, shared by every mixed GTK program
+
+!GTKLibs, like !SharedLibs, lives in !Boot.Resources. PackMan will install
+it there; for this test it comes in its own zip (GTKLibs-3.24.52-18.zip).
 
 You need
 --------
 - RISC OS 5 on ARMv7 or later (Pi 2 or later), 16 or 32 bpp mode
 - SharedUnixLibrary 1.16 or later, ARMEABISupport and Iconv (PackMan),
   as for the normal GTK programs
-- the !SharedLibs in this zip (from Iris: SOManager 3.04 with
-  ld-riscos/so/2). The older !SharedLibs 4.0 from riscos.info has only
-  ld-riscos/so/1 and can't run these; each !Run says so if that one is
-  the one booted.
+- !SharedLibs in !Boot.Resources, a version with ld-riscos/so/2 (GCCSDK 8
+  or later, as Iris's is). The older !SharedLibs 4.0 from riscos.info has
+  only ld-riscos/so/1 and can't run these; each !Run says so.
+- !GTKLibs in !Boot.Resources (from GTKLibs-3.24.52-18.zip)
 
 Trying it
 ---------
-1. Unzip it. Ideally restart, then open this folder before anything else
-   that runs ELF programs, so the Filer sees this !SharedLibs and
-   !GTKLibs first.
-2. Run !MemReport: the "before" figures.
-3. Double-click !Geany. When its window is open, run !MemReport again.
-4. Double-click !L3afpad. When its window is open, run !MemReport again.
+1. Copy Resources.!GTKLibs from GTKLibs-3.24.52-18.zip into !Boot.Resources
+   (shift-double-click !Boot to open it, then Resources). Replace any
+   earlier !GTKLibs.
+2. Restart (or just double-click !Geany: its !Run boots !GTKLibs and
+   !SharedLibs from !Boot.Resources if they haven't been yet).
+3. Run !MemReport: the "before" figures.
+4. Double-click !Geany. When its window is open, run !MemReport again.
+5. Double-click !L3afpad. When its window is open, run !MemReport again.
 
 !MemReport writes <Wimp$ScrapDir>.MemReport and opens it (each run
 replaces it, so copy each one before the next).
@@ -41,8 +46,7 @@ replaces it, so copy each one before the next).
 What to look at
 ---------------
 - "Shared Libraries" (SOManager's dynamic area): about 20 MB after
-  Geany starts. If GTK is shared, it should stay about the same when
-  L3afpad starts; if it grows by about 20 MB, it isn't.
+  Geany starts, and still about 20 MB with L3afpad open too.
 - Each program's slot ("geany:", "l3afpad:").
 - For comparison, the same with the normal RC17 Geany and L3afpad
   (static): their slots, with both open.
@@ -51,12 +55,13 @@ What to look at
 
 Files
 -----
-!GTKLibs      the 26 shared libraries (lib), for every mixed GTK program
-!Geany        Geany 2.1, mixed (geany,e1f is the ELF program)
-!L3afpad      L3afpad 0.8.18.1.11, mixed (l3afpad,e1f)
-!SharedLibs   Iris's !SharedLibs (SOManager 3.04, ld-riscos/so/2)
-!MemReport    writes the memory report described above
+GTKMixed-test5.zip:
+  !Geany        Geany 2.1, mixed (geany,e1f is the ELF program)
+  !L3afpad      L3afpad 0.8.18.1.11, mixed (l3afpad,e1f)
+  !MemReport    writes the memory report described above
+GTKLibs-3.24.52-18.zip:
+  Resources.!GTKLibs   the 26 shared libraries, for !Boot.Resources
 
 Geany and L3afpad are GPL 2. The GTK stack is LGPL 2.1 and MIT-style; see
-each program's LicenceLGPL and Source. !SharedLibs is GCCSDK's (see its
-docs). Built by riscos-gtk's build/build-mixed.sh, branch mixed-link-test.
+each program's LicenceLGPL and Source, and !GTKLibs.LicenceLGPL. Built by
+riscos-gtk's build/build-mixed.sh, branch mixed-link-test.

@@ -7,7 +7,7 @@
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh libs
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh geany
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh l3afpad
-#   SHAREDLIBS=<a !SharedLibs with ld-riscos/so/2> ... build/build-mixed.sh bundle
+#   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh bundle
 #
 # libs: each static library build-deps.sh made (position-independent, as
 # RISCOS_GTK_MIXED=1 builds them) becomes $STAGE/so/libX.so.N: its whole
@@ -25,6 +25,9 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 [ "${RISCOS_GTK_MIXED:-}" = 1 ] || { echo "build-mixed.sh: needs RISCOS_GTK_MIXED=1" >&2; exit 1; }
 . "$HERE/env.sh"
 SO=$STAGE/so
+# !GTKLibs' version: GTK's, then riscos-gtk's build number (continuing
+# from the release candidates: RC17 was build 17)
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-18}
 # archive SONAME, in link order (each may use the ones before it)
 LIBS="
 libz z.so.1
@@ -135,9 +138,32 @@ gtklibs() {
 | and the libraries under them, as shared libraries for mixed-linked GTK
 | programs (loaded by !SharedLibs: SOManager and ld-riscos/so/2)
 Set GTKLibs$Dir <Obey$Dir>
+Set GTKLibs$Version @VERSION@
 Set GTKLibs$Path <GTKLibs$Dir>.lib.
+IconSprites <GTKLibs$Dir>.!Sprites
 EOF
   done
+  sed -i "s/@VERSION@/$GTKLIBS_VERSION/" "$G/!Boot,feb" "$G/!Run,feb"
+  cat > "$G/!Help,fff" <<EOF
+!GTKLibs $GTKLIBS_VERSION
+==========$(echo "$GTKLIBS_VERSION" | tr -c '\n' '=')
+
+The shared libraries for GTK programs linked "mixed" (riscos-crossdev
+1.11-test1): GTK 3.24.52 with riscos-gtk's RISC OS backend, and GLib,
+cairo, pango, harfbuzz, FreeType, fontconfig, pixman, libpng, libjpeg and
+the rest under them. Every mixed GTK program uses this one copy, loaded
+by !SharedLibs (SOManager and ld-riscos/so/2).
+
+It lives in !Boot.Resources (PackMan installs it there). Its version is
+GTK's, then riscos-gtk's build number: $GTKLIBS_VERSION, set in
+GTKLibs\$Version when it's booted.
+
+A TEST BUILD (riscos-gtk branch mixed-link-test, commit $(git -C "$REPO_DIR" rev-parse --short=12 HEAD)).
+The libraries are LGPL 2.1 and MIT-style: LicenceLGPL; their source is
+riscos-gtk's, https://github.com/adyoull/riscos-gtk
+EOF
+  # its icon: a shelf of library volumes (tools/mkgtklibsicon.py)
+  python3 -B "$REPO_DIR/tools/mkgtklibsicon.py" "$G"
   cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$G/LicenceLGPL,fff"
 }
 
@@ -162,17 +188,15 @@ checks = (
   "| MIXED-LINK TEST (riscos-crossdev 1.11-test1): %(prog)s,e1f is an ELF program\n"
   "| with UnixLib linked in; GTK and the libraries under it are the shared\n"
   "| libraries in !GTKLibs, loaded by !SharedLibs (SOManager, ld-riscos/so/2)\n"
-  "| !SharedLibs and !GTKLibs, if not booted yet: the ones beside the\n"
-  "| application (as the test zip has them), else in Boot:Resources\n"
-  'If "<SharedLibs$Dir>" = "" Then IfThere <%(name)s$Dir>.^.!SharedLibs.!Boot Then Run <%(name)s$Dir>.^.!SharedLibs.!Boot\n'
+  "| !SharedLibs and !GTKLibs are installed in !Boot.Resources (PackMan);\n"
+  "| the boot sequence boots them, and if it hasn't yet, this does\n"
   'If "<SharedLibs$Dir>" = "" Then IfThere Boot:Resources.!SharedLibs.!Boot Then Run Boot:Resources.!SharedLibs.!Boot\n'
-  'If "<GTKLibs$Dir>" = "" Then IfThere <%(name)s$Dir>.^.!GTKLibs.!Boot Then Run <%(name)s$Dir>.^.!GTKLibs.!Boot\n'
   'If "<GTKLibs$Dir>" = "" Then IfThere Boot:Resources.!GTKLibs.!Boot Then Run Boot:Resources.!GTKLibs.!Boot\n'
-  'If "<SharedLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !SharedLibs with ld-riscos/so/2, beside it or in !Boot.Resources\n'
+  'If "<SharedLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !SharedLibs with ld-riscos/so/2 in !Boot.Resources\n'
   "Unset %(name)s$SO2\n"
   "IfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set %(name)s$SO2 1\n"
-  'If "<%(name)s$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: %(name)s (mixed test) needs a newer one, such as the one in this zip. Open its folder, then run %(name)s again.\n'
-  'If "<GTKLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !GTKLibs, beside it or in !Boot.Resources\n'
+  'If "<%(name)s$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: %(name)s (mixed test) needs a newer one (GCCSDK 8 or later, as Iris has) in !Boot.Resources.\n'
+  'If "<GTKLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !GTKLibs in !Boot.Resources (install it with PackMan)\n'
 ) % {"name": name, "prog": prog}
 s = s.replace("| A UnixLib program converted to Absolute (AIF), statically linked with GTK\n"
   "| 3.24.52 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,\n"
@@ -191,22 +215,25 @@ open(p, "w").write(s)
 PYEOF
 }
 
-# bundle: out/mixed/GTKMixed-test4.zip, for RISC OS 5 itself: !GTKLibs,
-# !Geany, !L3afpad, the !SharedLibs named by SHAREDLIBS (Iris's: SOManager
-# 3.04, ld-riscos/so/2), apps/geany/mixed-test's ReadMe and !MemReport
+# bundle: two zips for RISC OS 5 itself.
+#   GTKMixed-test5.zip: !Geany, !L3afpad, apps/geany/mixed-test's ReadMe
+#     and !MemReport. The programs don't carry the libraries.
+#   GTKLibs-<GTKLIBS_VERSION>.zip: Resources.!GTKLibs, to copy into !Boot.Resources as
+#     PackMan will install it. !SharedLibs isn't shipped: the programs use
+#     the one in !Boot.Resources (it must have ld-riscos/so/2).
 bundle() {
   local OUTD=$REPO_DIR/out/mixed B=$REPO_DIR/out/mixed/bundle
-  [ -d "${SHAREDLIBS:-}" ] && [ -f "$SHAREDLIBS/lib/ld-riscos.so.2,1c8" ] ||
-    { echo "build-mixed.sh: SHAREDLIBS must name a !SharedLibs with ld-riscos/so/2" >&2; exit 1; }
   gtklibs
   package Geany geany
   package L3afpad l3afpad
-  rm -rf "$B"; mkdir -p "$B/GTKMixed"
-  cp -r "$OUTD/!GTKLibs" "$OUTD/!Geany" "$OUTD/!L3afpad" "$SHAREDLIBS" \
+  rm -rf "$B"; mkdir -p "$B/GTKMixed" "$B/Resources"
+  cp -r "$OUTD/!Geany" "$OUTD/!L3afpad" \
     "$REPO_DIR/apps/geany/mixed-test/!MemReport" "$REPO_DIR/apps/geany/mixed-test/ReadMe,fff" "$B/GTKMixed/"
-  rm -f "$OUTD/GTKMixed-test4.zip"
-  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKMixed-test4.zip" -C "$B" GTKMixed
-  ls -la "$OUTD/GTKMixed-test4.zip"
+  cp -r "$OUTD/!GTKLibs" "$B/Resources/"
+  rm -f "$OUTD"/GTKMixed-test5.zip "$OUTD"/GTKLibs-*.zip
+  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKMixed-test5.zip" -C "$B" GTKMixed
+  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKLibs-$GTKLIBS_VERSION.zip" -C "$B" Resources
+  ls -la "$OUTD"/GTKMixed-test5.zip "$OUTD/GTKLibs-$GTKLIBS_VERSION.zip"
 }
 
 case "${1:-}" in
