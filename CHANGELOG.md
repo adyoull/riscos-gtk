@@ -15,8 +15,8 @@
   !SharedLibs, which is why. Checked on ROL 5.31: a !SharedLibs without
   so/2 and with an older SOManager gets both and L3afpad starts; one with
   a newer SOManager keeps it.
-- The programs' !Run boots !GTKLibs before !SharedLibs (so the copy comes
-  before SOManager is first loaded).
+- Only !GTKLibs changes: the programs are as in RC18 (SOManager is
+  loaded when the first ELF program runs, after !GTKLibs has booted).
 
 ## 3.24.52-riscos1.0-rc18 (2026-11-10)
 - **The programs share one GTK: !GTKLibs.** Every program is now linked
