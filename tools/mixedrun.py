@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """mixedrun.py RUNFILE NAME PROG SLOT - riscos-gtk: a program's !Run for a
-mixed-linked build (RISCOS_GTK_MIXED=1; build/build-app.sh): after "Set NAME$Dir", !SharedLibs (with
-ld-riscos/so/2) and !GTKLibs are booted from !Boot.Resources if they
+mixed-linked build (RISCOS_GTK_MIXED=1; build/build-app.sh): after "Set NAME$Dir", !GTKLibs (which puts
+ld-riscos/so/2 into !SharedLibs) and !SharedLibs are booted from !Boot.Resources if they
 haven't been, and checked; the WimpSlot becomes SLOT K (the program
 only: the libraries are in SOManager's dynamic area), and PROG$LD$Env
 points the loader at !GTKLibs. MIT licence.
@@ -15,8 +15,8 @@ checks = (
   "| libraries in !GTKLibs, loaded by !SharedLibs (SOManager, ld-riscos/so/2)\n"
   "| !SharedLibs and !GTKLibs are installed in !Boot.Resources (PackMan);\n"
   "| the boot sequence boots them, and if it hasn't yet, this does\n"
-  'If "<SharedLibs$Dir>" = "" Then IfThere Boot:Resources.!SharedLibs.!Boot Then Run Boot:Resources.!SharedLibs.!Boot\n'
   'If "<GTKLibs$Dir>" = "" Then IfThere Boot:Resources.!GTKLibs.!Boot Then Run Boot:Resources.!GTKLibs.!Boot\n'
+  'If "<SharedLibs$Dir>" = "" Then IfThere Boot:Resources.!SharedLibs.!Boot Then Run Boot:Resources.!SharedLibs.!Boot\n'
   'If "<SharedLibs$Dir>" = "" Then Error %(name)s needs !SharedLibs with ld-riscos/so/2 in !Boot.Resources\n'
   "Unset %(name)s$SO2\n"
   "IfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set %(name)s$SO2 1\n"

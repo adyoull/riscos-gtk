@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased (next RC; !GTKLibs 3.24.52-19)
+- **!GTKLibs puts the loader and SOManager into !SharedLibs itself.**
+  The ld-riscos/so/2 loader, SOManager 3.04 and the loader's licence
+  (COPYRIGHT-ld, which RC18's zip lacked) are now inside !GTKLibs, in
+  `SharedLibs`, and each time !GTKLibs is booted it copies them into the
+  user's !SharedLibs (the one booted, else Boot:Resources'): the loader
+  only where it's missing, SOManager only where it's missing or the one
+  there is older (Copy's N option, by date: the files carry SOManager
+  3.04's own date, 27 May 2021, so a newer SOManager is kept). So the zip
+  is just `Resources.!GTKLibs`, and reinstalling or upgrading PackMan's
+  SharedLibs (which puts back its own SOManager) is put right at the next
+  boot. A PackMan package can't add files to another package's
+  !SharedLibs, which is why. Checked on ROL 5.31: a !SharedLibs without
+  so/2 and with an older SOManager gets both and L3afpad starts; one with
+  a newer SOManager keeps it.
+- The programs' !Run boots !GTKLibs before !SharedLibs (so the copy comes
+  before SOManager is first loaded).
+
 ## 3.24.52-riscos1.0-rc18 (2026-11-10)
 - **The programs share one GTK: !GTKLibs.** Every program is now linked
   *mixed* with riscos-crossdev 1.11 (UnixLib 5.0.3.7): UnixLib, libstdc++

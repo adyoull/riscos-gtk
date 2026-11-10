@@ -13,10 +13,11 @@
 # libraries before it in LIBS, --as-needed, so each NEEDS only what it
 # uses; checks/check-shared-lib.sh checks each. Then out/mixed/!GTKLibs
 # (the libraries stripped, under their SONAMEs) and
-# out/mixed/GTKLibs-$GTKLIBS_VERSION.zip: Resources.!GTKLibs, and
-# Resources.!SharedLibs with the ld-riscos/so/2 loader and SOManager 3.04
-# (riscos/sharedlibs-so2) to add to the user's !SharedLibs; PackMan
-# installs both into !Boot.Resources. The programs (build-app.sh
+# out/mixed/GTKLibs-$GTKLIBS_VERSION.zip (Resources.!GTKLibs; PackMan
+# installs it in !Boot.Resources). !GTKLibs.SharedLibs holds the
+# ld-riscos/so/2 loader and SOManager 3.04 (riscos/sharedlibs-so2), which
+# !GTKLibs' !Boot copies into the user's !SharedLibs: each only where it is
+# missing there, or (SOManager) older by date. The programs (build-app.sh
 # with RISCOS_GTK_MIXED=1) link against $STAGE/so and their !Run point
 # <program>$LD$Env at !GTKLibs (tools/mixedrun.py).
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -24,8 +25,12 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 SO=$STAGE/so
 # !GTKLibs' version: GTK's, then riscos-gtk's build number (RC17 was build
-# 17; RC18 is 18)
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-18}
+# 17; RC18 was 18; the next RC is 19)
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-19}
+# the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
+# (SOManager 3.04's own date): Copy's N option compares against it, so a
+# !SharedLibs with a newer SOManager keeps its own
+SO2_DATE="2021-05-27 12:00:00 UTC"
 # archive SONAME, in link order (each may use the ones before it)
 LIBS="
 libz z.so.1
@@ -87,6 +92,24 @@ Set GTKLibs\$Dir <Obey\$Dir>
 Set GTKLibs\$Version $GTKLIBS_VERSION
 Set GTKLibs\$Path <GTKLibs\$Dir>.lib.
 IconSprites <GTKLibs\$Dir>.!Sprites
+| the loader and SOManager riscos-gtk's programs need, into !SharedLibs
+| (the one booted, else Boot:Resources'): the loader where it's missing,
+| SOManager only where it's missing or older (by date: Copy's N)
+Set GTKLibs\$SL <SharedLibs\$Dir>
+If "<GTKLibs\$SL>" = "" Then Set GTKLibs\$SL Boot:Resources.!SharedLibs
+Unset GTKLibs\$Do
+IfThere <GTKLibs\$SL>.lib Then Set GTKLibs\$Do 1
+IfThere <GTKLibs\$SL>.lib.ld-riscos-eabihf/so Then Unset GTKLibs\$Do
+If "<GTKLibs\$Do>" = "1" Then X Copy <GTKLibs\$Dir>.SharedLibs.lib.ld-riscos-eabihf/so <GTKLibs\$SL>.lib.ld-riscos-eabihf/so ~C~D~N~S~V
+Unset GTKLibs\$Do
+IfThere <GTKLibs\$SL>.lib Then Set GTKLibs\$Do 1
+IfThere <GTKLibs\$SL>.lib.ld-riscos/so/2 Then Unset GTKLibs\$Do
+If "<GTKLibs\$Do>" = "1" Then X Copy <GTKLibs\$Dir>.SharedLibs.lib.ld-riscos/so/2 <GTKLibs\$SL>.lib.ld-riscos/so/2 ~C~D~N~S~V
+Unset GTKLibs\$Do
+IfThere <GTKLibs\$SL>.lib Then Set GTKLibs\$Do 1
+If "<GTKLibs\$Do>" = "1" Then X Copy <GTKLibs\$Dir>.SharedLibs.SOManager <GTKLibs\$SL>.SOManager ~C~DFN~S~V
+Unset GTKLibs\$Do
+Unset GTKLibs\$SL
 EOF
   done
   cat > "$G/!Help,fff" <<EOF
@@ -100,8 +123,13 @@ pixman, libpng, libjpeg and the rest under them. Every GTK program uses
 this one copy, loaded by !SharedLibs (SOManager and ld-riscos/so/2), so
 running several costs GTK's memory once.
 
-It lives in !Boot.Resources (PackMan installs it there). It needs a
-!SharedLibs with ld-riscos/so/2 in !Boot.Resources too. Its version is
+It lives in !Boot.Resources (PackMan installs it there), with a
+!SharedLibs (PackMan's SharedLibs package). That !SharedLibs needs the
+ld-riscos/so/2 loader and SOManager 3.x, which PackMan's SharedLibs 4.0
+lacks: they are in SharedLibs here, and each time !GTKLibs is booted it
+copies them into !SharedLibs where they are missing (SOManager also where
+the one there is older). Restart after installing, so the newer SOManager
+is the one loaded. The loader's licence is SharedLibs.COPYRIGHT-ld. Its version is
 GTK's, then riscos-gtk's build number: $GTKLIBS_VERSION, set in
 GTKLibs\$Version when it's booted.
 
@@ -112,13 +140,13 @@ EOF
   # its icon: a shelf of library volumes (tools/mkgtklibsicon.py)
   python3 -B "$REPO_DIR/tools/mkgtklibsicon.py" "$G"
   cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$G/LicenceLGPL,fff"
-  rm -rf "$B"; mkdir -p "$B/Resources"; cp -r "$G" "$B/Resources/"
-  # and what the user's !SharedLibs is missing for these programs: the
-  # ld-riscos/so/2 loader and SOManager 3.04 (riscos/sharedlibs-so2),
-  # added to Boot.Resources.!SharedLibs (the package depends on SharedLibs)
-  mkdir -p "$B/Resources/!SharedLibs/lib"
-  cp "$REPO_DIR/riscos/sharedlibs-so2/SOManager,ffa" "$B/Resources/!SharedLibs/"
-  cp "$REPO_DIR/riscos/sharedlibs-so2/lib/"* "$B/Resources/!SharedLibs/lib/"
+  # the loader and SOManager for the user's !SharedLibs (riscos/sharedlibs-so2)
+  mkdir -p "$G/SharedLibs/lib"
+  cp "$REPO_DIR/riscos/sharedlibs-so2/SOManager,ffa" "$REPO_DIR/riscos/sharedlibs-so2/COPYRIGHT-ld,fff" "$G/SharedLibs/"
+  cp "$REPO_DIR/riscos/sharedlibs-so2/lib/"* "$G/SharedLibs/lib/"
+  chmod 644 "$G/SharedLibs/"*,* "$G/SharedLibs/lib/"*
+  touch -d "$SO2_DATE" "$G/SharedLibs/SOManager,ffa" "$G/SharedLibs/lib/"*
+  rm -rf "$B"; mkdir -p "$B/Resources"; cp -a "$G" "$B/Resources/"
   rm -f "$REPO_DIR/out/mixed/GTKLibs-$GTKLIBS_VERSION.zip"
   python3 "$RCD_DIR/package/rozip.py" "$REPO_DIR/out/mixed/GTKLibs-$GTKLIBS_VERSION.zip" -C "$B" Resources
   rm -rf "$B"
