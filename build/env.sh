@@ -92,7 +92,16 @@ export UNIXLIB_VERSION
 # fonts (serif, monospace, the user's) come from the system, through
 # PackMan's FontConfig (UnixFC): gdk/riscos/gdkfontconfig-riscos.c
 export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
-if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.5 ]; then
+# RISCOS_GTK_MIXED=1 (the mixed-link test, riscos-crossdev v1.11-test1):
+# UnixLib 5.0.3.7 (a static UnixLib in a dynamically linked program), and
+# every library built position-independent, to become a shared library
+# (build/build-mixed.sh)
+if [ "${RISCOS_GTK_MIXED:-}" = 1 ] && [ "$TARGET" = riscos ]; then
+  case "$UNIXLIB_VERSION" in
+    5.0.3.5) echo "env.sh: RISCOS_GTK_MIXED=1 needs riscos-crossdev v1.11-test1 (UnixLib 5.0.3.7)" >&2
+             return 1 2>/dev/null || exit 1;;
+  esac
+elif [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.5 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.5:" >&2
   echo "  use riscos-crossdev v1.9 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1
@@ -114,6 +123,7 @@ else
   export RO_CFLAGS="-O2 -g -mcpu=cortex-a8 -mfpu=vfpv3 -mfloat-abi=hard -mno-unaligned-access -fstack-clash-protection -ffile-prefix-map=$REPO_DIR=/riscos-gtk-src"
 fi
 export CC=$HOST-gcc CXX=$HOST-g++ AR=$HOST-ar RANLIB=$HOST-ranlib STRIP=$HOST-strip
+[ "${RISCOS_GTK_MIXED:-}" = 1 ] && RO_CFLAGS="$RO_CFLAGS -fPIC"
 export CFLAGS="$RO_CFLAGS" CXXFLAGS="$RO_CFLAGS"
 export CPPFLAGS="-I$STAGE/include" LDFLAGS="-L$STAGE/lib"
 export PKG_CONFIG_LIBDIR="$STAGE/lib/pkgconfig:$STAGE/share/pkgconfig"

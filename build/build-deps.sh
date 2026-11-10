@@ -43,7 +43,7 @@ for a; do
   shift
   [ "\$a" = -pthread ] || set -- "\$@" "\$a"
 done
-exec "$TCBIN/$HOST-$t" "\$@"
+exec "$TCBIN/$HOST-$t" $([ "${RISCOS_GTK_MIXED:-}" = 1 ] && echo -fPIC) "\$@"
 EOF
   chmod +x "$SRC/.wrap/$HOST-$t"
 done
@@ -256,6 +256,8 @@ mesonlib() {
       meson_env ninja -C _build >> "../$d.log"
       meson_env meson install -C _build --destdir "$SYSROOT" >> "../$d.log" )
     fix_pc
+    # the mixed-link test: the build tree isn't kept (room)
+    [ "${RISCOS_GTK_MIXED:-}" = 1 ] && rm -rf "$d"
   fi
   need "$lib"
 }

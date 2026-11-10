@@ -182,7 +182,7 @@ diff -ruN a/glib/gspawn.c b/glib/gspawn.c
 +  gboolean (*exited) (GPid pid, gint *wait_status);
 +} GRiscosSpawnHooks;
 +
-+const GRiscosSpawnHooks *g_riscos_spawn_hooks = NULL;
++__attribute__ ((visibility ("default"))) const GRiscosSpawnHooks *g_riscos_spawn_hooks = NULL;  /* set by GDK (libgdk) */
 +
 +typedef struct
 +{
