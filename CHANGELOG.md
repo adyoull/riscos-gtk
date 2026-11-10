@@ -1,6 +1,46 @@
 # Changelog
 
-## Unreleased
+## 3.24.52-riscos1.0-rc18 (2026-11-10)
+- **The programs share one GTK: !GTKLibs.** Every program is now linked
+  *mixed* with riscos-crossdev 1.11 (UnixLib 5.0.3.7): UnixLib, libstdc++
+  and each program's own libraries (GOffice, wv, libetpan...) are linked
+  in, and GTK 3.24.52 with riscos-gtk's backend and the 24 libraries
+  under it (GLib, cairo, pango, harfbuzz, FreeType, fontconfig, pixman,
+  libpng, libjpeg...) are 26 shared libraries in `!GTKLibs`, loaded by
+  !SharedLibs (SOManager and ld-riscos/so/2). Programs running together
+  share one copy (on a Pi with Geany and L3afpad open, SOManager's
+  "Shared Libraries" area was 20 MB, as with Geany alone).
+  - The programs themselves (stripped), against RC17's static ones:
+    L3afpad 0.75 MB (17.2), GTKThemeTest 0.7 (17.2), mtPaint 1.5 (18.0),
+    Geany 6.7 (22.6), GTKGLTest 9.3 (25.6), ClawsMail 9.6 (25.1),
+    Gnumeric 11.1 (27), AbiWord 18.8 (32.8); `!GTKLibs` is 20.5 MB.
+    Each WimpSlot starts at the program's size + 4 MB and grows as before.
+  - `!GTKLibs` 3.24.52-18 (GTK's version, then the build number) goes in
+    `!Boot.Resources`, as !SharedLibs does: PackMan installs it, or copy
+    `Resources.!GTKLibs` from `GTKLibs-3.24.52-18.zip`. It has its own
+    icon (`tools/mkgtklibsicon.py`).
+  - The programs need a !SharedLibs with **ld-riscos/so/2** (GCCSDK 8 and
+    later) in `!Boot.Resources`. PackMan's SharedLibs 4.0 has only so/1,
+    so the GTKLibs zip also has `Resources.!SharedLibs` with the so/2
+    loader and SOManager 3.04 (GCCSDK's, `riscos/sharedlibs-so2`), to add
+    to the existing one. Each program's !Run boots !SharedLibs and
+    !GTKLibs if they aren't yet and says which is missing.
+  - Building: `RISCOS_GTK_MIXED=1` (build-deps.sh: position-independent
+    libraries; `build/build-gtklibs.sh`: the shared libraries and
+    !GTKLibs; `build/mixed-cc` and build-app.sh: the programs, in
+    `out/mixed`); `make release` builds this. GLib's `g_riscos_spawn_hooks`
+    (riscos-gtk's patch, set by GDK) is exported now (GLib builds with
+    hidden visibility). build-abiword.sh's .la loop copes with a sysroot
+    without .la files.
+  - The devkit has the shared libraries too (`sysroot/riscos-gtk/so`) and
+    `mixedrun.py`; docs/API.md, "Linking against !GTKLibs". Static
+    linking with it works as before.
+  - riscos-crossdev 1.11 (UnixLib 5.0.3.7, riscos-mesa devkit 20.3.5-18)
+    is needed to build riscos-gtk now.
+- Versions: Gnumeric 1.12.62-riscos21, AbiWord 3.0.8-riscos7, ClawsMail
+  4.4.0-riscos28, L3afpad 0.8.18.1.11-riscos37, Geany 2.1-riscos16,
+  mtPaint 3.50.14-riscos16, GTKThemeTest and GTKGLTest
+  3.24.52-riscos1.0-rc18.
 - **NEON for drawing and pictures** (from the Web Browser project's
   findings). pixman, libjpeg-turbo and libpng were built without their
   NEON and ARMv6 SIMD code, so every cairo fill, blend, scale and copy,

@@ -4,7 +4,7 @@ GTK 3 for RISC OS: a native RISC OS GDK backend, the GLib/pango/cairo
 stack cross-built with GCCSDK, and a RISC OS theme, so that GTK programs
 (AbiWord and Gnumeric first) can run as ordinary Wimp tasks.
 
-**Status: public beta (3.24.52-riscos1.0-rc17).** GTK
+**Status: public beta (3.24.52-riscos1.0-rc18).** GTK
 programs run on RISC OS as ordinary Wimp tasks:
 - **Windows:** Wimp windows with the Wimp's own furniture.
 - **Menus:** Wimp menus, opened with Menu anywhere in a window.
@@ -51,13 +51,13 @@ UnixLib does and doesn't do that matters here:
 ## Building (short version)
 
 ```sh
-git clone -b v1.9 https://github.com/adyoull/riscos-crossdev
-(cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.5; riscos-mesa for GL
+git clone -b v1.11 https://github.com/adyoull/riscos-crossdev
+(cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.7; riscos-mesa for GL
 cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
 make l3afpad claws themetest geany mtpaint gnumeric abiword  # the programs, in out/
-make release RELEASE=3.24.52-riscos1.0-rc17    # programs + devkit + complete source + MANIFEST
+make release RELEASE=3.24.52-riscos1.0-rc18    # programs + devkit + complete source + MANIFEST
 make check                                  # the QEMU tests
 ```
 

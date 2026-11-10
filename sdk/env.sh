@@ -4,8 +4,9 @@
 #   export RCD_DIR=/path/to/riscos-crossdev
 #   . /path/to/riscos-gtk-sdk/env.sh
 #
-# RCD_DIR is riscos-crossdev v1.9 (or v1.4 and later), whose toolchain has UnixLib
-# 5.0.3.5 (5.0.3.3 or later: the devkit's libraries need it; docs/README.md).
+# RCD_DIR is riscos-crossdev v1.11, whose toolchain has UnixLib
+# 5.0.3.7 (the devkit's libraries are built with it; programs linked mixed
+# against its shared libraries need it: docs/README.md).
 # Afterwards:
 #   $CC $RISCOS_GTK_CFLAGS app.c -o app $RISCOS_GTK_LIBS
 #   pkg-config --cflags --libs gtk+-3.0       (the devkit's, not the host's)
@@ -13,7 +14,7 @@
 #                                              PKG_CONFIG_* are set)
 #   meson setup build --cross-file "$(riscos-gtk-meson-cross)"
 #   cmake -DCMAKE_TOOLCHAIN_FILE=$RISCOS_GTK_SDK/share/riscos-gtk/riscos-gtk.cmake
-# OpenGL (GtkGLArea) needs riscos-mesa's devkit (20.3.5-15 or later; crossdev 1.9 has 20.3.5-17) in
+# OpenGL (GtkGLArea) needs riscos-mesa's devkit (20.3.5-15 or later; crossdev 1.11 has 20.3.5-18) in
 # RISCOS_MESA_DEVKIT (default: crossdev's RISCOS_DEVKIT, where its
 # devkit/install.sh puts it). Then RISCOS_GTK_GL_LIBS, and pkg-config's
 # riscos-gtk-gl, add it to a program's link (docs/API.md, "OpenGL").
@@ -24,7 +25,7 @@ case $RISCOS_GTK_SDK in *" "*)
   return 1 2>/dev/null || exit 1;;
 esac
 [ -n "${RCD_DIR:-}" ] && [ -f "$RCD_DIR/env.sh" ] || {
-  echo "riscos-gtk env.sh: set RCD_DIR to riscos-crossdev v1.9 first" >&2
+  echo "riscos-gtk env.sh: set RCD_DIR to riscos-crossdev v1.11 first" >&2
   return 1 2>/dev/null || exit 1; }
 . "$RCD_DIR/env.sh"
 [ -x "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-gcc" ] || {
@@ -38,7 +39,7 @@ if "$RISCOS_TOOLCHAIN/bin/arm-riscos-gnueabihf-nm" "$RISCOS_TOOLCHAIN/arm-riscos
 else
   RISCOS_GTK_UNIXLIB=other
   echo "riscos-gtk env.sh: warning: this toolchain's UnixLib is older than 5.0.3.3, which the" >&2
-  echo "  devkit's libraries need: use riscos-crossdev v1.9 (or v1.4 and later)" >&2
+  echo "  devkit's libraries need: use riscos-crossdev v1.11" >&2
 fi
 
 # The toolchain's .la files name the machine crossdev was built on

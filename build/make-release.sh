@@ -22,7 +22,9 @@
 # MTPAINT_VERSION, GNUMERIC_VERSION, ABIWORD_VERSION). MIT licence.
 HERE=$(cd "$(dirname "$0")" && pwd)
 RELEASE=${1:?usage: build/make-release.sh RELEASE (e.g. 3.24.41-riscos1.0-rc3)}
-export TARGET=riscos RELEASE
+# From RC18 the programs are linked mixed (riscos-crossdev 1.11): GTK and
+# the libraries under it are shared, in !GTKLibs (build-gtklibs.sh)
+export TARGET=riscos RELEASE RISCOS_GTK_MIXED=1
 export SOURCE_URL=${SOURCE_URL:-https://github.com/adyoull/riscos-gtk/releases/tag/v$RELEASE}
 . "$HERE/env.sh"
 cd "$REPO_DIR"
@@ -45,6 +47,11 @@ ABV=${ABIWORD_VERSION:-$(sed -n 's/^VERSION=\${VERSION:-\([^}]*\)}.*/\1/p' build
 [ -n "$L3V" ] && [ -n "$TTV" ] && [ -n "$CMV" ] && [ -n "$GLV" ] && [ -n "$GYV" ] && [ -n "$MPV" ] && [ -n "$GNV" ] && [ -n "$ABV" ] \
   || { echo "make-release.sh: can't read the programs' versions" >&2; exit 1; }
 
+# the libraries (position-independent) and !GTKLibs, then the programs
+build/build-deps.sh
+build/build-gtklibs.sh
+GLKV=$(sed -n 's/^GTKLIBS_VERSION=\${GTKLIBS_VERSION:-\([^}]*\)}.*/\1/p' build/build-gtklibs.sh)
+[ -n "$GLKV" ] || { echo "make-release.sh: can't read GTKLibs' version" >&2; exit 1; }
 VERSION=$L3V build/build-l3afpad.sh
 VERSION=$TTV build/build-themetest.sh
 VERSION=$CMV build/build-claws.sh
@@ -59,9 +66,15 @@ EMV=$(sed -n 's/^FONT_VERSION=//p' build/build-emoji.sh)$EMV
 
 R=$REPO_DIR/out/release/$RELEASE
 rm -rf "$R"; mkdir -p "$R"
-cp "out/L3afpad-$L3V.zip" "out/GTKThemeTest-$TTV.zip" "out/ClawsMail-$CMV.zip" \
-   "out/GTKGLTest-$GLV.zip" "out/Geany-$GYV.zip" "out/mtPaint-$MPV.zip" \
-   "out/Gnumeric-$GNV.zip" "out/AbiWord-$ABV.zip" "out/TTF-Noto-Color-Emoji-$EMV.zip" "$R/"
+M=out/mixed
+cp "$M/L3afpad-$L3V.zip" "$M/GTKThemeTest-$TTV.zip" "$M/ClawsMail-$CMV.zip" \
+   "$M/GTKGLTest-$GLV.zip" "$M/Geany-$GYV.zip" "$M/mtPaint-$MPV.zip" \
+   "$M/Gnumeric-$GNV.zip" "$M/AbiWord-$ABV.zip" "$M/GTKLibs-$GLKV.zip" "$R/"
+cp "out/TTF-Noto-Color-Emoji-$EMV.zip" "$R/" 2>/dev/null || cp "$M/TTF-Noto-Color-Emoji-$EMV.zip" "$R/"
+# each program with !GTKLibs: every library it needs is there
+for p in l3afpad themetest claws-mail gltest geany mtpaint gnumeric abiword; do
+  "$RCD_DIR/checks/check-mixed-package.sh" "$M/$p" "$M/!GTKLibs/lib"
+done
 # the devkit, for other developers' programs (build/make-sdk.sh)
 SOURCE_URL=$SOURCE_URL "$HERE/make-sdk.sh" "$RELEASE"
 cp "out/sdk/riscos-gtk-sdk-$RELEASE.tar.gz" "$R/"

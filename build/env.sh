@@ -69,13 +69,14 @@ if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnuea
   return 1 2>/dev/null || exit 1
 fi
 
-# Which UnixLib the programs link. riscos-crossdev 1.9 and later have
-# UnixLib 5.0.3.5, which the releases need (rename() of a file whose type
-# isn't its extension's MimeMap type; strnlen without _GNU_SOURCE). It's
-# known by the library's sha256: crossdev 1.9's, or riscos-unixlib
-# v5.0.3.5's own release asset (the same code). 1.4 to 1.8.x have 5.0.3.3,
+# Which UnixLib the programs link, known by the library's sha256:
+# riscos-crossdev 1.11's 5.0.3.7 (the same code as riscos-unixlib
+# v5.0.3.7's release asset); 1.9's 5.0.3.5 (rename() of a file whose type
+# isn't its extension's MimeMap type; strnlen without _GNU_SOURCE). 1.4 to 1.8.x have 5.0.3.3,
 # the first with __pthread_held_wait; 1.3 has 5.0.3.2.
 case "$(sha256sum < "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" | cut -d' ' -f1)" in
+  349503fc02f9e734a1dd6826da448ab270de6719a4541bba9036def226eefe4b)
+    UNIXLIB_VERSION=5.0.3.7;;
   977e88ca3b93d3eb673fab8d9b74d2f5a273d4bab3832485862ad95ab3874f87|\
   30272fb8e7af90ddc0cae267fed56cb2051ce6a01b66413febe6091b0a3df6d2)
     UNIXLIB_VERSION=5.0.3.5;;
@@ -92,18 +93,14 @@ export UNIXLIB_VERSION
 # fonts (serif, monospace, the user's) come from the system, through
 # PackMan's FontConfig (UnixFC): gdk/riscos/gdkfontconfig-riscos.c
 export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
-# RISCOS_GTK_MIXED=1 (the mixed-link test, riscos-crossdev v1.11-test1):
-# UnixLib 5.0.3.7 (a static UnixLib in a dynamically linked program), and
-# every library built position-independent, to become a shared library
-# (build/build-mixed.sh)
-if [ "${RISCOS_GTK_MIXED:-}" = 1 ] && [ "$TARGET" = riscos ]; then
-  case "$UNIXLIB_VERSION" in
-    5.0.3.5) echo "env.sh: RISCOS_GTK_MIXED=1 needs riscos-crossdev v1.11-test1 (UnixLib 5.0.3.7)" >&2
-             return 1 2>/dev/null || exit 1;;
-  esac
-elif [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.5 ]; then
-  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.5:" >&2
-  echo "  use riscos-crossdev v1.9 (make prebuilt there, into an empty toolchain/env)" >&2
+# riscos-crossdev 1.11 (UnixLib 5.0.3.7: a static UnixLib in a dynamically
+# linked program, which the releases are from RC18) is needed.
+# RISCOS_GTK_MIXED=1 builds every library position-independent, to become
+# a shared library in !GTKLibs (build/build-gtklibs.sh), and links the
+# programs against them (build/mixed-cc, build/build-app.sh).
+if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.7 ]; then
+  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.7:" >&2
+  echo "  use riscos-crossdev v1.11 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1
 fi
 

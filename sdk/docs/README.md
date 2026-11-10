@@ -32,13 +32,15 @@ from.
   and pkg-config. A GTK program that uses GResources or GSettings also
   needs GLib's host tools (`glib-compile-resources`,
   `glib-compile-schemas`: Debian/Ubuntu's `libglib2.0-dev-bin`).
-- **riscos-crossdev v1.9** (or v1.4 and later), the GCCSDK cross-compiler. Its
-  toolchain has UnixLib 5.0.3.5, which riscos-gtk's own programs are
-  built with; the devkit's libraries work with 5.0.3.3 and later. `make devkit` adds riscos-mesa's devkit, which you need only
+- **riscos-crossdev v1.11**, the GCCSDK cross-compiler. Its
+  toolchain has UnixLib 5.0.3.7, which riscos-gtk's own programs and the
+  devkit's libraries are built with. Programs can link the devkit's
+  libraries in (static) or link against its shared libraries, as the
+  ones in `!GTKLibs` (mixed: docs/API.md, "Linking against !GTKLibs"). `make devkit` adds riscos-mesa's devkit, which you need only
   for OpenGL:
 
   ```sh
-  git clone -b v1.9 https://github.com/adyoull/riscos-crossdev
+  git clone -b v1.11 https://github.com/adyoull/riscos-crossdev
   (cd riscos-crossdev && make prebuilt && make devkit)
   ```
 - **On the RISC OS machine:** RISC OS 5, in a 16 or 32 bpp screen mode,

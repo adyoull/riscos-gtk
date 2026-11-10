@@ -42,13 +42,13 @@ sudo apt-get install meson ninja-build pkg-config autoconf automake libtool \
 - GTK's host tools aren't needed: riscos-gtk draws its symbolic icons
   itself (it used gtk-encode-symbolic-svg, `libgtk-3-bin`, before).
 
-## 2. The toolchain: riscos-crossdev 1.9 (UnixLib 5.0.3.5)
+## 2. The toolchain: riscos-crossdev 1.11 (UnixLib 5.0.3.7)
 
 The release riscos-gtk is built with is named in `.riscos-deps`
-(`riscos-crossdev v1.9`).
+(`riscos-crossdev v1.11`).
 
 ```sh
-git clone -b v1.9 https://github.com/adyoull/riscos-crossdev
+git clone -b v1.11 https://github.com/adyoull/riscos-crossdev
 (cd riscos-crossdev && make prebuilt && make devkit)
 export RCD_DIR=$PWD/riscos-crossdev
 ```
@@ -58,21 +58,29 @@ devkit and the host packages but three (`apt-get install python3-pil
 shared-mime-info libgdk-pixbuf2.0-bin` first, as the workflows do):
 
 ```sh
-docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.9 make deps tests hello check sdk
+docker run --rm -v "$PWD":/src ghcr.io/adyoull/riscos-crossdev:1.11 make deps tests hello check sdk
 ```
 
-- **`make prebuilt`:** riscos-crossdev 1.9's toolchain: GCCSDK
-  GCC 10.2 with **UnixLib 5.0.3.5**, built from the riscos-unixlib
-  v5.0.3.5 release's `unixlib-riscos.diff`. Moving from an older
-  crossdev, move its `toolchain/env` away first. It is static only, with
-  PThreadTicker 0.03.
-- **`make devkit`:** riscos-mesa's devkit (20.3.5-17 in crossdev 1.9),
+- **`make prebuilt`:** riscos-crossdev 1.11's toolchain: GCCSDK
+  GCC 10.2 with **UnixLib 5.0.3.7**, built from the riscos-unixlib
+  v5.0.3.7 release's `unixlib-riscos-5.0.3.7.diff`. Moving from an older
+  crossdev, move its `toolchain/env` away first. It links programs
+  static or, with `-rdynamic`, mixed (UnixLib linked in, other libraries
+  shared: crossdev's docs/MIXED.md), with PThreadTicker 0.04.
+- **Mixed builds (RC18 on):** `RISCOS_GTK_MIXED=1` builds every library
+  position-independent (build-deps.sh), `build/build-gtklibs.sh` links
+  them into the shared libraries of `!GTKLibs`, and the programs' own
+  scripts then link against them (`build/mixed-cc`) and give their !Run
+  the !GTKLibs and !SharedLibs lines (`tools/mixedrun.py`), packaged in
+  `out/mixed`. `make release` does all of it.
+- **`make devkit`:** riscos-mesa's devkit (20.3.5-18 in crossdev 1.11),
   in `riscos-crossdev/devkit/env`. Only !GTKGLTest and the OpenGL test
   need it.
 - **UnixLib check:** `build/env.sh` stops a RISC OS build whose
-  toolchain doesn't link UnixLib 5.0.3.5 (crossdev 1.8.x and older), and
+  toolchain doesn't link UnixLib 5.0.3.7 (crossdev 1.10 and older), and
   `make-release.sh` records the UnixLib in the manifest.
-- **History:** RC7 to RC14 were built with crossdev 1.8.x (UnixLib
+- **History:** RC15 to RC17 were built with crossdev 1.9 (UnixLib
+  5.0.3.5), static; RC7 to RC14 with crossdev 1.8.x (UnixLib
   5.0.3.3); before crossdev 1.4, riscos-gtk built with crossdev 1.3
   and the 5.0.3.3 library swapped in by `build/unixlib-overlay.sh`. That
   script is gone.
@@ -118,7 +126,7 @@ python3 tools/png2sprite.py 'apps/claws/app/!Sprites,ff9' '!clawsmail=/tmp/spr/!
 
 ```sh
 make l3afpad themetest claws                 # out/<Program>-<version>.zip
-make release RELEASE=3.24.52-riscos1.0-rc17    # out/release/3.24.52-riscos1.0-rc17/
+make release RELEASE=3.24.52-riscos1.0-rc18    # out/release/3.24.52-riscos1.0-rc18/
 ```
 
 `make emoji` makes `out/TTF-Noto-Color-Emoji-<version>.zip`, the optional
@@ -179,7 +187,7 @@ SMTP and IMAP server. Every suite must pass before a release.
   this. Reported to riscos-crossdev (handoff 2026-10-11).
 - **Older toolchains:** `env.sh` stops if the toolchain is older than
   riscos-crossdev 1.3 (UnixLib 5.0.3.2, static only), and a RISC OS build
-  if it doesn't link UnixLib 5.0.3.5 (crossdev 1.9 and later).
+  if it doesn't link UnixLib 5.0.3.7 (crossdev 1.11 and later).
 
 ## Building on GitHub
 

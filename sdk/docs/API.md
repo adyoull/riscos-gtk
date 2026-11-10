@@ -75,6 +75,36 @@ Returns FALSE, after an error box, if nothing took the address.
 
 `app.h` is header-only: include it in one source file.
 
+## Linking against !GTKLibs (mixed programs)
+
+From RC18 riscos-gtk's own programs are linked *mixed* (riscos-crossdev
+1.11, its docs/MIXED.md): UnixLib, libstdc++ and the program's own
+libraries are linked in, and GTK with the libraries under it comes from
+the shared libraries in `!GTKLibs`, one copy for every GTK program
+running. The devkit has those libraries in `sysroot/riscos-gtk/so`.
+
+```sh
+$CC $RISCOS_GTK_CFLAGS -c app.c
+$CC app.o -o app -rdynamic -L"$RISCOS_GTK_SDK/sysroot/riscos-gtk/so" $(pkg-config --libs gtk+-3.0)
+"$RCD_DIR/checks/check-all.sh" app                     # "mixed: UnixLib linked in; shared: ..."
+```
+
+- **Packaging:** the program stays an ELF file, stripped, as `!App.app,e1f`
+  (no `elf2aif`). Its WimpSlot needs only the program: the libraries are
+  in SOManager's dynamic area.
+- **!Run:** `python3 "$RISCOS_GTK_SDK/share/riscos-gtk/tools/mixedrun.py"
+  '!App/!Run,feb' App app SLOT` adds what riscos-gtk's programs have:
+  !SharedLibs and !GTKLibs booted from `!Boot.Resources` if they aren't
+  yet, a check for `ld-riscos/so/2`, the WimpSlot (SLOT K), and
+  `app$LD$Env "LD_LIBRARY_PATH=/GTKLibs:"`.
+- **Users need** `!GTKLibs` (the release's `GTKLibs-<version>.zip`, or
+  PackMan) and a `!SharedLibs` with `ld-riscos/so/2` in `!Boot.Resources`
+  (the GTKLibs zip adds it to theirs).
+- **Static still works:** the devkit's `.a` libraries link in as before
+  (`-static`), for a program that should run without !GTKLibs.
+- `riscos-gtk-package` makes static (AIF) packages; a mixed program is
+  packaged as above.
+
 ## Fonts
 
 GTK draws text with pango, which finds fonts through fontconfig.

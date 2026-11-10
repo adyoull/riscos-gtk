@@ -45,6 +45,9 @@ P=$D/sysroot/riscos-gtk
 mkdir -p "$P/lib" "$P/share/glib-2.0"
 cp -r "$STAGE/include" "$P/"
 cp "$STAGE"/lib/*.a "$P/lib/"
+# the shared libraries !GTKLibs holds (build-gtklibs.sh), for programs
+# linked mixed against them, as riscos-gtk's own are (docs/API.md)
+[ ! -d "$STAGE/so" ] || cp -a "$STAGE/so" "$P/"
 cp -r "$STAGE/lib/pkgconfig" "$STAGE/lib/glib-2.0" "$STAGE/lib/cmake" "$P/lib/"
 cp -r "$STAGE/share/aclocal" "$P/share/"
 cp -r "$STAGE/share/glib-2.0/schemas" "$P/share/glib-2.0/"
@@ -100,7 +103,8 @@ unzip -q -o -j "$DL/dejavu-fonts-ttf-2.37.zip" 'dejavu-fonts-ttf-2.37/ttf/*.ttf'
 mv "$S/fonts/LICENSE" "$S/fonts/Licence,fff"
 cp "$REPO_DIR/tests/render/mkfontsconf.sh" "$S/"
 mkdir -p "$S/tools"
-cp "$REPO_DIR/tools/riscosdraw.py" "$REPO_DIR/tools/mkriscosicons.py" "$REPO_DIR/tools/riscosicons_apps.py" "$S/tools/"
+cp "$REPO_DIR/tools/riscosdraw.py" "$REPO_DIR/tools/mkriscosicons.py" "$REPO_DIR/tools/riscosicons_apps.py" \
+   "$REPO_DIR/tools/mixedrun.py" "$S/tools/"
 cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$S/licences/"
 sed -e "s|@RISCOS_GTK_RELEASE@|$RELEASE|g" -e "s|@RISCOS_GTK_SOURCE_URL@|$SOURCE_URL|g" \
   "$REPO_DIR/sdk/share/riscos-gtk/licences/Source.txt" > "$S/licences/Source.txt"

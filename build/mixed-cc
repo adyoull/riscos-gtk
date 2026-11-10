@@ -4,9 +4,9 @@
 # passed through. A program's link (-static, no -c/-shared) becomes a mixed
 # link: -rdynamic, with the GTK stack from the shared libraries in
 # $STAGE/so (found before the .a files in $STAGE/lib, as -L$STAGE/so comes
-# first), the program's other libraries still linked in, and libstdc++ for
-# the libraries that need it (harfbuzz). -pthread is dropped (the driver
-# rejects it; UnixLib has threads in its C library). MIT licence.
+# first) and the program's other libraries still linked in. riscos-crossdev
+# 1.11's driver adds libstdc++ for the libraries that need it (harfbuzz).
+# MIT licence.
 tool=$1; shift
 link=0; prog=0
 for a; do
@@ -20,10 +20,8 @@ args=()
 [ "$link" = 1 ] && args+=("-L$STAGE/so")
 for a; do
   case "$a" in
-    -pthread) ;;
     -static) if [ "$link" = 1 ]; then args+=(-rdynamic); else args+=("$a"); fi ;;
     *) args+=("$a") ;;
   esac
 done
-[ "$link" = 1 ] && args+=(-lstdc++ -lm)
 exec "$TCBIN/$HOST-$tool" "${args[@]}"

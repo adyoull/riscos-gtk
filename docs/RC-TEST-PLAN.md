@@ -1,4 +1,4 @@
-# riscos-gtk 3.24.52-riscos1.0-rc17 (public beta) — Pi sign-off
+# riscos-gtk 3.24.52-riscos1.0-rc18 (public beta) — Pi sign-off
 
 Run on real hardware with the RC packages exactly as released (the zips
 named in `MANIFEST.txt`, their SHA-256 checked). Note the machine, the
@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.52-riscos1.0-rc17 (the backend and theme)
+## 2. GTKThemeTest 3.24.52-riscos1.0-rc18 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -249,6 +249,18 @@ provider offers them.
 | 17.5 | RC17: the hourglass goes when the program is ready (within a few seconds of its window appearing) and the pointer stays normal while it runs, in every program; and it doesn't stay after a second copy hands its file over | RISC OS 5.31 on Linux (Gnumeric: OS_Byte 106 reads the normal pointer from the moment it's ready) | |
 | 17.6 | Close the last window of Gnumeric, AbiWord, Geany, GTKThemeTest and GTKGLTest with the close icon: each stays on the icon bar; Select brings a window back (a new workbook or document, Geany's window, the test's window); Quit on the icon bar ends it | RISC OS 5.31 on Linux | |
 | 17.7 | The window border sprites (the theme's, e.g. Raspberry) still draw the scroll bars and size icon; the Log's `riscos-gtk: tool sprites:` line says how they were found | — | |
+
+## 18. New in RC18: one shared GTK (!GTKLibs), NEON, the native front end calls
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 18.1 | Install as RELEASE-NOTES "Installing (RC18)" says: !GTKLibs into !Boot.Resources, the !SharedLibs additions into the existing !SharedLibs; restart; every program starts | Pi (Geany, L3afpad: test builds) | |
+| 18.2 | Without !GTKLibs (renamed), or with a !SharedLibs without ld-riscos/so/2: each program's !Run gives an error saying which is missing | RISC OS 5.31 on Linux | |
+| 18.3 | With Geany open, then L3afpad, then Gnumeric and AbiWord: *SOMStatus lists each library once, and the Task Manager's "Shared Libraries" area stays about 20 MB | Pi (Geany and L3afpad: 20 MB) | |
+| 18.4 | Each program's slot, against RC17's static program doing the same | — | |
+| 18.5 | Gnumeric: insert an SVG picture and a chart (GOffice's plug-ins); AbiWord: equations, a chart, the thesaurus; ClawsMail: fetch mail over TLS | RISC OS 5.31 on Linux (all start) | |
+| 18.6 | The Log's backing sprites line says "R/B swapped with NEON" (Pi 2 and later); drawing, JPEG and PNG pictures look as in RC17 | Pi (Geany) | |
+| 18.7 | Start times ("ready after" in each Log) against RC17 | Pi: Geany 7.6 s | |
 
 ## 14. Packaging and licences
 
