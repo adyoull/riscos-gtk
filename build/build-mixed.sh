@@ -6,7 +6,7 @@
 #   RCD_DIR=<crossdev v1.11-test1> RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-deps.sh
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh libs
 #   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh geany
-#   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh package
+#   RCD_DIR=... RISCOS_GTK_MIXED=1 SRC=... SYSROOT=... build/build-mixed.sh l3afpad
 #   SHAREDLIBS=<a !SharedLibs with ld-riscos/so/2> ... build/build-mixed.sh bundle
 #
 # libs: each static library build-deps.sh made (position-independent, as
@@ -96,60 +96,113 @@ geany() {
   ls -la "$OUTD/geany"
 }
 
-package() {
-  local OUTD=$REPO_DIR/out/mixed A=$REPO_DIR/out/mixed/!Geany f
-  [ -d "$REPO_DIR/out/!Geany" ] || { echo "build-mixed.sh: build the static !Geany first (build-geany.sh)" >&2; exit 1; }
-  rm -rf "$A"; cp -r "$REPO_DIR/out/!Geany" "$A"; rm -f "$A/geany,ff8"
-  $STRIP -o "$A/geany,e1f" "$OUTD/geany"
-  mkdir -p "$A/lib"
-  for f in "$SO"/*.so.*; do $STRIP --strip-unneeded -o "$A/lib/$(basename "$f"),e1f" "$f"; done
-  cp "$GCCSDK_ENV/riscos/PThrTicker,ffa" "$A/"
-  python3 - "$A/!Run,feb" <<'PYEOF'
-import sys
-p = sys.argv[1]; s = open(p).read()
-s = s.replace("""| A UnixLib program converted to Absolute (AIF), statically linked with GTK
-| 3.24.52 and riscos-gtk's RISC OS GDK backend: it needs SharedUnixLibrary,
-| ARMEABISupport and Iconv (PackMan). It runs as a normal Wimp task.""", """| MIXED-LINK TEST (riscos-crossdev 1.11-test1): an ELF program with UnixLib
-| linked in, and GTK 3.24.52, riscos-gtk's GDK backend and the libraries
-| under them as shared libraries in <Geany$Dir>.lib, loaded by !SharedLibs
-| (SOManager and ld-riscos/so/2). Needs SharedUnixLibrary 1.16,
-| ARMEABISupport, Iconv, and a !SharedLibs with ld-riscos/so/2 (Iris's).""")
-s = s.replace("| The font cache and the Log", 'If "<SharedLibs$Dir>" = "" Then Error Geany (mixed test) needs !SharedLibs with ld-riscos/so/2: let the Filer see it first\n| An older !SharedLibs (riscos.info 4.0) has only ld-riscos/so/1\nUnset Geany$SO2\nIfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set Geany$SO2 1\nIf "<Geany$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: Geany (mixed test) needs a newer one, such as the one in this zip. Open its folder, then run Geany again.\n| The font cache and the Log', 1)
-import re
-s = re.sub(r"\| The WimpSlot holds the program; the C heap grows it as needed \(no\n\| dynamic area, so no logical address space is reserved\)\.\nWimpSlot -min \d+K -max \d+K",
-  "| The WimpSlot holds the program (the shared libraries are loaded by\n| SOManager); the C heap grows it as needed.\nWimpSlot -min 11000K -max 11000K\n"
-  "| The shared libraries: SOManager reads <program>$LD$Env for \"geany\"\n"
-  "Set GeanyLibs$Path <Geany$Dir>.lib.\nSet geany$LD$Env \"LD_LIBRARY_PATH=/GeanyLibs:\"", s)
-open(p, "w").write(s)
-PYEOF
-  grep -q 'geany\$LD\$Env' "$A/!Run,feb" || { echo "build-mixed.sh: !Run not changed" >&2; exit 1; }
-  rm -f "$OUTD/Geany-2.1-mixed-test1.zip"
-  python3 "$RCD_DIR/package/rozip.py" "$OUTD/Geany-2.1-mixed-test1.zip" -C "$OUTD" "!Geany"
-  ls -la "$OUTD/Geany-2.1-mixed-test1.zip"
+# l3afpad: L3afpad (C), linked as Geany is. It uses no C++ itself, so the
+# link is done with g++: libstdc++ comes in from the static library for
+# what harfbuzz.so needs (operator new, __cxa_*), and the program exports
+# it.
+l3afpad() {
+  local V=0.8.18.1.11 L=$SRC/l3afpad-0.8.18.1.11 OUTD=$REPO_DIR/out/mixed
+  if [ ! -f "$L/src/config.h" ]; then
+    rm -rf "$L"; tar -xzf "$DL/l3afpad_$V.orig.tar.gz" -C "$SRC"
+    (cd "$L" && patch -p1 -s < "$REPO_DIR/patches/l3afpad-$V-riscos.diff")
+    cp "$REPO_DIR/apps/l3afpad/config.h" "$L/src/"
+  fi
+  mkdir -p "$OUTD"
+  local libs="" a so
+  while read -r a so; do [ -n "$a" ] && libs="$libs -l${so%%.so.*}"; done <<< "$LIBS"
+  local O=$SRC/l3afpad-objs f; rm -rf "$O"; mkdir -p "$O"
+  for f in "$L"/src/*.c "$REPO_DIR/apps/l3afpad/riscos-l3afpad.c"; do
+    "$SRC/.wrap/$HOST-gcc" $RO_CFLAGS -Wall -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-but-set-variable \
+      -DHAVE_CONFIG_H -DRISCOS_PORT_VERSION=\"0.8.18.1.11-mixed-test2\" -I"$L/src" \
+      $(pkg-config --cflags gtk+-3.0) -c "$f" -o "$O/$(basename "$f" .c).o"
+  done
+  "$SRC/.wrap/$HOST-g++" $RO_CFLAGS "$O"/*.o -o "$OUTD/l3afpad" -rdynamic -L"$SO" $libs
+  "$RCD_DIR/checks/check-all.sh" "$OUTD/l3afpad"
+  ls -la "$OUTD/l3afpad"
 }
 
-# bundle: out/mixed/GeanyMixed-test1.zip, for trying it on RISC OS 5
-# itself: !Geany (package), the !SharedLibs named by SHAREDLIBS (Iris's:
-# SOManager 3.04, ld-riscos/so/2), apps/geany/mixed-test's ReadMe and
-# !MemReport (each task's slot and each dynamic area's size, to
-# <Wimp$ScrapDir>.MemReport)
+# gtklibs: out/mixed/!GTKLibs, the libraries every mixed GTK program
+# uses, in one place so that SOManager loads one copy for all of them:
+# !Boot and !Run set GTKLibs$Path; the programs' !Run point
+# <prog>$LD$Env at it.
+gtklibs() {
+  local G=$REPO_DIR/out/mixed/!GTKLibs f
+  rm -rf "$G"; mkdir -p "$G/lib"
+  for f in "$SO"/*.so.*; do $STRIP --strip-unneeded -o "$G/lib/$(basename "$f"),e1f" "$f"; done
+  for f in '!Boot,feb' '!Run,feb'; do
+    cat > "$G/$f" <<'EOF'
+| !GTKLibs (mixed-link TEST): GTK 3.24.52, riscos-gtk's RISC OS backend
+| and the libraries under them, as shared libraries for mixed-linked GTK
+| programs (loaded by !SharedLibs: SOManager and ld-riscos/so/2)
+Set GTKLibs$Dir <Obey$Dir>
+Set GTKLibs$Path <GTKLibs$Dir>.lib.
+EOF
+  done
+  cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$G/LicenceLGPL,fff"
+}
+
+# package NAME PROG: out/mixed/!NAME from the static out/!NAME (its data,
+# fonts, theme): the program as ELF (PROG,e1f, stripped), PThreadTicker
+# from this toolchain, and !Run checking for !SharedLibs (ld-riscos/so/2)
+# and !GTKLibs and setting PROG$LD$Env
+package() {
+  local NAME=$1 PROG=$2 OUTD=$REPO_DIR/out/mixed
+  local A=$OUTD/!$NAME
+  [ -d "$REPO_DIR/out/!$NAME" ] || { echo "build-mixed.sh: build the static !$NAME first" >&2; exit 1; }
+  rm -rf "$A"; cp -r "$REPO_DIR/out/!$NAME" "$A"; rm -f "$A/$PROG,ff8"; rm -rf "$A/lib"
+  $STRIP -o "$A/$PROG,e1f" "$OUTD/$PROG"
+  cp "$GCCSDK_ENV/riscos/PThrTicker,ffa" "$A/"
+  local size slot
+  size=$(stat -c %s "$A/$PROG,e1f"); slot=$(( (size + 4 * 1024 * 1024 + 1023) / 1024 ))
+  python3 - "$A/!Run,feb" "$NAME" "$PROG" "$slot" <<'PYEOF'
+import re, sys
+p, name, prog, slot = sys.argv[1:]
+s = open(p).read()
+checks = (
+  "| MIXED-LINK TEST (riscos-crossdev 1.11-test1): %(prog)s,e1f is an ELF program\n"
+  "| with UnixLib linked in; GTK and the libraries under it are the shared\n"
+  "| libraries in !GTKLibs, loaded by !SharedLibs (SOManager, ld-riscos/so/2)\n"
+  'If "<SharedLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !SharedLibs with ld-riscos/so/2: let the Filer see it first\n'
+  "Unset %(name)s$SO2\n"
+  "IfThere SharedLibs:lib.ld-riscos-eabihf/so Then Set %(name)s$SO2 1\n"
+  'If "<%(name)s$SO2>" = "" Then Error The !SharedLibs booted has no ld-riscos/so/2: %(name)s (mixed test) needs a newer one, such as the one in this zip. Open its folder, then run %(name)s again.\n'
+  'If "<GTKLibs$Dir>" = "" Then Error %(name)s (mixed test) needs !GTKLibs: let the Filer see it first (it is in the same folder)\n'
+) % {"name": name, "prog": prog}
+s, n = re.subn(r"(Set %s\$Dir <Obey\$Dir>\n)" % re.escape(name), lambda m: m.group(1) + checks, s, count=1)
+assert n == 1, "Set NAME$Dir"
+s, n = re.subn(r"(\|[^\n]*\n)*WimpSlot -min \d+K -max \d+K\n",
+  "| The WimpSlot holds the program (the shared libraries are in SOManager's\n"
+  "| dynamic area); the C heap grows it as needed\n"
+  "WimpSlot -min %sK -max %sK\n"
+  "| SOManager reads <program>$LD$Env: the libraries are in !GTKLibs\n"
+  'Set %s$LD$Env "LD_LIBRARY_PATH=/GTKLibs:"\n' % (slot, slot, prog), s, count=1)
+assert n == 1, "WimpSlot"
+open(p, "w").write(s)
+PYEOF
+}
+
+# bundle: out/mixed/GTKMixed-test2.zip, for RISC OS 5 itself: !GTKLibs,
+# !Geany, !L3afpad, the !SharedLibs named by SHAREDLIBS (Iris's: SOManager
+# 3.04, ld-riscos/so/2), apps/geany/mixed-test's ReadMe and !MemReport
 bundle() {
   local OUTD=$REPO_DIR/out/mixed B=$REPO_DIR/out/mixed/bundle
   [ -d "${SHAREDLIBS:-}" ] && [ -f "$SHAREDLIBS/lib/ld-riscos.so.2,1c8" ] ||
     { echo "build-mixed.sh: SHAREDLIBS must name a !SharedLibs with ld-riscos/so/2" >&2; exit 1; }
-  [ -d "$OUTD/!Geany" ] || package
-  rm -rf "$B"; mkdir -p "$B/GeanyMixed"
-  cp -r "$OUTD/!Geany" "$SHAREDLIBS" "$REPO_DIR/apps/geany/mixed-test/!MemReport" \
-    "$REPO_DIR/apps/geany/mixed-test/ReadMe,fff" "$B/GeanyMixed/"
-  rm -f "$OUTD/GeanyMixed-test1.zip"
-  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GeanyMixed-test1.zip" -C "$B" GeanyMixed
-  ls -la "$OUTD/GeanyMixed-test1.zip"
+  gtklibs
+  package Geany geany
+  package L3afpad l3afpad
+  rm -rf "$B"; mkdir -p "$B/GTKMixed"
+  cp -r "$OUTD/!GTKLibs" "$OUTD/!Geany" "$OUTD/!L3afpad" "$SHAREDLIBS" \
+    "$REPO_DIR/apps/geany/mixed-test/!MemReport" "$REPO_DIR/apps/geany/mixed-test/ReadMe,fff" "$B/GTKMixed/"
+  rm -f "$OUTD/GTKMixed-test2.zip"
+  python3 "$RCD_DIR/package/rozip.py" "$OUTD/GTKMixed-test2.zip" -C "$B" GTKMixed
+  ls -la "$OUTD/GTKMixed-test2.zip"
 }
 
 case "${1:-}" in
   bundle) bundle ;;
   libs) libs ;;
   geany) geany ;;
-  package) package ;;
-  *) echo "usage: build-mixed.sh libs|geany|package|bundle" >&2; exit 1 ;;
+  l3afpad) l3afpad ;;
+  *) echo "usage: build-mixed.sh libs|geany|l3afpad|bundle" >&2; exit 1 ;;
 esac
