@@ -1,0 +1,32 @@
+diff -ru pixman-orig/pixman/pixman-arm.c pixman-0.42.2/pixman/pixman-arm.c
+--- a/pixman/pixman-arm.c	2026-11-10 12:37:28.069623183 +0000
++++ b/pixman/pixman-arm.c	2026-11-10 12:37:28.102619221 +0000
+@@ -123,6 +123,28 @@
+     return features;
+ }
+ 
++#elif defined (__riscos) /* RISC OS 5 (riscos-gtk) */
++
++#include <kernel.h>
++
++/* RISC OS 5 runs on ARMv7 and later only (the code is built for ARMv7):
++   the ARMv6 SIMD routines always work. NEON is there if VFPSupport_Features
++   0 (SWI &58EC8; R2 = MVFR1) shows Advanced SIMD loads and stores
++   (bits 8-11) and integer operations (bits 12-15), as UnixLib reads it. */
++static arm_cpu_features_t
++detect_cpu_features (void)
++{
++    arm_cpu_features_t features = ARM_V6 | ARM_V7 | ARM_VFP;
++    _kernel_swi_regs r;
++
++    r.r[0] = 0;
++    if (_kernel_swi (0x58EC8, &r, &r) == NULL &&
++	((r.r[2] >> 8) & 0xF) != 0 && ((r.r[2] >> 12) & 0xF) != 0)
++	features |= ARM_NEON;
++
++    return features;
++}
++
+ #elif defined (__linux__) /* linux ELF */
+ 
+ #include <unistd.h>

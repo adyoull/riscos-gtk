@@ -1,6 +1,31 @@
 # Changelog
 
 ## Unreleased
+- **NEON for drawing and pictures** (from the Web Browser project's
+  findings). pixman, libjpeg-turbo and libpng were built without their
+  NEON and ARMv6 SIMD code, so every cairo fill, blend, scale and copy,
+  every JPEG and every PNG row filter ran in C. Now they're built in and
+  chosen at run time, so a machine without NEON still runs:
+  - **pixman** (ARMv6 SIMD and NEON): `patches/pixman-0.42.2-riscos.diff`
+    adds RISC OS to its CPU detection: VFPSupport_Features 0, NEON if
+    MVFR1 shows Advanced SIMD loads, stores and integer operations (as
+    UnixLib reads it). `PIXMAN_DISABLE="arm-neon arm-simd"` turns it off.
+  - **libjpeg-turbo** (NEON): the same check in its dispatcher. Its NEON
+    Huffman encoder wrote whole words to the JPEG at any byte, which
+    faults on RISC OS (alignment checking); it writes a byte at a time
+    there now. `JSIMD_FORCENONE=1` turns it off.
+  - **libpng** (NEON row filters, checked at run time:
+    `contrib/arm-neon/riscos.c`). Its routines for 3-byte pixels load
+    32 bits at 3-byte steps, which faults on RISC OS; those stay in C.
+  - **The red/blue swap** on a TBGR screen (the usual desktop): GDK
+    copies cairo's image into the window's sprite 8 pixels at a time with
+    NEON (vld4.8/vst4.8, byte loads) instead of a pixel at a time. The
+    Log's `backing sprites` line says "with NEON". `RISCOS_GTK_NO_NEON=1`
+    turns it off.
+  - `tests/gtk/simdtest.c`: drawing, JPEG and PNG results are the same
+    with the SIMD code on and off (in the suite under QEMU's Cortex-A8,
+    which checks alignment as RISC OS does, and on RISC OS 5.31). The
+    speed-up still needs measuring on a Pi.
 - **A native front end beside GTK's windows** (asked for by the Web
   Browser project, for a Style Guide front end around WebKit's view).
   A program can own Wimp windows, menus and messages of its own in the

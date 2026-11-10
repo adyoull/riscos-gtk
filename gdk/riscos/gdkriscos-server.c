@@ -1955,6 +1955,79 @@ riscos_sprite_free (void *data)
   g_free (s);
 }
 
+/* Red and blue swapped, n pixels. With NEON (most RISC OS 5 machines),
+   8 pixels at a time: vld4.8 splits them into byte planes, the red and
+   blue planes change places, vst4.8 puts them back (byte loads and
+   stores: no alignment needed). Whether there's NEON is read once:
+   VFPSupport_Features 0 (SWI &58EC8; R2 = MVFR1: Advanced SIMD loads and
+   stores, bits 8-11, and integer operations, bits 12-15), as UnixLib and
+   pixman read it; on Linux (the tests), HWCAP_NEON.
+   RISCOS_GTK_NO_NEON=1: C only. */
+#if defined(__arm__)
+#ifndef __riscos
+#include <sys/auxv.h>
+#endif
+static int
+have_neon (void)
+{
+  static int neon = -1;
+
+  if (neon < 0)
+    {
+#ifdef __riscos
+      _kernel_swi_regs r;
+      r.r[0] = 0;
+      neon = swi (0x58EC8, &r) == NULL &&
+             ((r.r[2] >> 8) & 0xF) != 0 && ((r.r[2] >> 12) & 0xF) != 0;
+#else
+      neon = (getauxval (AT_HWCAP) & 4096) != 0;   /* HWCAP_NEON */
+#endif
+      if (g_getenv ("RISCOS_GTK_NO_NEON") && atoi (g_getenv ("RISCOS_GTK_NO_NEON")))
+        neon = 0;
+    }
+  return neon;
+}
+
+static void
+swap_rb_neon (guint32 *dst, const guint32 *src, int n)   /* n: a multiple of 8, > 0 */
+{
+  __asm__ volatile (
+    ".fpu neon\n"
+    "1:\n\t"
+    "vld4.8 {d0, d1, d2, d3}, [%1]!\n\t"
+    "vswp d0, d2\n\t"
+    "vst4.8 {d0, d1, d2, d3}, [%0]!\n\t"
+    "subs %2, %2, #8\n\t"
+    "bgt 1b\n\t"
+    ".fpu vfpv3"
+    : "+r" (dst), "+r" (src), "+r" (n)
+    :
+    : "d0", "d1", "d2", "d3", "memory", "cc");
+}
+#else
+#define have_neon() 0
+#endif
+
+static void
+swap_rb (guint32 *dst, const guint32 *src, int n)
+{
+#if defined(__arm__)
+  if (n >= 8 && have_neon ())
+    {
+      int m = n & ~7;
+      swap_rb_neon (dst, src, m);
+      dst += m;
+      src += m;
+      n -= m;
+    }
+#endif
+  while (n-- > 0)
+    {
+      guint32 p = *src++;
+      *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
+    }
+}
+
 static void
 sync_sprite (cairo_surface_t *surface)
 {
@@ -1969,11 +2042,7 @@ sync_sprite (cairo_surface_t *surface)
   src = (const guint32 *) cairo_image_surface_get_data (surface);
   dst = s->pixels;
   n = cairo_image_surface_get_width (surface) * cairo_image_surface_get_height (surface);
-  while (n--)
-    {
-      guint32 p = *src++;
-      *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
-    }
+  swap_rb (dst, src, n);
 }
 
 /* Copy only what GTK repainted (GDK pixels; NULL: all of it). A stale
@@ -2011,14 +2080,7 @@ sync_sprite_region (cairo_surface_t *surface, const cairo_region_t *damage)
       y1 = MIN (sh, (int) ((rc.y + rc.height) * sy + 0.999));
       for (y = y0; y < y1; y++)
         {
-          const guint32 *src = (const guint32 *) (data + y * stride) + x0;
-          guint32 *dst = s->pixels + y * sw + x0;
-          int k = x1 - x0;
-          while (k-- > 0)
-            {
-              guint32 p = *src++;
-              *dst++ = (p & 0xFF00FF00u) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16);
-            }
+          swap_rb (s->pixels + y * sw + x0, (const guint32 *) (data + y * stride) + x0, x1 - x0);
         }
     }
 }
@@ -2120,7 +2182,8 @@ create_surface_dev (int width, int height)
     {
       server->sprite_logged = TRUE;
       g_printerr ("riscos-gtk: backing sprites %s, mode word &%08X\n",
-                  swap ? "TBGR (copied from cairo, R/B swapped)" : "TRGB (cairo draws in place)",
+                  swap ? (have_neon () ? "TBGR (copied from cairo, R/B swapped with NEON)"
+                                     : "TBGR (copied from cairo, R/B swapped)") : "TRGB (cairo draws in place)",
                   ((int *) sprite)[10]);
     }
   return surface;

@@ -1,0 +1,51 @@
+diff -ruN png-orig/arm/arm_init.c libpng-1.6.37/arm/arm_init.c
+--- a/arm/arm_init.c	2026-11-10 12:37:58.131647421 +0000
++++ b/arm/arm_init.c	2026-11-10 12:50:52.713004234 +0000
+@@ -36,6 +36,8 @@
+ #ifndef PNG_ARM_NEON_FILE
+ #  ifdef __linux__
+ #     define PNG_ARM_NEON_FILE "contrib/arm-neon/linux.c"
++#  elif defined(__riscos)
++#     define PNG_ARM_NEON_FILE "contrib/arm-neon/riscos.c"
+ #  endif
+ #endif
+ 
+@@ -116,7 +118,15 @@
+     */
+    pp->read_filter[PNG_FILTER_VALUE_UP-1] = png_read_filter_row_up_neon;
+ 
++   /* riscos-gtk: not for 3 bytes a pixel where unaligned accesses fault
++    * (RISC OS has alignment checking on; -mno-unaligned-access): the
++    * assembler loads each pixel as a 32-bit lane, at 3-byte steps. The
++    * 4-byte routines load from libpng's aligned rows. */
++#if defined(__riscos) || !defined(__ARM_FEATURE_UNALIGNED)
++   if (0)
++#else
+    if (bpp == 3)
++#endif
+    {
+       pp->read_filter[PNG_FILTER_VALUE_SUB-1] = png_read_filter_row_sub3_neon;
+       pp->read_filter[PNG_FILTER_VALUE_AVG-1] = png_read_filter_row_avg3_neon;
+diff -ruN png-orig/contrib/arm-neon/riscos.c libpng-1.6.37/contrib/arm-neon/riscos.c
+--- a/contrib/arm-neon/riscos.c	1970-01-01 01:00:00.000000000 +0100
++++ b/contrib/arm-neon/riscos.c	2026-11-10 12:37:58.208561769 +0000
+@@ -0,0 +1,19 @@
++/* contrib/arm-neon/riscos.c
++ *
++ * png_have_neon for RISC OS (riscos-gtk), for PNG_ARM_NEON_FILE: NEON if
++ * VFPSupport_Features 0 (SWI &58EC8; R2 = MVFR1) shows Advanced SIMD loads
++ * and stores (bits 8-11) and integer operations (bits 12-15), as UnixLib
++ * reads it. Released under the libpng licence.
++ */
++#include <kernel.h>
++
++static int
++png_have_neon(png_structp png_ptr)
++{
++   _kernel_swi_regs r;
++
++   PNG_UNUSED(png_ptr)
++   r.r[0] = 0;
++   return _kernel_swi(0x58EC8, &r, &r) == NULL &&
++      ((r.r[2] >> 8) & 0xF) != 0 && ((r.r[2] >> 12) & 0xF) != 0;
++}

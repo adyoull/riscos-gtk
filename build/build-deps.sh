@@ -171,7 +171,11 @@ EOF2
 step "libpng 1.6.37"
 if ! have libpng16.a; then
 fresh libpng1.6_1.6.37.orig.tar.gz libpng-1.6.37; cd libpng-1.6.37; fresh_config_sub .
-./configure $HOSTARGS --disable-arm-neon > ../libpng.log
+# NEON (its hand-written assembler, arm/filter_neon.S, row filters) when
+# the processor has it: checked at run time (the patch's
+# contrib/arm-neon/riscos.c: VFPSupport_Features; on Linux, its own)
+patch -p1 -s < "$REPO_DIR/patches/libpng-1.6.37-riscos.diff"
+./configure $HOSTARGS --enable-arm-neon=check > ../libpng.log
 make -j$JOBS >> ../libpng.log
 inst install >> ../libpng.log; cd ..
 fi
@@ -180,11 +184,15 @@ need libpng16.a
 step "libjpeg-turbo 2.1.5 (CMake; for gdk-pixbuf)"
 if ! have libjpeg.a; then
 fresh libjpeg-turbo_2.1.5.orig.tar.gz libjpeg-turbo-2.1.5
+patch -d libjpeg-turbo-2.1.5 -p1 -s < "$REPO_DIR/patches/libjpeg-turbo-2.1.5-riscos.diff"
 rm -rf jpeg-build; mkdir jpeg-build; cd jpeg-build
-# No SIMD: its ARM NEON code is untested on RISC OS (alignment); C only.
+# Its NEON code (only its SIMD files are built for NEON), used when the
+# processor has it: the patch checks with VFPSupport_Features on RISC OS
+# (Linux: /proc/cpuinfo, or JSIMD_FORCENEON=1). JSIMD_FORCENONE=1 turns
+# it off.
 cmake ../libjpeg-turbo-2.1.5 -DCMAKE_TOOLCHAIN_FILE="$STAGE/riscos.cmake" \
   -DCMAKE_INSTALL_PREFIX="$PREFIX" -DENABLE_SHARED=OFF -DENABLE_STATIC=ON \
-  -DWITH_SIMD=OFF -DWITH_TURBOJPEG=OFF -DCMAKE_BUILD_TYPE=Release \
+  -DWITH_SIMD=ON -DWITH_TURBOJPEG=OFF -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_FLAGS="$RO_CFLAGS" > ../jpeg.log
 make -j$JOBS >> ../jpeg.log
 make install DESTDIR="$SYSROOT" >> ../jpeg.log; cd ..
@@ -273,13 +281,13 @@ mesonlib harfbuzz_8.3.0.orig.tar.xz harfbuzz-8.3.0 libharfbuzz.a \
   -Dtests=disabled -Dintrospection=disabled -Ddocs=disabled -Dutilities=disabled \
   -Dbenchmark=disabled
 
-# pixman: plain C for now. Its ARM SIMD/NEON code is chosen at run time,
-# and pixman-arm.c has no RISC OS CPU detection (it would pick none), so it
-# isn't built. Worth adding later for speed (every RISC OS 5 machine is
-# ARMv7; the Pi has NEON).
+# pixman: its ARMv6 SIMD and NEON routines (fills, blends, scaling and
+# copies: every cairo drawing), chosen at run time. The patch adds RISC OS
+# to pixman-arm.c's CPU detection (ARMv6 SIMD always; NEON from
+# VFPSupport_Features). PIXMAN_DISABLE="arm-neon arm-simd" turns them off.
 mesonlib pixman_0.42.2.orig.tar.gz pixman-0.42.2 libpixman-1.a \
   -Dloongson-mmi=disabled -Dmmx=disabled -Dsse2=disabled -Dssse3=disabled \
-  -Dvmx=disabled -Darm-simd=disabled -Dneon=disabled -Da64-neon=disabled \
+  -Dvmx=disabled -Darm-simd=enabled -Dneon=enabled -Da64-neon=disabled \
   -Diwmmxt=disabled -Dmips-dspr2=disabled -Dopenmp=disabled -Dgtk=disabled \
   -Dlibpng=disabled -Dtests=disabled
 

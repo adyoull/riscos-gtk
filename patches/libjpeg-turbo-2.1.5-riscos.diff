@@ -1,0 +1,48 @@
+diff -ru jt-orig/simd/arm/aarch32/jsimd.c libjpeg-turbo-2.1.5/simd/arm/aarch32/jsimd.c
+--- a/simd/arm/aarch32/jsimd.c	2026-11-10 12:37:46.962827876 +0000
++++ b/simd/arm/aarch32/jsimd.c	2026-11-10 12:37:47.018110631 +0000
+@@ -26,6 +26,9 @@
+ #include "../../jsimd.h"
+ 
+ #include <ctype.h>
++#ifdef __riscos
++#include <kernel.h>
++#endif
+ 
+ static THREAD_LOCAL unsigned int simd_support = ~0;
+ static THREAD_LOCAL unsigned int simd_huffman = 1;
+@@ -114,6 +117,18 @@
+ 
+ #if defined(__ARM_NEON__)
+   simd_support |= JSIMD_NEON;
++#elif defined(__riscos)
++  /* RISC OS (riscos-gtk): Neon if VFPSupport_Features 0 (SWI &58EC8;
++   * R2 = MVFR1) shows Advanced SIMD loads and stores (bits 8-11) and
++   * integer operations (bits 12-15), as UnixLib reads it */
++  {
++    _kernel_swi_regs r;
++
++    r.r[0] = 0;
++    if (_kernel_swi(0x58EC8, &r, &r) == NULL &&
++        ((r.r[2] >> 8) & 0xF) != 0 && ((r.r[2] >> 12) & 0xF) != 0)
++      simd_support |= JSIMD_NEON;
++  }
+ #elif defined(__linux__) || defined(ANDROID) || defined(__ANDROID__)
+   /* We still have a chance to use Neon regardless of globally used
+    * -mcpu/-mfpu options passed to gcc by performing runtime detection via
+diff -ru jt-orig/simd/arm/jchuff.h libjpeg-turbo-2.1.5/simd/arm/jchuff.h
+--- a/simd/arm/jchuff.h	2026-11-10 12:37:46.964482015 +0000
++++ b/simd/arm/jchuff.h	2026-11-10 12:50:52.712607382 +0000
+@@ -74,7 +74,11 @@
+ 
+ #else
+ 
+-#if defined(_MSC_VER) && !defined(__clang__)
++/* riscos-gtk: a byte at a time where unaligned word stores fault (RISC OS
++   has alignment checking on; -mno-unaligned-access): buffer is the JPEG
++   output, at any byte. */
++#if (defined(_MSC_VER) && !defined(__clang__)) || defined(__riscos) || \
++    !defined(__ARM_FEATURE_UNALIGNED)
+ #define SPLAT() { \
+   buffer[0] = (JOCTET)(put_buffer >> 24); \
+   buffer[1] = (JOCTET)(put_buffer >> 16); \
