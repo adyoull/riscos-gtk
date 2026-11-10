@@ -92,6 +92,10 @@ Set GTKLibs\$Dir <Obey\$Dir>
 Set GTKLibs\$Version $GTKLIBS_VERSION
 Set GTKLibs\$Path <GTKLibs\$Dir>.lib.
 IconSprites <GTKLibs\$Dir>.!Sprites
+| no 128 MB clamp on dynamic areas created with a maximum size, before
+| SOManager makes its Shared Libraries area: that area's maximum is fixed
+| when it's made, and GTK plus Iris's libraries need more than 128 MB
+/<GTKLibs\$Dir>.DAClamp
 | the loader and SOManager riscos-gtk's programs need, into !SharedLibs
 | (the one booted, else Boot:Resources'): the loader where it's missing,
 | SOManager only where it's missing or older (by date: Copy's N)
@@ -137,6 +141,13 @@ Built from riscos-gtk commit $(git -C "$REPO_DIR" rev-parse --short=12 HEAD) wit
 The libraries are LGPL 2.1 and MIT-style: LicenceLGPL. Their complete
 source is riscos-gtk's release source: https://github.com/adyoull/riscos-gtk
 EOF
+  # DAClamp,ffc: a Utility (it runs in the RMA, so !Boot can run it without
+  # replacing the application that's booting it, as BASIC would):
+  #   MOV r0,#8; MOV r1,#0; MVN r2,#0; MOV r3,#0  (R1/R3 0: those clamps
+  #   are left as they are; R2 -1: areas created with a maximum size are
+  #   no longer clamped to 128 MB)
+  #   SWI XOS_DynamicArea; MOV r0,#0; MSR CPSR_f,r0 (errors ignored); MOV pc,lr
+  python3 -c 'import struct,sys; sys.stdout.buffer.write(struct.pack("<9I",0xE3A00008,0xE3A01000,0xE3E02000,0xE3A03000,0xEF020066,0xE3A00000,0xE128F000,0xE1A0F00E,0))' > "$G/DAClamp,ffc"
   # its icon: a shelf of library volumes (tools/mkgtklibsicon.py)
   python3 -B "$REPO_DIR/tools/mkgtklibsicon.py" "$G"
   cp "$REPO_DIR/riscos/licences/LGPL-2.1.txt" "$G/LicenceLGPL,fff"

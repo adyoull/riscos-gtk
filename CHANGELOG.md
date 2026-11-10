@@ -15,6 +15,14 @@
   !SharedLibs, which is why. Checked on ROL 5.31: a !SharedLibs without
   so/2 and with an older SOManager gets both and L3afpad starts; one with
   a newer SOManager keeps it.
+- **No 128 MB limit on the Shared Libraries area.** RISC OS clamps dynamic
+  areas to 128 MB by default, and SOManager's "Shared Libraries" area gets
+  its maximum when it is first made. Iris alone needs 127.4 MB there
+  (53 libraries), so with ClawsMail's 20 MB loaded first Iris couldn't
+  load (Iris's own UnclampDA comes too late once the area exists).
+  !GTKLibs' !Boot now runs `DAClamp`, a small Utility doing
+  `OS_DynamicArea 8,0,-1,0` (as Iris's UnclampDA does for that clamp), so
+  the area is made without the 128 MB limit whichever program runs first.
 - Only !GTKLibs changes: the programs are as in RC18 (SOManager is
   loaded when the first ELF program runs, after !GTKLibs has booted).
 
