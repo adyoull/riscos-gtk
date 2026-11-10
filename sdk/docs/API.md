@@ -594,6 +594,9 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `GDK_GL` = `gles` | OpenGL ES 2.0 contexts for GtkGLArea instead of OpenGL 2.1 |
 | `RISCOS_GTK_FONTS` = `own` | Only the program's own fonts and font cache, even with UnixFC installed |
 | `RISCOS_GTK_NO_LOG` (any value) | `riscos_gtk_app_init` leaves stdout and stderr alone |
+| `RISCOS_GTK_NO_NEON` = 1 | Swap red and blue for TBGR screens in C, not NEON |
+| `PIXMAN_DISABLE` = `"arm-neon arm-simd"` | pixman's drawing in C only (its NEON and ARMv6 SIMD are used where the processor has them) |
+| `JSIMD_FORCENONE` = 1 | libjpeg-turbo in C only (its NEON is used where the processor has it) |
 
 Each program's Log starts with lines giving the task name, the screen
 mode, the GDK scale and what the theme found on the desktop. A problem
