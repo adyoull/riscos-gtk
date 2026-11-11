@@ -25,8 +25,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 SO=$STAGE/so
 # !GTKLibs' version: GTK's, then riscos-gtk's build number (RC17 was build
-# 17; RC18 was 18; the next RC is 19)
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-19}
+# 17; RC18 was 18; 19 went into the RC18 release; 20 adds DAClamp)
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-20}
 # the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
 # (SOManager 3.04's own date): Copy's N option compares against it, so a
 # !SharedLibs with a newer SOManager keeps its own
