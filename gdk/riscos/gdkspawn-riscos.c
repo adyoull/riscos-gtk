@@ -59,6 +59,7 @@
 
 #include "gdkriscos-server.h"
 #include "gdkriscoswimp.h"
+#include "gdkvfp-riscos.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -231,8 +232,13 @@ start_task (const char *command, GError **error)
   _kernel_swi_regs r;
   _kernel_oserror *e;
 
+  int vfp;
+
   r.r[0] = (int) (long) command;
-  if ((e = _kernel_swi (Wimp_StartTask, &r, &r)) != NULL)
+  vfp = gdk_riscos_vfp_mine ();
+  e = _kernel_swi (Wimp_StartTask, &r, &r);
+  gdk_riscos_vfp_reclaim (vfp);    /* the new task ran until it polled */
+  if (e != NULL)
     {
       g_set_error (error, G_SPAWN_ERROR, G_SPAWN_ERROR_FAILED, "%s", e->errmess);
       return -1;

@@ -1,5 +1,19 @@
 # Changelog
 
+## !GTKLibs 3.24.52-21 (2026-11-11)
+- **GDK keeps the program's VFP context across Wimp polls.** UnixLib makes
+  its VFP contexts as user-mode ones, not application-space ones, so
+  VFPSupport doesn't switch them with the task: after Wimp_PollIdle (or
+  Wimp_StartTask, which runs the new task until it polls) the active
+  context was whatever the last task left, another program's, or none
+  (a UnixLib program that ended turns VFP off), until UnixLib's next
+  thread switch. The program's first floating point after the poll could
+  then use another task's registers or stop with an undefined instruction
+  (seen natively in a browser, straight after GDK's poll returned). GDK
+  now reads the active context (its own) before each Wimp_PollIdle and
+  Wimp_StartTask and makes it active again straight after, before any
+  floating point (gdk/riscos/gdkvfp-riscos.h). Only !GTKLibs changes.
+
 ## !GTKLibs 3.24.52-20 (2026-11-11)
 - **No 128 MB limit on the Shared Libraries area.** RISC OS clamps dynamic
   areas to 128 MB by default, and SOManager's "Shared Libraries" area gets

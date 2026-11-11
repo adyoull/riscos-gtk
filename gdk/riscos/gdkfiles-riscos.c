@@ -31,6 +31,7 @@
 #include "config.h"
 
 #include "gdkriscoswimp.h"
+#include "gdkvfp-riscos.h"
 
 #include <gio/gio.h>
 #include <string.h>
@@ -580,7 +581,7 @@ gdk_riscos_open_file (const char *path, const char *mime_type, GError **error)
   const char *leaf, *ext;
   _kernel_swi_regs r;
   _kernel_oserror *e;
-  int type = -1, now = -1;
+  int type = -1, now = -1, vfp;
 
   g_return_val_if_fail (path != NULL, FALSE);
   ro = path[0] == '/' ? gdk_riscos_path_from_unix (path) : g_strdup (path);
@@ -617,7 +618,9 @@ gdk_riscos_open_file (const char *path, const char *mime_type, GError **error)
   cmd = g_strdup_printf ("Filer_Run %s", ro);
   memset (&r, 0, sizeof r);
   r.r[0] = (int) (long) cmd;
+  vfp = gdk_riscos_vfp_mine ();
   e = _kernel_swi (Wimp_StartTask, &r, &r);
+  gdk_riscos_vfp_reclaim (vfp);    /* the new task ran until it polled */
   if (e)
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "%s", e->errmess);
   g_free (cmd);

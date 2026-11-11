@@ -40,6 +40,7 @@
 #include "gdkprivate-riscos.h"
 #include "gdkriscosmenu.h"
 #include "gdkriscoswimp.h"
+#include "gdkvfp-riscos.h"
 #include <gdk/gdkcairo.h>
 #include <gdk/gdkkeysyms.h>
 
@@ -1326,6 +1327,8 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
 {
   int block[64];
   _kernel_swi_regs r;
+  _kernel_oserror *e;
+  int vfp;
   int mask = (1 << 13);            /* no poll word events */
 
   if (!nulls)
@@ -1334,7 +1337,10 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
   r.r[1] = (int) block;
   r.r[2] = (int) until;
   r.r[3] = 0;
-  if (swi (Wimp_PollIdle, &r) != NULL)
+  vfp = gdk_riscos_vfp_mine ();
+  e = swi (Wimp_PollIdle, &r);
+  gdk_riscos_vfp_reclaim (vfp);    /* before any floating point */
+  if (e != NULL)
     return FALSE;
 
   /* the program's own windows, menus and messages first (a native front
@@ -1431,8 +1437,9 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
 static void
 early_poll (GdkRiscosServer *server)
 {
-  int block[64], i;
+  int block[64], i, vfp;
   _kernel_swi_regs r;
+  _kernel_oserror *e;
 
   for (i = 0; i < 4; i++)
     {
@@ -1441,7 +1448,10 @@ early_poll (GdkRiscosServer *server)
       r.r[1] = (int) block;
       r.r[2] = (int) monotonic_cs ();
       r.r[3] = 0;
-      if (swi (Wimp_PollIdle, &r) != NULL || r.r[0] == NULL_REASON)
+      vfp = gdk_riscos_vfp_mine ();
+      e = swi (Wimp_PollIdle, &r);
+      gdk_riscos_vfp_reclaim (vfp);
+      if (e != NULL || r.r[0] == NULL_REASON)
         return;
       if (r.r[0] == REDRAW_WINDOW_REQUEST)
         handle_redraw (server, block);
