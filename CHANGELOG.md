@@ -1,18 +1,21 @@
 # Changelog
 
 ## !GTKLibs 3.24.52-21 (2026-11-11)
-- **GDK keeps the program's VFP context across Wimp polls.** UnixLib makes
-  its VFP contexts as user-mode ones, not application-space ones, so
-  VFPSupport doesn't switch them with the task: after Wimp_PollIdle (or
-  Wimp_StartTask, which runs the new task until it polls) the active
-  context was whatever the last task left, another program's, or none
-  (a UnixLib program that ended turns VFP off), until UnixLib's next
-  thread switch. The program's first floating point after the poll could
-  then use another task's registers or stop with an undefined instruction
-  (seen natively in a browser, straight after GDK's poll returned). GDK
-  now reads the active context (its own) before each Wimp_PollIdle and
-  Wimp_StartTask and makes it active again straight after, before any
-  floating point (gdk/riscos/gdkvfp-riscos.h). Only !GTKLibs changes.
+- **Floating point straight after a Wimp poll, in Thumb programs.** The
+  Wimp gives a task back its VFP context lazily: the first VFP
+  instruction after the poll traps into VFPSupport, which then restarts
+  it at lr - 4. That is right for ARM code but 2 bytes early for Thumb
+  code, so a Thumb-2 program's first floating point after the poll could
+  repeat the instruction before it or stop with an Illegal Instruction
+  (seen natively in a browser; riscos-unixlib's VFPPollT test shows it on
+  a Pi 4 with RISC OS 5.31, the ARM build being clean). GDK, which is ARM
+  code, now activates the context itself straight after each
+  Wimp_PollIdle and Wimp_StartTask: VFPSupport_ChangeContext if the
+  active context isn't the one active before the call, then one VFP
+  instruction in ARM state, so the lazy activation happens there
+  (gdk/riscos/gdkvfp-riscos.h). riscos-gtk's own programs are ARM and
+  weren't affected; this covers Thumb programs using GTK. Only !GTKLibs
+  changes.
 
 ## !GTKLibs 3.24.52-20 (2026-11-11)
 - **No 128 MB limit on the Shared Libraries area.** RISC OS clamps dynamic

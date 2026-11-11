@@ -1,22 +1,26 @@
-/* gdkvfp-riscos.h - riscos-gtk: keeping the task's VFP context across
+/* gdkvfp-riscos.h - riscos-gtk: the task's VFP context after
  * Wimp_PollIdle and Wimp_StartTask. Part of riscos-gtk's GTK backend:
  * LGPL version 2.1 or later.
  *
- * UnixLib makes its VFP contexts as user-mode ones, not application-space
- * ones (VFPSupport_CreateContext R0 bit 0 only), so VFPSupport leaves them
- * alone when the Wimp switches tasks. When Wimp_PollIdle (or Wimp_StartTask,
- * which runs the new task until it polls) returns, the active context is
- * whatever the last task left: another program's (this task would then
- * compute on its registers), or none at all (a UnixLib program that ended:
- * SharedUnixLibrary's exit calls VFPSupport_ChangeContext 0, which turns
- * VFP off, so the next VFP instruction is an undefined instruction). That
- * lasts until UnixLib's next thread switch activates our context again,
- * and a program's first floating point after the poll can come first.
+ * The Wimp switches UnixLib's VFP contexts with the task, but lazily: the
+ * task's context is only activated at its first VFP instruction after
+ * the poll, through VFPSupport's undefined-instruction (lazy) handler.
+ * That handler restarts the instruction at lr - 4, right for ARM code but
+ * 2 bytes early for Thumb code (lr is the instruction + 2 there), which
+ * re-executes the instruction before it or lands mid-instruction: an
+ * Illegal Instruction. riscos-unixlib's VFPPollT test shows it on a Pi 4
+ * with RISC OS 5.31 (295 of 300 resumptions); the ARM build is clean.
  *
- * So: read the active context (ours) before the call, and put it back
- * straight after, before any floating point (VFPSupport_ChangeContext
- * saves the context it replaces, so the other task loses nothing). No
- * floating point in here: only integer code and SWIs.
+ * GDK's own code is ARM, but the poll function returns into the program,
+ * which may be Thumb-2 (a browser was). So straight after the Wimp call,
+ * GDK makes the context active itself, in ARM code, before any of the
+ * program's floating point:
+ *   - if the active (or lazily pending) context isn't the one that was
+ *     active before the call, VFPSupport_ChangeContext puts it back
+ *     (activate now; it saves the context it replaces);
+ *   - then one VFP instruction in ARM state (VMRS from FPSCR), so a lazy
+ *     activation happens here, where the restart is right.
+ * Nothing else in here uses floating point.
  *
  * VFPSupport_ActiveContext SWI &58EC6: R0 = active context (0 = none).
  * VFPSupport_ChangeContext SWI &58EC3: R0 = context, R1 = flags (0 =
@@ -39,19 +43,33 @@ gdk_riscos_vfp_mine (void)
   return r.r[0];
 }
 
-/* Make CONTEXT active again if the Wimp call left another (or none). */
+/* One VFP instruction in ARM state: activates a lazily pending context
+   here, where VFPSupport's restart is right. */
+static __attribute__ ((target ("arm"), noinline)) void
+gdk_riscos_vfp_touch (void)
+{
+  unsigned int fpscr;
+  __asm__ volatile ("vmrs %0, fpscr" : "=r" (fpscr));
+  (void) fpscr;
+}
+
+/* After the Wimp call: CONTEXT (from gdk_riscos_vfp_mine) active again,
+   and activated now rather than lazily. */
 static inline void
 gdk_riscos_vfp_reclaim (int context)
 {
   _kernel_swi_regs r;
   if (context == 0)
     return;
-  if (_kernel_swi (GDK_VFPSupport_ActiveContext, &r, &r) != NULL ||
-      r.r[0] == context)
+  if (_kernel_swi (GDK_VFPSupport_ActiveContext, &r, &r) != NULL)
     return;
-  r.r[0] = context;
-  r.r[1] = 0;
-  _kernel_swi (GDK_VFPSupport_ChangeContext, &r, &r);
+  if (r.r[0] != context)
+    {
+      r.r[0] = context;
+      r.r[1] = 0;
+      _kernel_swi (GDK_VFPSupport_ChangeContext, &r, &r);
+    }
+  gdk_riscos_vfp_touch ();
 }
 
 #endif
