@@ -1,0 +1,98 @@
+riscos-gtk's changes to wv 1.2.9 (AbiWord's Word reader):
+- Word 6/7 written as a plain file without the OLE container (the FIB's
+  wIdent 0xa5dc; RISC OS word processors such as EasiWriter write it) is
+  read as a single-stream file, as Word 2 and Word 5 for the Mac are.
+- wvOLEDecode_gsf returns 2 ("not OLE") when the file isn't an OLE file,
+  so wvInitParser_gsf's single-stream path (wvOpenPreOLE) is reached at
+  all; it returned 5 ("bad OLE") before, so no single-stream file opened.
+- wvOpenPreOLE checks the magic before making the stream and takes its own
+  reference to the input; wvOLEFree closes that stream as an OLE file's
+  (it skipped Word 2's, and the stream list was left for the next file).
+--- a/wvparse.c	2026-11-14 16:17:52.090125746 +0000
++++ b/wvparse.c	2026-11-14 16:17:52.092270974 +0000
+@@ -61,7 +61,7 @@
+ wvOpenPreOLE (GsfInput *path, wvStream ** mainfd, wvStream ** tablefd0,
+ 	      wvStream ** tablefd1, wvStream ** data, wvStream ** summary)
+ {
+-    int ret = -1;
++    guint8 const *b;
+     U16 magic;
+ 
+     if (path == NULL)
+@@ -70,34 +70,28 @@
+ 	  return (-1);
+       }
+ 
++    /* The single-stream Word formats: the FIB at 0 and everything in the
++       one stream. Word 2 (0xa5db), Word 5 for the Mac (0x37fe), and Word
++       6/7 written as a plain file without the OLE container (0xa5dc;
++       RISC OS word processors such as EasiWriter do this). */
++    if (gsf_input_seek (path, 0, G_SEEK_SET) ||
++	(b = gsf_input_read (path, 2, NULL)) == NULL)
++	return (-1);
++    magic = b[0] | (b[1] << 8);
++    gsf_input_seek (path, 0, G_SEEK_SET);
++    if (magic != 0xa5db && magic != 0x37fe && magic != 0xa5dc)
++	return (-1);
++
++    /* the stream is closed (and the input unreffed) by wvOLEFree, as an
++       OLE file's streams are: a reference of its own */
++    g_object_ref (G_OBJECT (path));
+     wvStream_gsf_create (mainfd, path);
+ 
+-    /* what's the lifecycle on these look like? */
+     *tablefd0 = *mainfd;
+     *tablefd1 = *mainfd;
+     *data     = *mainfd;
+     *summary  = *mainfd;
+-
+-    magic = read_16ubit (*mainfd);
+-    if (0xa5db == magic)
+-      {
+-	  wvError (
+-		   ("Theres a good chance that this is a word 2 doc of nFib %d\n",
+-		    read_16ubit (*mainfd)));
+-	  wvStream_rewind (*mainfd);
+-	  /* return(-1); */
+-	  return (0);
+-      }
+-    else if (0x37fe == magic)
+-      {
+-	  wvError (
+-		   ("Theres a good chance that this is a word 5 doc of nFib %d\n",
+-		    read_16ubit (*mainfd)));
+-	  wvStream_rewind (*mainfd);
+-	  return (0);
+-      }
+-
+-    return (ret);
++    return (0);
+ }
+ 
+ static void tokenTreeInit (void);
+--- a/laolareplace.c	2026-11-14 16:17:52.095294881 +0000
++++ b/laolareplace.c	2026-11-14 16:17:52.097081208 +0000
+@@ -107,6 +107,10 @@
+ 
+ 	  result = 0;
+       }
++    else
++      /* not an OLE file: wvInitParser_gsf tries it as one of the
++	 single-stream Word formats (wvOpenPreOLE) */
++      result = 2;
+ 
+     return (result);
+ }
+--- a/support.c	2026-11-14 16:17:52.098997866 +0000
++++ b/support.c	2026-11-14 16:17:52.100911798 +0000
+@@ -99,7 +99,9 @@
+ void
+ wvOLEFree (wvParseStruct * ps)
+ {
+-  if(wvQuerySupported (&ps->fib, NULL) != WORD2 && !ps->fib.fEncrypted) {
++  /* (single-stream files, Word 2 included, hold their own reference to
++     the input since wvOpenPreOLE: their one stream is closed too) */
++  if(!ps->fib.fEncrypted) {
+     wvStream_list *tempList = streams;
+ 
+     while (tempList != NULL)

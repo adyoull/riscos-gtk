@@ -10615,3 +10615,26 @@ diff -ruN a/src/wbc-gtk-actions.c.orig b/src/wbc-gtk-actions.c.orig
 +		list_actions (wbcg->templates.actions);
 +	}
 +}
+diff -ruN a/plugins/excel/ms-biff.c b/plugins/excel/ms-biff.c
+--- a/plugins/excel/ms-biff.c	2026-11-14 17:35:34.798020177 +0000
++++ b/plugins/excel/ms-biff.c	2026-11-14 17:35:34.818535638 +0000
+@@ -441,9 +441,17 @@
+ 	XL_CHECK_CONDITION_VAL (len < 20000, FALSE);
+ 
+ 	if (len > 0) {
+-		q->data = (guint8 *)gsf_input_read (q->input, len, NULL);
+-		if (q->data == NULL)
++		/* A copy of its own: gsf_input_read's buffer is only good until
++		   the next read, and the CONTINUE check below (and the readers'
++		   own looks at the next record) read the next record's header.
++		   Without mmap (RISC OS), a large stream's records come straight
++		   from GsfInputStdio's one buffer, so a FONT, FORMAT, LABEL or
++		   FORMULA record was read as the next record's header. */
++		guint8 const *raw = gsf_input_read (q->input, len, NULL);
++		if (raw == NULL)
+ 			return FALSE;
++		q->data = go_memdup (raw, len);
++		q->data_malloced = TRUE;
+ 	}
+ 	q->length = len;
+ 

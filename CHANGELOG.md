@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased (next RC): AbiWord 3.0.8-riscos8, Gnumeric 1.12.62-riscos22
+- **AbiWord opens Word files from RISC OS word processors.** EasiWriter
+  (and others) write Word 6 as a plain file, without the OLE container
+  Word itself uses (it starts DC A5 65 00). AbiWord didn't recognise it and
+  read it as text (junk). Now recognised (patches/abiword-3.0.8-riscos.diff,
+  ie_imp_MsWord_97.cpp), and wv reads it as a single-stream file
+  (patches/wv-1.2.9-riscos.diff, new): wv's single-stream path was never
+  reached (a non-OLE file was "bad OLE"), didn't know Word 6's 0xa5dc, and
+  freed the file twice when it was. Checked on ROL with an EasiWriter 9.12
+  file: its text, Normal style, Times.
+- **Gnumeric reads .xls files over 4 KB correctly.** Excel records were
+  used straight from libgsf's read buffer, which the reader's look at the
+  next record (for CONTINUE) overwrote: without mmap (RISC OS), a big
+  file's FONT, FORMAT, LABEL and FORMULA records were read as the next
+  record's header. A Fireworkz .xls opened with every font 2.45 pt (0x31,
+  the FONT opcode, /20) and columns a quarter wide. Each record is now
+  copied (patches/gnumeric-1.12.62-riscos.diff, ms-biff.c). Small files
+  (under 4 KB, read whole) and Linux (mmap) weren't affected.
+
 ## !GTKLibs 3.24.52-21 (2026-11-11)
 - **Floating point straight after a Wimp poll, in Thumb programs.** The
   Wimp gives a task back its VFP context lazily: the first VFP

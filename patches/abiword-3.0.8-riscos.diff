@@ -11,6 +11,10 @@ riscos-gtk's changes to AbiWord 3.0.8 (after Debian's, ./abiword-3.0.8-debian):
   "abiword", as the windows' icon (ICONDIR is where AbiWord was built).
 - plugins/mathview (equations): built in, as the other plugins here (plugin.m4,
   Makefile.am), registered as abipgn_mathview_register (the folder's name).
+- ie_imp_MsWord_97.cpp: Word 6/7 written as a plain file without the OLE
+  container (wIdent 0xa5dc, nFib 101-105, as EasiWriter writes it) is
+  recognised as Word (it was read as text: junk), and a single-stream file
+  has no summary streams to read (patches/wv-1.2.9-riscos.diff reads it).
 --- a/configure.ac	2026-10-23 17:40:25.387242545 +0100
 +++ b/configure.ac	2026-10-23 17:40:25.393131005 +0100
 @@ -738,7 +738,7 @@
@@ -371,3 +375,37 @@ diff -ruN a/plugins/mathview/xp/AbiMathView.cpp b/plugins/mathview/xp/AbiMathVie
  {
  	XAP_String_Id String_id;
  
+--- a/src/wp/impexp/xp/ie_imp_MsWord_97.cpp	2026-11-14 16:16:40.375151404 +0000
++++ b/src/wp/impexp/xp/ie_imp_MsWord_97.cpp	2026-11-14 16:16:40.395505792 +0000
+@@ -800,6 +800,19 @@
+ 			return UT_CONFIDENCE_POOR;
+ 		}
+ 
++		/* Word 6/7 written as a plain file, without the OLE container
++		   (RISC OS word processors such as EasiWriter): the FIB's
++		   wIdent 0xa5dc, then nFib 101-105 (Word 6 and 95); wv reads
++		   it as a single-stream file */
++		if (static_cast< unsigned char>(szBuf[0]) == static_cast<unsigned char>(0xdc)
++			&& static_cast< unsigned char>(szBuf[1]) == static_cast<unsigned char>(0xa5)
++			&& static_cast< unsigned char>(szBuf[2]) >= 0x65
++			&& static_cast< unsigned char>(szBuf[2]) <= 0x69
++			&& szBuf[3] == static_cast<char>(0))
++		{
++			return UT_CONFIDENCE_PERFECT;
++		}
++
+ 		/* WinWord 2 */
+ 		if (static_cast< unsigned char>(szBuf[0]) == static_cast<unsigned char>(0xdb)
+ 			&& static_cast< unsigned char>(szBuf[1]) == static_cast<unsigned char>(0xa5)
+@@ -1145,6 +1158,11 @@
+ 
+ void IE_Imp_MsWord_97::_handleMetaData(wvParseStruct *ps)
+ {
++	// a single-stream file (Word 2, or Word 6/7 without the OLE
++	// container, as RISC OS word processors write it) has no summary
++	// streams
++	if (!ps->ole_file)
++		return;
+ 	print_summary_stream (GSF_INFILE(ps->ole_file), "\05SummaryInformation", ps->fib.lid, getDoc());
+ 	print_summary_stream (GSF_INFILE(ps->ole_file), "\05DocumentSummaryInformation", ps->fib.lid, getDoc());
+ }
