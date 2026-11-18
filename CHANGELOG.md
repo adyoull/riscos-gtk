@@ -1,5 +1,19 @@
 # Changelog
 
+## !GTKLibs 3.24.52-23 (2026-11-18)
+- **A web link dragged to the Filer or the Pinboard is saved as a URI
+  file.** GDK took text/uri-list first and, with no file: address in it,
+  dropped the drag (the rc11 GDK saved the address as "TextFile"). It now
+  asks for _NETSCAPE_URL first ("address\ntitle", as WebKit offers for a
+  link) and, for one address that isn't file:, saves an AcornURI URI file
+  (&F91, "URI\t100", the title as its last line, as NetSurf and Iris do)
+  named from the title, when the drop's task is the Filer or the Pinboard
+  (Wimp_SendMessage 19, TaskManager_TaskNameFromHandle); dropped anywhere
+  else, the address as text. file: addresses are files, as before.
+- **Ctrl-U deletes the whole line in a writable field** (GtkEntry), as the
+  Style Guide asks; the hello test checks it.
+- Only !GTKLibs changes.
+
 ## !GTKLibs 3.24.52-22 (2026-11-18)
 - **Function keys with Shift and Ctrl, and Print Scrn, reach the program.**
   GDK mapped only F1-F11 unmodified, the arrows, Tab and Copy; every other

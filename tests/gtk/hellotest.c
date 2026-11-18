@@ -118,6 +118,8 @@ hook (int reason)
       add (FAKE_MOVE, x, y, 0);
       add (6, x, y, 4);                 /* click in the entry */
       add (FAKE_RELEASE, 0, 0, 0);
+      add (8, 'x', 0, 0);
+      add (8, 21, 0, 0);                /* Ctrl-U: the line deleted */
       add (8, 'H', 0, 0);
       add (8, 'i', 0, 0);
       add (8, 0x18C, 0, 0);             /* Left */
@@ -201,7 +203,7 @@ main (int argc, char **argv)
   printf ("# title \"%s\"\n", title_seen);
   check (hello_clicks == 1, "the button's clicked signal (Select press + release)");
   check (fake_plots > plots_at_click, "the window redrew after the click");
-  check (strcmp (hello_entry_text, "Hi") == 0, "typing into the entry (Key_Pressed, caret)");
+  check (strcmp (hello_entry_text, "Hi") == 0, "typing into the entry (Key_Pressed, caret), Ctrl-U deleting the line first");
   printf ("# entry text \"%s\"\n", hello_entry_text);
   check (hello_option == 1, "the check box toggled by a click");
   check (fake_wimp_keys_passed == 1, "only Shift-F12 handed back to the Wimp");

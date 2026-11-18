@@ -25,6 +25,10 @@
  *     file type in the DataSave (the type from the file, or from its
  *     extension through MimeMap if it has none), its contents by RAM
  *     transfer or saved to the name in the DataSaveAck,
+ *     or, for a web link (_NETSCAPE_URL "address\ntitle", or a
+ *     uri-list with one address that isn't file:), a URI file (&F91,
+ *     "URI\t100", as NetSurf and Iris save them) named from the title
+ *     when dropped on the Filer or the Pinboard, else the address as text,
  *     with Message_DataSave to the window under the pointer
  *     (gdkdnd-riscos.c). The Wimp draws a dashed box while dragging
  *     (Wimp_DragBox type 5).
@@ -69,6 +73,8 @@
 #define USER_MESSAGE_ACKNOWLEDGE 19
 
 #define FILETYPE_TEXT 0xFFF
+#define FILETYPE_URI  0xF91          /* AcornURI's URI file */
+#define TaskManager_TaskNameFromHandle 0x42680
 #define SCRAP "<Wimp$Scrap>"
 
 #ifndef Wimp_SendMessage
@@ -332,14 +338,15 @@ out_start (GdkWindow *owner, GdkAtom selection, GList *targets,
            int dest, int icon, const int fields[4], int your_ref)
 {
   /* a file first (a widget that offers one means it), then text */
-  static const char *prefer[] = { "text/uri-list", "UTF8_STRING", "text/plain;charset=utf-8", "STRING", "text/plain" };
+  /* (a link dragged from a web page: _NETSCAPE_URL is "address\ntitle") */
+  static const char *prefer[] = { "_NETSCAPE_URL", "text/uri-list", "UTF8_STRING", "text/plain;charset=utf-8", "STRING", "text/plain" };
   GdkAtom target = GDK_NONE;
   guint i;
 
   if (owner == NULL)
     return FALSE;
-  /* (the clipboard, targets unknown: text) */
-  for (i = targets == NULL ? 1 : 0; i < G_N_ELEMENTS (prefer) && target == GDK_NONE; i++)
+  /* (the clipboard, targets unknown: text, from UTF8_STRING on) */
+  for (i = targets == NULL ? 2 : 0; i < G_N_ELEMENTS (prefer) && target == GDK_NONE; i++)
     {
       GdkAtom a = gdk_atom_intern_static_string (prefer[i]);
       if (targets == NULL || g_list_find (targets, a))
@@ -452,6 +459,105 @@ out_take_file (const char *uris, int len)
   return TRUE;
 }
 
+/* Is the drag's destination the Filer or the Pinboard? There a dragged
+   web link is saved as a URI file; anything else (a text editor) gets
+   the address as text. Wimp_SendMessage 19 gives the window's task;
+   TaskManager_TaskNameFromHandle its name. */
+static gboolean
+out_dest_is_filer (void)
+{
+  _kernel_swi_regs r;
+  int block[6];
+  const char *name;
+
+  memset (block, 0, sizeof block);
+  block[0] = 20;
+  r.r[0] = USER_MESSAGE_ACKNOWLEDGE;
+  r.r[1] = (int) (long) block;
+  r.r[2] = out.dest;
+  r.r[3] = out.icon;
+  if (_kernel_swi (Wimp_SendMessage, &r, &r) != NULL)
+    return FALSE;
+  r.r[0] = r.r[2];
+  if (_kernel_swi (TaskManager_TaskNameFromHandle, &r, &r) != NULL)
+    return FALSE;
+  name = (const char *) (long) r.r[0];
+  TRACE ("the drop's task: %s\n", name);
+  return g_str_has_prefix (name, "Filer") || g_str_has_prefix (name, "Pinboard");
+}
+
+/* A RISC OS file name from a link's title (or its address's last part):
+   letters, digits and safe punctuation, others as "_", at most 40 */
+static char *
+uri_leaf (const char *title, const char *uri)
+{
+  GString *g = g_string_new (NULL);
+  const char *s = title;
+  char *last = NULL;
+
+  if (s == NULL || *s == '\0')
+    {
+      const char *p = strstr (uri, "://");
+      gchar **parts = g_strsplit (p ? p + 3 : uri, "/", -1);
+      int i;
+      for (i = 0; parts[i]; i++)
+        if (parts[i][0])
+          {
+            g_free (last);
+            last = g_strdup (parts[i]);
+          }
+      g_strfreev (parts);
+      s = last ? last : "URI";
+    }
+  for (; *s && g->len < 40; s++)
+    {
+      unsigned char c = *s;
+      if (g_ascii_isalnum (c) || c == '-' || c == '_' || c == '+' || c == '=' || c == '!' || c == '(' || c == ')')
+        g_string_append_c (g, c);
+      else if (c == ' ' || c == '.' || c == '/')
+        g_string_append_c (g, '_');
+      else if (c >= 0x80)
+        ;                                      /* (UTF-8: dropped) */
+      else
+        g_string_append_c (g, '_');
+    }
+  g_free (last);
+  if (g->len == 0)
+    g_string_append (g, "URI");
+  return g_string_free (g, FALSE);
+}
+
+/* A dragged web link (one address that isn't file:, and its title if the
+   source gave one): to the Filer or Pinboard as a URI file (&F91, as
+   NetSurf and Iris save one), else the address as text */
+static gboolean
+out_take_link (const char *uri, const char *title)
+{
+  if (uri == NULL || *uri == '\0' || g_str_has_prefix (uri, "file:"))
+    return FALSE;
+  if (out_dest_is_filer ())
+    {
+      char *text = g_strdup_printf ("URI\t100\n\t# Saved by %s\n\t%s\n%s%s%s",
+                                    g_get_prgname () ? g_get_prgname () : "riscos-gtk",
+                                    uri, title && *title ? "\t" : "",
+                                    title && *title ? title : "", title && *title ? "\n" : "");
+      out.data = utf8_to_latin1 (text, (int) strlen (text), &out.len);
+      g_free (text);
+      out.leaf = uri_leaf (title, uri);
+      out.filetype = FILETYPE_URI;
+    }
+  else
+    {
+      char *text = g_strdup_printf ("%s\n", uri);
+      out.data = utf8_to_latin1 (text, (int) strlen (text), &out.len);
+      g_free (text);
+      out.filetype = FILETYPE_TEXT;
+    }
+  TRACE ("a link: %s (%s) as %s\n", uri, title ? title : "no title",
+         out.filetype == FILETYPE_URI ? "a URI file" : "text");
+  return TRUE;
+}
+
 gboolean
 _gdk_riscos_transfer_notify (GdkWindow *requestor, GdkAtom selection, GdkAtom target,
                              GdkAtom property)
@@ -470,9 +576,41 @@ _gdk_riscos_transfer_notify (GdkWindow *requestor, GdkAtom selection, GdkAtom ta
       out_reset ();
       return TRUE;
     }
-  if (target == gdk_atom_intern_static_string ("text/uri-list"))
+  if (target == gdk_atom_intern_static_string ("_NETSCAPE_URL"))
+    {
+      /* "address\ntitle": a file: address is a file, as from uri-list */
+      char *text = g_strndup ((const char *) data, len), *nl = strchr (text, '\n');
+      gboolean ok;
+      if (nl)
+        {
+          *nl = '\0';
+          g_strchomp (nl + 1);
+        }
+      g_strchomp (text);
+      if (g_str_has_prefix (text, "file:"))
+        ok = out_take_file (text, (int) strlen (text));
+      else
+        ok = out_take_link (text, nl ? nl + 1 : NULL);
+      g_free (text);
+      g_free (data);
+      if (!ok)
+        {
+          out_reset ();
+          return TRUE;
+        }
+    }
+  else if (target == gdk_atom_intern_static_string ("text/uri-list"))
     {
       gboolean ok = out_take_file ((const char *) data, len);
+      if (!ok)
+        {
+          /* one web address (no file): a link, without a title */
+          char *list = g_strndup ((const char *) data, len), **v = g_uri_list_extract_uris (list);
+          if (v[0] && !v[1])
+            ok = out_take_link (v[0], NULL);
+          g_strfreev (v);
+          g_free (list);
+        }
       g_free (data);
       if (!ok)
         {

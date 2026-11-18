@@ -42,6 +42,9 @@
 #include "gtkstyleprovider.h"
 #include "gtkicontheme.h"
 #include "gtksettings.h"
+#include "gtkbindings.h"
+#include "gtkentry.h"
+#include "gtktypebuiltins.h"
 #include "gtkscrollbar.h"
 #include "gtkscrolledwindow.h"
 #include "gtkorientable.h"
@@ -901,6 +904,18 @@ grip_init (void)
                               grip_map_hook, NULL, NULL);
 }
 
+/* The Style Guide's keys for writable icons that GTK lacks: Ctrl-U
+   deletes the whole line (GtkEntry's delete-from-cursor with paragraphs
+   deletes all its text) */
+static void
+keys_init (void)
+{
+  GtkBindingSet *set = gtk_binding_set_by_class (g_type_class_ref (GTK_TYPE_ENTRY));
+
+  gtk_binding_entry_add_signal (set, GDK_KEY_u, GDK_CONTROL_MASK, "delete-from-cursor", 2,
+                                GTK_TYPE_DELETE_TYPE, GTK_DELETE_PARAGRAPHS, G_TYPE_INT, 1);
+}
+
 void
 _gtk_riscos_theme_init (GdkDisplay *display)
 {
@@ -915,6 +930,7 @@ _gtk_riscos_theme_init (GdkDisplay *display)
   done = TRUE;
   _gtk_menu_riscos_init ();   /* Menu clicks and Left Alt keys (gtkmenu-riscos.c) */
   grip_init ();
+  keys_init ();
   _gtk_riscos_iconbar_init (display);
   if (env && strcmp (env, "0") == 0)
     return;
