@@ -1,5 +1,17 @@
 # Changelog
 
+## !GTKLibs 3.24.52-22 (2026-11-18)
+- **Function keys with Shift and Ctrl, and Print Scrn, reach the program.**
+  GDK mapped only F1-F11 unmodified, the arrows, Tab and Copy; every other
+  code in the Wimp's function-key block (Print &180, Shift-Fn &19x, Ctrl-Fn
+  &1Ax, Ctrl-Shift-Fn &1Bx, F10/F11/Insert with modifiers &1DA-&1FD) was
+  handed back to the Wimp, so a program's <Ctrl>F2 or Print accelerator
+  never fired (a browser's, following the Style Guide). keyval_for now
+  decodes the whole block by the PRMs' table (+&10 Shift, +&20 Ctrl);
+  F12 in every form stays the Wimp's, as the Style Guide reserves it. The
+  hello test sends Ctrl-F2, Shift-F3, Print, Ctrl-Shift-F5 and Shift-F12.
+  Only !GTKLibs changes.
+
 ## Unreleased (next RC): AbiWord 3.0.8-riscos8, Gnumeric 1.12.62-riscos22
 - **AbiWord opens Word files from RISC OS word processors.** EasiWriter
   (and others) write Word 6 as a plain file, without the OLE container

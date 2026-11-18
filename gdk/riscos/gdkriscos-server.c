@@ -723,8 +723,46 @@ keyval_for (int code, guint32 *state)
     case 0x1CB: return GDK_KEY_F11;
     default: break;
     }
-  if (code >= 0x181 && code <= 0x189)
-    return GDK_KEY_F1 + (code - 0x181);
+  /* The rest of the function-key block (PRMs, "Character codes" under
+     the WindowManager): &180 Print, &181-&189 F1-F9, &18A Tab, &18B Copy,
+     &18C-&18F the arrows; &1CA-&1CD F10, F11, F12, Insert; +&10 with
+     Shift, +&20 with Ctrl, +&30 with both. So Print Scrn, Shift-F3,
+     Ctrl-F2 and the like reach the program (the Style Guide gives them to
+     it). F12 in every form stays the Wimp's (the Guide reserves it), and
+     so does anything not listed. */
+  if ((code >= 0x180 && code <= 0x1BF) || (code >= 0x1C0 && code <= 0x1FF))
+    {
+      int base = code & ~0x30;
+      guint32 mods = 0;
+      guint keyval = 0;
+
+      if (code & 0x10)
+        mods |= GDK_SHIFT_MASK;
+      if (code & 0x20)
+        mods |= GDK_CONTROL_MASK;
+      if (base == 0x180)
+        keyval = GDK_KEY_Print;
+      else if (base >= 0x181 && base <= 0x189)
+        keyval = GDK_KEY_F1 + (base - 0x181);
+      else if (base == 0x18A)
+        keyval = (mods & GDK_SHIFT_MASK) ? GDK_KEY_ISO_Left_Tab : GDK_KEY_Tab;
+      else if (base == 0x18B)
+        keyval = GDK_KEY_End;
+      else if (base >= 0x18C && base <= 0x18F)
+        {
+          static const guint arrows[4] = { GDK_KEY_Left, GDK_KEY_Right, GDK_KEY_Down, GDK_KEY_Up };
+          keyval = arrows[base - 0x18C];
+        }
+      else if (base == 0x1CA)
+        keyval = GDK_KEY_F10;
+      else if (base == 0x1CB)
+        keyval = GDK_KEY_F11;
+      else if (base == 0x1CD)
+        keyval = GDK_KEY_Insert;
+      if (keyval)
+        *state |= mods;
+      return keyval;
+    }
   if (code >= 1 && code <= 26 && code != 8 && code != 13)
     {
       *state |= GDK_CONTROL_MASK;            /* Ctrl-A .. Ctrl-Z */

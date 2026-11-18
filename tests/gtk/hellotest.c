@@ -22,6 +22,23 @@ static char title_seen[256];
 static int stage, plots_at_click;
 static int big_width = -1, big_height = -1, red_x = -1, blue_x = -1;
 static unsigned int big_corner;
+/* function keys as GDK gives them: Ctrl-F2, Shift-F3, Print, Ctrl-Shift-F5 */
+static guint fn_keys[8];
+static guint fn_states[8];
+static int n_fn;
+
+static gboolean
+on_key (GtkWidget *w, GdkEventKey *e, gpointer d)
+{
+  (void) w; (void) d;
+  if (n_fn < 8 && (e->keyval == GDK_KEY_Print ||
+                   (e->keyval >= GDK_KEY_F1 && e->keyval <= GDK_KEY_F12)))
+    {
+      fn_keys[n_fn] = e->keyval;
+      fn_states[n_fn++] = e->state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK);
+    }
+  return FALSE;
+}
 
 /* Leftmost strongly red and strongly blue pixels in the label row area
    (fake screen pixels are TBGR, 0x00BBGGRR). */
@@ -90,6 +107,7 @@ hook (int reason)
     {
       stage = 1;
       plots_at_click = fake_plots;
+      g_signal_connect (hello_window, "key-press-event", G_CALLBACK (on_key), NULL);
       centre (hello_button, &x, &y);
       add (FAKE_MOVE, x, y, 0);
       add (6, x, y, 4);                 /* Select click on the button */
@@ -104,6 +122,11 @@ hook (int reason)
       add (8, 'i', 0, 0);
       add (8, 0x18C, 0, 0);             /* Left */
       add (8, 0x18D, 0, 0);             /* Right */
+      add (8, 0x1A2, 0, 0);             /* Ctrl-F2 */
+      add (8, 0x193, 0, 0);             /* Shift-F3 */
+      add (8, 0x180, 0, 0);             /* Print */
+      add (8, 0x1B5, 0, 0);             /* Ctrl-Shift-F5 */
+      add (8, 0x1DC, 0, 0);             /* Shift-F12: the Wimp's */
       centre (hello_check, &x, &y);
       add (FAKE_MOVE, x, y, 0);
       add (6, x, y, 4);                 /* click the check box */
@@ -181,7 +204,14 @@ main (int argc, char **argv)
   check (strcmp (hello_entry_text, "Hi") == 0, "typing into the entry (Key_Pressed, caret)");
   printf ("# entry text \"%s\"\n", hello_entry_text);
   check (hello_option == 1, "the check box toggled by a click");
-  check (fake_wimp_keys_passed == 0, "no keys handed back to the Wimp");
+  check (fake_wimp_keys_passed == 1, "only Shift-F12 handed back to the Wimp");
+  check (n_fn == 4 &&
+         fn_keys[0] == GDK_KEY_F2 && fn_states[0] == GDK_CONTROL_MASK &&
+         fn_keys[1] == GDK_KEY_F3 && fn_states[1] == GDK_SHIFT_MASK &&
+         fn_keys[2] == GDK_KEY_Print && fn_states[2] == 0 &&
+         fn_keys[3] == GDK_KEY_F5 && fn_states[3] == (GDK_SHIFT_MASK | GDK_CONTROL_MASK),
+         "Ctrl-F2, Shift-F3, Print Scrn and Ctrl-Shift-F5 reach GTK with their modifiers");
+  printf ("# function keys: %d seen\n", n_fn);
   check (red_x >= 0 && blue_x >= 0 && red_x < blue_x,
          "\"Red\" is red and \"Blue\" is blue on a TBGR screen");
   printf ("# leftmost red pixel x=%d, blue x=%d\n", red_x, blue_x);
