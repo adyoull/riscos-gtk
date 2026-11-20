@@ -1,5 +1,18 @@
 # Changelog
 
+## mtPaint 3.50.14-riscos18 (2026-11-20)
+- **Browse... opens the directory browser.** It made a GtkFileChooserNative,
+  which riscos-gtk shows as another Save or Open box unless
+  RISCOS_GTK_CHOOSER is "filer"; mtPaint now sets that around the show
+  (fpick.c), so Browse... gives the Filer-style browser. A name chosen
+  there comes back to mtPaint's window and is saved as typed.
+- riscos17's format check read the File Format menu's names after the
+  window had been made, from file_selector's stack (seen after Browse...:
+  "can't be saved as BMP" for a palette picture); it now uses the
+  window's own format list and the format flags (canvas.c).
+- Checked on ROL: Browse... → browser; Pic6/bmp through it → BMP; Pic7/jpg
+  through it → the message; Pic8/gif typed → GIF.
+
 ## mtPaint 3.50.14-riscos17 (2026-11-20)
 - **mtPaint saves in the format the name says, and says when it can't.**
   The File Format menu alone chose the format: a name typed as Pic/jpg was

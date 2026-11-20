@@ -1,5 +1,5 @@
 --- a/src/canvas.c	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/canvas.c	2026-11-20 15:46:04.623520936 +0000
++++ b/src/canvas.c	2026-11-20 17:37:52.408661343 +0000
 @@ -1680,6 +1680,62 @@
  	return (res);
  }
@@ -73,7 +73,7 @@
  }
  
  int ftype_selector(int mask, char *ext, int def, char **names, int *ftypes)
-@@ -1886,6 +1945,34 @@
+@@ -1886,6 +1945,36 @@
  	int i, j, res, redo = 1;
  
  	run_query(wdata);
@@ -88,9 +88,11 @@
 +		ft = ro_ext_ftype(ro_name_ext(nm));
 +		if ((ft >= 0) && (ft != dt->ftypes[dt->ftype]))
 +		{
-+			for (k = 0; dt->ftnames[k]; k++)
++			/* (the menu's ftypes list is in the window's data; its
++			 * names were on file_selector's stack) */
++			for (k = 0; k < NUM_FTYPES; k++)
 +				if (dt->ftypes[k] == ft) break;
-+			if (!dt->ftnames[k])
++			if ((k >= NUM_FTYPES) || !(file_formats[ft].flags & dt->fmask))
 +			{
 +				/* Not for this picture (JPEG needs RGB, GIF a palette) */
 +				msg = g_strdup_printf(__("This picture can't be saved as %s. "
@@ -109,7 +111,7 @@
  	init_ls_settings(&settings, wdata);
  
 --- a/src/fpick.c	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/fpick.c	2026-11-20 15:53:12.002616190 +0000
++++ b/src/fpick.c	2026-11-20 17:28:45.927504084 +0000
 @@ -25,6 +25,15 @@
  #include "fpick.h"
  #include "vcode.h"
@@ -134,7 +136,7 @@
  #define FPICK_ICON_UP 0
  #define FPICK_ICON_HOME 1
  #define FPICK_ICON_DIR 2
-@@ -1083,3 +1093,426 @@
+@@ -1083,3 +1093,436 @@
  }
  
  #endif		 /* GtkFileSelection based dialog */
@@ -410,7 +412,17 @@
 +	g_free(d);
 +	g_free(u);
 +	g_signal_connect(n, "response", G_CALLBACK(ro_browse_response), f);
-+	gtk_native_dialog_show(GTK_NATIVE_DIALOG(n));
++	/* Browse... is for the directory browser (a Filer window to choose
++	 * in), not another Save or Open box: riscos-gtk opens it for a
++	 * native chooser when RISCOS_GTK_CHOOSER is "filer" at show time */
++	{
++		char *was = g_strdup(g_getenv("RISCOS_GTK_CHOOSER"));
++		g_setenv("RISCOS_GTK_CHOOSER", "filer", TRUE);
++		gtk_native_dialog_show(GTK_NATIVE_DIALOG(n));
++		if (was) g_setenv("RISCOS_GTK_CHOOSER", was, TRUE);
++		else g_unsetenv("RISCOS_GTK_CHOOSER");
++		g_free(was);
++	}
 +}
 +
 +static void ro_changed(GtkEditable *e, ro_fpick *f)
