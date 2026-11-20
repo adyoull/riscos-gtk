@@ -3,7 +3,8 @@
 # RISC OS.
 #   RCD_DIR=... SRC=... SYSROOT=... build/build-mtpaint.sh
 # Unpacks the source into $SRC, applies patches/mtpaint-3.50.14-riscos.diff
-# (a RISC OS Save/Open box as its file picker; Adjust as the right button;
+# (a RISC OS Save/Open box as its file picker, the name following the
+# File Format menu and a typed extension choosing it; Adjust as the right button;
 # memory size from OS_ReadMemMapInfo), configures it with its own configure
 # (GTK 3, PNG, JPEG, FreeType; no TIFF, WebP, JPEG 2000 or LittleCMS),
 # builds it, links its objects with apps/mtpaint/riscos-mtpaint.c (main:
@@ -13,7 +14,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
 [ "$TARGET" = riscos ] || { echo "build-mtpaint.sh: RISC OS only" >&2; exit 1; }
 V=3.50.14
-VERSION=${VERSION:-3.50.14-riscos16}
+VERSION=${VERSION:-3.50.14-riscos17}
 M=$SRC/mtpaint-$V
 rm -rf "$M" "$SRC/mtPaint-"*
 tar -xzf "$DL/mtpaint_$V.orig.tar.gz" -C "$SRC"

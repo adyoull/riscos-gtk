@@ -1,5 +1,24 @@
 # Changelog
 
+## mtPaint 3.50.14-riscos17 (2026-11-20)
+- **mtPaint saves in the format the name says, and says when it can't.**
+  The File Format menu alone chose the format: a name typed as Pic/jpg was
+  quietly saved as Pic/png (mtPaint swaps a known extension for the
+  chosen format's). Now, on RISC OS (canvas.c), an extension typed in the
+  name chooses the format when the File Format menu lists it, and when it
+  doesn't (JPEG for a picture with a palette, GIF for an RGB one) mtPaint
+  says so and points at Image > Convert To RGB / Convert To Indexed
+  instead of saving something else. Choosing a format changes the name's
+  extension, so the icon and the file type follow.
+- **A new picture's Save window has a name**: Untitled/png in the last
+  folder, instead of the folder's own name (which, saved as it was, went
+  into <Choices$Write>). A full name starting with a system variable
+  (<Choices$Write>.x) is taken as absolute, not made relative to the
+  current directory (fpick.c).
+- Checked on ROL: Pic2/gif (GIF), Pic3/bmp (BMP), Pic1/jpg on a palette
+  picture gives the message; a new picture's name is
+  <Choices$Write>.mtPaint.Untitled/png with a PNG icon.
+
 ## Gnumeric 1.12.62-riscos23 (2026-11-20)
 - **Gnumeric saves in the format the name's extension says.** With
   Gnumeric's own format still chosen, a name such as Book1/xlsx (another

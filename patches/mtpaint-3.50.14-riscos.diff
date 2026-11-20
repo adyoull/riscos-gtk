@@ -1,122 +1,115 @@
---- a/src/mygtk.c	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/mygtk.c	2026-10-11 15:06:29.423346835 +0100
-@@ -6162,7 +6162,9 @@
+--- a/src/canvas.c	2026-03-05 12:01:25.000000000 +0000
++++ b/src/canvas.c	2026-11-20 15:46:04.623520936 +0000
+@@ -1680,6 +1680,62 @@
+ 	return (res);
+ }
  
- //	Memory size (Mb)
- 
--#ifndef WIN32
-+#ifdef __riscos__
-+#include <kernel.h>
-+#elif !defined WIN32
- #ifndef _SC_PHYS_PAGES
- #include <sys/types.h>
- #include <sys/param.h>
-@@ -6172,7 +6174,12 @@
- 
- unsigned sys_mem_size()
++#if defined __riscos__ || defined MT_RISCOS_UI
++/* RISC OS: a file's type comes from its name's extension (MimeMap), so the
++ * name follows the File Format menu, and an extension typed in the name
++ * chooses the format */
++
++/* The saveable image format with this extension, or -1 */
++static int ro_ext_ftype(const char *ext)
++{
++	int i;
++
++	if (!ext || !ext[0]) return (-1);
++	for (i = 1; i < NUM_FTYPES; i++)
++	{
++		fformat *ff = file_formats + i;
++		if (!ff->ext[0] || (ff->flags & FF_NOSAVE) || !(ff->flags & FF_IMAGE))
++			continue;
++		if (!strncasecmp(ext, ff->ext, 256) ||
++			(ff->ext2[0] && !strncasecmp(ext, ff->ext2, 256))) return (i);
++	}
++	return (-1);
++}
++
++/* The extension of the leaf of the name in the window, or NULL */
++static char *ro_name_ext(char *fname)
++{
++	char *s = strrchr(fname, DIR_SEP), *c;
++
++	s = s ? s + 1 : fname;
++	c = strrchr(s, '.');
++	return (c && (c > s) ? c + 1 : NULL);
++}
++
++/* Give the name the format's extension */
++static void ro_name_follow(void **wdata, int ftype)
++{
++	char fname[PATHTXT], *c, *s;
++	char *ext = file_formats[ftype].ext, *ext2 = file_formats[ftype].ext2;
++
++	if (!ext[0]) return;
++	cmd_peekv(GET_WINDOW(wdata), fname, PATHTXT, FPICK_RAW);
++	s = strrchr(fname, DIR_SEP);
++	s = s ? s + 1 : fname;
++	if (!s[0]) return;
++	if ((c = ro_name_ext(fname)))
++	{
++		if (!strncasecmp(c, ext, 256) ||
++			(ext2[0] && !strncasecmp(c, ext2, 256))) return;
++		if (ro_ext_ftype(c) >= 0) c[-1] = '\0';
++	}
++	if (strlen(fname) + strlen(ext) + 2 > PATHTXT) return;
++	strcat(fname, ".");
++	strcat(fname, ext);
++	cmd_setv(GET_WINDOW(wdata), fname, FPICK_RAW);
++}
++#endif
++
+ static void change_image_format(fselector_dd *dt, void **wdata, int what,
+ 	void **where)
  {
--#ifdef WIN32
-+#ifdef __riscos__
-+	/* OS_ReadMemMapInfo: page size, pages */
-+	_kernel_swi_regs r;
-+	if (_kernel_swi(0x51, &r, &r)) return (0);
-+	return ((unsigned)(((unsigned long long)r.r[0] * (unsigned)r.r[1]) >> 20));
-+#elif defined WIN32
- 	MEMORYSTATUS mem;
- 	mem.dwLength = sizeof(mem);
- 	GlobalMemoryStatus(&mem);
---- a/src/vcode.c	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/vcode.c	2026-10-11 16:05:13.979932870 +0100
-@@ -772,12 +772,22 @@
- 	gpointer user_data)
- {
- 	mouse_ext mouse = {
--		event->x, event->y, event->button,
-+		event->x, event->y,
+@@ -1696,6 +1752,9 @@
+ 
+ 	/* Hide/show name/value widget pairs */
+ 	cmd_setv(wdata, (void *)xflags, WDATA_ACTMAP);
 +#if defined __riscos__ || defined MT_RISCOS_UI
-+		/* Adjust is the right button; Menu (GDK button 3) is
-+		 * riscos-gtk's, for the window's menu (below) */
-+		event->button == 2 ? 3 : event->button,
-+#else
-+		event->button,
++	if (dt->mode == FS_PNG_SAVE) ro_name_follow(wdata, ftype);
 +#endif
- 		event->type == GDK_BUTTON_PRESS ? 1 :
- 		event->type == GDK_2BUTTON_PRESS ? 2 :
- 		event->type == GDK_3BUTTON_PRESS ? 3 :
- 		event->type == GDK_BUTTON_RELEASE ? -1 : 0,
- 		event->state, MAX_PRESSURE };
+ }
+ 
+ int ftype_selector(int mask, char *ext, int def, char **names, int *ftypes)
+@@ -1886,6 +1945,34 @@
+ 	int i, j, res, redo = 1;
+ 
+ 	run_query(wdata);
 +#if defined __riscos__ || defined MT_RISCOS_UI
-+	if (event->button == 3) return (FALSE);
++	/* RISC OS: an extension typed in the name chooses the format */
++	if (dt->fmask && (dt->mode == FS_PNG_SAVE))
++	{
++		char nm[PATHTXT];
++		int ft, k;
++
++		cmd_peekv(GET_WINDOW(wdata), nm, PATHTXT, FPICK_RAW);
++		ft = ro_ext_ftype(ro_name_ext(nm));
++		if ((ft >= 0) && (ft != dt->ftypes[dt->ftype]))
++		{
++			for (k = 0; dt->ftnames[k]; k++)
++				if (dt->ftypes[k] == ft) break;
++			if (!dt->ftnames[k])
++			{
++				/* Not for this picture (JPEG needs RGB, GIF a palette) */
++				msg = g_strdup_printf(__("This picture can't be saved as %s. "
++					"The File Format menu lists the formats it can be "
++					"saved in; Image > Convert To RGB or Convert To "
++					"Indexed changes which ones."), file_formats[ft].name);
++				alert_box(_("Error"), msg, NULL);
++				g_free(msg);
++				return;
++			}
++			dt->ftype = k;
++		}
++	}
 +#endif
- #if GTK_MAJOR_VERSION == 1
- 	if (GET_OP((void **)user_data) >= op_EVT_XMOUSE0)
- 		mouse.pressure = (int)(event->pressure * MAX_PRESSURE + 0.5);
-@@ -788,6 +798,10 @@
- // This peculiar encoding is historically used throughout mtPaint
- static inline int state_to_button(unsigned int state)
- {
-+#if defined __riscos__ || defined MT_RISCOS_UI
-+	/* Adjust is the right button; Menu isn't a painting button */
-+	state = (state & ~(_B2mask | _B3mask)) | (state & _B2mask ? _B3mask : 0);
-+#endif
- 	return ((state & _B13mask) == _B13mask ? 13 :
- 		state & _B1mask ? 1 :
- 		state & _B3mask ? 3 :
-@@ -4262,7 +4276,7 @@
- 	gint row, col;
+ 	/* Pick up extra info */
+ 	init_ls_settings(&settings, wdata);
  
- 	if (dt->lock) return (FALSE); // Paranoia
--	if ((event->button != 3) || (event->type != GDK_BUTTON_PRESS))
-+	if ((event->button != MT_RBUTTON) || (event->type != GDK_BUTTON_PRESS))
- 		return (FALSE);
- 	if (!gtk_clist_get_selection_info(clist, event->x, event->y, &row, &col))
- 		return (FALSE);
-@@ -4773,7 +4787,7 @@
- 	int row;
- 
- 	if (dt->lock) return (FALSE); // Paranoia
--	if ((event->button != 3) || (event->type != GDK_BUTTON_PRESS) ||
-+	if ((event->button != MT_RBUTTON) || (event->type != GDK_BUTTON_PRESS) ||
- 		(event->window != gtk_tree_view_get_bin_window(tree)) ||
- 		!gtk_tree_view_get_path_at_pos(tree, event->x, event->y, &tp,
- 			NULL, NULL, NULL)) return (FALSE);
-@@ -5530,7 +5544,7 @@
- 	void **base = slot[0], **desc = slot[1];
- 
- 	/* Handle only right clicks */
--	if ((event->type != GDK_BUTTON_PRESS) || (event->button != 3))
-+	if ((event->type != GDK_BUTTON_PRESS) || (event->button != MT_RBUTTON))
- 		return (FALSE);
- #if GTK_MAJOR_VERSION == 3
- 	slot = g_object_get_qdata(G_OBJECT(widget), tool_key); // if initialized
-@@ -5924,7 +5938,7 @@
- 	void **slot;
- 
- 	/* Handle only right clicks */
--	if ((event->type != GDK_BUTTON_PRESS) || (event->button != 3))
-+	if ((event->type != GDK_BUTTON_PRESS) || (event->button != MT_RBUTTON))
- 		return (FALSE);
- 	htoolbox_popdown(sd->popup);
- 	slot = gtk_object_get_user_data(GTK_OBJECT(widget));
---- a/src/vcode.h	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/vcode.h	2026-10-11 16:05:13.980608796 +0100
-@@ -401,6 +401,14 @@
- #define _B1mask (GDK_BUTTON1_MASK)
- #define _B2mask (GDK_BUTTON2_MASK)
- #define _B3mask (GDK_BUTTON3_MASK)
-+#if defined __riscos__ || defined MT_RISCOS_UI
-+/* RISC OS: Menu (GDK button 3) gives the window's menu (riscos-gtk), so
-+ * mtPaint leaves it alone; Adjust (GDK button 2) does what the right
-+ * button does elsewhere */
-+#define MT_RBUTTON 2
-+#else
-+#define MT_RBUTTON 3
-+#endif
- #define _B13mask (GDK_BUTTON1_MASK | GDK_BUTTON3_MASK)
- 
- //	Functions to run with EVENT
 --- a/src/fpick.c	2026-03-05 12:01:25.000000000 +0000
-+++ b/src/fpick.c	2026-10-11 15:57:06.995989238 +0100
++++ b/src/fpick.c	2026-11-20 15:53:12.002616190 +0000
 @@ -25,6 +25,15 @@
  #include "fpick.h"
  #include "vcode.h"
@@ -141,7 +134,7 @@
  #define FPICK_ICON_UP 0
  #define FPICK_ICON_HOME 1
  #define FPICK_ICON_DIR 2
-@@ -1083,3 +1093,407 @@
+@@ -1083,3 +1093,426 @@
  }
  
  #endif		 /* GtkFileSelection based dialog */
@@ -224,7 +217,19 @@
 +	char *u;
 +
 +	if (!t[0]) return (g_strdup(f->dir ? f->dir : ""));
-+	if (ro_is_full(t)) return (gdk_riscos_path_to_unix(t));
++	if (ro_is_full(t))
++	{
++		/* <Choices$Write>.x gives "<Choices$Write>/x": UnixLib's
++		 * absolute form is "/<Choices$Write>/x" */
++		u = gdk_riscos_path_to_unix(t);
++		if (u[0] != '/')
++		{
++			char *abs = g_strconcat("/", u, NULL);
++			g_free(u);
++			u = abs;
++		}
++		return (u);
++	}
 +	u = gdk_riscos_path_to_unix(t);	// "/leaf"
 +	if (f->dir)
 +	{
@@ -245,12 +250,19 @@
 +	f->dir = g_strconcat(d, d[strlen(d) - 1] == '/' ? "" : "/", NULL);
 +	g_free(d);
 +	ro = unix_name[0] == '/' ? gdk_riscos_path_from_unix(unix_name) : g_strdup(unix_name);
-+	/* No name yet (a new picture): Untitled, as a RISC OS Save box */
-+	if (f->icon && ro[0] && (ro[strlen(ro) - 1] == '.'))
++	/* No name yet (a new picture: the folder): Untitled, as a RISC OS
++	 * Save box, in that folder */
++	if (f->icon && ro[0] && ((ro[strlen(ro) - 1] == '.') ||
++		(unix_name[strlen(unix_name) - 1] == '/') ||
++		g_file_test(unix_name, G_FILE_TEST_IS_DIR)))
 +	{
-+		char *t = g_strconcat(ro, "Untitled", NULL);
++		char *t = g_strconcat(ro, ro[strlen(ro) - 1] == '.' ? "" : ".",
++			"Untitled", NULL);
 +		g_free(ro);
 +		ro = t;
++		g_free(f->dir);
++		f->dir = g_strconcat(unix_name,
++			unix_name[strlen(unix_name) - 1] == '/' ? "" : "/", NULL);
 +	}
 +	gtk_entry_set_text(GTK_ENTRY(f->entry), ro);
 +	gtk_editable_set_position(GTK_EDITABLE(f->entry), -1);
@@ -549,3 +561,120 @@
 +}
 +
 +#endif		/* RISC OS */
+--- a/src/mygtk.c	2026-03-05 12:01:25.000000000 +0000
++++ b/src/mygtk.c	2026-11-20 15:45:45.470480408 +0000
+@@ -6162,7 +6162,9 @@
+ 
+ //	Memory size (Mb)
+ 
+-#ifndef WIN32
++#ifdef __riscos__
++#include <kernel.h>
++#elif !defined WIN32
+ #ifndef _SC_PHYS_PAGES
+ #include <sys/types.h>
+ #include <sys/param.h>
+@@ -6172,7 +6174,12 @@
+ 
+ unsigned sys_mem_size()
+ {
+-#ifdef WIN32
++#ifdef __riscos__
++	/* OS_ReadMemMapInfo: page size, pages */
++	_kernel_swi_regs r;
++	if (_kernel_swi(0x51, &r, &r)) return (0);
++	return ((unsigned)(((unsigned long long)r.r[0] * (unsigned)r.r[1]) >> 20));
++#elif defined WIN32
+ 	MEMORYSTATUS mem;
+ 	mem.dwLength = sizeof(mem);
+ 	GlobalMemoryStatus(&mem);
+--- a/src/vcode.c	2026-03-05 12:01:25.000000000 +0000
++++ b/src/vcode.c	2026-11-20 15:45:45.471479676 +0000
+@@ -772,12 +772,22 @@
+ 	gpointer user_data)
+ {
+ 	mouse_ext mouse = {
+-		event->x, event->y, event->button,
++		event->x, event->y,
++#if defined __riscos__ || defined MT_RISCOS_UI
++		/* Adjust is the right button; Menu (GDK button 3) is
++		 * riscos-gtk's, for the window's menu (below) */
++		event->button == 2 ? 3 : event->button,
++#else
++		event->button,
++#endif
+ 		event->type == GDK_BUTTON_PRESS ? 1 :
+ 		event->type == GDK_2BUTTON_PRESS ? 2 :
+ 		event->type == GDK_3BUTTON_PRESS ? 3 :
+ 		event->type == GDK_BUTTON_RELEASE ? -1 : 0,
+ 		event->state, MAX_PRESSURE };
++#if defined __riscos__ || defined MT_RISCOS_UI
++	if (event->button == 3) return (FALSE);
++#endif
+ #if GTK_MAJOR_VERSION == 1
+ 	if (GET_OP((void **)user_data) >= op_EVT_XMOUSE0)
+ 		mouse.pressure = (int)(event->pressure * MAX_PRESSURE + 0.5);
+@@ -788,6 +798,10 @@
+ // This peculiar encoding is historically used throughout mtPaint
+ static inline int state_to_button(unsigned int state)
+ {
++#if defined __riscos__ || defined MT_RISCOS_UI
++	/* Adjust is the right button; Menu isn't a painting button */
++	state = (state & ~(_B2mask | _B3mask)) | (state & _B2mask ? _B3mask : 0);
++#endif
+ 	return ((state & _B13mask) == _B13mask ? 13 :
+ 		state & _B1mask ? 1 :
+ 		state & _B3mask ? 3 :
+@@ -4262,7 +4276,7 @@
+ 	gint row, col;
+ 
+ 	if (dt->lock) return (FALSE); // Paranoia
+-	if ((event->button != 3) || (event->type != GDK_BUTTON_PRESS))
++	if ((event->button != MT_RBUTTON) || (event->type != GDK_BUTTON_PRESS))
+ 		return (FALSE);
+ 	if (!gtk_clist_get_selection_info(clist, event->x, event->y, &row, &col))
+ 		return (FALSE);
+@@ -4773,7 +4787,7 @@
+ 	int row;
+ 
+ 	if (dt->lock) return (FALSE); // Paranoia
+-	if ((event->button != 3) || (event->type != GDK_BUTTON_PRESS) ||
++	if ((event->button != MT_RBUTTON) || (event->type != GDK_BUTTON_PRESS) ||
+ 		(event->window != gtk_tree_view_get_bin_window(tree)) ||
+ 		!gtk_tree_view_get_path_at_pos(tree, event->x, event->y, &tp,
+ 			NULL, NULL, NULL)) return (FALSE);
+@@ -5530,7 +5544,7 @@
+ 	void **base = slot[0], **desc = slot[1];
+ 
+ 	/* Handle only right clicks */
+-	if ((event->type != GDK_BUTTON_PRESS) || (event->button != 3))
++	if ((event->type != GDK_BUTTON_PRESS) || (event->button != MT_RBUTTON))
+ 		return (FALSE);
+ #if GTK_MAJOR_VERSION == 3
+ 	slot = g_object_get_qdata(G_OBJECT(widget), tool_key); // if initialized
+@@ -5924,7 +5938,7 @@
+ 	void **slot;
+ 
+ 	/* Handle only right clicks */
+-	if ((event->type != GDK_BUTTON_PRESS) || (event->button != 3))
++	if ((event->type != GDK_BUTTON_PRESS) || (event->button != MT_RBUTTON))
+ 		return (FALSE);
+ 	htoolbox_popdown(sd->popup);
+ 	slot = gtk_object_get_user_data(GTK_OBJECT(widget));
+--- a/src/vcode.h	2026-03-05 12:01:25.000000000 +0000
++++ b/src/vcode.h	2026-11-20 15:45:45.472275013 +0000
+@@ -401,6 +401,14 @@
+ #define _B1mask (GDK_BUTTON1_MASK)
+ #define _B2mask (GDK_BUTTON2_MASK)
+ #define _B3mask (GDK_BUTTON3_MASK)
++#if defined __riscos__ || defined MT_RISCOS_UI
++/* RISC OS: Menu (GDK button 3) gives the window's menu (riscos-gtk), so
++ * mtPaint leaves it alone; Adjust (GDK button 2) does what the right
++ * button does elsewhere */
++#define MT_RBUTTON 2
++#else
++#define MT_RBUTTON 3
++#endif
+ #define _B13mask (GDK_BUTTON1_MASK | GDK_BUTTON3_MASK)
+ 
+ //	Functions to run with EVENT
