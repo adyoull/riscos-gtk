@@ -10638,3 +10638,48 @@ diff -ruN a/plugins/excel/ms-biff.c b/plugins/excel/ms-biff.c
  	}
  	q->length = len;
  
+diff -ruN a/src/gui-file.c b/src/gui-file.c
+--- a/src/gui-file.c	1970-01-01 01:00:00.000000000 +0100
++++ b/src/gui-file.c	2026-11-20 15:00:00.000000000 +0000
+@@ -554,9 +554,18 @@
+ 	char *basename = NULL, *newname = NULL, *dot;
+ 	char const *ext = go_file_saver_get_extension (fs);
+ 
++#if defined __riscos__ || defined GNM_RISCOS_UI
++	/* riscos-gtk: the RISC OS Save box may not have given the chooser a
++	 * folder yet (no URI): change the name's extension anyway */
++	if (!uri && ext) {
++		basename = gtk_file_chooser_get_current_name (data->fsel);
++		if (!basename || !*basename)
++			goto out;
++	} else
++#endif
+ 	if (!uri || !ext)
+ 		goto out;
+-
++	else
+ 	basename = go_basename_from_uri (uri);
+ 	if (!basename)
+ 		goto out;
+@@ -776,6 +785,21 @@
+ 		if (!fs)
+ 			goto out;
+ 		uri = gtk_file_chooser_get_uri (fsel);
++#if defined __riscos__ || defined GNM_RISCOS_UI
++		/* riscos-gtk: a name with another format's extension
++		 * (Book1/xlsx, with Gnumeric's own format still chosen)
++		 * means that format: save in it rather than ask and save
++		 * Gnumeric XML under an .xlsx name (typed by its extension) */
++		if (uri && !go_url_check_extension (uri, go_file_saver_get_extension (fs), NULL)) {
++			char *base = go_basename_from_uri (uri);
++			GOFileSaver *by_name = base ? go_file_saver_for_file_name (base) : NULL;
++			g_free (base);
++			if (by_name && g_list_find (savers, by_name)) {
++				fs = by_name;
++				gtk_combo_box_set_active (format_combo, g_list_index (savers, fs));
++			}
++		}
++#endif
+ 		if (!go_url_check_extension (uri,
+ 					     go_file_saver_get_extension (fs),
+ 					     &uri2) &&

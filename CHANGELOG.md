@@ -1,5 +1,19 @@
 # Changelog
 
+## Gnumeric 1.12.62-riscos23 (2026-11-20)
+- **Gnumeric saves in the format the name's extension says.** With
+  Gnumeric's own format still chosen, a name such as Book1/xlsx (another
+  format's extension) asked whether to keep the name, and Yes saved
+  Gnumeric XML under it, typed by the extension. Now (RISC OS, gui-file.c)
+  the saver is taken from the extension (go_file_saver_for_file_name) when
+  one of Save As's formats has it, and the File type menu follows. Choosing
+  a format from the menu changes the name's extension even before the
+  chooser has a folder. Checked on ROL: Book1/xlsx, Book2/xls and
+  Book3/ods each give that format, read by LibreOffice. CSV and other
+  single-sheet formats are under File > Export, as on other platforms;
+  Gnumeric has no Lotus 1-2-3 writer.
+- Needs !GTKLibs 3.24.52-24 for the File type menu in the Save box.
+
 ## !GTKLibs 3.24.52-24 and AbiWord 3.0.8-riscos9 (2026-11-20)
 - **A program's file format menu is in the Save box** (GTKLibs). A
   GtkFileChooserDialog's extra widget (gtk_file_chooser_set_extra_widget:
