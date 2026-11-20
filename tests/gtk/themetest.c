@@ -24,6 +24,8 @@ GtkWidget *tt_window, *tt_notebook, *tt_status, *tt_combo, *tt_menubar, *tt_cont
 GtkWidget *tt_entry, *tt_entry_empty;
 GtkWidget *tt_save_button, *tt_open_button, *tt_drop_area, *tt_file_drag;
 GtkWidget *tt_save_dialog_button, *tt_open_dialog_button;
+GtkWidget *tt_save_format;
+int tt_save_format_home;
 char tt_last_file[256];             /* the last file chosen or dropped */
 int tt_events;
 
@@ -200,6 +202,24 @@ on_chooser (GtkButton *b, gpointer data)
   g_object_unref (n);
 }
 
+/* The Save dialogue's format menu changes the name's extension, as
+   AbiWord's does */
+static void
+on_save_format (GtkComboBox *c, GtkFileChooser *d)
+{
+  char *name = gtk_file_chooser_get_current_name (d);
+  char *dot = name ? strrchr (name, '.') : NULL;
+  if (dot)
+    {
+      char *fresh;
+      *dot = '\0';
+      fresh = g_strconcat (name, gtk_combo_box_get_active (c) == 1 ? ".txt" : ".csv", NULL);
+      gtk_file_chooser_set_current_name (d, fresh);
+      g_free (fresh);
+    }
+  g_free (name);
+}
+
 /* The same with GtkFileChooserDialog, as most programs do it: on RISC OS
    a Save box or an Open box too */
 static void
@@ -219,9 +239,24 @@ on_chooser_dialog (GtkButton *b, gpointer data)
     {
       gtk_file_chooser_set_do_overwrite_confirmation (GTK_FILE_CHOOSER (d), TRUE);
       gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (d), "Accounts.csv");
+      /* a format menu, added after the dialogue is shown (AbiWord does) */
+      gtk_widget_show (d);
+      tt_save_format = gtk_combo_box_text_new ();
+      gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (tt_save_format), "CSV (.csv)");
+      gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (tt_save_format), "Text (.txt)");
+      gtk_combo_box_set_active (GTK_COMBO_BOX (tt_save_format), 0);
+      g_signal_connect (tt_save_format, "changed", G_CALLBACK (on_save_format), d);
+      gtk_widget_show (tt_save_format);
+      gtk_file_chooser_set_extra_widget (GTK_FILE_CHOOSER (d), tt_save_format);
     }
   say ("%s dialogue opened", save ? "Save" : "Open");
   r = gtk_dialog_run (GTK_DIALOG (d));
+  if (save)
+    {
+      /* back in the dialogue once its box has gone */
+      tt_save_format_home = gtk_widget_get_toplevel (tt_save_format) == d;
+      tt_save_format = NULL;
+    }
   if (r == GTK_RESPONSE_ACCEPT)
     {
       char *path = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (d));

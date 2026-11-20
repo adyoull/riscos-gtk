@@ -1,5 +1,28 @@
 # Changelog
 
+## !GTKLibs 3.24.52-24 and AbiWord 3.0.8-riscos9 (2026-11-20)
+- **A program's file format menu is in the Save box** (GTKLibs). A
+  GtkFileChooserDialog's extra widget (gtk_file_chooser_set_extra_widget:
+  AbiWord's "Save file as type", Gnumeric's "File type") wasn't shown in
+  the RISC OS Save box or the directory browser, so the program saved in
+  its default format whatever the name: AbiWord wrote its own .abw XML
+  under a /doc, /docx, /rtf or /odt name, which MimeMap typed by the
+  extension, and Word, EasiWriter and LibreOffice couldn't read it. The
+  box now shows the widget under the name (moved in while the box is open,
+  back to the dialogue after), also when the program adds it after showing
+  the dialogue (AbiWord does); choosing a format changes the name's
+  extension, as GTK's own dialogue does. edittest checks it.
+- **AbiWord saves in the format the name's extension says** (riscos9;
+  patches/abiword-3.0.8-riscos.diff, xap_UnixDlg_FileOpenSaveAs.cpp). With
+  AbiWord's own format still chosen, a name such as Report/docx (another
+  format's extension) now saves in that format, as auto-detect does,
+  instead of asking. Checked on ROL: names ending /rtf, /docx and /odt, and
+  Microsoft Word chosen from the menu, each give a file LibreOffice opens.
+  (AbiWord's "Microsoft Word (.doc)" is RTF in a .doc file, as on every
+  platform: AbiWord has no Word 97 writer. Word opens it; for EasiWriter
+  save as Rich Text.)
+- Gnumeric gets its File type menu from the new !GTKLibs; it isn't rebuilt.
+
 ## !GTKLibs 3.24.52-23 (2026-11-18)
 - **A web link dragged to the Filer or the Pinboard is saved as a URI
   file.** GDK took text/uri-list first and, with no file: address in it,

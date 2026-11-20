@@ -70,11 +70,30 @@ static int cancel_box_handle, cancel_box_closed;
 /* GtkFileChooserDialog shown as the boxes */
 static int dlg_save_box, dlg_save_handle, dlg_saved, dlg_open_box, dlg_cancel_handle, dlg_cancel_closed;
 static int ds_first, dl_first, oa_first;
+static int dlg_extra_in_box, dlg_extra_back;
+static char dlg_extra_name[64];
 static char dlg_saved_file[256], dlg_opened_file[256];
 /* a file dragged out (themetest's Prices.csv) and saved where the
    receiver says (outdir/Prices.csv) */
 static char fd_target[512], fd_target_ro[512], fd_leaf[64], fd_dl_path[512];
 static int fd_ds, fd_ds_type, fd_ds_size, fd_dl, fd_dl_type, fd_saved_type = -1, mimemap_asked;
+
+static GtkWidget *
+find_entry (GtkWidget *w)
+{
+  GtkWidget *found = NULL;
+  GList *l, *kids;
+
+  if (GTK_IS_ENTRY (w) && !GTK_IS_COMBO_BOX (gtk_widget_get_parent (w)))
+    return w;
+  if (!GTK_IS_CONTAINER (w))
+    return NULL;
+  kids = gtk_container_get_children (GTK_CONTAINER (w));
+  for (l = kids; l && !found; l = l->next)
+    found = find_entry (l->data);
+  g_list_free (kids);
+  return found;
+}
 
 static void
 check (int ok, const char *name)
@@ -881,6 +900,8 @@ next_step (void)
 
   memset (q, 0, sizeof q);
   step++;
+  if (getenv ("ET_STEPS"))
+    fprintf (stderr, "edittest: step %d\n", step);
   menu_seen = 0;
   switch (step)
     {
@@ -1126,6 +1147,17 @@ next_step (void)
       break;
     case 30:
       dlg_save_box = box_window ("Save File") != NULL;
+      if (dlg_save_box && tt_save_format)
+        {
+          GtkWidget *e = find_entry (box_window ("Save File"));
+          dlg_extra_in_box = gtk_widget_get_toplevel (tt_save_format) == box_window ("Save File");
+          gtk_combo_box_set_active (GTK_COMBO_BOX (tt_save_format), 1);
+          if (e)
+            g_strlcpy (dlg_extra_name, gtk_entry_get_text (GTK_ENTRY (e)), sizeof dlg_extra_name);
+          /* and back to CSV, the type the save below expects */
+          gtk_combo_box_set_active (GTK_COMBO_BOX (tt_save_format), 0);
+          dlg_extra_back = e && strcmp (gtk_entry_get_text (GTK_ENTRY (e)), "Accounts/csv") == 0;
+        }
       dlg_save_handle = drag_save_icon ("Save File");
       if (!dlg_save_handle)
         nulls (4);
@@ -1465,6 +1497,9 @@ main (int argc, char **argv)
            "a click elsewhere (Message_MenusDeleted) closes a transient Save box, cancelled");
     check (dlg_save_box && dlg_save_handle,
            "a program's own GtkFileChooserDialog for saving is a Save box");
+    check (dlg_extra_in_box && strcmp (dlg_extra_name, "Accounts/txt") == 0 && dlg_extra_back && tt_save_format_home,
+           "the dialogue's extra widget (a format menu set after it was shown) is in the Save box; choosing a format changes the name; it goes back to the dialogue after");
+    printf ("# with the format menu on Text: \"%s\"\n", dlg_extra_name);
     check (save_ds_seen == 2 && save_dl_seen == 2 && dlg_saved && strcmp (dlg_saved_file, save_target) == 0,
            "dragging its icon saves where the receiver says; the program gets it from gtk_file_chooser_get_filename");
     printf ("# dialogue saved to \"%s\"\n", dlg_saved_file);

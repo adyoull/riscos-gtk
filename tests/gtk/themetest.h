@@ -7,6 +7,8 @@ extern GtkWidget *tt_entry, *tt_entry_empty;     /* the Writable and Empty field
 extern GtkWidget *tt_save_button, *tt_open_button, *tt_drop_area, *tt_file_drag;
 #define TT_DRAG_FILE_TEXT "Item,Price\nTea,1.20\nCake,2.50\n"     /* tt_file_drag's file, Prices.csv */
 extern GtkWidget *tt_save_dialog_button, *tt_open_dialog_button;  /* GtkFileChooserDialog */   /* Files (Dialogues page) */
+extern GtkWidget *tt_save_format;               /* its format menu (an extra widget), while open */
+extern int tt_save_format_home;                  /* the menu was back in the dialogue after */
 extern char tt_last_file[256];                   /* the file last chosen or dropped */
 extern int tt_events;
 int themetest_main (int argc, char **argv);

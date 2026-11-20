@@ -108,6 +108,13 @@ struct _RiscosBox
   GSList *filters;              /* the program's GtkFileFilters (refs) */
   GtkFileFilter *filter;        /* the one chosen */
 
+  /* the program's extra widget (a GtkFileChooserDialog's, as AbiWord's
+     and Gnumeric's file format menus), shown in the box while it's open */
+  GtkWidget *extra, *extra_parent;
+  GtkWidget *xrow;              /* the box's row for it */
+  gulong extra_notify;          /* the owner's notify::extra-widget */
+  gboolean extra_syncing;
+
   /* the Filer-style directory browser (below) */
   gboolean browser;
   Browser *b;
@@ -297,10 +304,178 @@ finish (RiscosBox *box, int response, GFile *file)
 static void browser_free (RiscosBox *box);
 
 /* Close the box's window (the box itself stays) */
+/* ---- the program's extra widget ----
+
+   A GtkFileChooserDialog's extra widget (gtk_file_chooser_set_extra_widget)
+   is how AbiWord and Gnumeric ask which format to save in: it's moved into
+   the Save box or the browser while one is open, and back into the
+   (hidden) dialogue when it closes, so the program reads its choice as
+   usual. The name typed in the box is given to the dialogue as its
+   current name as it changes, and when a menu in the extra widget is
+   changed (the program may change the name's extension to suit the
+   format, as AbiWord does), the box takes the dialogue's name back. */
+
+static void
+extra_push_name (RiscosBox *box)
+{
+  char *leaf, *p, *utf8;
+
+  if (box->extra == NULL || box->entry == NULL || box->extra_syncing ||
+      !GTK_IS_FILE_CHOOSER (box->owner))
+    return;
+  /* RISC OS leaf "Report/doc" -> Unix "Report.doc" */
+  leaf = g_strdup (leaf_of (entry_ro (GTK_ENTRY (box->entry))));
+  for (p = leaf; *p; p++)
+    if (*p == '/')
+      *p = '.';
+  utf8 = ro_to_ui (leaf);
+  box->extra_syncing = TRUE;
+  gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (box->owner), utf8);
+  box->extra_syncing = FALSE;
+  g_free (utf8);
+  g_free (leaf);
+}
+
+static void
+on_extra_changed (GtkWidget *w, RiscosBox *box)
+{
+  char *utf8, *ro, *p, *text;
+  const char *old;
+  size_t keep;
+
+  if (box->entry == NULL || box->extra_syncing || !GTK_IS_FILE_CHOOSER (box->owner))
+    return;
+  utf8 = gtk_file_chooser_get_current_name (GTK_FILE_CHOOSER (box->owner));
+  if (utf8 == NULL || *utf8 == '\0')
+    {
+      g_free (utf8);
+      return;
+    }
+  ro = ui_to_ro (utf8);
+  for (p = ro; *p; p++)                  /* Unix "Report.doc" -> "Report/doc" */
+    if (*p == '.')
+      *p = '/';
+  old = entry_ro (GTK_ENTRY (box->entry));
+  keep = leaf_of (old) - old;            /* a full name's path stays */
+  text = g_strdup_printf ("%.*s%s", (int) keep, old, ro);
+  if (strcmp (text, old) != 0)
+    {
+      box->extra_syncing = TRUE;
+      entry_set_ro (GTK_ENTRY (box->entry), text);
+      box->extra_syncing = FALSE;
+    }
+  g_free (text);
+  g_free (ro);
+  g_free (utf8);
+}
+
+static void
+extra_watch (GtkWidget *w, gpointer box)
+{
+  if (GTK_IS_COMBO_BOX (w))
+    g_signal_connect_after (w, "changed", G_CALLBACK (on_extra_changed), box);
+  if (GTK_IS_CONTAINER (w))
+    gtk_container_foreach (GTK_CONTAINER (w), extra_watch, box);
+}
+
+static void
+extra_unwatch (GtkWidget *w, gpointer box)
+{
+  if (GTK_IS_COMBO_BOX (w))
+    g_signal_handlers_disconnect_by_func (w, on_extra_changed, box);
+  if (GTK_IS_CONTAINER (w))
+    gtk_container_foreach (GTK_CONTAINER (w), extra_unwatch, box);
+}
+
+static void
+on_entry_for_extra (GtkEditable *e, RiscosBox *box)
+{
+  extra_push_name (box);
+}
+
+/* Move the program's extra widget (if it has one) into container */
+static void
+extra_attach (RiscosBox *box, GtkWidget *container)
+{
+  GtkWidget *extra;
+
+  if (!GTK_IS_FILE_CHOOSER_DIALOG (box->owner))
+    return;
+  extra = gtk_file_chooser_get_extra_widget (GTK_FILE_CHOOSER (box->owner));
+  if (debug ())
+    g_printerr ("riscos-gtk: %s extra widget\n", extra ? "the program's" : "no");
+  if (extra == NULL)
+    return;
+  g_object_ref (extra);
+  box->extra_parent = gtk_widget_get_parent (extra);
+  if (box->extra_parent)
+    {
+      g_object_ref (box->extra_parent);
+      gtk_container_remove (GTK_CONTAINER (box->extra_parent), extra);
+    }
+  box->extra = extra;
+  gtk_box_pack_start (GTK_BOX (container), extra, FALSE, FALSE, 0);
+  gtk_widget_show (extra);
+  extra_watch (extra, box);
+  if (box->entry)
+    {
+      g_signal_connect (box->entry, "changed", G_CALLBACK (on_entry_for_extra), box);
+      extra_push_name (box);
+    }
+}
+
+/* ... and back into the dialogue */
+static void
+extra_detach (RiscosBox *box)
+{
+  GtkWidget *extra = box->extra, *parent;
+
+  if (extra == NULL)
+    return;
+  box->extra = NULL;
+  extra_unwatch (extra, box);
+  if (box->entry)
+    g_signal_handlers_disconnect_by_func (box->entry, on_entry_for_extra, box);
+  parent = gtk_widget_get_parent (extra);
+  if (parent)
+    gtk_container_remove (GTK_CONTAINER (parent), extra);
+  if (box->extra_parent)
+    {
+      gtk_container_add (GTK_CONTAINER (box->extra_parent), extra);
+      g_object_unref (box->extra_parent);
+      box->extra_parent = NULL;
+    }
+  g_object_unref (extra);
+}
+
+/* The box's row for the extra widget: shown only while it holds one */
+static void
+extra_row (RiscosBox *box, GtkWidget *xrow)
+{
+  box->xrow = xrow;
+  extra_attach (box, xrow);
+  gtk_widget_set_no_show_all (xrow, box->extra == NULL);
+  gtk_widget_set_visible (xrow, box->extra != NULL);
+}
+
+/* The program set (or changed) its extra widget while the box was open:
+   AbiWord shows its dialogue first and adds its format menu after */
+static void
+on_extra_notify (GObject *owner, GParamSpec *pspec, RiscosBox *box)
+{
+  if (box->xrow == NULL
+      || box->extra == gtk_file_chooser_get_extra_widget (GTK_FILE_CHOOSER (owner)))
+    return;
+  extra_detach (box);
+  extra_row (box, box->xrow);
+}
+
 static void
 box_close_window (RiscosBox *box)
 {
   g_idle_remove_by_data (box);
+  extra_detach (box);
+  box->xrow = NULL;
   browser_free (box);
   if (box->window)
     {
@@ -316,6 +491,8 @@ static void
 box_free (RiscosBox *box)
 {
   box_close_window (box);
+  if (box->extra_notify)
+    g_signal_handler_disconnect (box->owner, box->extra_notify);
   g_clear_object (&box->dropped);
   g_clear_object (&box->folder);
   g_slist_free_full (box->filters, g_object_unref);
@@ -819,6 +996,15 @@ box_build (RiscosBox *box)
         gtk_box_pack_end (GTK_BOX (line), browse, FALSE, FALSE, 0);
         gtk_box_pack_start (GTK_BOX (col), line, FALSE, FALSE, 0);
       }
+      {
+        /* the program's own choices (a format menu), under them */
+        GtkWidget *xrow = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+        gtk_widget_set_margin_top (xrow, 7);
+        gtk_widget_set_margin_start (xrow, 6);
+        gtk_widget_set_margin_end (xrow, 11);
+        gtk_box_pack_start (GTK_BOX (col), xrow, FALSE, FALSE, 0);
+        extra_row (box, xrow);
+      }
 
       cancel = action_button (box->cancel_label ? box->cancel_label : _("Cancel"));
       okb = action_button (box->accept_label ? box->accept_label : _("Save"));
@@ -927,6 +1113,9 @@ box_open (GObject *owner, RiscosBoxDone done, GtkFileChooserAction action,
   box->action = action;
   box->browser = want_browser ();
   g_object_set_data (owner, "riscos-gtk-box", box);
+  if (GTK_IS_FILE_CHOOSER_DIALOG (owner))
+    box->extra_notify = g_signal_connect (owner, "notify::extra-widget",
+                                          G_CALLBACK (on_extra_notify), box);
   box_show (box);
   return box;
 }
@@ -2233,6 +2422,14 @@ browser_build (RiscosBox *box)
   gtk_widget_set_valign (w, GTK_ALIGN_CENTER);
   gtk_box_pack_end (GTK_BOX (bottom), w, FALSE, FALSE, 0);
   gtk_box_pack_end (GTK_BOX (vb), bottom, FALSE, FALSE, 0);
+  if (save)
+    {
+      /* the program's own choices (a format menu), above the name */
+      GtkWidget *xrow = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+      gtk_container_set_border_width (GTK_CONTAINER (xrow), 6);
+      gtk_box_pack_end (GTK_BOX (vb), xrow, FALSE, FALSE, 0);
+      extra_row (box, xrow);
+    }
 
   browser_start (box);
 }
