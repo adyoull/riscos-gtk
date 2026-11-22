@@ -70,7 +70,7 @@ static int cancel_box_handle, cancel_box_closed;
 /* GtkFileChooserDialog shown as the boxes */
 static int dlg_save_box, dlg_save_handle, dlg_saved, dlg_open_box, dlg_cancel_handle, dlg_cancel_closed;
 static int ds_first, dl_first, oa_first;
-static int dlg_extra_in_box, dlg_extra_back;
+static int dlg_extra_in_box, dlg_extra_back, dlg_popup_box, dlg_popup_was_menu;
 static char dlg_extra_name[64];
 static char dlg_saved_file[256], dlg_opened_file[256];
 /* a file dragged out (themetest's Prices.csv) and saved where the
@@ -1150,10 +1150,19 @@ next_step (void)
       if (dlg_save_box && tt_save_format)
         {
           GtkWidget *e = find_entry (box_window ("Save File"));
+          int ox, oy;
           dlg_extra_in_box = gtk_widget_get_toplevel (tt_save_format) == box_window ("Save File");
           gtk_combo_box_set_active (GTK_COMBO_BOX (tt_save_format), 1);
           if (e)
             g_strlcpy (dlg_extra_name, gtk_entry_get_text (GTK_ENTRY (e)), sizeof dlg_extra_name);
+          /* its pop-up (a Wimp menu) leaves the box open: opened from a
+             click, the box is a menu itself, which the new menu tree
+             would close */
+          dlg_popup_was_menu = fake_menu_window != 0;
+          gtk_combo_box_popup (GTK_COMBO_BOX (tt_save_format));
+          dlg_popup_box = fake_menu != NULL && box_window ("Save File") != NULL &&
+                          target_box (box_window ("Save File"), &ox, &oy) != 0;
+          gtk_combo_box_popdown (GTK_COMBO_BOX (tt_save_format));
           /* and back to CSV, the type the save below expects */
           gtk_combo_box_set_active (GTK_COMBO_BOX (tt_save_format), 0);
           dlg_extra_back = e && strcmp (gtk_entry_get_text (GTK_ENTRY (e)), "Accounts/csv") == 0;
@@ -1500,6 +1509,8 @@ main (int argc, char **argv)
     check (dlg_extra_in_box && strcmp (dlg_extra_name, "Accounts/txt") == 0 && dlg_extra_back && tt_save_format_home,
            "the dialogue's extra widget (a format menu set after it was shown) is in the Save box; choosing a format changes the name; it goes back to the dialogue after");
     printf ("# with the format menu on Text: \"%s\"\n", dlg_extra_name);
+    check (dlg_popup_was_menu && dlg_popup_box,
+           "the extra widget's pop-up menu opens with the box still open (a transient box becomes static)");
     check (save_ds_seen == 2 && save_dl_seen == 2 && dlg_saved && strcmp (dlg_saved_file, save_target) == 0,
            "dragging its icon saves where the receiver says; the program gets it from gtk_file_chooser_get_filename");
     printf ("# dialogue saved to \"%s\"\n", dlg_saved_file);

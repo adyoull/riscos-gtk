@@ -2495,6 +2495,7 @@ gdk_riscos_display_open_menu (GdkDisplay *display, gpointer menu_block,
                               GdkRiscosMenuFunc func, gpointer data)
 {
   GdkRiscosServer *server = the_server;
+  RiscosWindow *dbox = NULL;
   _kernel_swi_regs r;
 
   if (server == NULL)
@@ -2514,10 +2515,34 @@ gdk_riscos_display_open_menu (GdkDisplay *display, gpointer menu_block,
   server->menu_data = data;
   server->menu_x = root_x << server->xeig;
   server->menu_y = (server->screen_h - root_y) << server->yeig;
+  /* A transient dialogue box (opened as a menu: a Save box from a menu)
+     is closed by the Wimp when another menu tree opens, as a pop-up
+     menu in it (a format menu) would: it becomes a static dialogue box,
+     opened again after the new menu, and its Message_MenusDeleted no
+     longer cancels it */
+  if (server->dbox_menu)
+    dbox = window_by_handle (server, server->dbox_menu);
+  if (dbox)
+    {
+      server->dbox_menu = 0;
+      dbox->menu_open = FALSE;
+      dbox->as_menu = FALSE;
+    }
   r.r[1] = (int) menu_block;
   r.r[2] = server->menu_x;
   r.r[3] = server->menu_y;
   swi (Wimp_CreateMenu, &r);
+  if (dbox && dbox->visible)
+    {
+      int block[8];
+      block[0] = dbox->handle;
+      visible_area (server, dbox->x, dbox->y, MAX (dbox->width, 1) + dbox->strip,
+                    MAX (dbox->height, 1), &block[1]);
+      block[5] = 0;
+      block[6] = 0;
+      block[7] = -1;
+      wimp_open (dbox, block);
+    }
 }
 
 void

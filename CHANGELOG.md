@@ -1,5 +1,26 @@
 # Changelog
 
+## !GTKLibs 3.24.52-25 and Gnumeric 1.12.62-riscos24 (2026-11-22)
+- **A format menu in a Save box opened from a menu works** (GTKLibs). A
+  Save box opened by a click (Menu > File > Save As) is a transient
+  dialogue box, opened as a Wimp menu; a pop-up menu in it (Gnumeric's
+  File type) opened a new menu tree, so the Wimp closed the box, and the
+  program's dialogue was left waiting. Choosing Save As again then ran a
+  second dialogue inside the first and could crash (EMT trap in
+  gtkmenu-riscos.c handle). Now GDK reopens such a box as a static
+  dialogue box when a menu opens (gdk_riscos_display_open_menu), and a
+  Select choice from a Wimp menu tidies the menu up before activating the
+  item, as GTK deactivates a menu before activating it, so a choice that
+  runs a dialogue leaves no stale menu state behind it. edittest checks
+  the pop-up with the box open (the fake Wimp now closes a dialogue box
+  opened as a menu when a new menu tree opens).
+- **Gnumeric's .xls files have no black cells in Fireworkz** (riscos24,
+  ms-excel-write.c). An unfilled cell's XF carried the style's pattern
+  colour (black, palette 8) with pattern none; Excel writes the automatic
+  colours (64, 65) there, and a reader that takes the pattern colour
+  without the pattern showed every cell black. Unfilled cells now get the
+  automatic colours.
+
 ## mtPaint 3.50.14-riscos18 (2026-11-20)
 - **Browse... opens the directory browser.** It made a GtkFileChooserNative,
   which riscos-gtk shows as another Save or Open box unless

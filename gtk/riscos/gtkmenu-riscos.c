@@ -520,6 +520,32 @@ handle (gpointer data)
           break;
         }
     }
+  if (!st->adjust)
+    {
+      /* A Select choice: the menu has gone. Tidy it up first, as GTK
+         deactivates a menu shell before activating its item, so that a
+         choice which runs a dialogue (File > Save As: a nested main
+         loop) leaves no stale menu behind it: a later Wimp menu (a format
+         menu in that dialogue) is then the only one */
+      if (chosen && gtk_widget_is_sensitive (chosen))
+        g_object_ref (chosen);
+      else
+        chosen = NULL;
+      if (current == st)
+        {
+          gdk_riscos_display_close_menu (display);
+          finish (st);
+        }
+      else
+        state_free (st);             /* replaced or popped down meanwhile */
+      gdk_riscos_display_menu_done (display);
+      if (chosen)
+        {
+          gtk_menu_item_activate (GTK_MENU_ITEM (chosen));
+          g_object_unref (chosen);
+        }
+      return FALSE;
+    }
   st->handling = TRUE;
   if (chosen && gtk_widget_is_sensitive (chosen))
     {

@@ -1257,6 +1257,13 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         block[3] = window_at_pointer(); block[4] = -1;
         break;
     case 0x400D4:   /* Wimp_CreateMenu */
+        /* a new menu tree closes the old one, a dialogue box opened as a
+           menu with it */
+        if (r.r[1] != -1 && fake_menu_window && r.r[1] != fake_menu_window) {
+            fake_window_t *mw = find_window(fake_menu_window);
+            if (mw) mw->handle = 0;
+            fake_menu_window = 0;
+        }
         if (r.r[1] == -1 && fake_menu_window) {    /* a dialogue box opened as a menu */
             fake_window_t *mw = find_window(fake_menu_window);
             if (mw) mw->handle = 0;

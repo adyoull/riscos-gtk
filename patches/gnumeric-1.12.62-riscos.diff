@@ -10683,3 +10683,22 @@ diff -ruN a/src/gui-file.c b/src/gui-file.c
  		if (!go_url_check_extension (uri,
  					     go_file_saver_get_extension (fs),
  					     &uri2) &&
+diff -ruN a/plugins/excel/ms-excel-write.c b/plugins/excel/ms-excel-write.c
+--- a/plugins/excel/ms-excel-write.c	1970-01-01 01:00:00.000000000 +0100
++++ b/plugins/excel/ms-excel-write.c	2026-11-22 10:00:00.000000000 +0000
+@@ -3078,6 +3078,15 @@
+ 	xfd->pat_backgnd_col  = map_color_to_palette (xle,
+ 		gnm_style_get_back_color (st), PALETTE_AUTO_BACK);
+ 
++	/* No fill: the automatic colours, as Excel writes them. A style's
++	 * pattern colour is black by default, and readers that take the
++	 * pattern colour without looking at the pattern (Fireworkz) gave
++	 * every cell a black background */
++	if (xfd->fill_pattern_idx == FILL_NONE) {
++		xfd->pat_foregnd_col = PALETTE_AUTO_PATTERN;
++		xfd->pat_backgnd_col = PALETTE_AUTO_BACK;
++	}
++
+ 	/* Solid patterns seem to reverse the meaning */
+ 	if (xfd->fill_pattern_idx == FILL_SOLID) {
+ 		guint16 c = xfd->pat_backgnd_col;
