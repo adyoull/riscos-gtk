@@ -95,6 +95,7 @@ static const unsigned int wimp_palette_tbgr[16] = {
     0x994400, 0x00EEEE, 0x00CC00, 0x0000DD, 0xBBEEEE, 0x008855, 0x00BBFF, 0xFFBB00 };
 int fake_fills;
 static int clip[4];                  /* graphics window, OS units x0,y0,x1,y1 (excl.) */
+int fake_vdu24;                       /* VDU 24s (OS_WriteN) */
 
 /* A 32bpp mode selector like OS_ScreenMode 1 would return. */
 static int screen_selector[16];
@@ -1316,6 +1317,16 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
     case 0x400E6:   /* Wimp_SetColour */
         wimp_colour = r.r[0] & 15;
         break;
+    case 0x46: {    /* OS_WriteN: VDU 24 (graphics window) only */
+        const unsigned char *v = (const unsigned char *) (long) r.r[0];
+        if (r.r[1] == 9 && v[0] == 24) {
+            int g[4], i;
+            for (i = 0; i < 4; i++) g[i] = (short) (v[1 + 2 * i] | (v[2 + 2 * i] << 8));
+            clip[0] = g[0]; clip[1] = g[1]; clip[2] = g[2] + 1; clip[3] = g[3] + 1;
+            fake_vdu24++;
+        } else e = error("OS_WriteN: only VDU 24 is faked");
+        break;
+    }
     case 0x45: {    /* OS_Plot: 4 move, 101 rectangle fill (absolute, inclusive) */
         if (r.r[0] == 4) { plot_x = r.r[1]; plot_y = r.r[2]; break; }
         if (r.r[0] == 101) {

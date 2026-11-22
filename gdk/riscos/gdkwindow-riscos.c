@@ -736,6 +736,74 @@ update_furniture (GdkWindow *window)
  * a menu (Wimp_CreateMenu with its window handle): a click anywhere else
  * closes it, and GTK gets a delete event.
  */
+/* window (maybe a child GdkWindow, drawn in its top-level's) to its
+   top-level's coordinates */
+static GdkRiscosServer *
+pix_target (GdkWindow *window, int *id, int *dx, int *dy)
+{
+  GdkWindow *top;
+
+  if (!GDK_IS_WINDOW (window) || !GDK_IS_WINDOW_IMPL_RISCOS (window->impl))
+    return NULL;
+  top = window->impl_window;
+  *id = GDK_WINDOW_IMPL_RISCOS (window->impl)->id;
+  *dx = window->abs_x - top->abs_x;
+  *dy = window->abs_y - top->abs_y;
+  return GDK_RISCOS_DISPLAY (gdk_window_get_display (window))->server;
+}
+
+void
+gdk_riscos_window_set_pixel_area (GdkWindow *window, const cairo_rectangle_int_t *area,
+                                  const void *pixels, int stride,
+                                  int width, int height, gboolean trgb)
+{
+  GdkRiscosServer *server;
+  cairo_rectangle_int_t where;
+  int id, dx, dy;
+
+  server = pix_target (window, &id, &dx, &dy);
+  if (server == NULL)
+    return;
+  if (area)
+    {
+      where = *area;
+      where.x += dx;
+      where.y += dy;
+    }
+  _gdk_riscos_server_window_set_pixel_area (server, id, area ? &where : NULL, pixels,
+                                            stride, width, height, trgb);
+}
+
+void
+gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage)
+{
+  GdkRiscosServer *server;
+  cairo_region_t *d = NULL;
+  int id, dx, dy;
+
+  server = pix_target (window, &id, &dx, &dy);
+  if (server == NULL)
+    return;
+  if (damage)
+    {
+      d = cairo_region_copy (damage);
+      cairo_region_translate (d, dx, dy);
+    }
+  _gdk_riscos_server_window_pixel_area_changed (server, id, d);
+  if (d)
+    cairo_region_destroy (d);
+}
+
+gboolean
+gdk_riscos_screen_is_trgb (void)
+{
+  GdkDisplay *display = gdk_display_get_default ();
+
+  if (!display || !GDK_IS_RISCOS_DISPLAY (display))
+    return FALSE;
+  return _gdk_riscos_server_screen_is_trgb (GDK_RISCOS_DISPLAY (display)->server);
+}
+
 void
 gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient)
 {

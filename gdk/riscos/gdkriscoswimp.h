@@ -139,6 +139,30 @@ void       gdk_riscos_window_set_load_func (GdkWindow *window,
  * gets a delete event. */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_set_transient_dbox (GdkWindow *window, gboolean transient);
+
+/* A part of a window shown from the program's own pixels (a browser's
+ * page, drawn by another task into shared memory): area (window's
+ * coordinates, GDK pixels) shows pixels, width x height 32 bpp pixels
+ * (device pixels: area's size times the GDK scale), stride bytes a row (a
+ * multiple of 4), in cairo's order (&AARRGGBB, trgb TRUE) or &AABBGGRR
+ * (FALSE). GDK plots them straight to the screen in the Wimp's redraw and
+ * update loops, not through its backing sprite, and doesn't plot what GTK
+ * draws there. In the screen's order (gdk_riscos_screen_is_trgb) they are
+ * plotted where they are; in the other order GDK copies them, swapping red
+ * and blue. pixels must stay until the next call; NULL pixels: GDK draws
+ * the area again. Call again for a new frame buffer or a new area (it is
+ * shown at once); for new pixels in the same buffer,
+ * gdk_riscos_window_pixel_area_changed. One area a top-level window. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_pixel_area (GdkWindow *window, const cairo_rectangle_int_t *area,
+                                             const void *pixels, int stride,
+                                             int width, int height, gboolean trgb);
+/* damage (window's coordinates, GDK pixels; NULL: all) has new pixels */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage);
+/* TRUE if the screen's 32 bpp pixels are &00RRGGBB (cairo's order) */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_screen_is_trgb (void);
 GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height);
 /* Put the grip in the column of the window's vertical scroll bar (x, width

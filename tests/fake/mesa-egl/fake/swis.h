@@ -29,4 +29,5 @@
 #define Wimp_GetWindowState 0x400CB
 #define Wimp_SetColour      0x400E6
 #define OS_Plot             0x45
+#define OS_WriteN           0x46
 #endif

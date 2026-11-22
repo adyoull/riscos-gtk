@@ -232,6 +232,34 @@ from the Wimp's sprites). The desktop's fonts are still added, for a task
 that lays out text; one that draws none also sets
 `RISCOS_GTK_RISCOS_FONTS` to 0. `gdk_riscos_get_windowless()` says which.
 
+## A window part from the program's own pixels
+
+```c
+void     gdk_riscos_window_set_pixel_area     (GdkWindow *window, const cairo_rectangle_int_t *area,
+                                               const void *pixels, int stride,
+                                               int width, int height, gboolean trgb);
+void     gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage);
+gboolean gdk_riscos_screen_is_trgb            (void);
+```
+
+For a program that has its pixels already (a browser's page, drawn by
+another task into shared memory). `area` (the window's coordinates, GDK
+pixels; the window may be a child GdkWindow) is shown from `pixels`:
+`width` x `height` 32 bpp pixels (the area's size times the GDK scale),
+`stride` bytes a row (a multiple of 4, padding allowed), in cairo's order
+(&AARRGGBB, `trgb` TRUE) or &AABBGGRR. In the Wimp's redraw and update
+loops GDK writes them straight into the screen's memory (32 bpp screens;
+red and blue swapped on the way when the orders differ: pixels in the
+screen's order, `gdk_riscos_screen_is_trgb()`, are copied as they are),
+not through its backing sprite, and doesn't plot what GTK draws there.
+On a screen that isn't 32 bpp they go through a sprite of GDK's.
+
+`pixels` must stay valid until the next call. Call again with a new
+buffer (a new frame) or a new area: it is shown at once. New pixels in
+the same buffer: `gdk_riscos_window_pixel_area_changed` with the changed
+part (NULL: all). `pixels` NULL: GDK draws the area again. One area per
+top-level window.
+
 ## Files
 
 ```c

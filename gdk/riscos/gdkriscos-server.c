@@ -130,7 +130,23 @@ typedef struct {
   int parent;
   unsigned nest_flags;
   gboolean unnest;            /* parent just cleared: open it at the top level once */
+  struct PixelArea *pix;      /* a part the program plots from its own pixels */
 } RiscosWindow;
+
+/* gdk_riscos_window_set_pixel_area: a part of a window shown from the
+   program's own 32 bpp pixels (a browser's page, drawn by another task in
+   shared memory), plotted straight from them in the Wimp's redraw and
+   update loops, not copied through GDK's backing sprite. */
+typedef struct PixelArea {
+  int x, y, w, h;             /* where, window GDK pixels */
+  const guint32 *pixels;      /* the program's: stride bytes a row, dev_w x dev_h */
+  int stride, dev_w, dev_h;
+  gboolean trgb;              /* &00RRGGBB (cairo's order), else &00BBGGRR */
+  int *copy;                  /* a screen that isn't 32 bpp: a TBGR sprite we copy
+                                 into, plotted with OS_SpriteOp (which converts) */
+} PixelArea;
+
+static void pix_free (RiscosWindow *w);
 
 struct _GdkRiscosServer {
   GObject parent_instance;
@@ -1103,6 +1119,95 @@ fill_grey (int x0, int y0, int x1, int y1)
   swi (OS_Plot, &r);
 }
 
+/* The graphics window (VDU 24), screen OS units, inclusive */
+static void
+set_gwindow (int x0, int y0, int x1, int y1)
+{
+  char v[9];
+  _kernel_swi_regs r;
+
+  v[0] = 24;
+  v[1] = x0 & 0xFF; v[2] = (x0 >> 8) & 0xFF;
+  v[3] = y0 & 0xFF; v[4] = (y0 >> 8) & 0xFF;
+  v[5] = x1 & 0xFF; v[6] = (x1 >> 8) & 0xFF;
+  v[7] = y1 & 0xFF; v[8] = (y1 >> 8) & 0xFF;
+  r.r[0] = (int) v;
+  r.r[1] = 9;
+  swi (OS_WriteN, &r);
+}
+
+/* Plot a sprite (area's first) with its top left at (x, top), screen OS
+   units, clipped to the inclusive rectangle c */
+static void
+plot_clipped (int *area, int x, int top, int height_os, const int *c)
+{
+  _kernel_swi_regs r;
+
+  if (c[2] < c[0] || c[3] < c[1])
+    return;
+  set_gwindow (c[0], c[1], c[2], c[3]);
+  r.r[0] = 512 + 34;                   /* PutSpriteUserCoords */
+  r.r[1] = (int) area;
+  r.r[2] = (int) ((char *) area + area[2]);
+  r.r[3] = x;
+  r.r[4] = top - height_os;
+  r.r[5] = 0;
+  {
+    _kernel_oserror *e = swi (OS_SpriteOp, &r);
+    static int told;
+    if (e && told++ < 3)
+      g_printerr ("riscos-gtk: plotting a pixel area: %s\n", e->errmess);
+  }
+}
+
+static void swap_rb (guint32 *dst, const guint32 *src, int n);
+
+/* The program's pixels straight into screen memory (a 32 bpp screen),
+   in the part I (screen OS units, inclusive) of the area P, inside the
+   Wimp's redraw or update rectangle: a SpriteOp can't plot them where
+   they are (it takes an image that isn't right after its header for one
+   with a palette), and a copy is what this avoids. Red and blue are
+   swapped on the way if the orders differ. */
+static void
+pix_blit (GdkRiscosServer *server, PixelArea *p, const int *P, const int *I)
+{
+  static const int vars[] = { 148, 6, 12, -1 };   /* ScreenStart, LineLength, YWindLimit */
+  int vals[3], x0, x1, y0, y1, y, sx, n;
+  gboolean swap = (p->trgb != 0) != ((server->mode_flags & MODEFLAG_TRGB) != 0);
+  _kernel_swi_regs r;
+  char *screen;
+
+  r.r[0] = (int) vars;
+  r.r[1] = (int) vals;
+  if (swi (OS_ReadVduVariables, &r) != NULL || vals[0] == 0)
+    return;
+  screen = (char *) vals[0];
+  /* screen pixels: x across, y down from the top */
+  x0 = I[0] >> server->dev_xeig;
+  x1 = I[2] >> server->dev_xeig;
+  y0 = vals[2] - (I[3] >> server->dev_yeig);
+  y1 = vals[2] - (I[1] >> server->dev_yeig);
+  sx = x0 - (P[0] >> server->dev_xeig);
+  n = x1 - x0 + 1;
+  if (sx < 0 || n <= 0 || sx + n > p->dev_w)
+    return;
+  for (y = y0; y <= y1; y++)
+    {
+      int row = y - (vals[2] - (P[3] >> server->dev_yeig));
+      guint32 *dst;
+      const guint32 *src;
+
+      if (row < 0 || row >= p->dev_h)
+        continue;
+      dst = (guint32 *) (screen + y * vals[1]) + x0;
+      src = (const guint32 *) ((const char *) p->pixels + row * p->stride) + sx;
+      if (swap)
+        swap_rb (dst, src, n);
+      else
+        memcpy (dst, src, n * 4);
+    }
+}
+
 /* Plot a window's sprite for each rectangle of a redraw or update loop,
    and paint whatever the sprite doesn't cover (after the Wimp has made
    the window bigger and before GTK has drawn the new size): the work area
@@ -1123,7 +1228,36 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
       int ox = block[1] - block[5];         /* work area origin on screen */
       int oy = block[4] - block[6];
 
-      if (area)
+      if (area && w->pix)
+        {
+          /* the backing sprite round the pixel area, the program's pixels
+             in it (block[7..10]: this rectangle, x1/y1 exclusive) */
+          PixelArea *p = w->pix;
+          int R[4] = { block[7], block[8], block[9] - pxw, block[10] - pxh };
+          int P[4] = { ox + (p->x << server->xeig), oy - ((p->y + p->h) << server->yeig),
+                       ox + ((p->x + p->w) << server->xeig) - pxw, oy - (p->y << server->yeig) - pxh };
+          int I[4] = { MAX (R[0], P[0]), MAX (R[1], P[1]), MIN (R[2], P[2]), MIN (R[3], P[3]) };
+
+          if (I[2] < I[0] || I[3] < I[1])
+            plot_clipped (area, ox, oy, sh, R);
+          else
+            {
+              int below[4] = { R[0], R[1], R[2], I[1] - pxh };
+              int above[4] = { R[0], I[3] + pxh, R[2], R[3] };
+              int left[4] = { R[0], I[1], I[0] - pxw, I[3] };
+              int right[4] = { I[2] + pxw, I[1], R[2], I[3] };
+              plot_clipped (area, ox, oy, sh, below);
+              plot_clipped (area, ox, oy, sh, above);
+              plot_clipped (area, ox, oy, sh, left);
+              plot_clipped (area, ox, oy, sh, right);
+              if (p->copy)
+                plot_clipped (p->copy, P[0], P[3] + pxh, p->dev_h << server->dev_yeig, I);
+              else
+                pix_blit (server, p, P, I);
+            }
+          set_gwindow (R[0], R[1], R[2], R[3]);
+        }
+      else if (area)
         {
           int *a = area;
           char *sprite = (char *) area + a[2];
@@ -1886,6 +2020,7 @@ _gdk_riscos_server_destroy_window (GdkRiscosServer *server, gint id)
     cairo_surface_destroy (w->surface);
   if (w->strip_surface)
     cairo_surface_destroy (w->strip_surface);
+  pix_free (w);
   if (server->pointer_window == (guint32) id)
     server->pointer_window = 0;
   if (server->grab_window == (guint32) id)
@@ -2335,6 +2470,208 @@ _gdk_riscos_server_window_update (GdkRiscosServer *server, gint id,
     }
   if (area)
     cairo_region_destroy (area);
+}
+
+/* A sprite's mode word: 32 bpp at the screen's resolution, TRGB or TBGR */
+static int
+mode_word_32 (gboolean trgb)
+{
+  static int words[2];
+  int bytes = 16 + 44 + 4, *area;
+  _kernel_swi_regs r;
+
+  if (words[trgb])
+    return words[trgb];
+  area = g_malloc0 (bytes);
+  area[0] = bytes;
+  area[2] = 16;
+  area[3] = 16;
+  r.r[0] = 256 + 9;
+  r.r[1] = (int) area;
+  swi (OS_SpriteOp, &r);
+  trgb_selector[6] = trgb ? MODEFLAG_TRGB : 0;
+  trgb_selector[1] = trgb_selector[2] = 1;
+  trgb_selector[10] = the_server ? the_server->dev_xeig : 1;
+  trgb_selector[12] = the_server ? the_server->dev_yeig : 1;
+  r.r[0] = 256 + 15;
+  r.r[1] = (int) area;
+  r.r[2] = (int) "m";
+  r.r[3] = 0;
+  r.r[4] = 1;
+  r.r[5] = 1;
+  r.r[6] = (int) trgb_selector;
+  if (swi (OS_SpriteOp, &r) == NULL)
+    words[trgb] = ((int *) ((char *) area + area[2]))[10];
+  g_free (area);
+  return words[trgb];
+}
+
+static void
+pix_free (RiscosWindow *w)
+{
+  if (w->pix)
+    {
+      g_free (w->pix->copy);
+      g_free (w->pix);
+      w->pix = NULL;
+    }
+}
+
+/* Plot the window's rectangles in region (window GDK pixels) now */
+static void
+update_region (GdkRiscosServer *server, RiscosWindow *w, const cairo_region_t *region)
+{
+  int block[11], i, n = cairo_region_num_rectangles (region);
+  _kernel_swi_regs r;
+
+  if (!w->visible)
+    return;
+  for (i = 0; i < n; i++)
+    {
+      cairo_rectangle_int_t rc;
+      cairo_region_get_rectangle (region, i, &rc);
+      block[0] = w->handle;
+      block[1] = rc.x << server->xeig;
+      block[2] = -((rc.y + rc.height) << server->yeig);
+      block[3] = (rc.x + rc.width) << server->xeig;
+      block[4] = -(rc.y << server->yeig);
+      r.r[1] = (int) block;
+      if (swi (Wimp_UpdateWindow, &r) != NULL)
+        break;
+      sync_sprite_if_stale (w->surface);
+      plot_rectangles (server, w, block, r.r[0]);
+    }
+}
+
+/* Copy (swapping red and blue) the changed part of the program's pixels
+   into our sprite, when its order isn't the screen's */
+static void
+pix_copy (PixelArea *p, const cairo_region_t *damage, int scale)
+{
+  guint32 *dst;
+  int i, n;
+
+  if (p->copy == NULL)
+    return;
+  dst = (guint32 *) ((char *) p->copy + 16 + 44);
+  n = cairo_region_num_rectangles (damage);
+  for (i = 0; i < n; i++)
+    {
+      cairo_rectangle_int_t rc;
+      int x0, y0, x1, y1, y;
+      cairo_region_get_rectangle (damage, i, &rc);
+      x0 = MAX (0, (rc.x - p->x) * scale);
+      y0 = MAX (0, (rc.y - p->y) * scale);
+      x1 = MIN (p->dev_w, (rc.x + rc.width - p->x) * scale);
+      y1 = MIN (p->dev_h, (rc.y + rc.height - p->y) * scale);
+      for (y = y0; y < y1; y++)
+        {
+          guint32 *d = dst + y * p->dev_w + x0;
+          const guint32 *sp = (const guint32 *) ((const char *) p->pixels + y * p->stride) + x0;
+          if (p->trgb)
+            swap_rb (d, sp, x1 - x0);
+          else
+            memcpy (d, sp, (x1 - x0) * 4);
+        }
+    }
+}
+
+void
+_gdk_riscos_server_window_set_pixel_area (GdkRiscosServer *server, gint id,
+                                          const cairo_rectangle_int_t *where,
+                                          const void *pixels, int stride,
+                                          int width, int height, gboolean trgb)
+{
+  RiscosWindow *w = window_by_id (server, id);
+  cairo_rectangle_int_t old = { 0, 0, 0, 0 };
+  PixelArea *p;
+  cairo_region_t *region;
+
+  if (w == NULL)
+    return;
+  if (w->pix)
+    {
+      old.x = w->pix->x; old.y = w->pix->y; old.width = w->pix->w; old.height = w->pix->h;
+    }
+  pix_free (w);
+  if (pixels && where && where->width > 0 && where->height > 0 &&
+      width > 0 && height > 0 && stride >= width * 4 && (stride & 3) == 0)
+    {
+      p = g_new0 (PixelArea, 1);
+      p->x = where->x;
+      p->y = where->y;
+      p->w = where->width;
+      p->h = where->height;
+      p->pixels = pixels;
+      p->stride = stride;
+      p->dev_w = width;
+      p->dev_h = height;
+      p->trgb = trgb;
+      if (server->log2bpp != 5)
+        {
+          /* not a 32 bpp screen: a TBGR sprite of ours, copied into and
+             plotted with OS_SpriteOp, which converts to the screen's
+             colours */
+          int bytes = 16 + 44 + width * height * 4;
+          p->copy = g_try_malloc (bytes);
+          if (p->copy)
+            {
+              int *spr;
+              p->copy[0] = bytes;
+              p->copy[1] = 1;
+              p->copy[2] = 16;
+              p->copy[3] = bytes;
+              spr = p->copy + 4;
+              spr[0] = 44 + width * height * 4;
+              memcpy (&spr[1], "gtkpixels\0\0\0", 12);
+              spr[4] = width - 1;
+              spr[5] = height - 1;
+              spr[6] = 0;
+              spr[7] = 31;
+              spr[8] = spr[9] = 44;
+              spr[10] = mode_word_32 (FALSE);
+            }
+        }
+      w->pix = p;
+    }
+  /* show it (and whatever was under the old one) */
+  region = cairo_region_create_rectangle (&old);
+  if (w->pix)
+    {
+      cairo_rectangle_int_t now = { w->pix->x, w->pix->y, w->pix->w, w->pix->h };
+      cairo_region_union_rectangle (region, &now);
+      pix_copy (w->pix, region, server->scale ? server->scale : 1);
+    }
+  if (!cairo_region_is_empty (region))
+    update_region (server, w, region);
+  cairo_region_destroy (region);
+}
+
+void
+_gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server, gint id,
+                                              const cairo_region_t *damage)
+{
+  RiscosWindow *w = window_by_id (server, id);
+  cairo_region_t *region;
+  cairo_rectangle_int_t all;
+
+  if (w == NULL || w->pix == NULL)
+    return;
+  all.x = w->pix->x; all.y = w->pix->y; all.width = w->pix->w; all.height = w->pix->h;
+  region = damage ? cairo_region_copy (damage) : cairo_region_create_rectangle (&all);
+  cairo_region_intersect_rectangle (region, &all);
+  if (!cairo_region_is_empty (region))
+    {
+      pix_copy (w->pix, region, server->scale ? server->scale : 1);
+      update_region (server, w, region);
+    }
+  cairo_region_destroy (region);
+}
+
+gboolean
+_gdk_riscos_server_screen_is_trgb (GdkRiscosServer *server)
+{
+  return server && (server->mode_flags & MODEFLAG_TRGB) != 0;
 }
 
 gboolean

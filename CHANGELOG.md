@@ -1,5 +1,21 @@
 # Changelog
 
+## !GTKLibs 3.24.52-27 (2026-11-22)
+- **A part of a window can be shown from the program's own pixels**
+  (gdk_riscos_window_set_pixel_area, gdk_riscos_window_pixel_area_changed,
+  gdk_riscos_screen_is_trgb), for a web browser's page drawn by another
+  task into shared memory. GDK writes them straight into screen memory in
+  the Wimp's redraw and update loops (clipped to the area and the Wimp's
+  rectangle; red and blue swapped when the orders differ), not through its
+  backing sprite, and doesn't plot its own drawing there: no copy into
+  GTK's surface and no copy into the sprite. An OS_SpriteOp can't plot
+  pixels where they are (an image not right after the sprite header means
+  a palette: "Mask or Palette operations not supported" at 32 bpp), so on
+  a screen that isn't 32 bpp they go through a sprite of GDK's. New tests
+  pixelarea-fake (screen's order and the other one; the fake has VDU 24);
+  ROL demo tests/rol/pixeldemo.c: a gradient with padded rows in both
+  orders, the same on screen, and a changed square.
+
 ## !GTKLibs 3.24.52-26 (2026-11-22)
 - **Lighter start-up for every GTK task** (measured in a web browser that
   runs several GTK tasks, some with no windows):

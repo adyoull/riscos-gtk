@@ -64,6 +64,18 @@ gboolean           _gdk_riscos_server_window_translate         (GdkRiscosServer 
 int                _gdk_riscos_server_get_scale                (void);
 cairo_surface_t   *_gdk_riscos_server_create_surface           (int                 width,
 								  int                 height);
+void               _gdk_riscos_server_window_set_pixel_area    (GdkRiscosServer  *server,
+								  gint                id,
+								  const cairo_rectangle_int_t *where,
+								  const void         *pixels,
+								  int                 stride,
+								  int                 width,
+								  int                 height,
+								  gboolean            trgb);
+void               _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server,
+								  gint                id,
+								  const cairo_region_t *damage);
+gboolean           _gdk_riscos_server_screen_is_trgb           (GdkRiscosServer  *server);
 void               _gdk_riscos_server_window_update            (GdkRiscosServer  *server,
 								  gint                id,
 								  cairo_surface_t    *surface,
