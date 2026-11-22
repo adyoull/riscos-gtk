@@ -1,5 +1,24 @@
 # Changelog
 
+## !GTKLibs 3.24.52-26 (2026-11-22)
+- **Lighter start-up for every GTK task** (measured in a web browser that
+  runs several GTK tasks, some with no windows):
+  - **Tasks without windows:** `gdk_riscos_set_windowless()` before
+    gtk_init, or `RISCOS_GTK_NO_WINDOWS=1`: no icon bar icon, and none of
+    the Wimp theme's start-up (CSS, PNGs, icons from the Wimp's sprites).
+    The Log says "theme: none (a task without windows)". Fonts are still
+    added (`RISCOS_GTK_RISCOS_FONTS=0` for a task drawing no text).
+    New test windowless-fake.
+  - **Fonts checked once a session:** checking every face's files (a
+    Font_FindFont and a directory read each) was done by every task. The
+    first task to check them all sets `GTK$FontCacheKey` (a checksum of
+    the converter, Font$Path, the cache folder and the list of fonts);
+    later tasks with the same key take the cache's Index as it is. ROL:
+    the second program's fonts took 0.1 s ("checked earlier this
+    session"). riscosfonts-fake checks it.
+  - **The theme's PNGs aren't compressed:** they are temporary files
+    read once; deflate was most of their cost.
+
 ## !GTKLibs 3.24.52-25 and Gnumeric 1.12.62-riscos24 (2026-11-22)
 - **A format menu in a Save box opened from a menu works** (GTKLibs). A
   Save box opened by a click (Menu > File > Save As) is a transient

@@ -224,6 +224,14 @@ with `IconSprites`.
 **`disable`:** no icon. `*Set RISCOS_GTK_ICONBAR 0` does the same from
 outside the program.
 
+**A task without windows** (a helper task: a browser's network or web
+content task) calls `gdk_riscos_set_windowless()` before `gtk_init()`, or
+has `RISCOS_GTK_NO_WINDOWS` set to 1. It gets no icon bar icon and none of
+the Wimp theme's start-up work (its CSS, the theme's PNGs, the icons made
+from the Wimp's sprites). The desktop's fonts are still added, for a task
+that lays out text; one that draws none also sets
+`RISCOS_GTK_RISCOS_FONTS` to 0. `gdk_riscos_get_windowless()` says which.
+
 ## Files
 
 ```c
@@ -606,6 +614,9 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 |---|---|
 | `RISCOS_GTK_DEFAULT_FILETYPE` | Type (hex) for saved names without an extension, e.g. `fff` |
 | `RISCOS_GTK_ICONBAR` = 0 | No icon bar icon |
+| `RISCOS_GTK_NO_WINDOWS` = 1 | A task without windows: no icon bar icon, no Wimp theme start-up |
+| `RISCOS_GTK_RISCOS_FONTS` = 0 | Don't add the desktop's outline fonts |
+| `GTK$FontCacheKey` | Set by riscos-gtk once the font cache is checked this session; `*Unset` it to check again |
 | `RISCOS_GTK_SCALE` = 1 or 2 | Override the GDK scale (normally 2 only in EX0 EY0 modes) |
 | `RISCOS_GTK_CENTRE` = 0 | Don't centre new windows |
 | `RISCOS_GTK_MENUBAR` (any value) | Draw the menu bar in the window as well |

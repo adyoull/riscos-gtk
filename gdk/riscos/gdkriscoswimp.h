@@ -262,6 +262,16 @@ void     gdk_riscos_iconbar_set_start_file (const char *riscos_path);
 /* No icon bar icon for this program (call before gtk_init) */
 GDK_AVAILABLE_IN_ALL
 void     gdk_riscos_iconbar_disable      (void);
+/* A task that opens no windows (a helper task, as a browser's network or
+   web content task): no icon bar icon, and none of the Wimp theme's start-
+   up work (its CSS, the theme's PNGs, the Wimp's sprites). The desktop's
+   fonts are still added (*Set RISCOS_GTK_RISCOS_FONTS 0 for a task that
+   draws no text). Call before gtk_init, or *Set RISCOS_GTK_NO_WINDOWS 1
+   in the task's environment. */
+GDK_AVAILABLE_IN_ALL
+void     gdk_riscos_set_windowless       (void);
+GDK_AVAILABLE_IN_ALL
+gboolean gdk_riscos_get_windowless       (void);
 /* A RISC OS question box (Wimp_ReportError, a question, new style): Cancel
    and button. TRUE if button was chosen. */
 GDK_AVAILABLE_IN_ALL

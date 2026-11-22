@@ -41,6 +41,8 @@ void _gdk_riscos_font_names (const char *id, char **family, char **style, char *
 
 static int n_tests, n_failed;
 
+static int finds;               /* Font_FindFont calls */
+
 static void
 check (int ok, const char *name)
 {
@@ -128,6 +130,7 @@ font_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
         }
       return 1;
     case 0x40081:       /* Font_FindFont */
+      finds++;
       r->r[0] = font_of ((const char *) (long) r->r[1]);
       if (!r->r[0])
         *e = fail ("Font not found");
@@ -376,12 +379,19 @@ main (int argc, char **argv)
   {
     FcConfig *config = FcConfigCreate ();
     GString *log = g_string_new (NULL);
-    int before = paints, before_bitmap = bitmap_tries, n;
+    int before = paints, before_bitmap = bitmap_tries, before_finds = finds, n;
 
     n = _gdk_riscos_fonts_add (config, log);
     printf ("# again: %s\n", log->str);
     check (n == 3 && paints == before && bitmap_tries == before_bitmap && strstr (log->str, "0 made now"),
            "the next start uses the cache: nothing is painted again (nor the bitmap font tried)");
+    check (finds == before_finds && strstr (log->str, "checked earlier this session"),
+           "a later task in the same session doesn't check each font's files again (GTK$FontCacheKey)");
+    g_string_truncate (log, 0);
+    g_unsetenv ("GTK$FontCacheKey");
+    n = _gdk_riscos_fonts_add (config, log);
+    check (n == 3 && finds > before_finds && paints == before && g_getenv ("GTK$FontCacheKey"),
+           "without the key, each face is checked again (and the key set)");
     g_string_truncate (log, 0);
     g_setenv ("RISCOS_GTK_RISCOS_FONTS", "0", TRUE);
     n = _gdk_riscos_fonts_add (config, log);

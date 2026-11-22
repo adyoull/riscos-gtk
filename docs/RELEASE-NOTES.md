@@ -242,7 +242,9 @@ release.
   program's font lists and drawn as the desktop draws them, bold and
   italic choosing the right faces. The first start makes copies of them
   for fontconfig in `<Choices$Write>.GTK.FontCache` (about a second;
-  again only when a font changes); the Log says how many. Fonts without
+  again only when a font changes); the Log says how many. The fonts'
+  files are checked by the first GTK program of a desktop session, not by
+  every one (`*Unset GTK$FontCacheKey` checks again). Fonts without
   outlines are left out. `*Set RISCOS_GTK_RISCOS_FONTS 0` turns it off.
   Kerning isn't used yet. *[Pi]*
 - **Documents' fonts:** a family the machine doesn't have (Times New

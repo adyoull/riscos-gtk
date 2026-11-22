@@ -205,11 +205,26 @@ gdk_riscos_iconbar_enabled (void)
   return bar.icon >= 0;
 }
 
+static gboolean windowless;
+
+void
+gdk_riscos_set_windowless (void)
+{
+  windowless = TRUE;
+}
+
+gboolean
+gdk_riscos_get_windowless (void)
+{
+  const char *env = g_getenv ("RISCOS_GTK_NO_WINDOWS");
+  return windowless || (env && strcmp (env, "1") == 0);
+}
+
 static gboolean
 wanted (void)
 {
   const char *env = g_getenv ("RISCOS_GTK_ICONBAR");
-  return !bar.disabled && !(env && strcmp (env, "0") == 0);
+  return !bar.disabled && !gdk_riscos_get_windowless () && !(env && strcmp (env, "0") == 0);
 }
 
 /* A question box, as riscos-gtk's other programs ask (Wimp_ReportError:

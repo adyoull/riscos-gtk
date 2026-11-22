@@ -177,6 +177,12 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -o "$REPO_DIR/out/fontconfig-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+# A task without windows (gdk_riscos_set_windowless, RISCOS_GTK_NO_WINDOWS)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/windowless-fake.c" \
+  -o "$REPO_DIR/out/windowless-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 # The desktop's own fonts (gdkriscosfonts.c, gdkriscosotf.c) with a
 # stand-in Font Manager
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
@@ -321,6 +327,9 @@ fi
 GLTEST_NO_MESA=1 run gltest-nogl "$HA" "$GLT"
 run schemas-fake "$HA" none
 run schemas-fake "$HA" installed
+run windowless-fake "$HA" windowless
+run windowless-fake "$HA" env
+run windowless-fake "$HA" normal
 run browser-fake "$HA" "$BRT"
 # Geany 2.1 (the demo) on the fake desktop: Save, Open box, Save box, quit;
 # again with the directory browser; Build > Compile and Execute. Needs

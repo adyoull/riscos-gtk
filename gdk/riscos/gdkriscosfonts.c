@@ -27,6 +27,14 @@
  *   font's files change (their names, sizes and dates are the key, in
  *   the cache's Index) or this converter does. Each is added to
  *   fontconfig as an application font (FcConfigAppFontAddFile).
+ * - Checking every face's files costs each GTK task seconds at start
+ *   (Font_FindFont and a directory read per face), so it's done once per
+ *   desktop session: a task that has checked them all sets
+ *   GTK$FontCacheKey (a checksum of the converter, Font$Path, the cache's
+ *   folder and the list of fonts), and later tasks that find the same key
+ *   take the cache's Index as it is. A font added or removed, or Font$Path
+ *   changed, changes the key; *Unset GTK$FontCacheKey checks again after a
+ *   font's files were changed in place.
  * - The Log says how many faces there are and how many were made.
  * - *Set RISCOS_GTK_RISCOS_FONTS 0 turns it off.
  *
@@ -425,6 +433,45 @@ key_of (const char *id)
   return key;
 }
 
+/* GTK$FontCacheKey: this session's fonts, as checked */
+static char *
+session_key (GPtrArray *ids, const char *dir)
+{
+  GChecksum *c = g_checksum_new (G_CHECKSUM_MD5);
+  const char *path = g_getenv ("Font$Path");
+  char *key;
+  guint i;
+
+  g_checksum_update (c, (const guchar *) CONVERTER "\n", -1);
+  g_checksum_update (c, (const guchar *) (path ? path : ""), -1);
+  g_checksum_update (c, (const guchar *) "\n", -1);
+  g_checksum_update (c, (const guchar *) dir, -1);
+  for (i = 0; i < ids->len; i++)
+    {
+      g_checksum_update (c, (const guchar *) "\n", -1);
+      g_checksum_update (c, g_ptr_array_index (ids, i), -1);
+    }
+  key = g_strdup (g_checksum_get_string (c));
+  g_checksum_free (c);
+  return key;
+}
+
+static void
+set_session_key (const char *key)
+{
+#ifdef __riscos
+  _kernel_swi_regs r;
+
+  r.r[0] = (int) (long) "GTK$FontCacheKey";
+  r.r[1] = (int) (long) key;
+  r.r[2] = strlen (key);
+  r.r[3] = 0;
+  r.r[4] = 0;                          /* a string */
+  _kernel_swi (0x24, &r, &r);          /* OS_SetVarVal */
+#endif
+  g_setenv ("GTK$FontCacheKey", key, TRUE);
+}
+
 static char *
 cache_dir (void)
 {
@@ -512,7 +559,8 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
   char *dir;
   gint64 t0 = g_get_monotonic_time ();
   int made = 0, added = 0, failed = 0, unwritten = 0;
-  gboolean changed = FALSE;
+  gboolean changed = FALSE, checked;
+  char *skey;
   guint i;
 
   if (g_strcmp0 (g_getenv ("RISCOS_GTK_RISCOS_FONTS"), "0") == 0)
@@ -530,16 +578,24 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
   dir = cache_dir ();
   g_mkdir (dir, 0755);
   index = read_index (dir);
+  skey = session_key (ids, dir);
+  checked = g_strcmp0 (g_getenv ("GTK$FontCacheKey"), skey) == 0;
   for (i = 0; i < ids->len; i++)
     {
       const char *id = g_ptr_array_index (ids, i);
       char *leaf = file_name (id);
       char *path = g_build_filename (dir, leaf, NULL);
-      char *key = key_of (id);
       const char *had = g_hash_table_lookup (index, leaf);
+      /* checked this session: the Index as it is */
+      gboolean trust = checked && had && (had[0] == '-' || g_file_test (path, G_FILE_TEST_EXISTS));
+      char *key = trust ? NULL : key_of (id);
       char *no_outlines = key ? g_strconcat ("-", key, NULL) : NULL;
 
-      if (had && no_outlines && strcmp (had, no_outlines) == 0)
+      if (trust && had[0] == '-')
+        failed++;
+      else if (trust)
+        ;
+      else if (had && no_outlines && strcmp (had, no_outlines) == 0)
         failed++;                       /* (tried before: no outlines) */
       else if (key && (!had || strcmp (had, key) != 0 || !g_file_test (path, G_FILE_TEST_EXISTS)))
         {
@@ -585,8 +641,12 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
     }
   if (changed)
     write_index (dir, index);
-  g_string_append_printf (log, "%d RISC OS faces (%d made now in %.1f s", added, made,
-                          (g_get_monotonic_time () - t0) / 1e6);
+  if (!checked && !unwritten)
+    set_session_key (skey);
+  g_free (skey);
+  g_string_append_printf (log, "%d RISC OS faces (%d made now in %.1f s%s", added, made,
+                          (g_get_monotonic_time () - t0) / 1e6,
+                          checked ? ", checked earlier this session" : "");
   if (failed)
     g_string_append_printf (log, "; %d without outlines left out", failed);
   if (unwritten)

@@ -98,7 +98,7 @@ save_png (GdkPixbuf *pb, const char *name)
       atexit (remove_files);
     }
   file = g_strdup_printf ("%s/%s.png", dir, name);
-  if (!gdk_pixbuf_save (pb, file, "png", NULL, NULL))
+  if (!gdk_pixbuf_save (pb, file, "png", NULL, "compression", "0", NULL))
     {
       g_free (file);
       return NULL;
@@ -403,7 +403,7 @@ wimp_icon (const char *const names[3], const char *path, const char *icon)
       if (pb == NULL)
         continue;
       file = g_strdup_printf ("%s/%s.png", path, icon);
-      if (gdk_pixbuf_save (pb, file, "png", NULL, NULL))
+      if (gdk_pixbuf_save (pb, file, "png", NULL, "compression", "0", NULL))
         {
           g_ptr_array_add (files, file);
           g_object_unref (pb);
@@ -934,6 +934,12 @@ _gtk_riscos_theme_init (GdkDisplay *display)
   _gtk_riscos_iconbar_init (display);
   if (env && strcmp (env, "0") == 0)
     return;
+  if (gdk_riscos_get_windowless ())
+    {
+      /* a task with no windows: none of the theme's start-up work */
+      g_printerr ("riscos-gtk: theme: none (a task without windows)\n");
+      return;
+    }
 
   css = make_css ();
   icons_init (display);
