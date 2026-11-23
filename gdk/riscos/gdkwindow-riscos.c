@@ -794,6 +794,27 @@ gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *d
     cairo_region_destroy (d);
 }
 
+void
+gdk_riscos_window_set_overlay (GdkWindow *window, int overlay)
+{
+  GdkRiscosServer *server;
+  int id, dx, dy;
+
+  server = pix_target (window, &id, &dx, &dy);
+  if (server)
+    _gdk_riscos_server_window_set_overlay (server, id, overlay);
+}
+
+gboolean
+gdk_riscos_window_to_work_area (GdkWindow *window, int x, int y, int *wx, int *wy)
+{
+  GdkRiscosServer *server;
+  int id, dx, dy;
+
+  server = pix_target (window, &id, &dx, &dy);
+  return server && _gdk_riscos_server_window_to_work_area (server, id, x + dx, y + dy, wx, wy);
+}
+
 gboolean
 gdk_riscos_screen_is_trgb (void)
 {

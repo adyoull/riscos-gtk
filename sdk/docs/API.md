@@ -260,6 +260,27 @@ the same buffer: `gdk_riscos_window_pixel_area_changed` with the changed
 part (NULL: all). `pixels` NULL: GDK draws the area again. One area per
 top-level window.
 
+## A video overlay in a window
+
+```c
+void     gdk_riscos_window_set_overlay  (GdkWindow *window, int overlay);
+gboolean gdk_riscos_window_to_work_area (GdkWindow *window, int x, int y, int *wx, int *wy);
+```
+
+A program that shows video through the VideoOverlay module makes and
+places the overlay itself (VideoOverlay_Create, SetWindow with the
+top-level's handle from `gdk_riscos_window_get_wimp_handle`, SetScale,
+SetPosition...). The window's owner must call VideoOverlay_RedrawWindow
+for each redraw rectangle, and GDK owns the redraw loop: after
+`gdk_riscos_window_set_overlay (window, overlay)` GDK calls it for every
+rectangle of the top-level's redraw and update loops, after drawing the
+rectangle. 0: none.
+
+`gdk_riscos_window_to_work_area` gives a point of a window (GDK pixels; a
+child GdkWindow is fine) in the top-level's work area coordinates (OS
+units, y up), as VideoOverlay_SetPosition takes them. GTK's window is the
+work area, its top left at (0, 0), and the work area doesn't scroll.
+
 ## Files
 
 ```c

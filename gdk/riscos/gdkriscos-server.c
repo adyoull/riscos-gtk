@@ -131,6 +131,7 @@ typedef struct {
   unsigned nest_flags;
   gboolean unnest;            /* parent just cleared: open it at the top level once */
   struct PixelArea *pix;      /* a part the program plots from its own pixels */
+  int overlay;                /* a VideoOverlay overlay attached to it (the program's), or 0 */
 } RiscosWindow;
 
 /* gdk_riscos_window_set_pixel_area: a part of a window shown from the
@@ -1275,6 +1276,16 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
       /* block[7..10]: this rectangle, screen OS units, x1/y1 exclusive */
       fill_grey (MAX (block[7], ox + sw), block[8], block[9] - pxw, block[10] - pxh);
       fill_grey (block[7], block[8], MIN (block[9], ox + sw) - pxw, MIN (block[10], oy - sh) - pxh);
+      if (w->overlay)
+        {
+          /* the overlay's owner calls this for every redraw rectangle,
+             after drawing it: VideoOverlay fills the pixels its hardware
+             blending needs (or draws the picture itself) */
+          _kernel_swi_regs o;
+          o.r[0] = w->overlay;
+          o.r[1] = (int) block;
+          swi (0x59CCA, &o);              /* VideoOverlay_RedrawWindow */
+        }
       if (w->strip_surface)
         {
           int *a = cairo_surface_get_user_data (w->strip_surface, &_gdk_riscos_sprite_key);
@@ -2666,6 +2677,31 @@ _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server, gint id,
       update_region (server, w, region);
     }
   cairo_region_destroy (region);
+}
+
+void
+_gdk_riscos_server_window_set_overlay (GdkRiscosServer *server, gint id, int overlay)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w)
+    w->overlay = overlay;
+}
+
+/* A point (window GDK pixels) in the Wimp window's work area: GTK's
+   window is the work area, its top left at (0, 0), y down as -y; the
+   work area doesn't scroll */
+gboolean
+_gdk_riscos_server_window_to_work_area (GdkRiscosServer *server, gint id,
+                                        int x, int y, int *wx, int *wy)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w == NULL || w->handle == 0)
+    return FALSE;
+  *wx = x << server->xeig;
+  *wy = -(y << server->yeig);
+  return TRUE;
 }
 
 gboolean

@@ -163,6 +163,20 @@ void       gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_
 /* TRUE if the screen's 32 bpp pixels are &00RRGGBB (cairo's order) */
 GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_screen_is_trgb (void);
+
+/* A VideoOverlay overlay (made by the program, attached to window's
+ * top-level with VideoOverlay_SetWindow and its Wimp handle): GDK calls
+ * VideoOverlay_RedrawWindow (overlay, block) for every rectangle of the
+ * top-level's redraw and update loops, after drawing it, as the overlay's
+ * owner must. 0: none. One a top-level window. */
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_overlay (GdkWindow *window, int overlay);
+/* A point in window (GDK pixels; a child GdkWindow is fine) in its
+ * top-level's Wimp work area coordinates (OS units, y up: GTK's window is
+ * the work area, its top left at 0,0, and it doesn't scroll), as
+ * VideoOverlay_SetPosition takes them. FALSE if there's no Wimp window. */
+GDK_AVAILABLE_IN_ALL
+gboolean   gdk_riscos_window_to_work_area (GdkWindow *window, int x, int y, int *wx, int *wy);
 GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_window_get_size_grip (GdkWindow *window, gint *width, gint *height);
 /* Put the grip in the column of the window's vertical scroll bar (x, width

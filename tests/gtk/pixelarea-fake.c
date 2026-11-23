@@ -24,6 +24,21 @@ static int stage, waits, drawn, failed, checks, swapmode;
 static guint32 *pixels;
 static guint32 mid_set = 1, edge_out = 1, mid_changed = 1, mid_after_gtk = 1, mid_cleared = 1, corner_changed = 1;
 static int plots_direct;
+static int overlay_calls, overlay_last_id, overlay_calls_after_unset;
+static int wa_ok;
+
+/* VideoOverlay_RedrawWindow, as GDK calls it */
+static int
+swi_hook (int no, _kernel_swi_regs *r, _kernel_oserror **e)
+{
+  if (no == 0x59CCA)
+    {
+      overlay_calls++;
+      overlay_last_id = r->r[0];
+      return 1;
+    }
+  return 0;
+}
 
 static void
 check (int ok, const char *what)
@@ -123,6 +138,16 @@ hook (int reason)
           }
           corner_changed = at (5, 5);
           mid_changed = at (AW / 2, AH / 2);
+          /* a video overlay attached to the window: RedrawWindow for each rectangle */
+          gdk_riscos_window_set_overlay (gtk_widget_get_window (area), 1234);
+          gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
+          {
+            int wx = 0, wy = 0, tx, ty;
+            gtk_widget_translate_coordinates (area, win, 10, 5, &tx, &ty);
+            wa_ok = gdk_riscos_window_to_work_area (gtk_widget_get_window (area), 10, 5, &wx, &wy) &&
+                    wx == tx * 2 && wy == -ty * 2;
+            printf ("# work area of (10,5) in the area: %d,%d (window %d,%d)\n", wx, wy, tx, ty);
+          }
           stage = 1;
           gtk_widget_queue_draw (win);       /* GTK draws all of it again */
           settle ();
@@ -137,6 +162,9 @@ hook (int reason)
       return;
     case 1:
       mid_after_gtk = at (AW / 2, AH / 2);
+      gdk_riscos_window_set_overlay (gtk_widget_get_window (area), 0);
+      overlay_calls_after_unset = overlay_calls;
+      gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
       gdk_riscos_window_set_pixel_area (gtk_widget_get_window (area), NULL, NULL, 0, 0, 0, FALSE);
       mid_cleared = at (AW / 2, AH / 2);
       stage = 2;
@@ -163,6 +191,7 @@ main (int argc, char **argv)
   fake_set_screen (1280, 1024, 0, 5);       /* TBGR */
   fake_wimp_nulls = 40;
   fake_wimp_hook = hook;
+  fake_swi_hook = swi_hook;
   gtk_init (&argc, &argv);
 
   win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -191,6 +220,9 @@ main (int argc, char **argv)
          "pixel_area_changed shows the changed part (red corner), the rest stays");
   check (mid_after_gtk == 0xFF0000, "GTK drawing the window again doesn't cover the area");
   check (mid_cleared == 0x00FF00, "with no pixels, GTK's drawing shows again");
+  check (overlay_calls > 0 && overlay_last_id == 1234 && overlay_calls == overlay_calls_after_unset,
+         "a set overlay gets VideoOverlay_RedrawWindow for the window's rectangles, and none once unset");
+  check (wa_ok, "a point in the area in the top-level's work area (OS units, y up)");
   printf ("1..%d\n", checks);
   return failed;
 }

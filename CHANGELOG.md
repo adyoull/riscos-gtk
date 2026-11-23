@@ -1,5 +1,16 @@
 # Changelog
 
+## !GTKLibs 3.24.52-28 (2026-11-23)
+- **A program's video overlay in a GTK window.** A program showing video
+  with the VideoOverlay module makes and places the overlay itself, but
+  the window's owner has to call VideoOverlay_RedrawWindow (SWI &59CCA,
+  PRMs) for every redraw rectangle, and that's GDK.
+  `gdk_riscos_window_set_overlay (window, overlay)`: GDK calls it for each
+  rectangle of the top-level's redraw and update loops, after drawing it
+  (so the overlay's fill isn't drawn over). `gdk_riscos_window_to_work_area`
+  gives a window point in the top-level's work area coordinates (OS units,
+  y up) for VideoOverlay_SetPosition. pixelarea-fake checks both (8 checks).
+
 ## !GTKLibs 3.24.52-27 (2026-11-22)
 - **A part of a window can be shown from the program's own pixels**
   (gdk_riscos_window_set_pixel_area, gdk_riscos_window_pixel_area_changed,

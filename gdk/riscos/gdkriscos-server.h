@@ -76,6 +76,15 @@ void               _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer
 								  gint                id,
 								  const cairo_region_t *damage);
 gboolean           _gdk_riscos_server_screen_is_trgb           (GdkRiscosServer  *server);
+void               _gdk_riscos_server_window_set_overlay       (GdkRiscosServer  *server,
+								  gint                id,
+								  int                 overlay);
+gboolean           _gdk_riscos_server_window_to_work_area      (GdkRiscosServer  *server,
+								  gint                id,
+								  int                 x,
+								  int                 y,
+								  int                *wx,
+								  int                *wy);
 void               _gdk_riscos_server_window_update            (GdkRiscosServer  *server,
 								  gint                id,
 								  cairo_surface_t    *surface,
