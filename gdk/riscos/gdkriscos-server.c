@@ -132,6 +132,8 @@ typedef struct {
   gboolean unnest;            /* parent just cleared: open it at the top level once */
   struct PixelArea *pix;      /* a part the program plots from its own pixels */
   int overlay;                /* a VideoOverlay overlay attached to it (the program's), or 0 */
+  gboolean (*present) (gpointer, const GdkRiscosPresentRect *, int, gpointer);
+  gpointer present_window, present_data;
 } RiscosWindow;
 
 /* gdk_riscos_window_set_pixel_area: a part of a window shown from the
@@ -146,6 +148,12 @@ typedef struct PixelArea {
   int *copy;                  /* a screen that isn't 32 bpp: a TBGR sprite we copy
                                  into, plotted with OS_SpriteOp (which converts) */
 } PixelArea;
+
+/* gdk_riscos_window_set_pixel_area_present: the program shows its pixel
+   area itself (GdkRiscosPresentRect, gdkriscoswimp.h). Kept on the window
+   (it outlives one pixel buffer). */
+typedef gboolean (*ServerPresentFunc) (gpointer window, const GdkRiscosPresentRect *rects,
+                                       int count, gpointer data);
 
 static void pix_free (RiscosWindow *w);
 
@@ -1218,6 +1226,8 @@ static void
 plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
 {
   _kernel_swi_regs r;
+  GArray *present = NULL;           /* the program shows the pixel area: its rectangles */
+  int ylimit = 0;                   /* the screen's last row (top-left origin conversion) */
   void *area = w->surface ? cairo_surface_get_user_data (w->surface, &_gdk_riscos_sprite_key) : NULL;
   /* the sprite's size on screen (OS units), and one screen pixel */
   int sw = w->surface ? cairo_image_surface_get_width (w->surface) << server->dev_xeig : 0;
@@ -1253,6 +1263,28 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
               plot_clipped (area, ox, oy, sh, right);
               if (p->copy)
                 plot_clipped (p->copy, P[0], P[3] + pxh, p->dev_h << server->dev_yeig, I);
+              else if (w->present)
+                {
+                  GdkRiscosPresentRect pr;
+                  if (present == NULL)
+                    {
+                      static const int vars[] = { 12, -1 };   /* YWindLimit */
+                      _kernel_swi_regs v;
+                      v.r[0] = (int) vars;
+                      v.r[1] = (int) &ylimit;
+                      swi (OS_ReadVduVariables, &v);
+                      present = g_array_new (FALSE, FALSE, sizeof (GdkRiscosPresentRect));
+                    }
+                  pr.dst_x = I[0] >> server->dev_xeig;
+                  pr.dst_y = ylimit - (I[3] >> server->dev_yeig);
+                  pr.width = ((I[2] - I[0]) >> server->dev_xeig) + 1;
+                  pr.height = ((I[3] - I[1]) >> server->dev_yeig) + 1;
+                  pr.src_x = pr.dst_x - (P[0] >> server->dev_xeig);
+                  pr.src_y = pr.dst_y - (ylimit - (P[3] >> server->dev_yeig));
+                  if (pr.src_x >= 0 && pr.src_y >= 0 && pr.src_x + pr.width <= p->dev_w &&
+                      pr.src_y + pr.height <= p->dev_h)
+                    g_array_append_val (present, pr);
+                }
               else
                 pix_blit (server, p, P, I);
             }
@@ -1304,6 +1336,34 @@ plot_rectangles (GdkRiscosServer *server, RiscosWindow *w, int *block, int more)
       if (swi (Wimp_GetRectangle, &r) != NULL)
         break;
       more = r.r[0];
+    }
+  /* the loop is over: the program shows its rectangles now, before the
+     task polls the Wimp again */
+  if (present)
+    {
+      if (present->len > 0 && w->present &&
+          !w->present (w->present_window, (const GdkRiscosPresentRect *) present->data,
+                       present->len, w->present_data))
+        {
+          /* it couldn't: GDK does it from now on (the next redraw) */
+          w->present = NULL;
+          if (w->pix)
+            {
+              int fr[5];
+              fr[0] = w->handle;
+              fr[1] = w->pix->x << server->xeig;
+              fr[2] = -((w->pix->y + w->pix->h) << server->yeig);
+              fr[3] = (w->pix->x + w->pix->w) << server->xeig;
+              fr[4] = -(w->pix->y << server->yeig);
+              r.r[0] = fr[0];
+              r.r[1] = fr[1];
+              r.r[2] = fr[2];
+              r.r[3] = fr[3];
+              r.r[4] = fr[4];
+              swi (Wimp_ForceRedraw, &r);
+            }
+        }
+      g_array_free (present, TRUE);
     }
 }
 
@@ -2677,6 +2737,21 @@ _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server, gint id,
       update_region (server, w, region);
     }
   cairo_region_destroy (region);
+}
+
+void
+_gdk_riscos_server_window_set_present (GdkRiscosServer *server, gint id,
+                                       gboolean (*func) (gpointer, const GdkRiscosPresentRect *, int, gpointer),
+                                       gpointer window, gpointer data)
+{
+  RiscosWindow *w = window_by_id (server, id);
+
+  if (w)
+    {
+      w->present = func;
+      w->present_window = window;
+      w->present_data = data;
+    }
 }
 
 void

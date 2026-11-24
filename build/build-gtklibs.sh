@@ -32,8 +32,9 @@ SO=$STAGE/so
 # 25 keeps a transient Save box open when a pop-up menu in it opens;
 # 26 lighter start-up: windowless tasks, fonts checked once a session;
 # 27 a window part shown from the program's own pixels;
-# 28 VideoOverlay_RedrawWindow for a program's overlay, work area coordinates)
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-28}
+# 28 VideoOverlay_RedrawWindow for a program's overlay, work area coordinates;
+# 29 a program can present its pixel area itself (GPU))
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-29}
 # the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
 # (SOManager 3.04's own date): Copy's N option compares against it, so a
 # !SharedLibs with a newer SOManager keeps its own

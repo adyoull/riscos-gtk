@@ -26,6 +26,25 @@ static guint32 mid_set = 1, edge_out = 1, mid_changed = 1, mid_after_gtk = 1, mi
 static int plots_direct;
 static int overlay_calls, overlay_last_id, overlay_calls_after_unset;
 static int wa_ok;
+/* the program presenting the pixel area itself */
+static int present_calls, present_pixels, present_bad, present_ok = TRUE, present_calls_after_false;
+static guint32 mid_presented = 1, mid_after_false = 1;
+static int forces_before, forced;
+
+static gboolean
+present (GdkWindow *window, const GdkRiscosPresentRect *rects, int count, gpointer data)
+{
+  int i;
+  present_calls++;
+  for (i = 0; i < count; i++)
+    {
+      present_pixels += rects[i].width * rects[i].height;
+      if (rects[i].src_x < 0 || rects[i].src_y < 0 ||
+          rects[i].src_x + rects[i].width > AW || rects[i].src_y + rects[i].height > AH)
+        present_bad++;
+    }
+  return present_ok;                 /* shows nothing: the screen keeps what it had */
+}
 
 /* VideoOverlay_RedrawWindow, as GDK calls it */
 static int
@@ -165,9 +184,27 @@ hook (int reason)
       gdk_riscos_window_set_overlay (gtk_widget_get_window (area), 0);
       overlay_calls_after_unset = overlay_calls;
       gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
+      /* the program presents: yellow pixels, which it doesn't show */
+      gdk_riscos_window_set_pixel_area_present (gtk_widget_get_window (area), present, NULL);
+      fill (0, 0, AW, AH, px (255, 255, 0));
+      gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
+      mid_presented = at (AW / 2, AH / 2);
+      /* it can't: GDK forgets it and redraws the area itself */
+      present_ok = FALSE;
+      forces_before = fake_force_redraws;
+      gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
+      present_calls_after_false = present_calls;
+      forced = fake_force_redraws > forces_before;
+      stage = 2;
+      settle ();
+      return;
+    case 2:
+      /* (the fake Wimp records the forced redraw; an update shows what it would) */
+      gdk_riscos_window_pixel_area_changed (gtk_widget_get_window (area), NULL);
+      mid_after_false = at (AW / 2, AH / 2);
       gdk_riscos_window_set_pixel_area (gtk_widget_get_window (area), NULL, NULL, 0, 0, 0, FALSE);
       mid_cleared = at (AW / 2, AH / 2);
-      stage = 2;
+      stage = 3;
       gtk_main_quit ();
       add (FAKE_NULL, 0, 0, 0);
       return;
@@ -223,6 +260,12 @@ main (int argc, char **argv)
   check (overlay_calls > 0 && overlay_last_id == 1234 && overlay_calls == overlay_calls_after_unset,
          "a set overlay gets VideoOverlay_RedrawWindow for the window's rectangles, and none once unset");
   check (wa_ok, "a point in the area in the top-level's work area (OS units, y up)");
+  printf ("# present: %d calls, %d pixels (area %d), %d bad; middle while presented &%06X, "
+          "after FALSE &%06X\n", present_calls, present_pixels, AW * AH, present_bad, mid_presented, mid_after_false);
+  check (present_calls >= 1 && present_bad == 0 && present_pixels >= AW * AH && mid_presented == 0xFF0000,
+         "with a present function, GDK gives it the area's rectangles and doesn't copy the pixels itself");
+  check (forced && present_calls == present_calls_after_false && mid_after_false == 0x00FFFF,
+         "when it returns FALSE, GDK forces a redraw, forgets it, and shows the pixels itself (yellow)");
   printf ("1..%d\n", checks);
   return failed;
 }

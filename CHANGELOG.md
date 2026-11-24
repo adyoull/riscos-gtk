@@ -1,5 +1,17 @@
 # Changelog
 
+## !GTKLibs 3.24.52-29 (2026-11-24)
+- **A program can show its pixel area itself** (with the GPU: V3DRender's
+  PRESENT). `gdk_riscos_window_set_pixel_area_present (window, func,
+  data)`: in each redraw and update loop GDK gathers the rectangles where
+  it would have copied the pixel area (GdkRiscosPresentRect: screen pixels
+  from the top left, and the place in the buffer) and calls func once
+  after the loop's last Wimp_GetRectangle, before the task polls. FALSE
+  from func: GDK forgets it, forces a redraw of the area and copies it
+  itself. `GDK_RISCOS_PIXEL_AREA_PRESENT` is defined with it.
+  pixelarea-fake: 10 checks (the rectangles cover the area, inside the
+  buffer; nothing copied by GDK; FALSE forces a redraw and GDK takes over).
+
 ## !GTKLibs 3.24.52-28 (2026-11-23)
 - **A program's video overlay in a GTK window.** A program showing video
   with the VideoOverlay module makes and places the overlay itself, but

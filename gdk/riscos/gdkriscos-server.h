@@ -5,6 +5,7 @@
 
 #include <gdk/gdktypes.h>
 #include "riscos-protocol.h"
+#include "gdkriscoswimp.h"
 
 typedef struct _GdkRiscosServer GdkRiscosServer;
 typedef struct _GdkRiscosServerClass GdkRiscosServerClass;
@@ -76,6 +77,11 @@ void               _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer
 								  gint                id,
 								  const cairo_region_t *damage);
 gboolean           _gdk_riscos_server_screen_is_trgb           (GdkRiscosServer  *server);
+void               _gdk_riscos_server_window_set_present       (GdkRiscosServer  *server,
+								  gint                id,
+								  gboolean          (*func) (gpointer, const GdkRiscosPresentRect *, int, gpointer),
+								  gpointer            window,
+								  gpointer            data);
 void               _gdk_riscos_server_window_set_overlay       (GdkRiscosServer  *server,
 								  gint                id,
 								  int                 overlay);

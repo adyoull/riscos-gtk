@@ -260,6 +260,28 @@ the same buffer: `gdk_riscos_window_pixel_area_changed` with the changed
 part (NULL: all). `pixels` NULL: GDK draws the area again. One area per
 top-level window.
 
+### Showing the pixel area with the GPU
+
+```c
+#define GDK_RISCOS_PIXEL_AREA_PRESENT 1
+typedef struct { int dst_x, dst_y, width, height, src_x, src_y; } GdkRiscosPresentRect;
+typedef gboolean (*GdkRiscosPresentFunc) (GdkWindow *window, const GdkRiscosPresentRect *rects,
+                                          int count, gpointer data);
+void gdk_riscos_window_set_pixel_area_present (GdkWindow *window, GdkRiscosPresentFunc func,
+                                               gpointer data);
+```
+
+With a present function set, GDK doesn't copy the pixel area to the
+screen: in each redraw and update loop of the top-level it gathers the
+rectangles it would have written (screen pixels from the screen's top
+left, and where they are in the pixel buffer, clipped to the Wimp's
+rectangles) and, after the loop's last Wimp_GetRectangle, before the task
+polls again, calls the function once with them all (V3DRender's PRESENT,
+say). It returns TRUE if it showed them and its work has finished. FALSE:
+GDK forgets the function, forces a redraw of the pixel area and plots it
+itself from then on; set it again when you can. On a screen that isn't
+32 bpp GDK plots the area itself and doesn't call it. NULL: as without.
+
 ## A video overlay in a window
 
 ```c

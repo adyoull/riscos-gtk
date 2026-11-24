@@ -160,6 +160,27 @@ void       gdk_riscos_window_set_pixel_area (GdkWindow *window, const cairo_rect
 /* damage (window's coordinates, GDK pixels; NULL: all) has new pixels */
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage);
+
+/* The program shows the pixel area itself (with the GPU: V3DRender's
+ * PRESENT), where GDK would copy it to the screen: in each of the
+ * top-level's redraw and update loops, GDK gathers the rectangles it would
+ * have written the pixel area to (clipped to the Wimp's rectangles) and,
+ * after the loop's last Wimp_GetRectangle, before returning to Wimp_Poll,
+ * calls func once with them all. func returns TRUE if it showed them (and
+ * its work is finished), FALSE to have GDK do it: GDK then forgets func and
+ * forces a redraw of the pixel area, which it plots itself. NULL func: GDK
+ * plots it, as without this. One a top-level window. */
+#define GDK_RISCOS_PIXEL_AREA_PRESENT 1
+typedef struct {
+  int dst_x, dst_y;            /* screen pixels from the top left of the screen */
+  int width, height;           /* pixels */
+  int src_x, src_y;            /* in the pixel area's buffer, pixels from its top left */
+} GdkRiscosPresentRect;
+typedef gboolean (*GdkRiscosPresentFunc) (GdkWindow *window, const GdkRiscosPresentRect *rects,
+                                          int count, gpointer data);
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_pixel_area_present (GdkWindow *window, GdkRiscosPresentFunc func,
+                                                     gpointer data);
 /* TRUE if the screen's 32 bpp pixels are &00RRGGBB (cairo's order) */
 GDK_AVAILABLE_IN_ALL
 gboolean   gdk_riscos_screen_is_trgb (void);

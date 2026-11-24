@@ -795,6 +795,20 @@ gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *d
 }
 
 void
+gdk_riscos_window_set_pixel_area_present (GdkWindow *window, GdkRiscosPresentFunc func,
+                                          gpointer data)
+{
+  GdkRiscosServer *server;
+  int id, dx, dy;
+
+  server = pix_target (window, &id, &dx, &dy);
+  if (server)
+    _gdk_riscos_server_window_set_present (server, id,
+                                           (gboolean (*) (gpointer, const GdkRiscosPresentRect *, int, gpointer)) func,
+                                           func ? window : NULL, data);
+}
+
+void
 gdk_riscos_window_set_overlay (GdkWindow *window, int overlay)
 {
   GdkRiscosServer *server;
