@@ -728,6 +728,9 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `RISCOS_GTK_NO_WINDOWS` = 1 | A task without windows: no icon bar icon, no Wimp theme start-up |
 | `RISCOS_GTK_RISCOS_FONTS` = 0 | Don't add the desktop's outline fonts |
 | `GTK$FontCacheKey` | Set by riscos-gtk once the font cache is checked this session; `*Unset` it to check again |
+| `RISCOS_GTK_FONT_FOLDER` = 0 | Give the desktop's fonts to fontconfig one by one (slower) rather than as a folder with fontconfig's cache (`<Choices$Write>.GTK.FontCacheFC`) |
+| `RISCOS_GTK_THEME_CACHE` = 0 | Write the Wimp theme's pictures to a temporary folder at each start, rather than keeping them in `<Choices$Write>.GTK.Theme` |
+| `RISCOS_GTK_PAINT_BUFFER` = 1 | GDK paints each update into a buffer of its own and copies it in (slower), rather than straight into the window's backing sprite |
 | `RISCOS_GTK_SCALE` = 1 or 2 | Override the GDK scale (normally 2 only in EX0 EY0 modes) |
 | `RISCOS_GTK_CENTRE` = 0 | Don't centre new windows |
 | `RISCOS_GTK_MENUBAR` (any value) | Draw the menu bar in the window as well |
@@ -746,7 +749,7 @@ Set them in `!Run` with `*Set`, or with `g_setenv()` before
 | `GDK_GL` = `gles` | OpenGL ES 2.0 contexts for GtkGLArea instead of OpenGL 2.1 |
 | `RISCOS_GTK_FONTS` = `own` | Only the program's own fonts and font cache, even with UnixFC installed |
 | `RISCOS_GTK_NO_LOG` (any value) | `riscos_gtk_app_init` leaves stdout and stderr alone |
-| `RISCOS_GTK_NO_NEON` = 1 | Swap red and blue for TBGR screens in C, not NEON |
+| `RISCOS_GTK_NO_NEON` = 1 | C only, not NEON: GDK's red/blue swaps and zlib |
 | `PIXMAN_DISABLE` = `"arm-neon arm-simd"` | pixman's drawing in C only (its NEON and ARMv6 SIMD are used where the processor has them) |
 | `JSIMD_FORCENONE` = 1 | libjpeg-turbo in C only (its NEON is used where the processor has it) |
 

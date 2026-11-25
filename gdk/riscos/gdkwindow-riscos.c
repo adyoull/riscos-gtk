@@ -1513,6 +1513,26 @@ gdk_riscos_window_get_input_shape (GdkWindow *window)
   return NULL;
 }
 
+/* riscos-gtk: GTK draws straight into the window's backing surface. That
+   surface is off screen already (it reaches the screen only when GDK plots
+   it, after the paint: gdkriscos-server.c), so GDK's own back buffer for
+   each paint (a new surface, cleared, drawn, then copied in) is a second
+   off-screen copy: two full passes over the painted area, about a third of
+   the time a scroll takes on a Pi 4. RISCOS_GTK_PAINT_BUFFER=1: GDK's back
+   buffer as before. */
+static gboolean
+gdk_riscos_window_begin_paint (GdkWindow *window)
+{
+  static int buffer = -1;
+
+  if (buffer < 0)
+    {
+      const char *e = g_getenv ("RISCOS_GTK_PAINT_BUFFER");
+      buffer = e != NULL && atoi (e) != 0;
+    }
+  return buffer;
+}
+
 /* riscos-gtk: remember what was repainted. Until the next update the
    areas are added together; a window already dirty with no area (the
    whole of it: first map, resize) stays whole. */
@@ -2062,6 +2082,7 @@ gdk_window_impl_riscos_class_init (GdkWindowImplRiscosClass *klass)
   impl_class->destroy_foreign = gdk_riscos_window_destroy_foreign;
   impl_class->get_shape = gdk_riscos_window_get_shape;
   impl_class->get_input_shape = gdk_riscos_window_get_input_shape;
+  impl_class->begin_paint = gdk_riscos_window_begin_paint;
   impl_class->end_paint = gdk_riscos_window_end_paint;
   impl_class->beep = gdk_riscos_window_beep;
 

@@ -551,6 +551,34 @@ file_name (const char *id)
   return f;
 }
 
+/* The converted faces to fontconfig as one folder with a cache of its own
+   (<FontCache>FC: what each face covers), instead of face by face: added
+   one at a time, fontconfig opens every face and works out its character
+   set again at every start (about 1.4 s for 117 faces on a Pi 4). The
+   cache is thrown away whenever the folder's faces change. FALSE: not
+   done (RISCOS_GTK_FONT_FOLDER=0, or fontconfig refused): face by face. */
+static gboolean
+add_folder (FcConfig *config, const char *dir, gboolean changed)
+{
+  char *fc, *xml;
+  gboolean ok;
+
+  if (g_strcmp0 (g_getenv ("RISCOS_GTK_FONT_FOLDER"), "0") == 0)
+    return FALSE;
+  fc = g_strconcat (dir, "FC", NULL);
+  g_mkdir (fc, 0755);
+  xml = g_markup_printf_escaped ("<?xml version=\"1.0\"?><fontconfig><cachedir>%s</cachedir>"
+                                 "</fontconfig>", fc);
+  ok = FcConfigParseAndLoadFromMemory (config, (const FcChar8 *) xml, FcFalse);
+  if (ok && changed)
+    FcDirCacheUnlink ((const FcChar8 *) dir, config);
+  if (ok)
+    ok = FcConfigAppFontAddDir (config, (const FcChar8 *) dir);
+  g_free (xml);
+  g_free (fc);
+  return ok;
+}
+
 int
 _gdk_riscos_fonts_add (FcConfig *config, GString *log)
 {
@@ -559,9 +587,11 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
   char *dir;
   gint64 t0 = g_get_monotonic_time ();
   int made = 0, added = 0, failed = 0, unwritten = 0;
-  gboolean changed = FALSE, checked;
+  gboolean changed = FALSE, checked, folder = FALSE;
   char *skey;
   guint i;
+  GPtrArray *paths;
+  GHashTable *leaves;
 
   if (g_strcmp0 (g_getenv ("RISCOS_GTK_RISCOS_FONTS"), "0") == 0)
     {
@@ -577,9 +607,12 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
     }
   dir = cache_dir ();
   g_mkdir (dir, 0755);
+  paths = g_ptr_array_new_with_free_func (g_free);
+  leaves = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
   index = read_index (dir);
   skey = session_key (ids, dir);
   checked = g_strcmp0 (g_getenv ("GTK$FontCacheKey"), skey) == 0;
+  /* the faces made here go to fontconfig after the loop, as a folder */
   for (i = 0; i < ids->len; i++)
     {
       const char *id = g_ptr_array_index (ids, i);
@@ -631,22 +664,58 @@ _gdk_riscos_fonts_add (FcConfig *config, GString *log)
               failed++;
             }
         }
-      if (g_file_test (path, G_FILE_TEST_EXISTS) &&
-          FcConfigAppFontAddFile (config, (const FcChar8 *) path))
-        added++;
+      if (g_file_test (path, G_FILE_TEST_EXISTS))
+        {
+          added++;
+          g_ptr_array_add (paths, g_strdup (path));
+        }
+      g_hash_table_add (leaves, g_strdup (leaf));
       g_free (key);
       g_free (no_outlines);
       g_free (path);
       g_free (leaf);
     }
+  /* faces of fonts no longer installed: gone (the folder is given to
+     fontconfig whole) */
+  {
+    GDir *d = g_dir_open (dir, 0, NULL);
+    const char *n;
+
+    while (d && (n = g_dir_read_name (d)) != NULL)
+      if (g_str_has_suffix (n, ".otf") && !g_hash_table_contains (leaves, n))
+        {
+          char *p = g_build_filename (dir, n, NULL);
+          if (g_unlink (p) == 0)
+            {
+              g_hash_table_remove (index, n);
+              changed = TRUE;
+            }
+          g_free (p);
+        }
+    if (d)
+      g_dir_close (d);
+  }
+  g_hash_table_unref (leaves);
   if (changed)
     write_index (dir, index);
+  if (added && !add_folder (config, dir, changed || made > 0))
+    {
+      added = 0;
+      for (i = 0; i < paths->len; i++)
+        if (FcConfigAppFontAddFile (config, (const FcChar8 *) g_ptr_array_index (paths, i)))
+          added++;
+    }
+  else if (added)
+    folder = TRUE;
+  g_ptr_array_free (paths, TRUE);
   if (!checked && !unwritten)
     set_session_key (skey);
   g_free (skey);
   g_string_append_printf (log, "%d RISC OS faces (%d made now in %.1f s%s", added, made,
                           (g_get_monotonic_time () - t0) / 1e6,
                           checked ? ", checked earlier this session" : "");
+  if (folder)
+    g_string_append (log, "; given to fontconfig as a folder, with its cache");
   if (failed)
     g_string_append_printf (log, "; %d without outlines left out", failed);
   if (unwritten)

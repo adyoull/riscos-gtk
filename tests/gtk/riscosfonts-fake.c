@@ -387,6 +387,45 @@ main (int argc, char **argv)
            "the next start uses the cache: nothing is painted again (nor the bitmap font tried)");
     check (finds == before_finds && strstr (log->str, "checked earlier this session"),
            "a later task in the same session doesn't check each font's files again (GTK$FontCacheKey)");
+    {
+      /* the faces went to fontconfig as one folder with its own cache */
+      char *fc = g_build_filename (g_getenv ("Choices$Write"), "GTK", "FontCacheFC", NULL);
+      char *otf = g_build_filename (g_getenv ("Choices$Write"), "GTK", "FontCache", "Gone-Font.otf", NULL);
+      GDir *d = g_dir_open (fc, 0, NULL);
+      const char *e;
+      int caches = 0;
+      FcFontSet *set = FcConfigGetFonts (config, FcSetApplication);
+      FcConfig *c2 = FcConfigCreate ();
+
+      while (d && (e = g_dir_read_name (d)) != NULL)
+        caches += strstr (e, "cache") != NULL;
+      if (d)
+        g_dir_close (d);
+      printf ("# fontconfig caches in %s: %d; faces in the config: %d\n", fc, caches,
+              set ? set->nfont : -1);
+      check (strstr (log->str, "as a folder") && caches >= 1 && set && set->nfont == 3,
+             "the faces go to fontconfig as a folder, with a cache of its own");
+      /* a face whose font isn't installed any more */
+      g_file_set_contents (otf, "x", 1, NULL);
+      g_string_truncate (log, 0);
+      n = _gdk_riscos_fonts_add (c2, log);
+      set = FcConfigGetFonts (c2, FcSetApplication);
+      check (n == 3 && !g_file_test (otf, G_FILE_TEST_EXISTS) && set && set->nfont == 3,
+             "a face of a font no longer installed is removed from the folder");
+      FcConfigDestroy (c2);
+      /* face by face, as before */
+      c2 = FcConfigCreate ();
+      g_setenv ("RISCOS_GTK_FONT_FOLDER", "0", TRUE);
+      g_string_truncate (log, 0);
+      n = _gdk_riscos_fonts_add (c2, log);
+      set = FcConfigGetFonts (c2, FcSetApplication);
+      check (n == 3 && !strstr (log->str, "as a folder") && set && set->nfont == 3,
+             "RISCOS_GTK_FONT_FOLDER=0: face by face");
+      g_unsetenv ("RISCOS_GTK_FONT_FOLDER");
+      FcConfigDestroy (c2);
+      g_free (fc);
+      g_free (otf);
+    }
     g_string_truncate (log, 0);
     g_unsetenv ("GTK$FontCacheKey");
     n = _gdk_riscos_fonts_add (config, log);

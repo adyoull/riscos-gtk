@@ -6,13 +6,25 @@
  * second argument, with how windows were plotted (RISCOS_GTK_DIRECT_PLOT:
  * straight into screen memory, or with OS_SpriteOp when it's 0). The
  * window then stays 15 s, scrolled to line 1000, for a screenshot.
+ * SCROLLBENCH_STEPS sets the number of steps (0: start-up only). With
+ * UnixLib$Profile set (riscos-unixlib-web's sampling profile), a second
+ * thread gives up its turn for ever, so the thread ticker switches (and
+ * takes a sample) every centisecond.
  * MIT licence.
  */
 #include <gtk/gtk.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
-#define STEPS 300
+static int STEPS = 300;
+static void *
+idle_thread (void *d)
+{
+  for (;;)
+    pthread_yield ();
+  return NULL;
+}
 
 static GtkWidget *view, *scroller;
 static const char *out;
@@ -24,7 +36,6 @@ run (gpointer d)
 {
   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scroller));
   GdkWindow *w = gtk_widget_get_window (gtk_widget_get_toplevel (view));
-  const char *e = g_getenv ("RISCOS_GTK_DIRECT_PLOT");
   double secs;
   FILE *f;
 
@@ -45,8 +56,8 @@ run (gpointer d)
   if (f)
     {
       fprintf (f, "%s: %d scroll steps in %.2f s, %.1f a second\n",
-               e && atoi (e) == 0 ? "OS_SpriteOp        " : "straight to screen ",
-               STEPS, secs, STEPS / secs);
+               g_getenv ("RISCOS_GTK_PAINT_BUFFER") ? "GDK paint buffer    " : "no paint buffer     ",
+               STEPS, secs, STEPS ? STEPS / secs : 0.0);
       fclose (f);
     }
   gtk_adjustment_set_value (adj, gtk_adjustment_get_upper (adj) * 999 / 3000);
@@ -62,6 +73,13 @@ main (int argc, char **argv)
   int i;
 
   out = argc > 2 ? argv[2] : "scrollbench.txt";
+  if (g_getenv ("SCROLLBENCH_STEPS"))
+    STEPS = atoi (g_getenv ("SCROLLBENCH_STEPS"));
+  if (getenv ("UnixLib$Profile"))
+    {
+      pthread_t t;
+      pthread_create (&t, NULL, idle_thread, NULL);
+    }
   gtk_init (&argc, &argv);
   for (i = 0; i < 3000; i++)
     g_string_append_printf (text, "Line %d: the quick brown fox jumps over the lazy dog, "

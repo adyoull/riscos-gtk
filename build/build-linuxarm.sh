@@ -342,6 +342,11 @@ run schemas-fake "$HA" installed
 run windowless-fake "$HA" windowless
 run windowless-fake "$HA" env
 run windowless-fake "$HA" normal
+# the Wimp theme's files kept in Choices (a second start uses them)
+WTC=$REPO_DIR/out/themecache-linuxarm; rm -rf "$WTC"; mkdir -p "$WTC"
+run windowless-fake "$HA" theme1 "$WTC"
+sleep 1
+run windowless-fake "$HA" theme2 "$WTC"
 run pollword-fake "$HA"
 run pixelarea-fake "$HA" match
 run pixelarea-fake "$HA" swap

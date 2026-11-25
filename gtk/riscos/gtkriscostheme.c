@@ -64,6 +64,53 @@ static char *dir;               /* the PNGs */
 static int pool_asked, pool_found, tool_asked, tool_found, write_failed;
 static GPtrArray *files, *subdirs;
 static int icons_asked, icons_found;
+static gboolean from_cache;     /* for the Log: the files were there already */
+
+/* The theme's files are made in memory first (path within the theme's
+   folder, contents), and written once: to <Choices$Write>.GTK.Theme, in a
+   folder named by a checksum of them all, which later starts find and use
+   as it is (writing a hundred small files, and deleting them at exit, was
+   about 1.2 s of every start on a Pi 4). A different desktop (other sprites
+   or colours) gives another checksum: a new folder, and the old one goes.
+   Without Choices$Write: a temporary folder, deleted at exit, as before.
+   CSS names the files with THEME_DIR in front until the folder is known. */
+typedef struct { char *path; GBytes *data; } ThemeFile;
+static GPtrArray *made;
+#define THEME_DIR "@riscos-gtk-theme@"
+
+static void
+theme_file_free (gpointer p)
+{
+  ThemeFile *f = p;
+  g_free (f->path);
+  g_bytes_unref (f->data);
+  g_free (f);
+}
+
+static void
+add_file (const char *path, gchar *data, gsize len)
+{
+  ThemeFile *f = g_new (ThemeFile, 1);
+
+  if (made == NULL)
+    made = g_ptr_array_new_with_free_func (theme_file_free);
+  f->path = g_strdup (path);
+  f->data = g_bytes_new_take (data, len);
+  g_ptr_array_add (made, f);
+}
+
+/* pb as PNG at path (in the theme's folder); TRUE if it could be made */
+static gboolean
+add_png (GdkPixbuf *pb, const char *path)
+{
+  gchar *buf;
+  gsize len;
+
+  if (!gdk_pixbuf_save_to_buffer (pb, &buf, &len, "png", NULL, "compression", "0", NULL))
+    return FALSE;
+  add_file (path, buf, len);
+  return TRUE;
+}
 
 static void
 remove_files (void)
@@ -80,31 +127,189 @@ remove_files (void)
     g_rmdir (dir);
 }
 
-/* Write pb (taken) as name.png, and pb2 (taken, or NULL) as name@2.png:
+/* a folder and everything in it */
+static void
+remove_tree (const char *path)
+{
+  GDir *d = g_dir_open (path, 0, NULL);
+  const char *n;
+
+  while (d && (n = g_dir_read_name (d)) != NULL)
+    {
+      char *p = g_build_filename (path, n, NULL);
+      if (g_file_test (p, G_FILE_TEST_IS_DIR))
+        remove_tree (p);
+      else
+        g_unlink (p);
+      g_free (p);
+    }
+  if (d)
+    g_dir_close (d);
+  g_rmdir (path);
+}
+
+/* the files written in folder top (created); FALSE if one couldn't be */
+static gboolean
+write_files (const char *top, gboolean remember)
+{
+  guint i;
+
+  for (i = 0; made && i < made->len; i++)
+    {
+      ThemeFile *f = g_ptr_array_index (made, i);
+      char *file = g_build_filename (top, f->path, NULL);
+      char *parent = g_path_get_dirname (file);
+      gsize len;
+      const char *data = g_bytes_get_data (f->data, &len);
+      gboolean ok;
+
+      g_mkdir_with_parents (parent, 0755);
+      ok = g_file_set_contents (file, data, len, NULL);
+      g_free (parent);
+      if (!ok)
+        {
+          g_free (file);
+          return FALSE;
+        }
+      if (remember)
+        g_ptr_array_add (files, file);
+      else
+        g_free (file);
+    }
+  return TRUE;
+}
+
+/* where the files are: the folder the checksum names in Choices (written
+   if it isn't there yet), else a temporary one */
+static void
+place_files (void)
+{
+  GChecksum *sum = g_checksum_new (G_CHECKSUM_SHA1);
+  const char *choices = g_getenv ("Choices$Write");
+  char *root = NULL, *leaf, *done;
+  guint i;
+
+  for (i = 0; made && i < made->len; i++)
+    {
+      ThemeFile *f = g_ptr_array_index (made, i);
+      gsize len;
+      const guchar *data = g_bytes_get_data (f->data, &len);
+      g_checksum_update (sum, (const guchar *) f->path, strlen (f->path) + 1);
+      g_checksum_update (sum, data, len);
+    }
+  leaf = g_strdup_printf ("riscos-gtk-%.16s", g_checksum_get_string (sum));
+  g_checksum_free (sum);
+  if (choices && g_strcmp0 (g_getenv ("RISCOS_GTK_THEME_CACHE"), "0") != 0)
+    {
+#ifdef __riscos
+      root = g_strdup ("/<Choices$Write>/GTK/Theme");
+      g_mkdir ("/<Choices$Write>/GTK", 0755);
+#else
+      root = g_build_filename (choices, "GTK", "Theme", NULL);
+      {
+        char *gtk = g_build_filename (choices, "GTK", NULL);
+        g_mkdir (gtk, 0755);
+        g_free (gtk);
+      }
+#endif
+      g_mkdir (root, 0755);
+      dir = g_build_filename (root, leaf, NULL);
+      done = g_build_filename (dir, "Done", NULL);
+      if (g_file_test (done, G_FILE_TEST_EXISTS))
+        from_cache = TRUE;
+      else
+        {
+          GDir *d = g_dir_open (root, 0, NULL);
+          const char *n;
+
+          /* the folders for other desktops' themes go */
+          while (d && (n = g_dir_read_name (d)) != NULL)
+            if (strcmp (n, leaf) != 0)
+              {
+                char *p = g_build_filename (root, n, NULL);
+                remove_tree (p);
+                g_free (p);
+              }
+          if (d)
+            g_dir_close (d);
+          remove_tree (dir);
+          if (!write_files (dir, FALSE) || !g_file_set_contents (done, "", 0, NULL))
+            {
+              remove_tree (dir);
+              g_free (dir);
+              dir = NULL;
+            }
+        }
+      g_free (done);
+    }
+  if (dir == NULL)
+    {
+      dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
+      if (dir)
+        {
+          files = g_ptr_array_new_with_free_func (g_free);
+          subdirs = g_ptr_array_new_with_free_func (g_free);
+          atexit (remove_files);
+          if (!write_files (dir, TRUE))
+            write_failed++;
+          /* the folders made, for remove_files (deepest last) */
+          for (i = 0; i < files->len; i++)
+            {
+              char *p = g_path_get_dirname (g_ptr_array_index (files, i));
+              while (strcmp (p, dir) != 0 && strlen (p) > strlen (dir))
+                {
+                  char *up = g_path_get_dirname (p);
+                  guint j;
+                  gboolean have = FALSE;
+                  for (j = 0; j < subdirs->len; j++)
+                    if (strcmp (g_ptr_array_index (subdirs, j), p) == 0)
+                      have = TRUE;
+                  if (!have)
+                    g_ptr_array_insert (subdirs, 0, g_strdup (p));
+                  g_free (p);
+                  p = up;
+                }
+              g_free (p);
+            }
+        }
+      else
+        write_failed++;
+    }
+  g_free (root);
+  g_free (leaf);
+}
+
+/* the CSS with the theme's folder in place of THEME_DIR */
+static char *
+place_css (char *css)
+{
+  char *uri, **parts, *out;
+
+  if (dir == NULL)
+    return css;
+  uri = g_filename_to_uri (dir, NULL, NULL);
+  if (uri == NULL)
+    return css;
+  parts = g_strsplit (css, THEME_DIR, -1);
+  out = g_strjoinv (uri, parts);
+  g_strfreev (parts);
+  g_free (uri);
+  g_free (css);
+  return out;
+}
+
+/* Make pb (taken) as name.png, and pb2 (taken, or NULL) as name@2.png:
    the picture for GDK scale 2 (an EX0 EY0, 180 dpi, mode), twice the
    pixels. Returns the CSS image (url("...") or, with pb2,
    -gtk-scaled(url("..."), url("...@2"))) and pb's size, or NULL. */
 static char *
 save_png (GdkPixbuf *pb, const char *name)
 {
-  char *file, *uri;
+  char *path = g_strdup_printf ("%s.png", name), *uri = NULL;
 
-  if (dir == NULL)
-    {
-      dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
-      if (dir == NULL)
-        return NULL;
-      files = g_ptr_array_new_with_free_func (g_free);
-      atexit (remove_files);
-    }
-  file = g_strdup_printf ("%s/%s.png", dir, name);
-  if (!gdk_pixbuf_save (pb, file, "png", NULL, "compression", "0", NULL))
-    {
-      g_free (file);
-      return NULL;
-    }
-  g_ptr_array_add (files, file);
-  uri = g_filename_to_uri (file, NULL, NULL);
+  if (add_png (pb, path))
+    uri = g_strdup_printf (THEME_DIR "/%s", path);
+  g_free (path);
   return uri;
 }
 
@@ -380,15 +585,6 @@ static const struct {
   { "dialog-question",          "status",    { "question" },                { NULL } },
 };
 
-static gboolean
-make_dir (const char *path)
-{
-  if (g_mkdir (path, 0755) != 0)
-    return FALSE;
-  g_ptr_array_add (subdirs, g_strdup (path));
-  return TRUE;
-}
-
 /* The first of names the Wimp has, written as path/icon.png */
 static gboolean
 wimp_icon (const char *const names[3], const char *path, const char *icon)
@@ -403,9 +599,9 @@ wimp_icon (const char *const names[3], const char *path, const char *icon)
       if (pb == NULL)
         continue;
       file = g_strdup_printf ("%s/%s.png", path, icon);
-      if (gdk_pixbuf_save (pb, file, "png", NULL, "compression", "0", NULL))
+      if (add_png (pb, file))
         {
-          g_ptr_array_add (files, file);
+          g_free (file);
           g_object_unref (pb);
           return TRUE;
         }
@@ -416,30 +612,17 @@ wimp_icon (const char *const names[3], const char *path, const char *icon)
   return FALSE;
 }
 
-/* Make dir/icons/RISCOS-Wimp; TRUE if it has any icons */
+/* Make icons/RISCOS-Wimp (in the theme's files); TRUE if it has any icons */
 static gboolean
 make_icon_theme (void)
 {
-  char *top, *theme, *index, *large, *small;
+  const char *theme = "icons/RISCOS-Wimp";
+  char *large, *small;
   GString *idx;
   guint i;
   gboolean any = FALSE;
   const char *ctxs[] = { "places", "mimetypes", "devices", "status" };
 
-  if (dir == NULL)
-    {
-      dir = g_dir_make_tmp ("riscos-gtk-XXXXXX", NULL);
-      if (dir == NULL)
-        return FALSE;
-      files = g_ptr_array_new_with_free_func (g_free);
-      atexit (remove_files);
-    }
-  if (subdirs == NULL)
-    subdirs = g_ptr_array_new_with_free_func (g_free);
-  top = g_build_filename (dir, "icons", NULL);
-  theme = g_build_filename (top, "RISCOS-Wimp", NULL);
-  make_dir (top);
-  make_dir (theme);
   idx = g_string_new ("[Icon Theme]\nName=RISCOS-Wimp\n"
                       "Comment=riscos-gtk: the desktop's own sprites\n"
                       "Inherits=RISCOS,hicolor\nDirectories=");
@@ -447,30 +630,15 @@ make_icon_theme (void)
     g_string_append_printf (idx, "%slarge/%s,small/%s", i ? "," : "", ctxs[i], ctxs[i]);
   g_string_append (idx, "\n\n");
   for (i = 0; i < G_N_ELEMENTS (ctxs); i++)
-    {
-      char *d;
-      /* the Wimp's sprites are 34 pixels (large) and about 18 (small);
-         GTK scales them to the size asked for */
-      g_string_append_printf (idx, "[large/%s]\nSize=34\nContext=%s\nType=Threshold\nThreshold=14\n\n"
-                              "[small/%s]\nSize=18\nContext=%s\nType=Threshold\nThreshold=4\n\n",
-                              ctxs[i], ctxs[i], ctxs[i], ctxs[i]);
-      d = g_build_filename (theme, "large", NULL);
-      if (i == 0) make_dir (d);
-      g_free (d);
-      d = g_build_filename (theme, "small", NULL);
-      if (i == 0) make_dir (d);
-      g_free (d);
-      d = g_build_filename (theme, "large", ctxs[i], NULL);
-      make_dir (d);
-      g_free (d);
-      d = g_build_filename (theme, "small", ctxs[i], NULL);
-      make_dir (d);
-      g_free (d);
-    }
+    /* the Wimp's sprites are 34 pixels (large) and about 18 (small);
+       GTK scales them to the size asked for */
+    g_string_append_printf (idx, "[large/%s]\nSize=34\nContext=%s\nType=Threshold\nThreshold=14\n\n"
+                            "[small/%s]\nSize=18\nContext=%s\nType=Threshold\nThreshold=4\n\n",
+                            ctxs[i], ctxs[i], ctxs[i], ctxs[i]);
   for (i = 0; i < G_N_ELEMENTS (wimp_icons); i++)
     {
-      large = g_build_filename (theme, "large", wimp_icons[i].context, NULL);
-      small = g_build_filename (theme, "small", wimp_icons[i].context, NULL);
+      large = g_strdup_printf ("%s/large/%s", theme, wimp_icons[i].context);
+      small = g_strdup_printf ("%s/small/%s", theme, wimp_icons[i].context);
       icons_asked++;
       if (wimp_icon (wimp_icons[i].large, large, wimp_icons[i].icon) |
           (wimp_icons[i].small[0] && wimp_icon (wimp_icons[i].small, small, wimp_icons[i].icon)))
@@ -481,23 +649,19 @@ make_icon_theme (void)
       g_free (large);
       g_free (small);
     }
-  index = g_build_filename (theme, "index.theme", NULL);
-  if (g_file_set_contents (index, idx->str, -1, NULL))
-    g_ptr_array_add (files, index);
-  else
-    g_free (index);
-  g_string_free (idx, TRUE);
-  g_free (theme);
-  g_free (top);
+  {
+    gsize len = idx->len;
+    add_file ("icons/RISCOS-Wimp/index.theme", g_string_free (idx, FALSE), len);
+  }
   return any;
 }
 
 static void
-icons_init (GdkDisplay *display)
+icons_init (GdkDisplay *display, gboolean any)
 {
   GdkScreen *screen = gdk_display_get_default_screen (display);
 
-  if (make_icon_theme ())
+  if (any && dir)
     {
       char *top = g_build_filename (dir, "icons", NULL);
       gtk_icon_theme_prepend_search_path (gtk_icon_theme_get_for_screen (screen), top);
@@ -942,12 +1106,18 @@ _gtk_riscos_theme_init (GdkDisplay *display)
     }
 
   css = make_css ();
-  icons_init (display);
+  {
+    gboolean icons = make_icon_theme ();
+    place_files ();
+    css = place_css (css);
+    icons_init (display, icons);
+  }
   /* one line in every program's log, so a report shows what was used */
   g_printerr ("riscos-gtk: theme: Wimp colours %s; Wimp sprites %d of %d; window border sprites"
               " %d of %d; icons from sprites %d of %d; %s%s\n", strstr (css, "@define-color") ? "yes" : "no",
               pool_found, pool_asked, tool_found, tool_asked, icons_found, icons_asked,
-              write_failed ? "COULDN'T WRITE the PNGs in " : "PNGs in ", dir ? dir : g_get_tmp_dir ());
+              write_failed ? "COULDN'T WRITE the PNGs in " : from_cache ? "PNGs (there already) in " : "PNGs in ",
+              dir ? dir : g_get_tmp_dir ());
   if (g_getenv ("RISCOS_GTK_DEBUG"))
     g_printerr ("riscos-gtk theme:\n%s", css);
   provider = gtk_css_provider_new ();

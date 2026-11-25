@@ -1,5 +1,28 @@
 # Changelog
 
+## !GTKLibs 3.24.52-33 (2026-11-25)
+Where the time goes, measured on a Pi 4 with UnixLib's sampling profile
+(tools/profile/roprof.py) and tests/rol/scrollbench.c (a 900x640 text
+view: start-up, and 300 scroll steps):
+- **Start-up 3.7 s → 0.4 s** (from the second start on):
+  - The desktop's fonts go to fontconfig as one folder with fontconfig's own
+    cache (`<Choices$Write>.GTK.FontCacheFC`), instead of one by one: fontconfig
+    opened every face and worked out what it covers at every start (1.4 s for
+    117 faces). The cache is thrown away when the faces change; faces of
+    fonts no longer installed are removed. RISCOS_GTK_FONT_FOLDER=0: as before.
+  - The Wimp theme's pictures and icon theme are made in memory and kept in
+    `<Choices$Write>.GTK.Theme`, in a folder named by their checksum, instead of
+    being written to a new temporary folder at every start and deleted at
+    exit (about 1.2 s of every start, and 0.3 s of every quit). Another
+    desktop's sprites or colours give a new folder; the old one goes.
+    RISCOS_GTK_THEME_CACHE=0: as before.
+- **Scrolling 70 → 80 steps a second:** GTK draws straight into a window's
+  backing sprite. GDK's own buffer for each paint (a new surface, cleared,
+  then copied in) was a second off-screen copy, as the backing sprite only
+  reaches the screen after the paint. RISCOS_GTK_PAINT_BUFFER=1: as before.
+- Tests: riscosfonts-fake (the folder, removed faces, the old way),
+  windowless-fake theme1/theme2 (the theme kept and used again).
+
 ## !GTKLibs 3.24.52-32 (2026-11-25)
 - **NEON in zlib** (patches/zlib-1.3.1-riscos.diff), used when the CPU
   has it (VFPSupport_Features), with zlib's C kept for the others;

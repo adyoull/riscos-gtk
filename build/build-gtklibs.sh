@@ -36,8 +36,9 @@ SO=$STAGE/so
 # 29 a program can present its pixel area itself (GPU);
 # 30 a new pixel-area buffer with only its changed part redrawn;
 # 31 a poll word for the Wimp polls;
-# 32 NEON in zlib (Adler-32, inflate copies) and in printing)
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-32}
+# 32 NEON in zlib (Adler-32, inflate copies) and in printing;
+# 33 faster start-up (fonts and theme kept) and painting (no extra buffer))
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-33}
 # the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
 # (SOManager 3.04's own date): Copy's N option compares against it, so a
 # !SharedLibs with a newer SOManager keeps its own
