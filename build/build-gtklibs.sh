@@ -34,8 +34,9 @@ SO=$STAGE/so
 # 27 a window part shown from the program's own pixels;
 # 28 VideoOverlay_RedrawWindow for a program's overlay, work area coordinates;
 # 29 a program can present its pixel area itself (GPU);
-# 30 a new pixel-area buffer with only its changed part redrawn)
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-30}
+# 30 a new pixel-area buffer with only its changed part redrawn;
+# 31 a poll word for the Wimp polls)
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-31}
 # the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
 # (SOManager 3.04's own date): Copy's N option compares against it, so a
 # !SharedLibs with a newer SOManager keeps its own

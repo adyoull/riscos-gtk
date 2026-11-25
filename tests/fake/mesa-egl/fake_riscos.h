@@ -97,6 +97,9 @@ int fake_wimp_script_pos(void);          /* script entry last returned, -1 befor
 #define FAKE_SCRIPT_MAX 8192
 extern int fake_wimp_nulls, fake_wimp_script[FAKE_SCRIPT_MAX][4], fake_wimp_script_len;
 extern int fake_wimp_polls, fake_wimp_keys_passed, fake_wimp_tasks;
+/* the last Wimp_Poll(Idle)'s mask and R3; PollWord_NonZero returns (a set
+   poll word, mask bit 22, reason 13 not masked) */
+extern int fake_poll_mask, fake_poll_r3, fake_pollword_returns;
 extern void (*fake_wimp_hook)(int reason);
 /* Called for SWIs the fake doesn't know; returns 1 if it handled the SWI
    (setting *e for an error), 0 for "SWI not faked". */

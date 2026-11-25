@@ -183,6 +183,12 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   -o "$REPO_DIR/out/pixelarea-fake-linuxarm" \
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
+# The program's poll word (gdk_riscos_set_poll_word)
+$CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
+  $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/pollword-fake.c" \
+  -o "$REPO_DIR/out/pollword-fake-linuxarm" \
+  -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
+  -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 # A task without windows (gdk_riscos_set_windowless, RISCOS_GTK_NO_WINDOWS)
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations \
   $(pkg-config --cflags gtk+-3.0) "$REPO_DIR/tests/gtk/windowless-fake.c" \
@@ -336,6 +342,7 @@ run schemas-fake "$HA" installed
 run windowless-fake "$HA" windowless
 run windowless-fake "$HA" env
 run windowless-fake "$HA" normal
+run pollword-fake "$HA"
 run pixelarea-fake "$HA" match
 run pixelarea-fake "$HA" swap
 run browser-fake "$HA" "$BRT"

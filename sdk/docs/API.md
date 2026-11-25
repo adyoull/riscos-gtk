@@ -260,6 +260,29 @@ the same buffer: `gdk_riscos_window_pixel_area_changed` with the changed
 part (NULL: all). `pixels` NULL: GDK draws the area again. One area per
 top-level window.
 
+### A poll word
+
+```c
+#define GDK_RISCOS_POLL_WORD 1
+typedef void (*GdkRiscosPollWordFunc) (volatile int *word, gpointer data);
+void gdk_riscos_set_poll_word (volatile int *word, gboolean high_priority,
+                               GdkRiscosPollWordFunc func, gpointer data);
+```
+
+Lets another task (or a module's interrupt code) wake the program at
+once. Every Wimp poll riscos-gtk makes (the main loop's, so modal loops
+too, and the one while `gtk_init` runs) scans `word` (Wimp_PollIdle R3,
+mask bit 22; bit 23 too when `high_priority`). When the word is non-zero,
+the poll returns PollWord_NonZero (13). riscos-gtk then calls `func`
+before anything else, and the program clears the word there. The main
+loop's wait ends at once: GLib looks at its fds again and dispatches.
+
+- The word must be in memory every task can read (the RMA), and must
+  stay valid until it is set back to NULL.
+- Do only Wimp-safe work in `func`; anything that touches GTK goes in an
+  idle.
+- NULL (the default) polls as before.
+
 ### A new buffer with only part of it changed
 
 ```c

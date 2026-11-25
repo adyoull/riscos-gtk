@@ -67,6 +67,7 @@ enum {
   CLOSE_WINDOW_REQUEST = 3, POINTER_LEAVING_WINDOW = 4,
   POINTER_ENTERING_WINDOW = 5, MOUSE_CLICK = 6, KEY_PRESSED = 8,
   MENU_SELECTION = 9, SCROLL_REQUEST = 10, LOSE_CARET = 11, GAIN_CARET = 12,
+  POLLWORD_NONZERO = 13,
   USER_MESSAGE = 17, USER_MESSAGE_RECORDED = 18, USER_MESSAGE_ACKNOWLEDGE = 19
 };
 #define MESSAGE_QUIT        0
@@ -207,6 +208,12 @@ static GdkRiscosServer *the_server;   /* for the main loop's poll function */
    end, gdk_riscos_set_wimp_filter): its filter, and the messages it asked
    for before the task started (Wimp_AddMessages once it has) */
 static GdkRiscosWimpFilter wimp_filter;
+/* The program's poll word (gdk_riscos_set_poll_word): given to every
+   Wimp_PollIdle (R3, mask bit 22; bit 23 for high priority) */
+static volatile int *poll_word;
+static gboolean poll_word_high;
+static GdkRiscosPollWordFunc poll_word_func;
+static gpointer poll_word_data;
 static gpointer wimp_filter_data;
 static GArray *early_messages;
 
@@ -1563,6 +1570,28 @@ want_nulls (GdkRiscosServer *server)
   return server->pointer_window != 0 || server->buttons != 0;
 }
 
+/* The poll word bits of a poll mask: scan the program's word (and
+   take reason 13), or mask reason 13 when there's none */
+static int
+poll_word_mask (int mask)
+{
+  if (poll_word == NULL)
+    return mask | (1 << 13);
+  mask &= ~(1 << 13);
+  mask |= 1 << 22;
+  if (poll_word_high)
+    mask |= 1 << 23;
+  return mask;
+}
+
+/* Reason 13: the program's word is non-zero; it clears it */
+static void
+poll_word_set (void)
+{
+  if (poll_word != NULL && poll_word_func != NULL)
+    poll_word_func (poll_word, poll_word_data);
+}
+
 /* One Wimp_PollIdle: returns TRUE for an event GDK may want to see now,
    FALSE for a null event. until = monotonic time (cs) to return by. */
 static gboolean
@@ -1572,19 +1601,27 @@ poll_once (GdkRiscosServer *server, guint32 until, gboolean nulls)
   _kernel_swi_regs r;
   _kernel_oserror *e;
   int vfp;
-  int mask = (1 << 13);            /* no poll word events */
+  int mask = 0;
 
   if (!nulls)
     mask |= 1;                     /* no null events */
-  r.r[0] = mask;
+  r.r[0] = poll_word_mask (mask);
   r.r[1] = (int) block;
   r.r[2] = (int) until;
-  r.r[3] = 0;
+  r.r[3] = (int) poll_word;
   vfp = gdk_riscos_vfp_mine ();
   e = swi (Wimp_PollIdle, &r);
   gdk_riscos_vfp_reclaim (vfp);    /* before any floating point */
   if (e != NULL)
     return FALSE;
+
+  /* the program's poll word first: it ends the wait (TRUE: GLib looks at
+     its fds again and dispatches) */
+  if (r.r[0] == POLLWORD_NONZERO)
+    {
+      poll_word_set ();
+      return TRUE;
+    }
 
   /* the program's own windows, menus and messages first (a native front
      end); a menu choice only when the open menu isn't one GDK opened */
@@ -1686,16 +1723,18 @@ early_poll (GdkRiscosServer *server)
 
   for (i = 0; i < 4; i++)
     {
-      r.r[0] = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 8) | (1 << 9) | (1 << 13) |
-               (1 << 17) | (1 << 18) | (1 << 19);
+      r.r[0] = poll_word_mask ((1 << 4) | (1 << 5) | (1 << 6) | (1 << 8) | (1 << 9) |
+                               (1 << 17) | (1 << 18) | (1 << 19));
       r.r[1] = (int) block;
       r.r[2] = (int) monotonic_cs ();
-      r.r[3] = 0;
+      r.r[3] = (int) poll_word;
       vfp = gdk_riscos_vfp_mine ();
       e = swi (Wimp_PollIdle, &r);
       gdk_riscos_vfp_reclaim (vfp);
       if (e != NULL || r.r[0] == NULL_REASON)
         return;
+      if (r.r[0] == POLLWORD_NONZERO)
+        poll_word_set ();
       if (r.r[0] == REDRAW_WINDOW_REQUEST)
         handle_redraw (server, block);
     }
@@ -1768,7 +1807,12 @@ riscos_poll (GPollFD *fds, guint nfds, gint timeout)
       if (nulls && (gint32) (until - (now + 2)) > 0)
         until = now + 2;
       if (poll_once (server, until, TRUE))
-        return 0;                  /* GDK has events: let GLib dispatch */
+        {
+          /* GDK has events (or the poll word was set): let GLib dispatch,
+             with any fds that are ready now */
+          n = nfds ? poll ((struct pollfd *) fds, nfds, 0) : 0;
+          return n > 0 ? n : 0;
+        }
     }
 }
 
@@ -3145,6 +3189,16 @@ gdk_riscos_set_wimp_filter (GdkRiscosWimpFilter filter, gpointer data)
 {
   wimp_filter = filter;
   wimp_filter_data = data;
+}
+
+void
+gdk_riscos_set_poll_word (volatile int *word, gboolean high_priority,
+                          GdkRiscosPollWordFunc func, gpointer data)
+{
+  poll_word = word;
+  poll_word_high = word != NULL && high_priority;
+  poll_word_func = word != NULL ? func : NULL;
+  poll_word_data = word != NULL ? data : NULL;
 }
 
 void

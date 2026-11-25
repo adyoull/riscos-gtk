@@ -66,6 +66,7 @@ int fake_new_ref(void)
 unsigned char fake_keys_down[128];
 int fake_log_menus;
 static int wimp_null_due, fake_wimp_title_window;
+int fake_poll_mask, fake_poll_r3, fake_pollword_returns;
 int fake_wimp_polls, fake_wimp_keys_passed, fake_wimp_tasks;
 void (*fake_wimp_hook)(int reason);
 int (*fake_swi_hook)(int no, _kernel_swi_regs *r, _kernel_oserror **e);
@@ -1111,6 +1112,17 @@ static _kernel_oserror *swi(int no, _kernel_swi_regs *in, _kernel_swi_regs *out)
         block = (int *) (long) r.r[1];
         memset(block, 0, 64);
         fake_wimp_polls++;
+        fake_poll_mask = r.r[0];
+        fake_poll_r3 = r.r[3];
+        if ((r.r[0] & (1 << 22)) && !(r.r[0] & (1 << 13)) && r.r[3] &&
+            *(volatile int *) (long) r.r[3] != 0) {
+            /* the task's poll word is set: PollWord_NonZero first */
+            block[0] = r.r[3];
+            block[1] = *(volatile int *) (long) r.r[3];
+            fake_pollword_returns++;
+            r.r[0] = 13;
+            break;
+        }
         if (wimp_stage == 0) { reason = 1; block[0] = wimp_last_window; wimp_stage = 1; }
         else if (wimp_stage == 1 && wimp_step < fake_wimp_nulls && !(r.r[0] & 1)) {
             reason = 0; wimp_step++;

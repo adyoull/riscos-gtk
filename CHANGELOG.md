@@ -1,5 +1,16 @@
 # Changelog
 
+## !GTKLibs 3.24.52-31 (2026-11-25)
+- **A poll word** (`gdk_riscos_set_poll_word`, GDK_RISCOS_POLL_WORD): a
+  word in the RMA given to every Wimp poll (mask bit 22, bit 23 for high
+  priority). When another task sets it, the poll returns PollWord_NonZero,
+  the program's function is called (it clears the word), and the main
+  loop's wait ends at once.
+- After a Wimp event, the main loop's poll looks at GLib's fds again
+  before returning, so sockets that became ready are dispatched in the
+  same pass.
+- Tests: pollword-fake (9 checks); tests/rol/pollworddemo.c on ROL.
+
 ## !GTKLibs 3.24.52-30 (2026-11-25)
 - **A new pixel-area buffer with only its changed part redrawn**
   (`gdk_riscos_window_set_pixel_area_damaged`, GDK_RISCOS_PIXEL_AREA_DAMAGED):

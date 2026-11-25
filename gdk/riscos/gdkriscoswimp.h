@@ -239,6 +239,21 @@ void       gdk_riscos_window_set_size_grip_place (GdkWindow *window, gint x, gin
 typedef gboolean (*GdkRiscosWimpFilter) (int reason, int *block, gpointer data);
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_set_wimp_filter (GdkRiscosWimpFilter filter, gpointer data);
+/* A poll word for the task's Wimp polls (Wimp_PollIdle R3, mask bit 22;
+ * bit 23 too when high_priority), in memory every task can read (the
+ * RMA). When it is non-zero the poll returns reason 13 (PollWord_NonZero):
+ * riscos-gtk calls func (word, data) from the poll, before anything else,
+ * and the program clears the word there. That ends the main loop's wait
+ * at once: GLib looks at its fds again and dispatches. Used by every poll
+ * riscos-gtk makes (the main loop's, so modal loops too, and the one
+ * during gtk_init). Only Wimp-safe work in func: anything that touches
+ * GTK goes in an idle. NULL word: none (the default). The word must stay
+ * valid until set back to NULL. */
+#define GDK_RISCOS_POLL_WORD 1
+typedef void (*GdkRiscosPollWordFunc) (volatile int *word, gpointer data);
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_set_poll_word (volatile int *word, gboolean high_priority,
+                                     GdkRiscosPollWordFunc func, gpointer data);
 /* More messages for the task (Wimp_AddMessages; 0-terminated), e.g.
  * Message_HelpRequest &502. Before gtk_init() they are added once the task
  * has started. */
