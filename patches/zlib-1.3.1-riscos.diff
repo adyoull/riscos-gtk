@@ -1,0 +1,213 @@
+diff -ruN a/adler32.c b/adler32.c
+--- a/adler32.c	2026-11-25 19:14:23.442084289 +0000
++++ b/adler32.c	2026-11-25 19:14:48.482041666 +0000
+@@ -58,6 +58,65 @@
+ #endif
+ 
+ /* ========================================================================= */
++#ifdef Z_RISCOS_NEON
++/* riscos-gtk: Adler-32 with NEON, 16 bytes a step, up to 64 steps
++   (1 KB) between reductions. For a run of k 16-byte steps from s1, s2:
++     s1' = s1 + (all the bytes)
++     s2' = s2 + 16k s1 + 16 (sum over steps of the bytes before that step)
++                       + (sum over columns c of (16 - c) times column c's bytes)
++   1 KB keeps the sums inside 32 bits. */
++#pragma GCC push_options
++#pragma GCC target ("fpu=neon")
++#include <arm_neon.h>
++
++local uLong adler32_neon(uLong adler, const Bytef *buf, z_size_t len) {
++    static const unsigned short weights[16] = {
++        16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1
++    };
++    unsigned long s1 = adler & 0xffff, s2 = (adler >> 16) & 0xffff;
++    uint16x8_t w_lo = vld1q_u16(weights), w_hi = vld1q_u16(weights + 8);
++
++    while (len >= 16) {
++        unsigned k = len / 16 > 64 ? 64 : (unsigned)(len / 16), n = k;
++        uint32x4_t v_s1 = vdupq_n_u32(0), v_acc = vdupq_n_u32(0), t;
++        uint16x8_t c_lo = vdupq_n_u16(0), c_hi = vdupq_n_u16(0);
++        unsigned long acc, cols, sum;
++
++        do {
++            uint8x16_t b = vld1q_u8(buf);
++            buf += 16;
++            v_acc = vaddq_u32(v_acc, v_s1);
++            v_s1 = vpadalq_u16(v_s1, vpaddlq_u8(b));
++            c_lo = vaddw_u8(c_lo, vget_low_u8(b));
++            c_hi = vaddw_u8(c_hi, vget_high_u8(b));
++        } while (--n);
++        t = vmull_u16(vget_low_u16(c_lo), vget_low_u16(w_lo));
++        t = vmlal_u16(t, vget_high_u16(c_lo), vget_high_u16(w_lo));
++        t = vmlal_u16(t, vget_low_u16(c_hi), vget_low_u16(w_hi));
++        t = vmlal_u16(t, vget_high_u16(c_hi), vget_high_u16(w_hi));
++        acc = vgetq_lane_u32(v_acc, 0) + vgetq_lane_u32(v_acc, 1) +
++              vgetq_lane_u32(v_acc, 2) + vgetq_lane_u32(v_acc, 3);
++        cols = vgetq_lane_u32(t, 0) + vgetq_lane_u32(t, 1) +
++               vgetq_lane_u32(t, 2) + vgetq_lane_u32(t, 3);
++        sum = vgetq_lane_u32(v_s1, 0) + vgetq_lane_u32(v_s1, 1) +
++              vgetq_lane_u32(v_s1, 2) + vgetq_lane_u32(v_s1, 3);
++        s2 += 16UL * k * s1 + 16UL * acc + cols;
++        s1 += sum;
++        s1 %= BASE;
++        s2 %= BASE;
++        len -= 16UL * k;
++    }
++    while (len--) {
++        s1 += *buf++;
++        s2 += s1;
++    }
++    s1 %= BASE;
++    s2 %= BASE;
++    return s1 | (s2 << 16);
++}
++#pragma GCC pop_options
++#endif
++
+ uLong ZEXPORT adler32_z(uLong adler, const Bytef *buf, z_size_t len) {
+     unsigned long sum2;
+     unsigned n;
+@@ -81,6 +140,11 @@
+     if (buf == Z_NULL)
+         return 1L;
+ 
++#ifdef Z_RISCOS_NEON
++    if (len >= 64 && z_riscos_neon())
++        return adler32_neon(adler | (sum2 << 16), buf, len);
++#endif
++
+     /* in case short lengths are provided, keep it somewhat fast */
+     if (len < 16) {
+         while (len--) {
+diff -ruN a/inffast.c b/inffast.c
+--- a/inffast.c	2026-11-25 19:14:23.441681809 +0000
++++ b/inffast.c	2026-11-25 19:14:48.482288588 +0000
+@@ -47,6 +47,29 @@
+       requires strm->avail_out >= 258 for each loop to avoid checking for
+       output space.
+  */
++#ifdef Z_RISCOS_NEON
++/* riscos-gtk: a match copied 16 bytes at a time with NEON (len >= 16;
++   out - from >= 16 or from in another buffer, so every 16 bytes read are
++   already there) */
++#pragma GCC push_options
++#pragma GCC target ("fpu=neon")
++#include <arm_neon.h>
++local unsigned char FAR *chunk_copy(unsigned char FAR *out,
++                                    const unsigned char FAR *from,
++                                    unsigned len) {
++    do {
++        vst1q_u8(out, vld1q_u8(from));
++        out += 16;
++        from += 16;
++        len -= 16;
++    } while (len >= 16);
++    while (len--)
++        *out++ = *from++;
++    return out;
++}
++#pragma GCC pop_options
++#endif
++
+ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) {
+     struct inflate_state FAR *state;
+     z_const unsigned char FAR *in;      /* local strm->next_in */
+@@ -73,6 +96,9 @@
+     unsigned len;               /* match length, unused bytes */
+     unsigned dist;              /* match distance */
+     unsigned char FAR *from;    /* where to copy match from */
++#ifdef Z_RISCOS_NEON
++    int neon = z_riscos_neon();
++#endif
+ 
+     /* copy state to local variables */
+     state = (struct inflate_state FAR *)strm->state;
+@@ -233,6 +259,13 @@
+                             from = out - dist;  /* rest from output */
+                         }
+                     }
++#ifdef Z_RISCOS_NEON
++                    if (neon && len >= 16 &&
++                        (z_size_t)(out - (unsigned char FAR *)from) >= 16) {
++                        out = chunk_copy(out, from, len);
++                        len = 0;
++                    }
++#endif
+                     while (len > 2) {
+                         *out++ = *from++;
+                         *out++ = *from++;
+@@ -247,6 +280,12 @@
+                 }
+                 else {
+                     from = out - dist;          /* copy direct from output */
++#ifdef Z_RISCOS_NEON
++                    if (neon && len >= 16 && dist >= 16)
++                        out = chunk_copy(out, from, len);
++                    else
++#endif
++                    {
+                     do {                        /* minimum length is three */
+                         *out++ = *from++;
+                         *out++ = *from++;
+@@ -258,6 +297,7 @@
+                         if (len > 1)
+                             *out++ = *from++;
+                     }
++                    }
+                 }
+             }
+             else if ((op & 64) == 0) {          /* 2nd level distance code */
+diff -ruN a/zutil.c b/zutil.c
+--- a/zutil.c	2026-11-25 19:14:23.442470863 +0000
++++ b/zutil.c	2026-11-25 19:14:48.481134382 +0000
+@@ -297,3 +297,33 @@
+ #endif /* MY_ZCALLOC */
+ 
+ #endif /* !Z_SOLO */
++
++#ifdef Z_RISCOS_NEON
++#ifdef __riscos
++#  include <kernel.h>
++#else
++#  include <sys/auxv.h>
++#endif
++#include <stdlib.h>
++
++/* Is there NEON? Read once. */
++int ZLIB_INTERNAL z_riscos_neon(void) {
++    static int neon = -1;
++
++    if (neon < 0) {
++        const char *off = getenv("RISCOS_GTK_NO_NEON");
++#ifdef __riscos
++        _kernel_swi_regs r;
++
++        r.r[0] = 0;                     /* VFPSupport_Features 0: MVFR1 in R2 */
++        neon = _kernel_swi(0x58EC8, &r, &r) == NULL &&
++               ((r.r[2] >> 8) & 0xF) != 0 && ((r.r[2] >> 12) & 0xF) != 0;
++#else
++        neon = (getauxval(AT_HWCAP) & 4096) != 0;   /* HWCAP_NEON */
++#endif
++        if (off != NULL && atoi(off) != 0)
++            neon = 0;
++    }
++    return neon;
++}
++#endif
+diff -ruN a/zutil.h b/zutil.h
+--- a/zutil.h	2026-11-25 19:14:23.442921070 +0000
++++ b/zutil.h	2026-11-25 19:14:48.480956239 +0000
+@@ -251,4 +251,13 @@
+ #define ZSWAP32(q) ((((q) >> 24) & 0xff) + (((q) >> 8) & 0xff00) + \
+                     (((q) & 0xff00) << 8) + (((q) & 0xff) << 24))
+ 
++/* riscos-gtk: NEON (adler32.c, inffast.c), used when the CPU has it
++   (z_riscos_neon: VFPSupport_Features on RISC OS, HWCAP on Linux;
++   RISCOS_GTK_NO_NEON=1 turns it off). The plain C is kept. */
++#if defined(__arm__) && !defined(__aarch64__) && defined(__ARM_FP) && \
++    (defined(__riscos) || defined(__linux__)) && !defined(Z_NO_RISCOS_NEON)
++#  define Z_RISCOS_NEON
++   int ZLIB_INTERNAL z_riscos_neon(void);
++#endif
++
+ #endif /* ZUTIL_H */

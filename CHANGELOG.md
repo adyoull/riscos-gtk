@@ -1,5 +1,19 @@
 # Changelog
 
+## !GTKLibs 3.24.52-32 (2026-11-25)
+- **NEON in zlib** (patches/zlib-1.3.1-riscos.diff), used when the CPU
+  has it (VFPSupport_Features), with zlib's C kept for the others;
+  RISCOS_GTK_NO_NEON=1 turns it off, as for GDK:
+  - Adler-32 16 bytes a step (PNGs, zlib streams): 3.5 times faster
+    measured on a Pi 4;
+  - inflate copies matches of 16 bytes or more 16 at a time (PNGs, and
+    the zip files that .xlsx, .ods and .docx are): 6 to 15 percent faster
+    inflating on the Pi 4, depending on the data.
+- **Printing:** the page strips' red/blue swap uses NEON as GDK's other
+  swaps do.
+- Tests: simdtest also compares zlib with NEON on and off (and checks
+  the inflated data); tests/rol/zlibbench.c times it on a machine.
+
 ## !GTKLibs 3.24.52-31 (2026-11-25)
 - **A poll word** (`gdk_riscos_set_poll_word`, GDK_RISCOS_POLL_WORD): a
   word in the RMA given to every Wimp poll (mask bit 22, bit 23 for high

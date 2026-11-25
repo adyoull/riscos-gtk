@@ -2302,9 +2302,45 @@ swap_rb_neon (guint32 *dst, const guint32 *src, int n)   /* n: a multiple of 8, 
     :
     : "d0", "d1", "d2", "d3", "memory", "cc");
 }
+
+/* For printing (gdkprint-riscos.c): in place, the top byte cleared
+   (cairo's 0xXXRRGGBB to a sprite's &00BBGGRR) */
+static void
+swap_rb_clear_neon (guint32 *p, int n)      /* n: a multiple of 8, > 0 */
+{
+  __asm__ volatile (
+    ".fpu neon\n"
+    "1:\n\t"
+    "vld4.8 {d0, d1, d2, d3}, [%0]\n\t"
+    "vswp d0, d2\n\t"
+    "vmov.i8 d3, #0\n\t"
+    "vst4.8 {d0, d1, d2, d3}, [%0]!\n\t"
+    "subs %1, %1, #8\n\t"
+    "bgt 1b\n\t"
+    ".fpu vfpv3"
+    : "+r" (p), "+r" (n)
+    :
+    : "d0", "d1", "d2", "d3", "memory", "cc");
+}
 #else
 #define have_neon() 0
 #endif
+
+void
+_gdk_riscos_swap_rb_clear (guint32 *p, int n)
+{
+#if defined(__arm__)
+  if (n >= 8 && have_neon ())
+    {
+      int m = n & ~7;
+      swap_rb_clear_neon (p, m);
+      p += m;
+      n -= m;
+    }
+#endif
+  for (; n-- > 0; p++)
+    *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
+}
 
 static void
 swap_rb (guint32 *dst, const guint32 *src, int n)

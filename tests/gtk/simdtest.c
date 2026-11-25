@@ -1,12 +1,13 @@
 /*
  * simdtest.c - riscos-gtk: the NEON and ARMv6 SIMD code in pixman,
- * libpng and libjpeg-turbo gives what their C code gives.
+ * libpng, libjpeg-turbo and zlib gives what their C code gives.
  *
  * Draws with cairo (pixman: fills, blends, scaling, masks, 16 bpp),
  * decodes PNGs with libpng (its NEON row filters) with NEON on and off in
- * the same run, and saves and loads a JPEG with libjpeg-turbo. Prints a
+ * the same run, saves and loads a JPEG with libjpeg-turbo, and compresses
+ * and inflates data with zlib (its NEON Adler-32 and match copies). Prints a
  * hash of each result and how long it took. Run it twice, once with
- *   PIXMAN_DISABLE="arm-neon arm-simd" JSIMD_FORCENONE=1
+ *   PIXMAN_DISABLE="arm-neon arm-simd" JSIMD_FORCENONE=1 RISCOS_GTK_NO_NEON=1
  * and the hashes must match (build/build-linuxarm.sh does). In-process
  * checks (libpng on and off) print TAP. MIT licence.
  */
@@ -17,9 +18,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <zlib.h>
 
 /* libjpeg-turbo's (internal, but exported): 1 if NEON is used */
 extern int jsimd_can_idct_islow (void);
+/* riscos-gtk's zlib (internal; linked statically): 1 if NEON is used */
+extern int z_riscos_neon (void);
 
 static int n_tests, failures;
 
@@ -283,6 +287,71 @@ jpeg_test (double *secs)
   return v;
 }
 
+/* zlib: Adler-32 of many lengths and offsets, and data that inflates
+   with long and short matches, whole and in pieces (copies from the
+   window). The results must be the input (checked here) and the same
+   with NEON off (the hash). */
+static unsigned
+zlib_test (double *secs)
+{
+  const size_t n = 1 << 20;
+  unsigned char *in = g_malloc (n + 16), *out = g_malloc (n), *z;
+  uLongf zl = compressBound (n), ol;
+  unsigned v = 2166136261u, seed = 1;
+  size_t i;
+  int ok = 1, kind;
+  double t = now ();
+
+  z = g_malloc (zl);
+  for (i = 0; i < n + 16; i++)
+    {
+      seed = seed * 1103515245u + 12345u;
+      in[i] = (unsigned char) (seed >> 16);
+    }
+  for (i = 0; i < 400; i++)
+    {
+      unsigned long a = adler32 (((i * 977u) % 65521u) << 16 | (i * 31u) % 65521u,
+                                 in + i % 16, (i * 37u) % 5000u);
+      v = hash ((const unsigned char *) &a, sizeof a, v);
+    }
+  for (kind = 0; kind < 3; kind++)
+    {
+      z_stream st;
+      size_t got = 0;
+      int r;
+
+      for (i = 0; i < n; i++)
+        in[i] = kind == 0 ? "the quick brown fox jumps over the lazy dog 0123456789"[(i * 7 + i / 999) % 53]
+              : kind == 1 ? (unsigned char) ((i / 3) & 0xFF)
+              : (i > 300 && in[i] % 4 ? in[i - 1 - in[i] % 300] : in[i]);
+      zl = compressBound (n);
+      compress2 (z, &zl, in, n, 6);
+      v = hash (z, zl, v);
+      ol = n;
+      ok &= uncompress (out, &ol, z, zl) == Z_OK && ol == n && memcmp (out, in, n) == 0;
+      memset (&st, 0, sizeof st);
+      inflateInit (&st);
+      st.next_in = z;
+      st.avail_in = zl;
+      do
+        {
+          st.next_out = out + got;
+          st.avail_out = got + 70000 > n ? n - got : 70000;
+          r = inflate (&st, Z_NO_FLUSH);
+          got = st.next_out - out;
+        }
+      while (r == Z_OK);
+      ok &= r == Z_STREAM_END && got == n && memcmp (out, in, n) == 0;
+      inflateEnd (&st);
+    }
+  check (ok, "zlib: inflated data is what was compressed (whole, and in pieces)");
+  *secs = now () - t;
+  g_free (in);
+  g_free (out);
+  g_free (z);
+  return v;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -296,6 +365,9 @@ main (int argc, char **argv)
   v = jpeg_test (&t);
   printf ("jpeg %08x\n# JPEG save and load: %.3f s\n", v, t);
   png_test ();
+  printf ("# zlib NEON: %s\n", z_riscos_neon () ? "yes" : "no");
+  v = zlib_test (&t);
+  printf ("zlib %08x\n# zlib compress and inflate: %.3f s\n", v, t);
   printf ("1..%d\n", n_tests);
   return failures;
 }

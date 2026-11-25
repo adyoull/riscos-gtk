@@ -194,4 +194,8 @@ gboolean           _gdk_riscos_spawn_message                   (int             
 gboolean           _gdk_riscos_print_message                   (int                 reason,
                                                                  int                *block);
 
+/* cairo's 0xXXRRGGBB words to a sprite's &00BBGGRR, in place (NEON when
+   there is: gdkriscos-server.c) */
+void _gdk_riscos_swap_rb_clear (guint32 *p, int n);
+
 #endif /* __GDK_RISCOS_SERVER__ */

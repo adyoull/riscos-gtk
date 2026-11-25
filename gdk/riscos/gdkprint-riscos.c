@@ -445,7 +445,6 @@ plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int x0, int w, int y0
   int scale[4] = { 90, 90, dpi, dpi };     /* a pixel: 2 OS units x 90/dpi */
   cairo_surface_t *s;
   cairo_t *cr;
-  int k;
 
   spr[4] = w - 1;
   spr[5] = n - 1;
@@ -466,8 +465,7 @@ plot_strip (cairo_surface_t *page, int dpi, int page_os_h, int x0, int w, int y0
   cairo_surface_finish (s);
   cairo_surface_destroy (s);
   /* cairo's 0xXXRRGGBB words to the sprite's &00BBGGRR */
-  for (k = w * n; k--; p++)
-    *p = ((*p >> 16) & 0xFF) | (*p & 0xFF00) | ((*p & 0xFF) << 16);
+  _gdk_riscos_swap_rb_clear (p, w * n);
   r.r[0] = 512 + 52;            /* put sprite scaled, by pointer */
   r.r[1] = (int) pr.area;
   r.r[2] = (int) spr;

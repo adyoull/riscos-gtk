@@ -251,7 +251,7 @@ $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags 
   -Wl,-Bstatic $(pkg-config --libs --static gtk+-3.0 | sed 's/-pthread//g; s/-lresolv//g; s/-ldl//g; s/-lm / /g') \
   -Wl,-Bdynamic -lstdc++ -lresolv -ldl -lm -pthread
 
-# NEON and ARMv6 SIMD in pixman, libpng and libjpeg-turbo: the same
+# NEON and ARMv6 SIMD in pixman, libpng, libjpeg-turbo and zlib: the same
 # results with them off (run below, twice).
 $CC $RO_CFLAGS -no-pie -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0 libpng16) \
   "$REPO_DIR/tests/gtk/simdtest.c" -o "$REPO_DIR/out/simdtest-linuxarm" \
@@ -462,13 +462,14 @@ run frontend-fake
 # the drawing and JPEG hashes must match
 echo; echo "=== linux-arm: simdtest, SIMD on and off"
 on=$(QEMU=$GCCSDK_ENV/bin/qemu-arm-aligntrap "$RCD_DIR"/qemu/aligntrap.sh "$REPO_DIR/out/simdtest-linuxarm" 2>&1) || failed=$((failed + 1))
-off=$(PIXMAN_DISABLE="arm-neon arm-simd" JSIMD_FORCENONE=1 \
+off=$(PIXMAN_DISABLE="arm-neon arm-simd" JSIMD_FORCENONE=1 RISCOS_GTK_NO_NEON=1 \
   QEMU=$GCCSDK_ENV/bin/qemu-arm-aligntrap "$RCD_DIR"/qemu/aligntrap.sh "$REPO_DIR/out/simdtest-linuxarm" 2>&1) || failed=$((failed + 1))
 echo "$on"
-if echo "$on" | grep -q "libjpeg-turbo NEON: yes" &&
-   [ -n "$(echo "$on" | grep -E '^(draw|jpeg) ')" ] &&
-   [ "$(echo "$on" | grep -E '^(draw|jpeg) ')" = "$(echo "$off" | grep -E '^(draw|jpeg) ')" ]; then
-  echo "ok - pixman's and libjpeg-turbo's SIMD give what their C gives"
+if echo "$on" | grep -q "libjpeg-turbo NEON: yes" && echo "$on" | grep -q "zlib NEON: yes" &&
+   echo "$off" | grep -q "zlib NEON: no" &&
+   [ -n "$(echo "$on" | grep -E '^(draw|jpeg|zlib) ')" ] &&
+   [ "$(echo "$on" | grep -E '^(draw|jpeg|zlib) ')" = "$(echo "$off" | grep -E '^(draw|jpeg|zlib) ')" ]; then
+  echo "ok - pixman's, libjpeg-turbo's and zlib's SIMD give what their C gives"
 else
   echo "not ok - SIMD and C results differ (or no NEON)"; echo "$off"; failed=$((failed + 1))
 fi

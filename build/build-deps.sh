@@ -98,6 +98,10 @@ fix_pc() { sed -i 's/ -pthread//g' "$STAGE"/lib/pkgconfig/*.pc; }
 step "zlib 1.3.1"
 if ! have libz.a; then
 fresh zlib_1.3.dfsg+really1.3.1.orig.tar.gz zlib-1.3.1; cd zlib-1.3.1
+# NEON for Adler-32 and inflate's match copies when the CPU has it
+# (zutil.c z_riscos_neon: VFPSupport_Features; on Linux, HWCAP);
+# RISCOS_GTK_NO_NEON=1 turns it off. The plain C is kept.
+patch -p1 -s < "$REPO_DIR/patches/zlib-1.3.1-riscos.diff"
 CHOST=$HOST ./configure --static --prefix="$PREFIX" > ../zlib.log
 make -j$JOBS libz.a >> ../zlib.log
 inst install >> ../zlib.log; cd ..
