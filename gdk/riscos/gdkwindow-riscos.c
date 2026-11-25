@@ -775,6 +775,42 @@ gdk_riscos_window_set_pixel_area (GdkWindow *window, const cairo_rectangle_int_t
 }
 
 void
+gdk_riscos_window_set_pixel_area_damaged (GdkWindow *window, const cairo_rectangle_int_t *area,
+                                          const void *pixels, int stride,
+                                          int width, int height, gboolean trgb,
+                                          const cairo_region_t *changed)
+{
+  GdkRiscosServer *server;
+  cairo_rectangle_int_t where;
+  cairo_region_t *c = NULL;
+  int id, dx, dy;
+  gboolean swapped;
+
+  server = pix_target (window, &id, &dx, &dy);
+  if (server == NULL)
+    return;
+  if (area == NULL)
+    {
+      gdk_riscos_window_set_pixel_area (window, NULL, NULL, 0, 0, 0, trgb);
+      return;
+    }
+  where = *area;
+  where.x += dx;
+  where.y += dy;
+  if (changed)
+    {
+      c = cairo_region_copy (changed);
+      cairo_region_translate (c, dx, dy);
+    }
+  swapped = _gdk_riscos_server_window_swap_pixel_area (server, id, &where, pixels, stride,
+                                                       width, height, trgb, c);
+  if (c)
+    cairo_region_destroy (c);
+  if (!swapped)
+    gdk_riscos_window_set_pixel_area (window, area, pixels, stride, width, height, trgb);
+}
+
+void
 gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage)
 {
   GdkRiscosServer *server;

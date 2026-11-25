@@ -2718,6 +2718,30 @@ _gdk_riscos_server_window_set_pixel_area (GdkRiscosServer *server, gint id,
   cairo_region_destroy (region);
 }
 
+/* A new buffer in the same place and of the same size: only changed (window
+   GDK pixels; NULL: all) is redrawn. FALSE if it isn't the same area (the
+   caller sets it in full) */
+gboolean
+_gdk_riscos_server_window_swap_pixel_area (GdkRiscosServer *server, gint id,
+                                           const cairo_rectangle_int_t *where,
+                                           const void *pixels, int stride,
+                                           int width, int height, gboolean trgb,
+                                           const cairo_region_t *changed)
+{
+  RiscosWindow *w = window_by_id (server, id);
+  PixelArea *p = w ? w->pix : NULL;
+
+  if (p == NULL || pixels == NULL || where == NULL || where->x != p->x || where->y != p->y ||
+      where->width != p->w || where->height != p->h || width != p->dev_w ||
+      height != p->dev_h || stride < width * 4 || (stride & 3) != 0)
+    return FALSE;
+  p->pixels = pixels;
+  p->stride = stride;
+  p->trgb = trgb;
+  _gdk_riscos_server_window_pixel_area_changed (server, id, changed);
+  return TRUE;
+}
+
 void
 _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server, gint id,
                                               const cairo_region_t *damage)

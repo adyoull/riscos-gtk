@@ -1,5 +1,13 @@
 # Changelog
 
+## !GTKLibs 3.24.52-30 (2026-11-25)
+- **A new pixel-area buffer with only its changed part redrawn**
+  (`gdk_riscos_window_set_pixel_area_damaged`, GDK_RISCOS_PIXEL_AREA_DAMAGED):
+  for a swap chain whose buffers are each kept whole, a new buffer in the
+  same area and size takes the place of the old one and only `changed` is
+  redrawn (and given to a present function), instead of the whole area.
+  pixelarea-fake: 11 checks.
+
 ## !GTKLibs 3.24.52-29 (2026-11-24)
 - **A program can show its pixel area itself** (with the GPU: V3DRender's
   PRESENT). `gdk_riscos_window_set_pixel_area_present (window, func,

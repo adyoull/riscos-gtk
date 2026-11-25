@@ -260,6 +260,23 @@ the same buffer: `gdk_riscos_window_pixel_area_changed` with the changed
 part (NULL: all). `pixels` NULL: GDK draws the area again. One area per
 top-level window.
 
+### A new buffer with only part of it changed
+
+```c
+#define GDK_RISCOS_PIXEL_AREA_DAMAGED 1
+void gdk_riscos_window_set_pixel_area_damaged (GdkWindow *window, const cairo_rectangle_int_t *area,
+                                               const void *pixels, int stride, int width, int height,
+                                               gboolean trgb, const cairo_region_t *changed);
+```
+
+For a swap chain (a ring of buffers, each kept whole): as
+`gdk_riscos_window_set_pixel_area`, but when `area`, `width` and `height`
+are the ones already set, GDK takes the new `pixels` and redraws only
+`changed` (the window's coordinates, GDK pixels; NULL: all), and a present
+function gets only those rectangles. The new pixels must match what's
+shown outside `changed`. Otherwise, or with nothing set yet, the whole area
+is shown, as with `gdk_riscos_window_set_pixel_area`.
+
 ### Showing the pixel area with the GPU
 
 ```c

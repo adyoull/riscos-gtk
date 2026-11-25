@@ -26,6 +26,8 @@ static guint32 mid_set = 1, edge_out = 1, mid_changed = 1, mid_after_gtk = 1, mi
 static int plots_direct;
 static int overlay_calls, overlay_last_id, overlay_calls_after_unset;
 static int wa_ok;
+/* a new buffer with only a part changed (set_pixel_area_damaged) */
+static guint32 dmg_inside = 1, dmg_outside = 1;
 /* the program presenting the pixel area itself */
 static int present_calls, present_pixels, present_bad, present_ok = TRUE, present_calls_after_false;
 static guint32 mid_presented = 1, mid_after_false = 1;
@@ -167,6 +169,25 @@ hook (int reason)
                     wx == tx * 2 && wy == -ty * 2;
             printf ("# work area of (10,5) in the area: %d,%d (window %d,%d)\n", wx, wy, tx, ty);
           }
+          {
+            /* a second buffer: different everywhere (white), but only a
+               square at 40,40 said to have changed: only that is redrawn */
+            guint32 *second = g_malloc (STRIDE * AH), *keep = pixels;
+            cairo_rectangle_int_t d = { 40, 40, 10, 10 };
+            cairo_region_t *dr = cairo_region_create_rectangle (&d);
+            pixels = second;
+            fill (0, 0, AW, AH, px (255, 255, 255));
+            gdk_riscos_window_set_pixel_area_damaged (gtk_widget_get_window (area), &a, second,
+                                                      STRIDE, AW, AH, swapmode, dr);
+            dmg_inside = at (45, 45);
+            dmg_outside = at (AW / 2 + 20, AH / 2 + 20);
+            cairo_region_destroy (dr);
+            pixels = keep;
+            /* back to the first buffer, all of it */
+            gdk_riscos_window_set_pixel_area (gtk_widget_get_window (area), &a, pixels,
+                                              STRIDE, AW, AH, swapmode);
+            g_free (second);
+          }
           stage = 1;
           gtk_widget_queue_draw (win);       /* GTK draws all of it again */
           settle ();
@@ -260,6 +281,9 @@ main (int argc, char **argv)
   check (overlay_calls > 0 && overlay_last_id == 1234 && overlay_calls == overlay_calls_after_unset,
          "a set overlay gets VideoOverlay_RedrawWindow for the window's rectangles, and none once unset");
   check (wa_ok, "a point in the area in the top-level's work area (OS units, y up)");
+  printf ("# a new buffer, only a square changed: inside &%06X, outside &%06X\n", dmg_inside, dmg_outside);
+  check (dmg_inside == 0xFFFFFF && dmg_outside == 0xFF0000,
+         "set_pixel_area_damaged: a new buffer with only the changed part redrawn");
   printf ("# present: %d calls, %d pixels (area %d), %d bad; middle while presented &%06X, "
           "after FALSE &%06X\n", present_calls, present_pixels, AW * AH, present_bad, mid_presented, mid_after_false);
   check (present_calls >= 1 && present_bad == 0 && present_pixels >= AW * AH && mid_presented == 0xFF0000,

@@ -73,6 +73,15 @@ void               _gdk_riscos_server_window_set_pixel_area    (GdkRiscosServer 
 								  int                 width,
 								  int                 height,
 								  gboolean            trgb);
+gboolean           _gdk_riscos_server_window_swap_pixel_area   (GdkRiscosServer  *server,
+								  gint                id,
+								  const cairo_rectangle_int_t *where,
+								  const void         *pixels,
+								  int                 stride,
+								  int                 width,
+								  int                 height,
+								  gboolean            trgb,
+								  const cairo_region_t *changed);
 void               _gdk_riscos_server_window_pixel_area_changed (GdkRiscosServer *server,
 								  gint                id,
 								  const cairo_region_t *damage);

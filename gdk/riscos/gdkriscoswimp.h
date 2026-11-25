@@ -161,6 +161,20 @@ void       gdk_riscos_window_set_pixel_area (GdkWindow *window, const cairo_rect
 GDK_AVAILABLE_IN_ALL
 void       gdk_riscos_window_pixel_area_changed (GdkWindow *window, const cairo_region_t *damage);
 
+/* A new buffer for the pixel area, of which only changed (the window's
+ * coordinates, GDK pixels) differs from what is shown: as
+ * gdk_riscos_window_set_pixel_area, but when area, width and height are
+ * the ones already set, GDK takes the new pixels and redraws only changed
+ * (NULL: all of it). Otherwise (or nothing set yet) the whole area. The
+ * caller promises the new pixels match what's shown outside changed. */
+#define GDK_RISCOS_PIXEL_AREA_DAMAGED 1
+GDK_AVAILABLE_IN_ALL
+void       gdk_riscos_window_set_pixel_area_damaged (GdkWindow *window,
+                                                     const cairo_rectangle_int_t *area,
+                                                     const void *pixels, int stride,
+                                                     int width, int height, gboolean trgb,
+                                                     const cairo_region_t *changed);
+
 /* The program shows the pixel area itself (with the GPU: V3DRender's
  * PRESENT), where GDK would copy it to the screen: in each of the
  * top-level's redraw and update loops, GDK gathers the rectangles it would
