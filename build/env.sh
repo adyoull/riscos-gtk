@@ -70,19 +70,23 @@ if grep -q 'define LLONG_MIN 0x8000000000000000LL' "$GCCSDK_ENV/arm-riscos-gnuea
 fi
 
 # Which UnixLib the programs link, known by the library's sha256:
-# riscos-crossdev 1.11's 5.0.3.7 (the same code as riscos-unixlib
-# v5.0.3.7's release asset); 1.9's 5.0.3.5 (rename() of a file whose type
-# isn't its extension's MimeMap type; strnlen without _GNU_SOURCE). 1.4 to 1.8.x have 5.0.3.3,
-# the first with __pthread_held_wait; 1.3 has 5.0.3.2.
+# riscos-crossdev 1.14's 5.0.3.11 (riscos-unixlib v5.0.3.11's code, built
+# by crossdev with its .data alignment fix, so the same as 5.0.3.12);
+# riscos-unixlib's own 5.0.3.12 release library (word-aligned .data),
+# 5.0.3.11 and its rc10 (byte-aligned .data: refused below); crossdev
+# 1.11's 5.0.3.7 (RC18 to GTKLibs -33); 1.9's 5.0.3.5. 1.4 to 1.8.x have
+# 5.0.3.3, the first with __pthread_held_wait; 1.3 has 5.0.3.2.
 case "$(sha256sum < "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" | cut -d' ' -f1)" in
-  349503fc02f9e734a1dd6826da448ab270de6719a4541bba9036def226eefe4b)
-    UNIXLIB_VERSION=5.0.3.7;;
+  df399f0418bf4406eda8c9d935fb67f1206ef67db300f3ffd300fd982d225e07)
+    UNIXLIB_VERSION=5.0.3.11-crossdev1.14;;
   f8e76d36ce5495553153cb9e15c69084ad3938974288ababc34e90055226c6f4)
     UNIXLIB_VERSION=5.0.3.12;;
   4d1b3cc68cf906b66aa1a5cfe1f7321d39e0145336b454d7fbaa6df70e5a62a0)
     UNIXLIB_VERSION=5.0.3.11;;
   07713d5afb5a344066f77d5e4a97951db7a3d59103948ced4ec99cf61b1bd991)
     UNIXLIB_VERSION=5.0.3.11-rc10;;
+  349503fc02f9e734a1dd6826da448ab270de6719a4541bba9036def226eefe4b)
+    UNIXLIB_VERSION=5.0.3.7;;
   977e88ca3b93d3eb673fab8d9b74d2f5a273d4bab3832485862ad95ab3874f87|\
   30272fb8e7af90ddc0cae267fed56cb2051ce6a01b66413febe6091b0a3df6d2)
     UNIXLIB_VERSION=5.0.3.5;;
@@ -99,23 +103,23 @@ export UNIXLIB_VERSION
 # fonts (serif, monospace, the user's) come from the system, through
 # PackMan's FontConfig (UnixFC): gdk/riscos/gdkfontconfig-riscos.c
 export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
-# riscos-crossdev 1.11 (UnixLib 5.0.3.7: a static UnixLib in a dynamically
-# linked program, which the releases are from RC18) is needed.
+# riscos-crossdev 1.14 (UnixLib 5.0.3.11 with word-aligned .data; a
+# static UnixLib in a dynamically linked program, as the releases are from
+# RC18) is needed. RC19 on are built with it.
 # RISCOS_GTK_MIXED=1 builds every library position-independent, to become
 # a shared library in !GTKLibs (build/build-gtklibs.sh), and links the
 # programs against them (build/mixed-cc, build/build-app.sh).
-# riscos-unixlib 5.0.3.12 (the first release with word-aligned .data in
-# all its assembler files) is let through too, in a toolchain copy with
-# that library and its headers, until a riscos-crossdev release carries it.
-# 5.0.3.11 and its rc10 aren't: their _exist/_riscosify/_profile/_signal
-# .data and crt0's are byte-aligned, so a link can leave UnixLib's
-# start-up reading a word off a word boundary (abort before main on a Pi).
-# 5.0.3.7 has the same fault; every link is checked by
+# riscos-unixlib 5.0.3.12's own library is let through too (a toolchain
+# copy with that library and crt0.o/gcrt0.o with aligned .data), for test
+# builds. 5.0.3.11 and rc10 as released, and 5.0.3.7, aren't: their
+# _exist/_riscosify/_profile/_signal .data and crt0's are byte-aligned, so
+# a link can leave UnixLib's start-up reading a word off a word boundary
+# (abort before main on a Pi). Every link is also checked by
 # tools/check-data-align.py (build-app.sh, build-tests.sh, build-gtklibs.sh).
-if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.7 ] &&
+if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.11-crossdev1.14 ] &&
    [ "$UNIXLIB_VERSION" != 5.0.3.12 ]; then
-  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.7:" >&2
-  echo "  use riscos-crossdev v1.11 (make prebuilt there, into an empty toolchain/env)" >&2
+  echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs riscos-crossdev 1.14's 5.0.3.11:" >&2
+  echo "  use riscos-crossdev v1.14 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1
 fi
 

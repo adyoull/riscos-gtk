@@ -38,7 +38,7 @@ SO=$STAGE/so
 # 31 a poll word for the Wimp polls;
 # 32 NEON in zlib (Adler-32, inflate copies) and in printing;
 # 33 faster start-up (fonts and theme kept) and painting (no extra buffer))
-GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-33}
+GTKLIBS_VERSION=${GTKLIBS_VERSION:-3.24.52-34}
 # the date SOManager 3.04 and the loader carry in !GTKLibs.SharedLibs
 # (SOManager 3.04's own date): Copy's N option compares against it, so a
 # !SharedLibs with a newer SOManager keeps its own

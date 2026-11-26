@@ -51,8 +51,8 @@ UnixLib does and doesn't do that matters here:
 ## Building (short version)
 
 ```sh
-git clone -b v1.11 https://github.com/adyoull/riscos-crossdev
-(cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.7; riscos-mesa for GL
+git clone -b v1.14 https://github.com/adyoull/riscos-crossdev
+(cd riscos-crossdev && make prebuilt && make devkit)   # UnixLib 5.0.3.11; riscos-mesa for GL
 cd riscos-gtk
 export RCD_DIR=$PWD/../riscos-crossdev
 make deps                                   # the libraries
