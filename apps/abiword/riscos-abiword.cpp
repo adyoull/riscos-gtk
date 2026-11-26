@@ -131,9 +131,13 @@ open_file (const char *unix_path, int filetype, gboolean scrap, gpointer)
   return err == UT_OK;
 }
 
+/* the Preferences need a document window: with every window closed
+   (AbiWord on the icon bar), a new empty one, as Select gives */
 static void
-choices (gpointer)
+choices (gpointer d)
 {
+  if (!current_frame ())
+    show_window (d);
   if (current_frame ())
     ev_EditMethod_invoke ("dlgOptions", "");
 }

@@ -64,6 +64,7 @@ extern int riscos_abiword_main (int argc, char **argv);
 static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, typed_ok, files_done, iconbar_ok, frames_before, frames_after;
+static int prefs_seen = -1, choices_waits;
 static int saved[8], reopened[8];
 static const char *const suffixes[] = { ".odt", ".docx", ".doc", ".rtf", ".html", ".abw", ".sxw" };
 #define N_FORMATS 7
@@ -493,6 +494,36 @@ do_files (gpointer)
   return G_SOURCE_REMOVE;
 }
 
+/* the icon bar menu's Choices... (riscos-gtk's handler, as the menu calls
+   it): AbiWord's Preferences dialogue runs modally, so from an idle */
+static gboolean
+choices_idle (gpointer)
+{
+  gpointer hd;
+  const GdkRiscosIconbarHandlers *h = gdk_riscos_iconbar_get_handlers (&hd);
+
+  if (h && h->choices)
+    h->choices (hd);
+  return G_SOURCE_REMOVE;
+}
+
+/* a dialogue titled ...Preferences... on screen, or NULL */
+static GtkWidget *
+preferences_dialog (void)
+{
+  GList *l, *tops = gtk_window_list_toplevels ();
+  GtkWidget *found = NULL;
+
+  for (l = tops; l && !found; l = l->next)
+    {
+      const char *t = gtk_window_get_title (GTK_WINDOW (l->data));
+      if (t && strstr (t, "Preferences") && GTK_IS_DIALOG (l->data) && gtk_widget_get_visible (GTK_WIDGET (l->data)))
+        found = GTK_WIDGET (l->data);
+    }
+  g_list_free (tops);
+  return found;
+}
+
 /* close the icon bar's window (File > Close), then File > Quit: with one
    window, saved, AbiWord asks nothing */
 static gboolean
@@ -569,6 +600,30 @@ hook (int reason)
         }
       if (getenv ("AB_MATHSHOT"))
         shot (getenv ("AB_MATHSHOT"));
+      /* the icon bar menu's Choices... */
+      stage = 20;
+      g_idle_add (choices_idle, NULL);
+      g_main_context_wakeup (NULL);
+      nulls (10);
+      break;
+    case 20:
+      {
+        GtkWidget *d = preferences_dialog ();
+        if (d == NULL && ++choices_waits < 200)
+          {
+            nulls (5);
+            break;
+          }
+        prefs_seen = d != NULL;
+        printf ("# icon bar Choices: Preferences shown %d\n", prefs_seen);
+        fflush (stdout);
+        if (d)
+          gtk_dialog_response (GTK_DIALOG (d), GTK_RESPONSE_CLOSE);   /* its Close button */
+        nulls (10);
+        stage = 21;
+      }
+      break;
+    case 21:
       /* no "save changes?" when the windows close */
       app = XAP_App::getApp ();
       for (i = 0; app && i < app->getFrameCount (); i++)
@@ -702,6 +757,7 @@ main (int argc, char **argv)
   check (app_icon_ok, "and its application icon (\"abiword\", the windows' and About box's)");
   check (toolbar_buttons > 20 && toolbar_riscos == toolbar_buttons,
          "every toolbar button's icon is a RISC OS style one");
+  check (prefs_seen == 1, "the icon bar menu's Choices... opens AbiWord's Preferences");
   check (iconbar_ok && frames_after == frames_before + 1,
          "a file dropped on the icon bar icon opens in a window of its own");
   check (stage == 3, "File > Quit with the documents saved quits AbiWord");

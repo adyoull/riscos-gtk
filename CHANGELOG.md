@@ -1,5 +1,14 @@
 # Changelog
 
+## Gnumeric 1.12.62-riscos25, AbiWord 3.0.8-riscos10 (2026-11-26)
+- **Choices... on the icon bar menu works with every window closed.** Both
+  programs stay on the icon bar when their last window is closed, and their
+  Preferences need a document window, so Choices... did nothing then. Now it
+  opens a new empty document (as Select on the icon does) and the
+  Preferences with it.
+- Tests: gnumeric-fake and abiword-fake choose Choices... from the icon bar
+  menu and check the Preferences appear.
+
 ## !GTKLibs 3.24.52-33 (2026-11-25)
 Where the time goes, measured on a Pi 4 with UnixLib's sampling profile
 (tools/profile/roprof.py) and tests/rol/scrollbench.c (a 900x640 text

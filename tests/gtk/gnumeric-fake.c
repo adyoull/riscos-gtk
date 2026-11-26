@@ -53,6 +53,7 @@ static int n_tests, n_failed, stage, waits;
 static const char *outdir;
 static int started, avg_ok, concat_ok, round_ok, xlsx_saved, ods_saved, reopened_ok, plot_ok;
 static int scrolled_ok, mime_ok, grab_ok, files_done, icons_ok, fontsel_ok, families_ok, trends_ok;
+static int ib_choices_item = -1, prefs_open;
 
 static void
 check (int ok, const char *name)
@@ -426,6 +427,60 @@ tree (GtkWidget *w, int depth)
     }
 }
 
+/* the icon bar menu's entry starting with prefix (the fake's open
+   Wimp_CreateMenu block), or -1 */
+static int
+menu_index (const int *m, const char *prefix)
+{
+  const int *it = m + 7;
+  int i;
+
+  for (i = 0; i < 16; i++, it += 6)
+    {
+      char t[48];
+      if (it[2] & 0x100)
+        g_strlcpy (t, (const char *) (long) it[3], sizeof t);
+      else
+        {
+          memcpy (t, it + 3, 12);
+          t[12] = 0;
+        }
+      if (strncmp (t, prefix, strlen (prefix)) == 0)
+        return i;
+      if (it[0] & 0x80)
+        break;
+    }
+  return -1;
+}
+
+/* a window titled ...Preferences... on screen; close: close them all
+   (one at a time: closing one can take others with it) */
+static gboolean
+preferences (gboolean close)
+{
+  gboolean found = FALSE;
+
+  for (;;)
+    {
+      GList *l, *tops = gtk_window_list_toplevels ();
+      GtkWidget *w = NULL;
+
+      for (l = tops; l && !w; l = l->next)
+        {
+          const char *t = gtk_window_get_title (l->data);
+          if (t && strstr (t, "Preferences") && gtk_widget_get_visible (l->data))
+            w = l->data;
+        }
+      g_list_free (tops);
+      if (w == NULL)
+        return found;
+      found = TRUE;
+      if (!close)
+        return TRUE;
+      gtk_widget_destroy (w);
+    }
+}
+
 static void
 hook (int reason)
 {
@@ -477,6 +532,25 @@ hook (int reason)
         Workbook *wb = wb_control_get_workbook (GNM_WBC (first_wbcg ()));
         go_doc_set_dirty (GO_DOC (wb), FALSE);      /* no "save changes?" */
       }
+      /* Menu on the icon bar icon */
+      fake_target_window = -2;
+      fake_target_icon = fake_iconbar_icons;
+      add (6, 0, 0, 2);
+      nulls (10);
+      stage = 10;
+      break;
+    case 10:     /* its menu: Choices... */
+      fake_target_icon = -1;
+      ib_choices_item = fake_menu ? menu_index (fake_menu, "Choices") : -2;
+      if (ib_choices_item >= 0)
+        add (9, ib_choices_item, -1, -1);
+      nulls (30);
+      stage = 11;
+      break;
+    case 11:     /* the Preferences dialogue, then on to closing */
+      prefs_open = preferences (FALSE);
+      printf ("# icon bar menu Choices at %d; Preferences shown %d\n", ib_choices_item, prefs_open);
+      preferences (TRUE);
       /* the fake closes its target window: by default the newest one,
          which since GOffice 0.10.62 can be a combo box's pop-up (made
          when the font chooser was shown), and that ignores delete */
@@ -562,6 +636,8 @@ main (int argc, char **argv)
   check (grab_ok, "File > Open: the hidden dialogue doesn't take the grab from the Open box");
   check (icons_ok, "Gnumeric's own toolbar icons in the RISC OS style");
   check (fontsel_ok, "with UnixFC, the font chooser's preview changes face for Sans, Serif and Monospace");
+  check (ib_choices_item >= 0 && prefs_open,
+         "the icon bar menu's Choices... opens Gnumeric's Preferences");
   check (stage == 3, "closing the window quits Gnumeric");
   printf ("# exit status %d\n", status);
   printf ("1..%d\n", n_tests);

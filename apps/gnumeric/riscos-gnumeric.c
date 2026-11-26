@@ -102,13 +102,18 @@ open_file (const char *unix_path, int filetype, gboolean scrap, gpointer d)
   return ok;
 }
 
+/* the Preferences need a workbook window: with every window closed
+   (Gnumeric on the icon bar), a new empty one, as Select gives */
 static void
 choices (gpointer d)
 {
-  WBCGtk *wbcg = current_wbcg ();
+  WBCGtk *wbcg = wbcg_or_new ();
 
   if (wbcg)
-    dialog_preferences (wbcg, NULL);
+    {
+      gtk_window_present (wbcg_toplevel (wbcg));
+      dialog_preferences (wbcg, NULL);
+    }
 }
 
 static gboolean
