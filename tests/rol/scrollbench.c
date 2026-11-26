@@ -6,7 +6,9 @@
  * second argument, with how windows were plotted (RISCOS_GTK_DIRECT_PLOT:
  * straight into screen memory, or with OS_SpriteOp when it's 0). The
  * window then stays 15 s, scrolled to line 1000, for a screenshot.
- * SCROLLBENCH_STEPS sets the number of steps (0: start-up only). With
+ * SCROLLBENCH_STEPS sets the number of steps (0: start-up only).
+ * SCROLLBENCH_LAYOUT=1 first times laying out a 30,000-line document
+ * (text shaping, GLib, malloc: more of the C library than scrolling). With
  * UnixLib$Profile set (riscos-unixlib-web's sampling profile), a second
  * thread gives up its turn for ever, so the thread ticker switches (and
  * takes a sample) every centisecond.
@@ -31,6 +33,30 @@ static const char *out;
 static int step;
 static gint64 start;
 
+/* the whole of a 30,000-line text laid out: its last line's place asked
+   for, which lays out every line before it */
+static double
+layout_test (void)
+{
+  GString *text = g_string_new (NULL);
+  GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+  GtkTextIter end;
+  gint64 t0;
+  int i, y, h;
+
+  for (i = 0; i < 30000; i++)
+    g_string_append_printf (text, "Line %d: the quick brown fox jumps over the lazy dog, "
+                            "pack my box with five dozen liquor jugs %d\n", i + 1, i * 7);
+  t0 = g_get_monotonic_time ();
+  gtk_text_buffer_set_text (buf, text->str, -1);
+  gtk_text_buffer_get_end_iter (buf, &end);
+  gtk_text_view_get_line_yrange (GTK_TEXT_VIEW (view), &end, &y, &h);
+  while (gtk_events_pending ())
+    gtk_main_iteration ();
+  g_string_free (text, TRUE);
+  return (g_get_monotonic_time () - t0) / 1e6;
+}
+
 static gboolean
 run (gpointer d)
 {
@@ -39,6 +65,17 @@ run (gpointer d)
   double secs;
   FILE *f;
 
+  if (g_getenv ("SCROLLBENCH_LAYOUT"))
+    {
+      double t = layout_test ();
+      f = fopen (out, "a");
+      if (f)
+        {
+          fprintf (f, "%s layout of 30,000 lines: %.2f s\n",
+                   g_getenv ("ScrollBench$Prog") ? g_getenv ("ScrollBench$Prog") : "scrollbench", t);
+          fclose (f);
+        }
+    }
   start = g_get_monotonic_time ();
   for (step = 0; step < STEPS; step++)
     {
@@ -55,7 +92,8 @@ run (gpointer d)
   f = fopen (out, "a");
   if (f)
     {
-      fprintf (f, "%s: %d scroll steps in %.2f s, %.1f a second\n",
+      fprintf (f, "%s %s: %d scroll steps in %.2f s, %.1f a second\n",
+               g_getenv ("ScrollBench$Prog") ? g_getenv ("ScrollBench$Prog") : "scrollbench",
                g_getenv ("RISCOS_GTK_PAINT_BUFFER") ? "GDK paint buffer    " : "no paint buffer     ",
                STEPS, secs, STEPS ? STEPS / secs : 0.0);
       fclose (f);
