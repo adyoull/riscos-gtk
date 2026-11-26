@@ -17,6 +17,7 @@ prog() {  # NAME SOURCE PKGS...
   $CC $RO_CFLAGS -Wall -Wextra -Wno-unused-parameter $(pkg-config --cflags "$@") \
     "$s" -o "$OUT/$n" -static $(pkg-config --libs --static "$@")
   "$RCD_DIR/checks/check-all.sh" "$OUT/$n"
+  python3 "$REPO_DIR/tools/check-data-align.py" "$OUT/$n" || exit 1
   "$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags "$@") "$s"
   $STRIP -o "$OUT/$n.stripped" "$OUT/$n"
   "$GCCSDK_ENV/bin/elf2aif" -e "$OUT/$n.stripped" "$A/$n,ff8" > /dev/null

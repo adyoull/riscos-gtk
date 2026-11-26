@@ -27,10 +27,12 @@ rm -rf "$A"; mkdir -p "$A/fonts" "$A/share/themes/RISCOS"
 if [ -n "${PREBUILT:-}" ]; then
   cp "$PREBUILT" "$OUT/$PROG"
   "$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
+  python3 "$REPO_DIR/tools/check-data-align.py" "$OUT/$PROG" || exit 1
 else
   $CC $RO_CFLAGS -Wall -Wno-deprecated-declarations $(pkg-config --cflags gtk+-3.0) ${EXTRA_CFLAGS:-} \
     "$@" -o "$OUT/$PROG" -static ${EXTRA_LIBS:-} $(pkg-config --libs --static gtk+-3.0)
   "$RCD_DIR/checks/check-all.sh" "$OUT/$PROG"
+  python3 "$REPO_DIR/tools/check-data-align.py" "$OUT/$PROG" || exit 1
   "$RCD_DIR/checks/check-unaligned.sh" $(pkg-config --cflags gtk+-3.0) "$@"
 fi
 $STRIP -o "$OUT/$PROG.stripped" "$OUT/$PROG"

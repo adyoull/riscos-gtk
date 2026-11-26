@@ -77,6 +77,8 @@ fi
 case "$(sha256sum < "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" | cut -d' ' -f1)" in
   349503fc02f9e734a1dd6826da448ab270de6719a4541bba9036def226eefe4b)
     UNIXLIB_VERSION=5.0.3.7;;
+  f8e76d36ce5495553153cb9e15c69084ad3938974288ababc34e90055226c6f4)
+    UNIXLIB_VERSION=5.0.3.12;;
   4d1b3cc68cf906b66aa1a5cfe1f7321d39e0145336b454d7fbaa6df70e5a62a0)
     UNIXLIB_VERSION=5.0.3.11;;
   07713d5afb5a344066f77d5e4a97951db7a3d59103948ced4ec99cf61b1bd991)
@@ -102,13 +104,16 @@ export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
 # RISCOS_GTK_MIXED=1 builds every library position-independent, to become
 # a shared library in !GTKLibs (build/build-gtklibs.sh), and links the
 # programs against them (build/mixed-cc, build/build-app.sh).
-# riscos-unixlib 5.0.3.11 (released 2026-11-26; the same code as rc10,
-# only the archive's timestamps differ) and rc10 are let through too, in
-# a toolchain copy with that library and its headers, until a
-# riscos-crossdev release carries 5.0.3.11.
+# riscos-unixlib 5.0.3.12 (the first release with word-aligned .data in
+# all its assembler files) is let through too, in a toolchain copy with
+# that library and its headers, until a riscos-crossdev release carries it.
+# 5.0.3.11 and its rc10 aren't: their _exist/_riscosify/_profile/_signal
+# .data and crt0's are byte-aligned, so a link can leave UnixLib's
+# start-up reading a word off a word boundary (abort before main on a Pi).
+# 5.0.3.7 has the same fault; every link is checked by
+# tools/check-data-align.py (build-app.sh, build-tests.sh, build-gtklibs.sh).
 if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.7 ] &&
-   [ "$UNIXLIB_VERSION" != 5.0.3.11 ] &&
-   [ "$UNIXLIB_VERSION" != 5.0.3.11-rc10 ]; then
+   [ "$UNIXLIB_VERSION" != 5.0.3.12 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.7:" >&2
   echo "  use riscos-crossdev v1.11 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1

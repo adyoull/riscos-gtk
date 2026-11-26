@@ -86,6 +86,7 @@ libs() {
       -L"$SO" -Wl,--as-needed $before -Wl,--no-as-needed -lgcc
     ln -sf "lib$so" "$SO/$name.so"
     "$RCD_DIR/checks/check-shared-lib.sh" "$SO/lib$so"
+    python3 "$REPO_DIR/tools/check-data-align.py" "$SO/lib$so" || exit 1
     before="$before -l${name#lib}"
   done <<< "$LIBS"
   ls -la "$SO"
