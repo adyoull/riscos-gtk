@@ -58,13 +58,19 @@ mkdir -p "$APP/share/icons"
   mkdir -p "$APP/share/icons/$(dirname "$f")"; cp "$f" "$APP/share/icons/$f"; done)
 cp "$G/COPYING" "$APP/Licence,fff"
 
+# Geany's ctags has its own (gnulib) regcomp/regexec/regerror/regfree.
+# riscos-crossdev 1.12 and later link the whole of UnixLib into a mixed
+# program, whose regerror.o and regfree.o then clash with them; Geany links
+# only the UnixLib it uses (-no-whole-unixlib, crossdev's docs/MIXED.md),
+# as every program did with 1.11.
+NO_WHOLE_UNIXLIB=; [ "${RISCOS_GTK_MIXED:-}" = 1 ] && NO_WHOLE_UNIXLIB=-no-whole-unixlib
 $CXX $RO_CFLAGS -Wall -Wno-deprecated-declarations -DHAVE_CONFIG_H -DGTK -DGEANY_PRIVATE -DRISCOS_PORT_VERSION=\"$VERSION\" \
   -I"$G" -I"$G/src" -I"$G/src/tagmanager" -I"$G/scintilla/include" -I"$G/scintilla/lexilla/include" \
   $(pkg-config --cflags gtk+-3.0) -x c "$REPO_DIR/apps/geany/riscos-geany.c" -x none \
   "$G/src/libgeany-riscos.a" "$G/src/tagmanager/.libs/libtagmanager.a" "$G/ctags/.libs/libctags.a" \
   "$G/ctags/.libs/libgnu_regex.a" "$G/scintilla/.libs/libscintilla.a" "$G/scintilla/.libs/liblexilla.a" \
   -o "$SRC/geany-prog" -static \
-  $(pkg-config --libs --static gtk+-3.0 gmodule-2.0) -lstdc++
+  $(pkg-config --libs --static gtk+-3.0 gmodule-2.0) -lstdc++ $NO_WHOLE_UNIXLIB
 # a monospaced font, for the editor
 export EXTRA_FONTS="DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf"
 export PREBUILT=$SRC/geany-prog

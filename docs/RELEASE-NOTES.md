@@ -41,6 +41,9 @@ since RC18, and rebuilds them all with **riscos-crossdev 1.14 and UnixLib
   directory browser.
 - **L3afpad riscos38, ClawsMail riscos29, Geany riscos17** and the two
   test programs: rebuilt with the new GTK and toolchain only.
+- **Each program carries the whole of UnixLib** (except Geany), so a
+  later !GTKLibs can use any of its functions without the programs being
+  updated. Each is about 750 KB bigger, and its WimpSlot with it.
 - **UnixLib 5.0.3.11:** faster string functions (strstr about 8 times),
   thread fixes, and UnixLib's start-up data word-aligned (an older
   UnixLib could, with an unlucky link, stop a program before it started

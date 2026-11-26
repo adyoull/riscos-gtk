@@ -6,6 +6,12 @@
   `build/env.sh` requires it; riscos-unixlib's own 5.0.3.12 library is let
   through for test copies. 5.0.3.11 and rc10 as released, and 1.11's 5.0.3.7,
   are refused: their `.data` in five start-up objects is byte-aligned.
+- **The whole of UnixLib in every program** (riscos-crossdev 1.12 and
+  later, for mixed programs): a newer !GTKLibs can use any UnixLib function
+  without the programs being relinked. About 750 KB more per program; the
+  WimpSlots follow. Geany links only the UnixLib it uses
+  (`-no-whole-unixlib`): its ctags has its own regex functions, which
+  clash with UnixLib's regerror and regfree.
 - **Every link is checked for word-aligned data** (`tools/check-data-align.py`,
   from riscos-crossdev) in build-app.sh, build-tests.sh and
   build-gtklibs.sh; a failure stops the build. No released program or
