@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.24.52-riscos1.0-rc19 (2026-11-26)
+- **Toolchain: riscos-crossdev 1.14** (`.riscos-deps`), with UnixLib 5.0.3.11
+  (crossdev's build has word-aligned `.data`, as riscos-unixlib 5.0.3.12).
+  `build/env.sh` requires it; riscos-unixlib's own 5.0.3.12 library is let
+  through for test copies. 5.0.3.11 and rc10 as released, and 1.11's 5.0.3.7,
+  are refused: their `.data` in five start-up objects is byte-aligned.
+- **Every link is checked for word-aligned data** (`tools/check-data-align.py`,
+  from riscos-crossdev) in build-app.sh, build-tests.sh and
+  build-gtklibs.sh; a failure stops the build. No released program or
+  library was misaligned.
+- **Everything rebuilt:** !GTKLibs 3.24.52-34 (the GTK changes -19 to -33),
+  L3afpad 0.8.18.1.11-riscos38, ClawsMail 4.4.0-riscos29, Geany 2.1-riscos17,
+  mtPaint 3.50.14-riscos19, Gnumeric 1.12.62-riscos26, AbiWord
+  3.0.8-riscos11, GTKThemeTest and GTKGLTest 3.24.52-riscos1.0-rc19.
+- Docs: RELEASE-NOTES (RC19), RC-TEST-PLAN section 19, BUILDING (crossdev
+  1.14), the ClawsMail and L3afpad !Help files (toolchain line).
+
 ## Gnumeric 1.12.62-riscos25, AbiWord 3.0.8-riscos10 (2026-11-26)
 - **Choices... on the icon bar menu works with every window closed.** Both
   programs stay on the icon bar when their last window is closed, and their

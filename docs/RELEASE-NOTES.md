@@ -1,7 +1,57 @@
-# riscos-gtk 3.24.52-riscos1.0 — public beta (release candidate 18)
+# riscos-gtk 3.24.52-riscos1.0 — public beta (release candidate 19)
 
-**Status: public beta.** RC18 is the sixteenth public beta build. Its
-programs **share one GTK**: GTK 3.24.52, riscos-gtk's RISC OS backend and
+**Status: public beta.** RC19 is the seventeenth public beta build. It
+brings every program up to date with the GTK and program fixes made
+since RC18, and rebuilds them all with **riscos-crossdev 1.14 and UnixLib
+5.0.3.11**:
+- **!GTKLibs 3.24.52-34**, with everything since RC18's -18:
+  - **Starting:** about 2.5 s quicker from the second start on. The
+    desktop's fonts are given to fontconfig as one cached folder, and
+    the theme's pictures are kept in `Choices:GTK.Theme` instead of
+    being made at every start (a test window: 3.7 s to 0.4 s on a Pi 4).
+  - **Drawing:** GTK draws straight into each window's off-screen
+    picture, with no buffer to copy (scrolling: 70 to 80 steps a second).
+  - **NEON:** zlib (PNG pictures; .xlsx, .ods and .docx files) and
+    printing's colour conversion use NEON on a Pi 2 or later.
+  - **Save boxes:** a program's own file format menu (AbiWord, Gnumeric)
+    now shows in the RISC OS Save box, so their files are saved as the
+    format chosen or typed. A Save box opened from a menu no longer gets
+    stuck when its format menu is used.
+  - **Keys:** Shift, Ctrl and Alt with the function keys, and Print, reach
+    the program. Ctrl-U clears a text field.
+  - **Dragging:** a web link dragged to the Filer becomes a URI file.
+  - **Fixes:** the 128 MB dynamic area limit is lifted at boot (ClawsMail
+    then Iris could stop Iris loading its libraries); a program's VFP
+    context is put back after each Wimp poll (an Illegal Instruction on
+    some machines); !GTKLibs adds the loader and SOManager to
+    !SharedLibs itself.
+  - **For developers:** calls for a program's own Wimp windows, its own
+    pixels in part of a window (drawn by the GPU if it likes, and updated
+    only where they changed), VideoOverlay support and a poll word
+    (`docs/API.md` in the devkit).
+- **AbiWord 3.0.8-riscos11:** saves .doc, .docx, .rtf and .odt as those
+  formats (they were AbiWord's own format under those names); opens
+  EasiWriter's Word files; Choices... on the icon bar works with no
+  document open.
+- **Gnumeric 1.12.62-riscos26:** saves .xls, .xlsx and .ods by the
+  extension typed; reads Fireworkz's .xls files (fonts and black cells
+  were wrong); Choices... on the icon bar works with no workbook open.
+- **mtPaint 3.50.14-riscos19:** a name typed with an extension saves in
+  that format, or says to convert the picture first; Browse... opens the
+  directory browser.
+- **L3afpad riscos38, ClawsMail riscos29, Geany riscos17** and the two
+  test programs: rebuilt with the new GTK and toolchain only.
+- **UnixLib 5.0.3.11:** faster string functions (strstr about 8 times),
+  thread fixes, and UnixLib's start-up data word-aligned (an older
+  UnixLib could, with an unlucky link, stop a program before it started
+  on a Pi; no riscos-gtk release was affected, and every program and
+  library is now checked for it when it's built).
+
+RC19's !GTKLibs and the programs were tried with UnixLib 5.0.3.11's code
+on a Pi 4 (all eight programs together; saves in Gnumeric, AbiWord and
+mtPaint; mail in ClawsMail), and on RISC OS 5.31 on Linux.
+
+RC18's programs **share one GTK**: GTK 3.24.52, riscos-gtk's RISC OS backend and
 the libraries under them are 26 shared libraries in `!GTKLibs`, which
 lives in `!Boot.Resources` like !SharedLibs, and every program uses that
 one copy (riscos-crossdev 1.11's mixed linking: UnixLib and each
@@ -60,22 +110,22 @@ shared GTK module to install.
 fixes to this release become riscos1.1, riscos1.2 ...). Release
 candidates add `-rcN`.
 
-## What's in RC18
+## What's in RC19
 
 | Package | Version | What |
 |---|---|---|
-| `L3afpad-0.8.18.1.11-riscos37.zip` | 0.8.18.1.11-riscos37 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
-| `ClawsMail-4.4.0-riscos28.zip` | 4.4.0-riscos28 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons; spell checking; attachments opened and dragged to the Filer. RSS feeds, Sieve filters, a calendar, the attachment warner and the address keeper (built-in plug-ins). `--subscribe` to a feed or calendar opens it. Starts on the icon bar; closing its window leaves it there |
-| `Geany-2.1-riscos16.zip` | 2.1-riscos16 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
-| `mtPaint-3.50.14-riscos16.zip` | 3.50.14-riscos16 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour |
-| `Gnumeric-1.12.62-riscos21.zip` | 1.12.62-riscos21 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Its manual (Help > Contents) and SVG pictures. Gnumeric 1.12.62, with XLOOKUP, XMATCH, TEXTBEFORE, TEXTAFTER, TEXTSPLIT. **New:** .xlsx, .ods, .xls, .csv, .tsv and Lotus files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; spreadsheets open from the Filer |
-| `AbiWord-3.0.8-riscos7.zip` | 3.0.8-riscos7 | The word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer. Charts, the thesaurus, equations, WordPerfect and Works files, SVG pictures. **New:** .docx, .odt, .doc and .rtf files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar |
-| `GTKThemeTest-3.24.52-riscos1.0-rc18.zip` | 3.24.52-riscos1.0-rc18 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
-| `GTKGLTest-3.24.52-riscos1.0-rc18.zip` | 3.24.52-riscos1.0-rc18 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
-| `GTKLibs-3.24.52-18.zip` | 3.24.52-18 | **Needed by every program:** `Resources.!GTKLibs`, the shared GTK libraries (26), and `Resources.!SharedLibs` with the ld-riscos/so/2 loader and SOManager 3.04 to add to your !SharedLibs. Both go in `!Boot.Resources` (PackMan will install them) |
+| `L3afpad-0.8.18.1.11-riscos38.zip` | 0.8.18.1.11-riscos38 | A simple text editor. Each document has its own window; it prints, uses Save/Open boxes, and has a Choices window |
+| `ClawsMail-4.4.0-riscos29.zip` | 4.4.0-riscos29 | An email client: POP3, IMAP and SMTP, with all TLS through AcornSSL, and local MH folders. Shows HTML mail laid out; links open in your browser (Iris or NetSurf); RISC OS icons; spell checking; attachments opened and dragged to the Filer. RSS feeds, Sieve filters, a calendar, the attachment warner and the address keeper (built-in plug-ins). `--subscribe` to a feed or calendar opens it. Starts on the icon bar; closing its window leaves it there |
+| `Geany-2.1-riscos17.zip` | 2.1-riscos17 | **Demo:** the programmer's editor, built with its own build against riscos-gtk's devkit: syntax highlighting for dozens of languages, a symbol list, tabs. Build commands (GCC, or the DDE with throwback) run in a TaskWindow with their errors in the Compiler tab; Execute runs the program in a task window. No plugins or built-in terminal |
+| `mtPaint-3.50.14-riscos19.zip` | 3.50.14-riscos19 | A painting program for pixel art and photos: palettes, layers, animation frames; PNG, JPEG, GIF and BMP. Its file picker is a RISC OS Save/Open box with Browse...; Adjust paints with the second colour. **New:** a name typed with an extension (.jpg, .gif, .bmp) saves in that format |
+| `Gnumeric-1.12.62-riscos26.zip` | 1.12.62-riscos26 | The spreadsheet: hundreds of functions, charts, and Excel (.xls, .xlsx), OpenDocument, Lotus 1-2-3, Quattro Pro, HTML, CSV and text files. Its manual (Help > Contents) and SVG pictures. Gnumeric 1.12.62, with XLOOKUP, XMATCH, TEXTBEFORE, TEXTAFTER, TEXTSPLIT. .xlsx, .ods, .xls, .csv, .tsv and Lotus files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar. Save and Open boxes, Menu for its menus, the icon bar, Choices... for its Preferences; spreadsheets open from the Filer. **New:** saves .xls, .xlsx and .ods by the extension typed or the format chosen in the Save box; Fireworkz .xls files read correctly |
+| `AbiWord-3.0.8-riscos11.zip` | 3.0.8-riscos11 | The word processor: styles, tables, headers and footers, footnotes, lists, pictures and page layout; OpenDocument (.odt), Word (.doc, .docx), RTF, HTML, text and its own .abw files. British English spelling (more dictionaries in `<Choices$Write>.GTK.Dictionaries`), the desktop's fonts, RISC OS icons, Save and Open boxes, Menu for its menus, the icon bar; Word files open from the Filer. Charts, the thesaurus, equations, WordPerfect and Works files, SVG pictures. .docx, .odt, .doc and .rtf files have their names and icons and open on a double-click; closing its last window leaves it on the icon bar. **New:** .doc, .docx, .rtf and .odt are saved in those formats; EasiWriter's Word files open |
+| `GTKThemeTest-3.24.52-riscos1.0-rc19.zip` | 3.24.52-riscos1.0-rc19 | Every common GTK widget on four pages: a demonstration and a test of the theme and backend |
+| `GTKGLTest-3.24.52-riscos1.0-rc19.zip` | 3.24.52-riscos1.0-rc19 | A spinning triangle in a GtkGLArea, drawn with riscos-mesa, and the frame rate |
+| `GTKLibs-3.24.52-34.zip` | 3.24.52-34 | **Needed by every program:** `Resources.!GTKLibs`, the shared GTK libraries (26), and `Resources.!SharedLibs` with the ld-riscos/so/2 loader and SOManager 3.04 to add to your !SharedLibs. Both go in `!Boot.Resources` (PackMan will install them) |
 | `TTF-Noto-Color-Emoji-2.051.0.1-1.zip` | 2.051.0.1-1 | **Optional** (unchanged since RC10): a PackMan package of Noto Color Emoji (SIL Open Font Licence 1.1) for `!UnixFont`. Needs FontConfig and UnixFont; every GTK program (and other FontConfig programs) then show emoji in colour at the text's size. Install it with PackMan, or copy its font into `!UnixFont.truetype` |
-| `riscos-gtk-sdk-3.24.52-riscos1.0-rc18.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev 1.11: the libraries (static, and shared as in !GTKLibs), headers, pkg-config, a template program, docs |
-| `riscos-gtk-3.24.52-riscos1.0-rc18-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
+| `riscos-gtk-sdk-3.24.52-riscos1.0-rc19.tar.gz` | | The devkit, for building GTK programs for RISC OS with riscos-crossdev 1.14: the libraries (static, and shared as in !GTKLibs), headers, pkg-config, a template program, docs |
+| `riscos-gtk-3.24.52-riscos1.0-rc19-src.tar` | | The complete source: this repository at the release commit and every upstream tarball (see [SOURCE-AND-LICENCES.md](SOURCE-AND-LICENCES.md)) |
 | `MANIFEST.txt` | | SHA-256 of each file, the commit, and the toolchain and UnixLib used |
 
 GTKHello and GTKTest are development tests and are not part of the
@@ -365,10 +415,10 @@ release.
 - **IMAP** runs in a thread of its own, so the desktop keeps going while
   it talks to the server.
 
-## Installing (RC18)
+## Installing (RC19)
 
 1. Open `!Boot` (Shift-double-click it), then `Resources`.
-2. From `GTKLibs-3.24.52-18.zip`, copy `Resources.!GTKLibs` into it, and
+2. From `GTKLibs-3.24.52-34.zip`, copy `Resources.!GTKLibs` into it, and
    copy the *contents* of `Resources.!SharedLibs` into your
    `Resources.!SharedLibs` (it adds `SOManager` and, in `lib`,
    `ld-riscos-eabihf/so` and the `ld-riscos/so/2` link; nothing else is
@@ -380,7 +430,21 @@ release.
 Iris users already have a !SharedLibs with ld-riscos/so/2. Each program's
 !Run says what's missing if it can't start.
 
-## Known issues and limits in RC18
+## Known issues and limits in RC19
+
+- **New in RC19** *[Pi]*: riscos-crossdev 1.14 (UnixLib 5.0.3.11) and
+  !GTKLibs -34. The same code built against UnixLib 5.0.3.11-rc10 ran on
+  a Pi 4 (all eight programs, saves, mail); this build itself was tried
+  on RISC OS 5.31 on Linux ([RC-TEST-PLAN.md](RC-TEST-PLAN.md) section 19).
+- **UnixLib 5.0.3.11** tells GLib the machine has 1 processor (older ones
+  said 2048), so GLib's worker thread pools are smaller. Nothing has been
+  seen to change; `*Set UnixLib$Processors 4` before starting a program
+  gives it the old behaviour, if needed.
+- **ClawsMail with several GTK programs open:** on a Pi, with five other
+  GTK programs running, ClawsMail once took minutes to read an IMAP
+  server's greeting (and the server then dropped it). On its own it
+  connects in seconds. Being looked into; the program's Log and the
+  network log (Tools > Network Log) help.
 
 - **New in RC18** *[Pi]*: the mixed programs and !GTKLibs. Tried on a Pi
   with Geany and L3afpad, and on RISC OS 5.31 on Linux with all eight;
@@ -535,6 +599,11 @@ Iris users already have a !SharedLibs with ld-riscos/so/2. Each program's
     redraws reaches the screen. Every program rebuilt: L3afpad
     0.8.18.1.11-riscos32, ClawsMail 4.4.0-riscos22, Geany 2.1-riscos11,
     mtPaint 3.50.14-riscos11, Gnumeric 1.12.57-riscos16.
+  - RC19: riscos-crossdev 1.14 (UnixLib 5.0.3.11); !GTKLibs 3.24.52-34
+    (start-up, drawing, NEON, Save box formats, keys, fixes; above).
+    Every program rebuilt: L3afpad 0.8.18.1.11-riscos38, ClawsMail
+    4.4.0-riscos29, Geany 2.1-riscos17, mtPaint 3.50.14-riscos19,
+    Gnumeric 1.12.62-riscos26, AbiWord 3.0.8-riscos11.
   - RC14: SVG, files dragged out and opened, and the programs' missing
     features (above). Every program rebuilt: L3afpad 0.8.18.1.11-riscos33,
     ClawsMail 4.4.0-riscos24, Geany 2.1-riscos12, mtPaint
@@ -600,15 +669,16 @@ Iris users already have a !SharedLibs with ld-riscos/so/2. Each program's
 ## Building
 
 [BUILDING.md](BUILDING.md). In short:
-- **Toolchain:** riscos-crossdev v1.9 (`.riscos-deps`): UnixLib
-  5.0.3.5, and its devkit is riscos-mesa 20.3.5-17. RC7 to RC14 used
+- **Toolchain:** riscos-crossdev v1.14 (`.riscos-deps`): UnixLib
+  5.0.3.11, and its devkit is riscos-mesa 20.3.5-18. RC18 used crossdev
+  1.11 (UnixLib 5.0.3.7); RC15 to RC17 crossdev 1.9 (UnixLib 5.0.3.5); RC7 to RC14 used
   crossdev 1.8.x (UnixLib 5.0.3.3); RC5 and RC6 used
   crossdev 1.5; before crossdev 1.4 there was no release with 5.0.3.3,
   so RC1–RC4 used crossdev 1.3 with the 5.0.3.3 library swapped in.
 - **On GitHub:** every push builds and tests in riscos-crossdev's image
   (`make deps tests hello check sdk`).
 - **Packages:** `make deps` builds the libraries, then
-  `make release RELEASE=3.24.52-riscos1.0-rc18` builds the packages, the
+  `make release RELEASE=3.24.52-riscos1.0-rc19` builds the packages, the
   devkit, the source archive and the manifest.
 
 ## Tests

@@ -31,7 +31,7 @@ Machine: ____________  RISC OS: ______  Mode: ________  Theme: ____________
 | 1.6 | In an EX0 EY0 mode, ClawsMail's toolbar, message list marks, folder icons and About logo are sharp, not soft | new | |
 | 1.7 | In an EX0 EY0 mode, !ClawsMail and !L3afpad show their large 180 dpi icons in the Filer and on the icon bar (after the Filer sees them again, or a desktop restart); in an EX1 EY1 mode everything looks as in RC3 | new | |
 
-## 2. GTKThemeTest 3.24.52-riscos1.0-rc18 (the backend and theme)
+## 2. GTKThemeTest 3.24.52-riscos1.0-rc19 (the backend and theme)
 
 | # | Test | Seen before | Result |
 |---|---|---|---|
@@ -261,6 +261,23 @@ provider offers them.
 | 18.5 | Gnumeric: insert an SVG picture and a chart (GOffice's plug-ins); AbiWord: equations, a chart, the thesaurus; ClawsMail: fetch mail over TLS | RISC OS 5.31 on Linux (all start) | |
 | 18.6 | The Log's backing sprites line says "R/B swapped with NEON" (Pi 2 and later); drawing, JPEG and PNG pictures look as in RC17 | Pi (Geany) | |
 | 18.7 | Start times ("ready after" in each Log) against RC17 | Pi: Geany 7.6 s | |
+
+## 19. New in RC19: riscos-crossdev 1.14 (UnixLib 5.0.3.11), !GTKLibs 3.24.52-34
+
+Restart (or wait 30 minutes with no GTK program running) after installing
+!GTKLibs -34, so that SOManager doesn't hand out the old libraries.
+
+| # | Test | Seen before | Result |
+|---|---|---|---|
+| 19.1 | Install !GTKLibs -34; all eight programs start together; each Log's first lines name GTKLibs 3.24.52-34 | Pi (rc10 test builds, the same code) | |
+| 19.2 | Start-up: a program's second start is quick ("ready after" in its Log); `Choices:GTK.Theme` and `Choices:GTK.FontCacheFC` exist | Pi (GTKLibs -33) | |
+| 19.3 | Gnumeric: open, change and save .xlsx and .ods; the files open in LibreOffice (or reopen) with the change | Pi (rc10 test builds) | |
+| 19.4 | AbiWord: open a .docx (spelling underlined); save as .rtf, .odt and .docx; each is that format | Pi (rc10 test builds: rtf) | |
+| 19.5 | mtPaint: save a picture as name/jpg and name/gif | Pi (rc10 test builds: jpg) | |
+| 19.6 | ClawsMail on its own: IMAP fetch and SMTP send; Tools > Network Log shows the greeting and login within seconds | Pi (rc10 test build) | |
+| 19.7 | ClawsMail with four or five other GTK programs open: the same; note how long the IMAP greeting takes (Network Log) | Pi: minutes once (rc10 test builds) | |
+| 19.8 | Geany: open hello/c, Build; L3afpad: open, edit, save a text file | — | |
+| 19.9 | Choices... on Gnumeric's and AbiWord's icon bar menus with no window open | RISC OS 5.31 on Linux | |
 
 ## 14. Packaging and licences
 
