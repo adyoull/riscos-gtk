@@ -77,6 +77,8 @@ fi
 case "$(sha256sum < "$GCCSDK_ENV/arm-riscos-gnueabihf/lib/libunixlib.a" | cut -d' ' -f1)" in
   349503fc02f9e734a1dd6826da448ab270de6719a4541bba9036def226eefe4b)
     UNIXLIB_VERSION=5.0.3.7;;
+  07713d5afb5a344066f77d5e4a97951db7a3d59103948ced4ec99cf61b1bd991)
+    UNIXLIB_VERSION=5.0.3.11-rc10;;
   977e88ca3b93d3eb673fab8d9b74d2f5a273d4bab3832485862ad95ab3874f87|\
   30272fb8e7af90ddc0cae267fed56cb2051ce6a01b66413febe6091b0a3df6d2)
     UNIXLIB_VERSION=5.0.3.5;;
@@ -98,7 +100,10 @@ export DEJAVU_FACES="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf"
 # RISCOS_GTK_MIXED=1 builds every library position-independent, to become
 # a shared library in !GTKLibs (build/build-gtklibs.sh), and links the
 # programs against them (build/mixed-cc, build/build-app.sh).
-if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.7 ]; then
+# riscos-unixlib 5.0.3.11-rc10 (a toolchain copy with its library and
+# headers, for test builds before 5.0.3.11) is let through too.
+if [ "$TARGET" = riscos ] && [ "$UNIXLIB_VERSION" != 5.0.3.7 ] &&
+   [ "$UNIXLIB_VERSION" != 5.0.3.11-rc10 ]; then
   echo "env.sh: $GCCSDK_ENV links UnixLib $UNIXLIB_VERSION; riscos-gtk needs 5.0.3.7:" >&2
   echo "  use riscos-crossdev v1.11 (make prebuilt there, into an empty toolchain/env)" >&2
   return 1 2>/dev/null || exit 1
